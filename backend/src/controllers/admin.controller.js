@@ -1,0 +1,179 @@
+const { ok } = require("../utils/apiResponse");
+const { asyncHandler } = require("../utils/asyncHandler");
+const adminService = require("../services/admin.service");
+const { AppError } = require("../utils/AppError");
+
+const dashboard = asyncHandler(async (req, res) => {
+  const summary = await adminService.getDashboardOverview();
+  return ok(res, summary, "Dashboard loaded");
+});
+
+const analytics = asyncHandler(async (req, res) => {
+  const result = await adminService.getAnalytics();
+  return ok(res, result, "Analytics loaded");
+});
+
+const listVendors = asyncHandler(async (req, res) => {
+  const vendors = await adminService.listVendors({ status: req.query.status });
+  return ok(res, vendors, "OK");
+});
+
+const getVendorDetails = asyncHandler(async (req, res) => {
+  const vendor = await adminService.getVendorDetails(req.params.id);
+  return ok(res, vendor, "OK");
+});
+
+const listUsers = asyncHandler(async (req, res) => {
+  const users = await adminService.listUsers({ role: req.query.role });
+  return ok(res, users, "OK");
+});
+
+const listAuditLogs = asyncHandler(async (req, res) => {
+  const logs = await adminService.listAuditLogs({
+    page: Number(req.query.page || 1),
+    limit: Number(req.query.limit || 20),
+    action: req.query.action,
+    actorRole: req.query.actorRole,
+    entityType: req.query.entityType,
+    status: req.query.status,
+  });
+  return ok(res, logs, "OK");
+});
+
+const setUserStatus = asyncHandler(async (req, res) => {
+  const { status } = req.body || {};
+  if (!status) throw new AppError("Missing status", 400, "VALIDATION_ERROR");
+  const user = await adminService.setUserStatus(req.params.id, status, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, user, "User updated");
+});
+
+const toggleUserBlocked = asyncHandler(async (req, res) => {
+  const user = await adminService.toggleUserBlocked(req.params.id, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, user, "User status updated");
+});
+
+const deleteUser = asyncHandler(async (req, res) => {
+  const result = await adminService.deleteUser(req.params.id, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, result, "User deleted");
+});
+
+const approveVendor = asyncHandler(async (req, res) => {
+  const vendor = await adminService.approveVendor(req.params.id, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, vendor, "Vendor approved");
+});
+
+const rejectVendor = asyncHandler(async (req, res) => {
+  const reason = req.body?.reason;
+  if (reason && typeof reason !== "string") {
+    throw new AppError("Invalid rejection reason", 400, "VALIDATION_ERROR");
+  }
+  const vendor = await adminService.rejectVendor(req.params.id, { reason }, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, vendor, "Vendor rejected");
+});
+
+const removeVendor = asyncHandler(async (req, res) => {
+  const result = await adminService.removeVendor(req.params.id, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, result, "Vendor removed and privileges revoked");
+});
+
+const listOrders = asyncHandler(async (req, res) => {
+  const result = await adminService.listOrders({
+    page: Number(req.query.page || 1),
+    limit: Number(req.query.limit || 20),
+    status: req.query.status,
+    paymentStatus: req.query.paymentStatus,
+    search: req.query.search,
+    includeInactive: req.query.includeInactive === "true",
+    sortBy: req.query.sortBy || "createdAt",
+    sortOrder: req.query.sortOrder === "asc" ? 1 : -1,
+  });
+  return ok(res, result, "Orders loaded");
+});
+
+const getOrderById = asyncHandler(async (req, res) => {
+  const order = await adminService.getOrderById(req.params.id);
+  return ok(res, order, "Order loaded");
+});
+
+const createOrder = asyncHandler(async (req, res) => {
+  const result = await adminService.createOrder(req.body, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, result, "Order created");
+});
+
+const updateOrder = asyncHandler(async (req, res) => {
+  const order = await adminService.updateOrder(req.params.id, req.body, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, order, "Order updated");
+});
+
+const deleteOrder = asyncHandler(async (req, res) => {
+  const order = await adminService.softDeleteOrder(req.params.id, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, order, "Order deleted");
+});
+
+const updateOrderStatus = asyncHandler(async (req, res) => {
+  const { status } = req.body || {};
+  if (!status) throw new AppError("Missing status", 400, "VALIDATION_ERROR");
+  const order = await adminService.updateOrderStatus(req.params.id, status, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, order, "Order updated");
+});
+
+const dailyRevenue = asyncHandler(async (req, res) => {
+  const days = Number(req.query.days || 7);
+  if (days < 1 || days > 90) {
+    throw new AppError("Days must be between 1 and 90", 400, "VALIDATION_ERROR");
+  }
+  const data = await adminService.getDailyRevenue(days);
+  return ok(res, data, "Daily revenue loaded");
+});
+
+module.exports = {
+  dashboard,
+  analytics,
+  dailyRevenue,
+  listVendors,
+  getVendorDetails,
+  listUsers,
+  listAuditLogs,
+  setUserStatus,
+  toggleUserBlocked,
+  deleteUser,
+  approveVendor,
+  rejectVendor,
+  removeVendor,
+  listOrders,
+  getOrderById,
+  createOrder,
+  updateOrder,
+  deleteOrder,
+  updateOrderStatus,
+};

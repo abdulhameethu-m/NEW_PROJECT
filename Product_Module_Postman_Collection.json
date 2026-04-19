@@ -1,0 +1,379 @@
+{
+  "info": {
+    "name": "Product Module - Multi-Vendor E-Commerce",
+    "description": "Complete Product Management API with admin approval workflow",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{AUTH_TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. Public Endpoints (No Auth)",
+      "item": [
+        {
+          "name": "Get Public Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/products/public?page=1&limit=20&category=Electronics&sortBy=createdAt&sortOrder=desc",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products", "public"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"},
+                {"key": "category", "value": "Electronics", "disabled": true},
+                {"key": "search", "value": "headphones", "disabled": true},
+                {"key": "minPrice", "value": "50", "disabled": true},
+                {"key": "maxPrice", "value": "200", "disabled": true},
+                {"key": "sortBy", "value": "createdAt"},
+                {"key": "sortOrder", "value": "desc"}
+              ]
+            },
+            "description": "Get all APPROVED and ACTIVE products (public storefront)"
+          }
+        },
+        {
+          "name": "Get Product by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/products/{{PRODUCT_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products", "{{PRODUCT_ID}}"]
+            },
+            "description": "Get single product (records a view)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Seller Endpoints",
+      "item": [
+        {
+          "name": "Create Product (Seller - Pending)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{SELLER_TOKEN}}", "type": "string"}]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Premium Wireless Headphones\",\n  \"description\": \"High-quality wireless headphones with active noise cancellation, 30-hour battery life, and premium sound quality. Perfect for travelers and music enthusiasts.\",\n  \"shortDescription\": \"Premium wireless headphones with noise cancellation\",\n  \"category\": \"Electronics\",\n  \"subCategory\": \"Audio\",\n  \"price\": 99.99,\n  \"discountPrice\": 79.99,\n  \"currency\": \"USD\",\n  \"stock\": 100,\n  \"SKU\": \"WH-1000XM5-001\",\n  \"lowStockThreshold\": 20,\n  \"images\": [\n    {\n      \"url\": \"https://via.placeholder.com/500x500?text=Headphones+Front\",\n      \"altText\": \"Premium Wireless Headphones Front View\",\n      \"isPrimary\": true\n    },\n    {\n      \"url\": \"https://via.placeholder.com/500x500?text=Headphones+Side\",\n      \"altText\": \"Premium Wireless Headphones Side View\"\n    }\n  ],\n  \"tags\": [\"wireless\", \"headphones\", \"noise-cancellation\", \"premium\", \"bluetooth\"],\n  \"variants\": [\n    {\n      \"name\": \"Color\",\n      \"values\": [\"Black\", \"Silver\", \"White\", \"Navy\"]\n    }\n  ],\n  \"weight\": 0.25,\n  \"dimensions\": {\n    \"length\": 20,\n    \"width\": 18,\n    \"height\": 8\n  },\n  \"warranty\": \"2 Years Manufacturer Warranty\",\n  \"returnPolicy\": \"30 days money-back guarantee\",\n  \"metaDescription\": \"Premium wireless headphones with noise cancellation\",\n  \"metaKeywords\": [\"wireless\", \"headphones\", \"audio\"]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/products",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products"]
+            },
+            "description": "Create a product as a seller (status: PENDING, awaiting approval)"
+          }
+        },
+        {
+          "name": "Get My Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{SELLER_TOKEN}}", "type": "string"}]
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/products?page=1&limit=10&status=PENDING",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "10"},
+                {"key": "status", "value": "PENDING", "disabled": true}
+              ]
+            },
+            "description": "Get all of seller's products"
+          }
+        },
+        {
+          "name": "Update My Product",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{SELLER_TOKEN}}", "type": "string"}]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 89.99,\n  \"stock\": 150,\n  \"tags\": [\"wireless\", \"headphones\", \"premium\", \"bestseller\"]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/products/{{PRODUCT_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products", "{{PRODUCT_ID}}"]
+            },
+            "description": "Update seller's own product"
+          }
+        },
+        {
+          "name": "Delete My Product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{SELLER_TOKEN}}", "type": "string"}]
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/products/{{PRODUCT_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products", "{{PRODUCT_ID}}"]
+            },
+            "description": "Soft delete seller's own product (sets isActive: false)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Admin Endpoints",
+      "item": [
+        {
+          "name": "Create Product (Admin - Auto-Approved)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{ADMIN_TOKEN}}", "type": "string"}]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Official Apple iPhone 15 Pro\",\n  \"description\": \"Latest Apple iPhone 15 Pro with A17 Pro chip, advanced camera system with 48MP main sensor, ProMotion 120Hz display, and premium titanium design. Features USB-C, Thunderbolt, and A17 Pro for exceptional performance.\",\n  \"shortDescription\": \"Latest flagship iPhone with premium features\",\n  \"category\": \"Electronics\",\n  \"subCategory\": \"Smartphones\",\n  \"price\": 999.00,\n  \"discountPrice\": 949.00,\n  \"currency\": \"USD\",\n  \"stock\": 500,\n  \"SKU\": \"IPHONE-15-PRO-256GB\",\n  \"images\": [\n    {\n      \"url\": \"https://via.placeholder.com/500x500?text=iPhone+15+Pro\",\n      \"altText\": \"iPhone 15 Pro\",\n      \"isPrimary\": true\n    }\n  ],\n  \"tags\": [\"smartphone\", \"apple\", \"iphone\", \"flagship\", \"5g\"]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/products",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products"]
+            },
+            "description": "Create a product as admin (status: APPROVED, immediately visible)"
+          }
+        },
+        {
+          "name": "Get All Products (Admin View)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{ADMIN_TOKEN}}", "type": "string"}]
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/products?page=1&limit=20&status=PENDING",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"},
+                {"key": "status", "value": "PENDING", "disabled": true},
+                {"key": "category", "value": "Electronics", "disabled": true}
+              ]
+            },
+            "description": "Admin can see all products in any status"
+          }
+        },
+        {
+          "name": "Get Pending Products (For Review)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{ADMIN_TOKEN}}", "type": "string"}]
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/products/admin/pending?page=1&limit=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products", "admin", "pending"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "10"}
+              ]
+            },
+            "description": "Get products pending admin approval"
+          }
+        },
+        {
+          "name": "Approve Product",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{ADMIN_TOKEN}}", "type": "string"}]
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/products/admin/{{PRODUCT_ID}}/approve",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products", "admin", "{{PRODUCT_ID}}", "approve"]
+            },
+            "description": "Approve a seller product (makes it visible in storefront)"
+          }
+        },
+        {
+          "name": "Reject Product",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{ADMIN_TOKEN}}", "type": "string"}]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rejectionReason\": \"Product images do not meet quality standards. Please provide high-resolution images (minimum 1000x1000px) of the product from multiple angles. Also, please review the product description for grammatical errors.\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/products/admin/{{PRODUCT_ID}}/reject",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products", "admin", "{{PRODUCT_ID}}", "reject"]
+            },
+            "description": "Reject a product with reason (seller receives notification)"
+          }
+        },
+        {
+          "name": "Update Any Product",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{ADMIN_TOKEN}}", "type": "string"}]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 89.99,\n  \"stock\": 250,\n  \"tags\": [\"wireless\", \"headphones\", \"premium\", \"bestseller\", \"featured\"]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/products/{{PRODUCT_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products", "{{PRODUCT_ID}}"]
+            },
+            "description": "Admin can update any product (all fields)"
+          }
+        },
+        {
+          "name": "Get Product Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{ADMIN_TOKEN}}", "type": "string"}]
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/products/admin/stats",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products", "admin", "stats"]
+            },
+            "description": "Get product statistics (total, pending, approved, rejected)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Advanced Queries",
+      "item": [
+        {
+          "name": "Search with Price Filter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/products/public?search=headphones&minPrice=50&maxPrice=200&page=1&limit=20",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products", "public"],
+              "query": [
+                {"key": "search", "value": "headphones"},
+                {"key": "minPrice", "value": "50"},
+                {"key": "maxPrice", "value": "200"},
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "20"}
+              ]
+            },
+            "description": "Search products with price range filtering"
+          }
+        },
+        {
+          "name": "Filter by Category (Sorted by Rating)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/products/public?category=Electronics&sortBy=ratings.averageRating&sortOrder=desc&page=1&limit=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["products", "public"],
+              "query": [
+                {"key": "category", "value": "Electronics"},
+                {"key": "sortBy", "value": "ratings.averageRating"},
+                {"key": "sortOrder", "value": "desc"},
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "10"}
+              ]
+            },
+            "description": "Get highest-rated products in a category"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "ADMIN_TOKEN",
+      "value": "your-admin-jwt-token-here",
+      "type": "string"
+    },
+    {
+      "key": "SELLER_TOKEN",
+      "value": "your-seller-jwt-token-here",
+      "type": "string"
+    },
+    {
+      "key": "USER_TOKEN",
+      "value": "your-user-jwt-token-here",
+      "type": "string"
+    },
+    {
+      "key": "PRODUCT_ID",
+      "value": "65c1a2b3c4d5e6f7g8h9i0j1",
+      "type": "string"
+    },
+    {
+      "key": "AUTH_TOKEN",
+      "value": "{{SELLER_TOKEN}}",
+      "type": "string"
+    }
+  ]
+}

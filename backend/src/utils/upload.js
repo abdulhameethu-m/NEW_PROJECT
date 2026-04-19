@@ -1,0 +1,99 @@
+const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
+const { configureCloudinary } = require("../config/cloudinary");
+const { AppError } = require("./AppError");
+
+const UPLOAD_DIR = path.join(process.cwd(), "uploads");
+const MAX_FILE_SIZE = Number(process.env.MAX_FILE_SIZE_BYTES || 5 * 1024 * 1024); // 5MB
+
+const ALLOWED_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+]);
+
+function ensureUploadDir() {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+function validateFiles(files) {
+  for (const f of files) {
+    if (!ALLOWED_MIME.has(f.mimetype)) {
+      throw new AppError(`Unsupported file type: ${f.mimetype}`, 400, "FILE_TYPE");
+    }
+    if (f.size > MAX_FILE_SIZE) {
+      throw new AppError("File too large", 400, "FILE_SIZE");
+    }
+  }
+}
+
+function randomName(originalName) {
+  const ext = path.extname(originalName || "");
+  const id = crypto.randomBytes(16).toString("hex");
+  return `${Date.now()}-${id}${ext}`;
+}
+
+async function uploadToCloudinary(files, folder) {
+  const { enabled, cloudinary } = configureCloudinary();
+  if (!enabled) return null;
+
+  const results = [];
+  for (const file of files) {
+    // cloudinary upload_stream for buffer
+    const uploaded = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          resource_type: file.mimetype === "application/pdf" ? "raw" : "image",
+        },
+        (err, res) => (err ? reject(err) : resolve(res))
+      );
+      stream.end(file.buffer);
+    });
+
+    results.push({
+      url: uploaded.secure_url,
+      publicId: uploaded.public_id,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+    });
+  }
+
+  return results;
+}
+
+async function uploadToLocal(files) {
+  ensureUploadDir();
+  const results = [];
+  for (const file of files) {
+    const filename = randomName(file.originalname);
+    const fullPath = path.join(UPLOAD_DIR, filename);
+    await fs.promises.writeFile(fullPath, file.buffer);
+
+    results.push({
+      url: `/uploads/${filename}`,
+      publicId: null,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+    });
+  }
+  return results;
+}
+
+async function uploadMany(files, { folder } = {}) {
+  if (!files || !files.length) return [];
+
+  validateFiles(files);
+
+  const cloud = await uploadToCloudinary(files, folder || "uploads");
+  if (cloud) return cloud;
+
+  return await uploadToLocal(files);
+}
+
+module.exports = { uploadMany, validateFiles, ALLOWED_MIME, MAX_FILE_SIZE };
+

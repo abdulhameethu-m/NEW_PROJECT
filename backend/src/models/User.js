@@ -1,0 +1,46 @@
+const mongoose = require("mongoose");
+
+const USER_ROLES = ["user", "vendor", "admin", "super_admin", "support_admin", "finance_admin"];
+const USER_STATUS = ["active", "disabled"];
+
+const userSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 120 },
+    email: {
+      type: String,
+      required: false,
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+    phone: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 30,
+      unique: true,
+      index: true,
+    },
+    password: { type: String, required: true, minlength: 8, select: false },
+    role: { type: String, enum: USER_ROLES, default: "user", index: true },
+    status: { type: String, enum: USER_STATUS, default: "active", index: true },
+    avatarUrl: { type: String, trim: true },
+    preferences: {
+      notificationPreferences: {
+        orderUpdates: { type: Boolean, default: true },
+        deliveryAlerts: { type: Boolean, default: true },
+        paymentAlerts: { type: Boolean, default: true },
+        promotions: { type: Boolean, default: false },
+      },
+    },
+  },
+  { timestamps: true }
+);
+
+module.exports = {
+  User: mongoose.model("User", userSchema),
+  USER_ROLES,
+  USER_STATUS,
+};

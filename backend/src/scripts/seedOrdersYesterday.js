@@ -1,0 +1,160 @@
+require("dotenv").config();
+
+const mongoose = require("mongoose");
+const { connectDb } = require("../config/db");
+const { Order } = require("../models/Order");
+const { User } = require("../models/User");
+const { Vendor } = require("../models/Vendor");
+
+async function main() {
+  try {
+    await connectDb();
+    console.log("Connected to MongoDB");
+
+    // Find an existing user (buyer)
+    let buyer = await User.findOne({ role: "user" });
+    if (!buyer) {
+      console.log("Creating test buyer...");
+      buyer = await User.create({
+        name: "Test Buyer",
+        email: "buyer@test.com",
+        phone: "9876543210",
+        password: "Password123",
+        role: "user",
+        status: "active",
+      });
+    }
+
+    // Get or create multiple vendors
+    let vendors = await Vendor.find({ status: "approved" }).limit(4);
+    
+    if (vendors.length < 4) {
+      console.log("Creating test vendors...");
+      for (let i = 0; i < 4 - vendors.length; i++) {
+        const vendorUser = await User.create({
+          name: `Vendor ${i + 1}`,
+          email: `vendor${i + 1}@test.com`,
+          phone: `998877665${i}`,
+          password: "Password123",
+          role: "vendor",
+          status: "active",
+        });
+
+        const vendor = await Vendor.create({
+          userId: vendorUser._id,
+          companyName: `Store ${i + 1}`,
+          address: `${100 + i} Business St`,
+          shopName: `Shop ${i + 1}`,
+          storeSlug: `shop-${i + 1}`,
+          status: "approved",
+          stepCompleted: 4,
+        });
+        vendors.push(vendor);
+      }
+    }
+
+    // Yesterday's date
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Create 4 orders for yesterday
+    const orders = [];
+    const orderData = [
+      {
+        products: [
+          { name: "Laptop", price: 45000, quantity: 1 },
+          { name: "Mouse", price: 500, quantity: 2 },
+        ],
+        subtotal: 46000,
+        total: 47300,
+      },
+      {
+        products: [
+          { name: "Headphones", price: 3999, quantity: 1 },
+          { name: "Phone Case", price: 299, quantity: 3 },
+        ],
+        subtotal: 4896,
+        total: 5175,
+      },
+      {
+        products: [
+          { name: "Keyboard", price: 2499, quantity: 1 },
+          { name: "Monitor", price: 15000, quantity: 1 },
+        ],
+        subtotal: 17499,
+        total: 18249,
+      },
+      {
+        products: [
+          { name: "USB Cable", price: 199, quantity: 5 },
+          { name: "Power Bank", price: 999, quantity: 1 },
+        ],
+        subtotal: 1894,
+        total: 2079,
+      },
+    ];
+
+    for (let i = 0; i < 4; i++) {
+      const orderTime = new Date(yesterday.getTime() + i * 6 * 60 * 60 * 1000); // Space orders 6 hours apart
+      const data = orderData[i];
+
+      const items = data.products.map((p) => ({
+        productId: new mongoose.Types.ObjectId(),
+        name: p.name,
+        price: p.price,
+        quantity: p.quantity,
+        image: "https://via.placeholder.com/300",
+      }));
+
+      const order = await Order.create({
+        orderNumber: `ORD-${Date.now()}-${i + 1}`,
+        userId: buyer._id,
+        sellerId: vendors[i]._id,
+        items,
+        subtotal: data.subtotal,
+        shippingFee: 150,
+        taxAmount: Math.round(data.subtotal * 0.1),
+        totalAmount: data.total,
+        currency: "INR",
+        status: "Delivered",
+        paymentStatus: "Paid",
+        paymentMethod: "ONLINE",
+        deliveryStatus: "DELIVERED",
+        shippingAddress: {
+          fullName: "John Doe",
+          phone: "9876543210",
+          line1: "123 Main Street",
+          line2: "Apt 4B",
+          city: "Mumbai",
+          state: "Maharashtra",
+          postalCode: "400001",
+          country: "India",
+        },
+        timeline: [
+          { status: "Placed", note: "Order placed", changedAt: orderTime },
+          { status: "Packed", note: "Order packed", changedAt: new Date(orderTime.getTime() + 4 * 60 * 60 * 1000) },
+          { status: "Shipped", note: "Order shipped", changedAt: new Date(orderTime.getTime() + 8 * 60 * 60 * 1000) },
+          { status: "Delivered", note: "Order delivered", changedAt: new Date(orderTime.getTime() + 24 * 60 * 60 * 1000) },
+        ],
+        deliveredAt: new Date(orderTime.getTime() + 24 * 60 * 60 * 1000),
+        createdAt: orderTime,
+        updatedAt: new Date(orderTime.getTime() + 24 * 60 * 60 * 1000),
+      });
+
+      orders.push(order);
+      console.log(`✅ Order ${i + 1} created: ${order.orderNumber} - ₹${order.totalAmount}`);
+    }
+
+    console.log("\n📊 Summary:");
+    console.log(`Created 4 orders for yesterday (${yesterday.toDateString()})`);
+    const totalRevenue = orders.reduce((sum, o) => sum + o.totalAmount, 0);
+    console.log(`Total Revenue: ₹${totalRevenue}`);
+
+    process.exit(0);
+  } catch (err) {
+    console.error("Error:", err.message);
+    process.exit(1);
+  }
+}
+
+main();
