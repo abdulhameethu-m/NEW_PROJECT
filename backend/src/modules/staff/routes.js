@@ -4,6 +4,7 @@ const { adminWorkspaceAuthRequired, requireWorkspacePermission } = require("../.
 const authController = require("./controllers/auth.controller");
 const roleController = require("./controllers/role.controller");
 const staffController = require("./controllers/staff.controller");
+const permissionVerificationController = require("./controllers/permission-verification.controller");
 const { staffAuthRequired } = require("./middleware/staff-auth");
 const {
   roleSchema,
@@ -48,6 +49,16 @@ adminRouter.post("/accounts", requireWorkspacePermission("staff.create"), valida
 adminRouter.patch("/accounts/:id", requireWorkspacePermission("staff.update"), validate(updateStaffSchema), staffController.updateStaff);
 adminRouter.delete("/accounts/:id", requireWorkspacePermission("staff.delete"), staffController.deleteStaff);
 adminRouter.post("/accounts/:id/force-logout", requireWorkspacePermission("staff.update"), staffController.forceLogoutStaff);
+
+// Permission verification endpoints (debug/audit)
+adminRouter.get("/verify/report", requireWorkspacePermission("staff.read"), permissionVerificationController.getPermissionReportEndpoint);
+adminRouter.get("/verify/staff/:staffId", requireWorkspacePermission("staff.read"), permissionVerificationController.verifyStaffPermissionsEndpoint);
+adminRouter.get("/verify/role/:roleId", requireWorkspacePermission("roles.read"), permissionVerificationController.verifyRoleStaffEndpoint);
+
+// Test endpoints (debug/simulation)
+adminRouter.post("/test/permission-sync", requireWorkspacePermission("staff.read"), permissionVerificationController.testPermissionSyncEndpoint);
+adminRouter.post("/test/module-access", requireWorkspacePermission("staff.read"), permissionVerificationController.testModuleAccessEndpoint);
+adminRouter.post("/test/permission-update-sync", requireWorkspacePermission("staff.read"), permissionVerificationController.testPermissionUpdateSyncEndpoint);
 
 router.use("/admin", adminRouter);
 

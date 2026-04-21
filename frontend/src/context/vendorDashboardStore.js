@@ -6,8 +6,8 @@ export const useVendorDashboardStore = create((set) => ({
   dashboard: null,
   notificationsUnread: 0,
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
-  fetchDashboard: async () => {
-    const response = await vendorDashboardService.getVendorDashboard();
+  fetchDashboard: async (params = {}) => {
+    const response = await vendorDashboardService.getVendorDashboard(params);
     set({ dashboard: response.data });
     return response.data;
   },

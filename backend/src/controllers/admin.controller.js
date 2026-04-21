@@ -39,6 +39,14 @@ const listUsers = asyncHandler(async (req, res) => {
   return ok(res, users, "OK");
 });
 
+const createUser = asyncHandler(async (req, res) => {
+  const user = await adminService.createUser(req.body, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, user, "User created");
+});
+
 const listAuditLogs = asyncHandler(async (req, res) => {
   const logs = await adminService.listAuditLogs({
     page: Number(req.query.page || 1),
@@ -187,6 +195,7 @@ module.exports = {
   listVendors,
   getVendorDetails,
   listUsers,
+  createUser,
   listAuditLogs,
   setUserStatus,
   toggleUserBlocked,

@@ -19,6 +19,10 @@ export function StaffSidebar({ permissions, isOpen, onToggle }) {
   });
 
   const accessibleModules = useMemo(() => getAccessibleModules(permissions), [permissions]);
+  const visibleModules = useMemo(
+    () => accessibleModules.filter((module) => module.key !== "dashboard"),
+    [accessibleModules]
+  );
 
   const modulesBySection = useMemo(() => {
     return accessibleModules.reduce((groups, module) => {
@@ -50,7 +54,7 @@ export function StaffSidebar({ permissions, isOpen, onToggle }) {
       </button>
 
       <aside
-        className={`fixed left-0 top-0 z-40 h-screen w-72 transform overflow-y-auto border-r border-slate-200 bg-white transition-transform duration-300 lg:relative lg:translate-x-0 ${
+        className={`fixed left-0 top-0 z-40 flex h-screen w-64 min-w-[16rem] max-w-[16rem] flex-col transform border-r border-slate-200 bg-white transition-transform duration-300 lg:relative lg:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -66,7 +70,7 @@ export function StaffSidebar({ permissions, isOpen, onToggle }) {
           </div>
         </div>
 
-        <nav className="space-y-3 px-3 py-4">
+        <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
           {Object.entries(modulesBySection).map(([section, sectionModules]) => (
             <div key={section}>
               {section !== "main" ? (
@@ -98,7 +102,7 @@ export function StaffSidebar({ permissions, isOpen, onToggle }) {
                             : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
                         }`}
                       >
-                        {Icon ? <Icon size={18} className="shrink-0" /> : null}
+                        {Icon ? <Icon size={24} className="shrink-0 text-current" /> : null}
                         <div className="min-w-0">
                           <div className="font-medium">{module.name}</div>
                           <div className={`truncate text-xs ${active ? "text-slate-300" : "text-slate-400"}`}>
@@ -114,9 +118,9 @@ export function StaffSidebar({ permissions, isOpen, onToggle }) {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">
           <p className="text-xs text-slate-500">
-            {accessibleModules.length} module{accessibleModules.length === 1 ? "" : "s"} available
+            {visibleModules.length} module{visibleModules.length === 1 ? "" : "s"} available
           </p>
         </div>
       </aside>
@@ -124,7 +128,7 @@ export function StaffSidebar({ permissions, isOpen, onToggle }) {
   );
 }
 
-function IconBase({ className = "h-4 w-4", children }) {
+function IconBase({ className = "", size = 24, children }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -133,6 +137,8 @@ function IconBase({ className = "h-4 w-4", children }) {
       strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
+      width={size}
+      height={size}
       className={className}
       aria-hidden="true"
     >
@@ -168,9 +174,9 @@ function ChevronDownIcon({ className }) {
   );
 }
 
-function DashboardIcon({ size = 18, className = "" }) {
+function DashboardIcon({ size = 24, className = "" }) {
   return (
-    <IconBase className={className || ""}>
+    <IconBase size={size} className={className}>
       <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
       <rect x="13.5" y="3.5" width="7" height="5" rx="1.5" />
       <rect x="13.5" y="11.5" width="7" height="9" rx="1.5" />
@@ -179,9 +185,9 @@ function DashboardIcon({ size = 18, className = "" }) {
   );
 }
 
-function UsersIcon({ className = "shrink-0" }) {
+function UsersIcon({ size = 24, className = "shrink-0" }) {
   return (
-    <IconBase className={className}>
+    <IconBase size={size} className={className}>
       <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
       <circle cx="9.5" cy="7" r="3" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
@@ -190,9 +196,9 @@ function UsersIcon({ className = "shrink-0" }) {
   );
 }
 
-function OrdersIcon({ className = "shrink-0" }) {
+function OrdersIcon({ size = 24, className = "shrink-0" }) {
   return (
-    <IconBase className={className}>
+    <IconBase size={size} className={className}>
       <circle cx="9" cy="19" r="1.5" />
       <circle cx="17" cy="19" r="1.5" />
       <path d="M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.74L20 8H7" />
@@ -200,9 +206,9 @@ function OrdersIcon({ className = "shrink-0" }) {
   );
 }
 
-function PackageIcon({ className = "shrink-0" }) {
+function PackageIcon({ size = 24, className = "shrink-0" }) {
   return (
-    <IconBase className={className}>
+    <IconBase size={size} className={className}>
       <path d="m12 2 8 4.5v11L12 22 4 17.5v-11L12 2Z" />
       <path d="M12 22V11.5" />
       <path d="m20 6.5-8 5-8-5" />
@@ -210,9 +216,9 @@ function PackageIcon({ className = "shrink-0" }) {
   );
 }
 
-function PayoutsIcon({ className = "shrink-0" }) {
+function PayoutsIcon({ size = 24, className = "shrink-0" }) {
   return (
-    <IconBase className={className}>
+    <IconBase size={size} className={className}>
       <path d="M4 16 10 10l4 4 6-8" />
       <path d="M20 10V6h-4" />
       <path d="M4 20h16" />

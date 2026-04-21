@@ -35,6 +35,34 @@ function isAllowedStaffTarget(target) {
   return pathname.startsWith("/staff");
 }
 
+function isAuthPageTarget(target) {
+  const pathname = getPathnameFromTarget(target);
+  return ["/login", "/register", "/role", "/staff/login"].includes(pathname);
+}
+
+function isAllowedPrimaryTarget(target) {
+  const pathname = getPathnameFromTarget(target);
+  if (!pathname || isAuthPageTarget(pathname)) return false;
+
+  return (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/user") ||
+    pathname.startsWith("/vendor") ||
+    pathname.startsWith("/seller") ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/orders") ||
+    pathname.startsWith("/wishlist") ||
+    pathname.startsWith("/addresses") ||
+    pathname.startsWith("/reviews") ||
+    pathname.startsWith("/support") ||
+    pathname.startsWith("/notifications") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/cart") ||
+    pathname.startsWith("/checkout")
+  );
+}
+
 export function LoginPage() {
   const nav = useNavigate();
   const location = useLocation();
@@ -53,8 +81,8 @@ export function LoginPage() {
   async function navigateAfterPrimaryLogin(result, attemptedFrom) {
     const redirect = consumeRedirectAfterLogin();
     const role = result.data.user.role;
-    if (redirect) return window.location.assign(redirect);
-    if (attemptedFrom) return nav(attemptedFrom, { replace: true });
+    if (redirect && isAllowedPrimaryTarget(redirect)) return window.location.assign(redirect);
+    if (attemptedFrom && isAllowedPrimaryTarget(attemptedFrom)) return nav(attemptedFrom, { replace: true });
 
     if (["admin", "super_admin", "support_admin", "finance_admin"].includes(role)) {
       return nav("/dashboard/admin", { replace: true });
@@ -74,10 +102,10 @@ export function LoginPage() {
 
   async function navigateAfterStaffLogin(attemptedFrom) {
     const redirect = consumeRedirectAfterLogin();
-    if (redirect && isAllowedStaffTarget(redirect)) {
+    if (redirect && isAllowedStaffTarget(redirect) && !isAuthPageTarget(redirect)) {
       return window.location.assign(redirect);
     }
-    if (attemptedFrom && isAllowedStaffTarget(attemptedFrom)) {
+    if (attemptedFrom && isAllowedStaffTarget(attemptedFrom) && !isAuthPageTarget(attemptedFrom)) {
       return nav(attemptedFrom, { replace: true });
     }
     return nav("/staff/dashboard", { replace: true });
@@ -103,7 +131,10 @@ export function LoginPage() {
       return navigateAfterPrimaryLogin(primaryResponse, from);
     } catch (primaryError) {
       const isEmailLogin = normalizedIdentifier.includes("@");
-      if (!isEmailLogin) {
+      const primaryStatus = primaryError?.response?.status;
+      const shouldSkipStaffFallback = primaryStatus === 429 || primaryStatus >= 500;
+
+      if (!isEmailLogin || shouldSkipStaffFallback) {
         setError(normalizeError(primaryError));
         setLoading(false);
         return;

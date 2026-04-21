@@ -191,11 +191,18 @@ async function me(staffId) {
   if (!staff) throw new AppError("Staff account not found", 404, "NOT_FOUND");
   if (staff.status !== "active") throw new AppError("Staff account suspended", 403, "ACCOUNT_SUSPENDED");
 
+  const permissions = staff.roleId?.permissions || {};
+  
+  // DEBUG: Log permission sync
+  console.log(`[PERMISSION_SYNC] Staff ${staff._id} fetched permissions from role ${staff.roleId?._id}`);
+  console.log(`[PERMISSION_SYNC] Permissions:`, Object.keys(permissions).map(m => `${m}:${Object.keys(permissions[m] || {}).filter(a => permissions[m][a]).length}`).join(", "));
+
   return {
     ...normalizeStaff(staff),
     roleId: staff.roleId?._id,
-    permissions: staff.roleId?.permissions || {},
+    permissions,
     authType: "staff",
+    syncedAt: new Date().toISOString(),
   };
 }
 

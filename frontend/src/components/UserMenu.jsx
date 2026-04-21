@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../context/authStore";
 import * as authService from "../services/authService";
 
@@ -20,7 +20,6 @@ import * as authService from "../services/authService";
  */
 export function UserMenu() {
   const user = useAuthStore((s) => s.user);
-  const refreshToken = useAuthStore((s) => s.refreshToken);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   
@@ -62,7 +61,7 @@ export function UserMenu() {
   }, [isOpen]);
 
   const handleLogout = async () => {
-    const { token, refreshToken: rt } = useAuthStore.getState();
+    const { refreshToken: rt } = useAuthStore.getState();
     
     // Always try server logout first (even without token it should work now)
     try {

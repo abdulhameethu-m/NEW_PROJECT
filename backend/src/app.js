@@ -29,8 +29,32 @@ const categoryRoutes = require("./routes/category.routes");
 const exportRoutes = require("./routes/export.routes");
 const staffRoutes = require("./modules/staff/routes");
 
+function createLimiter({
+  windowMs = 15 * 60 * 1000,
+  limit,
+  message,
+  skip,
+}) {
+  return rateLimit({
+    windowMs,
+    limit,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip,
+    handler: (req, res) => {
+      res.status(429).json({
+        success: false,
+        message,
+      });
+    },
+  });
+}
+
 function createApp() {
   const app = express();
+  const isDevelopment = process.env.NODE_ENV !== "production";
+  const authRateLimit = Number(process.env.AUTH_RATE_LIMIT_MAX || (isDevelopment ? 60 : 20));
+  const apiRateLimit = Number(process.env.API_RATE_LIMIT_MAX || (isDevelopment ? 5000 : 1000));
 
   app.disable("x-powered-by");
 
@@ -48,14 +72,20 @@ function createApp() {
     })
   );
 
-  app.use(
-    rateLimit({
-      windowMs: 15 * 60 * 1000,
-      limit: Number(process.env.RATE_LIMIT_MAX || 300),
-      standardHeaders: true,
-      legacyHeaders: false,
-    })
-  );
+  const authLimiter = createLimiter({
+    limit: authRateLimit,
+    message: "Too many login attempts. Please wait a moment and try again.",
+  });
+
+  const apiLimiter = createLimiter({
+    limit: apiRateLimit,
+    message: "Too many requests. Please slow down and try again shortly.",
+    skip: (req) =>
+      req.path === "/health" ||
+      req.path.startsWith("/uploads") ||
+      req.path.startsWith("/api/auth") ||
+      req.path.startsWith("/api/staff/auth"),
+  });
 
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true }));
@@ -72,6 +102,15 @@ function createApp() {
   );
 
   app.get("/health", (req, res) => res.json({ ok: true }));
+
+  app.use("/api/auth/login", authLimiter);
+  app.use("/api/auth/register", authLimiter);
+  app.use("/api/auth/refresh", authLimiter);
+  app.use("/api/staff/auth/login", authLimiter);
+  app.use("/api/staff/auth/refresh", authLimiter);
+  app.use("/api/staff/auth/password-reset/request", authLimiter);
+  app.use("/api/staff/auth/password-reset/reset", authLimiter);
+  app.use("/api", apiLimiter);
 
   app.use("/api/auth", authRoutes);
   app.use("/api/vendor", vendorRoutes);

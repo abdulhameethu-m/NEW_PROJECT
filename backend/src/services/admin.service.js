@@ -1,3 +1,4 @@
+const bcrypt = require("bcryptjs");
 const { AppError } = require("../utils/AppError");
 const vendorRepo = require("../repositories/vendor.repository");
 const userRepo = require("../repositories/user.repository");
@@ -107,6 +108,50 @@ async function getVendorDetails(vendorId) {
 
 async function listUsers({ role, startDate, endDate } = {}) {
   return await userRepo.listUsers({ role, startDate, endDate });
+}
+
+async function createUser(payload = {}, actor, meta) {
+  const name = String(payload.name || "").trim();
+  const email = payload.email ? String(payload.email).trim().toLowerCase() : "";
+  const phone = String(payload.phone || "").trim();
+  const password = String(payload.password || "");
+  const role = payload.role === "vendor" ? "vendor" : "user";
+
+  if (!name) throw new AppError("Name is required", 400, "VALIDATION_ERROR");
+  if (!phone) throw new AppError("Phone is required", 400, "VALIDATION_ERROR");
+  if (phone.length !== 10) throw new AppError("Phone must be 10 digits", 400, "VALIDATION_ERROR");
+  if (password.length < 6) throw new AppError("Password must be at least 6 characters", 400, "VALIDATION_ERROR");
+  if (role === "vendor" && !email) throw new AppError("Email is required for vendors", 400, "VALIDATION_ERROR");
+
+  const existingPhone = await userRepo.findByPhone(phone);
+  if (existingPhone) throw new AppError("Phone already in use", 409, "PHONE_EXISTS");
+
+  if (email) {
+    const existingEmail = await userRepo.findByEmail(email);
+    if (existingEmail) throw new AppError("Email already in use", 409, "EMAIL_EXISTS");
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const user = await userRepo.createUser({
+    name,
+    email: email || null,
+    phone,
+    password: hashedPassword,
+    role,
+    status: "active",
+  });
+
+  await auditService.log({
+    actor,
+    action: "admin.user.created",
+    entityType: "User",
+    entityId: user._id,
+    metadata: { role },
+    ipAddress: meta?.ipAddress,
+    userAgent: meta?.userAgent,
+  });
+
+  return user;
 }
 
 async function listAuditLogs(filters = {}) {
@@ -616,6 +661,7 @@ module.exports = {
   listVendors,
   getVendorDetails,
   listUsers,
+  createUser,
   listAuditLogs,
   setUserStatus,
   toggleUserBlocked,

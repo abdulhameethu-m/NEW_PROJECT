@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ReportingToolbar } from "../components/ReportingToolbar";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
@@ -16,7 +16,7 @@ export function VendorOrdersPage() {
     module: "orders",
   });
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const response = await vendorDashboardService.getVendorOrders({ limit: 20, ...reporting.appliedParams });
       setData(response.data);
@@ -24,13 +24,15 @@ export function VendorOrdersPage() {
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load orders.");
     }
-  }
+  }, [reporting.appliedParams]);
 
   useEffect(() => {
-    (async () => {
-      await load();
-    })();
-  }, [reporting.appliedParams]);
+    const timer = setTimeout(() => {
+      void load();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [load]);
 
   async function updateStatus(id, status) {
     try {

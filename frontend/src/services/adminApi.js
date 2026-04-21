@@ -58,6 +58,11 @@ export async function listUsers(params = {}) {
   return data;
 }
 
+export async function createUser(payload) {
+  const { data } = await adminHttp.post("/api/admin/users", payload);
+  return data;
+}
+
 export async function toggleUserBlock(id) {
   const { data } = await adminHttp.patch(`/api/admin/users/${id}/block`);
   return data;

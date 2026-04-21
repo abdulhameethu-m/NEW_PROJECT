@@ -1,7 +1,7 @@
 import { api } from "./api";
 
-export async function getVendorDashboard() {
-  const { data } = await api.get("/api/vendor/dashboard");
+export async function getVendorDashboard(params = {}) {
+  const { data } = await api.get("/api/vendor/dashboard", { params });
   return data;
 }
 

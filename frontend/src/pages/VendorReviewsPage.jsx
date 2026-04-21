@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ReportingToolbar } from "../components/ReportingToolbar";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
@@ -12,7 +12,7 @@ export function VendorReviewsPage() {
     module: "reviews",
   });
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const response = await vendorDashboardService.getVendorReviews({ limit: 20, ...reporting.appliedParams });
       setData(response.data);
@@ -20,13 +20,15 @@ export function VendorReviewsPage() {
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load reviews.");
     }
-  }
+  }, [reporting.appliedParams]);
 
   useEffect(() => {
-    (async () => {
-      await load();
-    })();
-  }, [reporting.appliedParams]);
+    const timer = setTimeout(() => {
+      void load();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [load]);
 
   async function respondToReview(id) {
     const message = window.prompt("Reply to customer");

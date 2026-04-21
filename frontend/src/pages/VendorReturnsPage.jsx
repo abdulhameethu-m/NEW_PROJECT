@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ReportingToolbar } from "../components/ReportingToolbar";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
@@ -14,7 +14,7 @@ export function VendorReturnsPage() {
     module: "returns",
   });
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const response = await vendorDashboardService.getVendorReturns({ limit: 20, ...reporting.appliedParams });
       setData(response.data);
@@ -22,13 +22,15 @@ export function VendorReturnsPage() {
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load returns.");
     }
-  }
+  }, [reporting.appliedParams]);
 
   useEffect(() => {
-    (async () => {
-      await load();
-    })();
-  }, [reporting.appliedParams]);
+    const timer = setTimeout(() => {
+      void load();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [load]);
 
   async function updateReturn(id, status) {
     const resolutionNote = window.prompt("Resolution note", "");

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { adminNotificationService } from '../services/adminService';
 import { StatusBadge, Toast } from '../components/AdminComponents';
 import { formatDateTime } from '../utils/adminUtils';
@@ -18,18 +18,7 @@ export function AdminNotificationCenterPage() {
 
   const limit = 15;
 
-  useEffect(() => {
-    loadNotifications();
-    // Poll every 30 seconds
-    const interval = setInterval(loadNotifications, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    loadNotifications();
-  }, [filter, page]);
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await adminNotificationService.getNotifications(
@@ -45,7 +34,7 @@ export function AdminNotificationCenterPage() {
       // Load unread count
       const countData = await adminNotificationService.getUnreadCount();
       setUnreadCount(countData.unreadCount || 0);
-    } catch (error) {
+    } catch {
       setToast({
         type: 'error',
         message: 'Failed to load notifications',
@@ -53,7 +42,13 @@ export function AdminNotificationCenterPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filter, page]);
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
 
   const handleMarkAsRead = async (notificationId) => {
     try {
@@ -63,7 +58,7 @@ export function AdminNotificationCenterPage() {
         type: 'success',
         message: 'Marked as read',
       });
-    } catch (error) {
+    } catch {
       setToast({
         type: 'error',
         message: 'Failed to mark as read',
@@ -79,7 +74,7 @@ export function AdminNotificationCenterPage() {
         type: 'success',
         message: 'All notifications marked as read',
       });
-    } catch (error) {
+    } catch {
       setToast({
         type: 'error',
         message: 'Failed to mark all as read',
@@ -95,7 +90,7 @@ export function AdminNotificationCenterPage() {
         type: 'success',
         message: 'Notification deleted',
       });
-    } catch (error) {
+    } catch {
       setToast({
         type: 'error',
         message: 'Failed to delete notification',
@@ -112,7 +107,7 @@ export function AdminNotificationCenterPage() {
           type: 'success',
           message: 'All notifications cleared',
         });
-      } catch (error) {
+      } catch {
         setToast({
           type: 'error',
           message: 'Failed to clear notifications',

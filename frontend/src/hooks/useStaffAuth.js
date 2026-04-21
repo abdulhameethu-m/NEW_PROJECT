@@ -1,19 +1,69 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStaffAuthStore } from "../context/staffAuthStore";
 import { hasStaffPermission } from "../utils/staffPermissions";
+import * as staffAuthService from "../services/staffAuthService";
 
 export function useStaffPermission() {
   const user = useStaffAuthStore((state) => state.user);
-  const permissions = user?.permissions || {};
+  const setAuth = useStaffAuthStore((state) => state.setAuth);
+  const token = useStaffAuthStore((state) => state.token);
+  const refreshToken = useStaffAuthStore((state) => state.refreshToken);
+  const [syncing, setSyncing] = useState(false);
 
-  return {
-    permissions,
-    hasPermission: (permissionKey) => hasStaffPermission(permissions, permissionKey),
-    canAccess: (permissionKey) => (!permissionKey ? true : hasStaffPermission(permissions, permissionKey)),
-    getPermissions: () => permissions,
-    getRole: () => user?.role?.name || user?.roleName || null,
-  };
+  const permissions = useMemo(() => user?.permissions || {}, [user]);
+  const roleName = user?.role?.name || user?.roleName || null;
+
+  // Force sync permissions from server
+  const syncPermissions = useCallback(async () => {
+    if (!token || syncing) return;
+
+    try {
+      setSyncing(true);
+      const response = await staffAuthService.getMe();
+      
+      console.log("[PERMISSION_HOOK] Synced permissions from /me endpoint", {
+        syncedAt: response.data.syncedAt,
+        permissions: Object.keys(response.data.permissions || {}),
+      });
+
+      setAuth({
+        token,
+        refreshToken,
+        user: response.data,
+      });
+    } catch (error) {
+      console.error("[PERMISSION_HOOK] Sync failed:", error.message);
+    } finally {
+      setSyncing(false);
+    }
+  }, [token, refreshToken, setAuth, syncing]);
+
+  const hasPermission = useCallback(
+    (permissionKey) => hasStaffPermission(permissions, permissionKey),
+    [permissions]
+  );
+
+  const canAccess = useCallback(
+    (permissionKey) => (!permissionKey ? true : hasStaffPermission(permissions, permissionKey)),
+    [permissions]
+  );
+
+  const getPermissions = useCallback(() => permissions, [permissions]);
+  const getRole = useCallback(() => roleName, [roleName]);
+
+  return useMemo(
+    () => ({
+      permissions,
+      hasPermission,
+      canAccess,
+      getPermissions,
+      getRole,
+      syncPermissions,
+      syncing,
+    }),
+    [permissions, hasPermission, canAccess, getPermissions, getRole, syncPermissions, syncing]
+  );
 }
 
 export function useRequirePermission(permissionKey) {

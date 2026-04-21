@@ -2,7 +2,7 @@ const { ok } = require("../../utils/apiResponse");
 const { asyncHandler } = require("../../utils/asyncHandler");
 const vendorDashboardService = require("./vendor-dashboard.service");
 
-const getDashboard = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getDashboard(req.user.sub), "Vendor dashboard retrieved"));
+const getDashboard = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getDashboard(req.user.sub, req.query), "Vendor dashboard retrieved"));
 const listProducts = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.listProducts(req.user.sub, req.query), "Vendor products retrieved"));
 const createProduct = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.createProduct(req.user.sub, req.body), "Product created"));
 const updateProduct = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateProduct(req.user.sub, req.params.id, req.body), "Product updated"));

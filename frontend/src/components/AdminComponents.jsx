@@ -4,7 +4,7 @@ import React from 'react';
  * Status Badge Component
  * Displays status with color coding
  */
-export function StatusBadge({ status, variant = 'default' }) {
+export function StatusBadge({ status }) {
   const statusConfig = {
     active: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Active' },
     inactive: { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Inactive' },

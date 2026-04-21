@@ -65,7 +65,16 @@ async function staffAuthRequired(req, res, next) {
 function checkPermission(permission) {
   return (req, res, next) => {
     if (!req.staff) return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
-    if (!hasStaffPermission(req.staff.permissions, permission)) {
+    
+    const hasPermission = hasStaffPermission(req.staff.permissions, permission);
+    
+    // DEBUG: Log permission check
+    const [module, action] = permission.split(".");
+    const granted = req.staff.permissions?.[module]?.[action] === true;
+    console.log(`[PERMISSION_CHECK] Staff ${req.staff._id} (${req.staff.email}) requesting ${permission}: ${granted ? "GRANTED" : "DENIED"}`);
+    
+    if (!hasPermission) {
+      console.log(`[PERMISSION_DENIED] Missing: ${permission} | Available: ${Object.entries(req.staff.permissions || {}).map(([m, perms]) => `${m}:[${Object.entries(perms || {}).filter(([, v]) => v).map(([a]) => a).join(",")}]`).join("|")}`);
       return next(new AppError("Access denied", 403, "FORBIDDEN"));
     }
     return next();

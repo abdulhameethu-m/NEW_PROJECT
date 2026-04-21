@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Clock3, Download, XCircle } from "lucide-react";
 import { listPayouts } from "../services/adminApi";
 import { useStaffPermission } from "../hooks/useStaffAuth";
 
@@ -42,10 +41,10 @@ export function StaffPayoutsPage() {
   }, [statusFilter]);
 
   const stats = [
-    { label: "Total payout volume", value: overview.totalAmount || 0, icon: Download, accent: "bg-slate-900 text-white" },
-    { label: "Pending", value: overview.pendingAmount || 0, icon: Clock3, accent: "bg-amber-50 text-amber-700" },
-    { label: "Paid", value: overview.paidAmount || 0, icon: CheckCircle2, accent: "bg-emerald-50 text-emerald-700" },
-    { label: "Failed", value: overview.failedAmount || 0, icon: XCircle, accent: "bg-rose-50 text-rose-700" },
+    { label: "Total payout volume", value: overview.totalAmount || 0, icon: DownloadIcon, accent: "bg-slate-900 text-white" },
+    { label: "Pending", value: overview.pendingAmount || 0, icon: ClockIcon, accent: "bg-amber-50 text-amber-700" },
+    { label: "Paid", value: overview.paidAmount || 0, icon: CheckCircleIcon, accent: "bg-emerald-50 text-emerald-700" },
+    { label: "Failed", value: overview.failedAmount || 0, icon: XCircleIcon, accent: "bg-rose-50 text-rose-700" },
   ];
 
   return (
@@ -97,7 +96,7 @@ export function StaffPayoutsPage() {
           type="button"
           className="inline-flex items-center gap-2 rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
         >
-          <Download size={16} />
+          <DownloadIcon className="h-4 w-4" />
           Export report
         </button>
       </div>
@@ -138,5 +137,60 @@ export function StaffPayoutsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function IconBase({ className = "h-4 w-4", children }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function DownloadIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </IconBase>
+  );
+}
+
+function ClockIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </IconBase>
+  );
+}
+
+function CheckCircleIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12 2.5 2.5 4.5-5" />
+    </IconBase>
+  );
+}
+
+function XCircleIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m9 9 6 6" />
+      <path d="m15 9-6 6" />
+    </IconBase>
   );
 }

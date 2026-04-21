@@ -47,8 +47,8 @@ export function StaffTopbar({ user, role, permissions, module, onMenuToggle }) {
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-4">
           <button
             type="button"
             onClick={onMenuToggle}
@@ -60,14 +60,14 @@ export function StaffTopbar({ user, role, permissions, module, onMenuToggle }) {
             </svg>
           </button>
 
-          <div>
+          <div className="min-w-0">
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Staff workspace</div>
-            <h1 className="text-xl font-semibold text-slate-950">{module?.name || "Dashboard"}</h1>
-            <p className="text-sm text-slate-500">{module?.description || "Permission-based internal operations"}</p>
+            <h1 className="truncate text-xl font-semibold text-slate-950">{module?.name || "Dashboard"}</h1>
+            <p className="truncate text-sm text-slate-500">{module?.description || "Permission-based internal operations"}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-3 sm:gap-4">
           <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 md:flex">
             <ShieldIcon className="h-4 w-4 text-emerald-600" />
             <span className="text-xs font-medium text-slate-600">{activePermissionCount} active permissions</span>

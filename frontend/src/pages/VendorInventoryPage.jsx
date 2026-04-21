@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ReportingToolbar } from "../components/ReportingToolbar";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
@@ -21,7 +21,7 @@ export function VendorInventoryPage() {
     module: "inventory",
   });
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const response = await vendorDashboardService.getVendorInventory({ limit: 20, ...reporting.appliedParams });
       setData(response.data);
@@ -29,11 +29,11 @@ export function VendorInventoryPage() {
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load inventory.");
     }
-  }
+  }, [reporting.appliedParams]);
 
   useEffect(() => {
     load();
-  }, [reporting.appliedParams]);
+  }, [load]);
 
   function startAdjust(product) {
     setForm({

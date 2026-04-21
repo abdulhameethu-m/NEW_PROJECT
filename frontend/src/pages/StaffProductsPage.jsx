@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Search, Trash2 } from "lucide-react";
 import { deleteProduct, getProductStats, listProducts } from "../services/adminApi";
 import { useStaffPermission } from "../hooks/useStaffAuth";
 
@@ -84,7 +83,7 @@ export function StaffProductsPage() {
       ) : null}
 
       <div className="relative flex-1">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <SearchIcon className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           placeholder="Search products"
@@ -129,7 +128,7 @@ export function StaffProductsPage() {
                       onClick={() => handleDelete(product._id)}
                       className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                     >
-                      <Trash2 size={14} />
+                      <TrashIcon className="h-3.5 w-3.5" />
                       Delete
                     </button>
                   ) : null}
@@ -142,5 +141,43 @@ export function StaffProductsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function IconBase({ className = "h-4 w-4", children }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function SearchIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </IconBase>
+  );
+}
+
+function TrashIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 10v6" />
+      <path d="M14 10v6" />
+    </IconBase>
   );
 }

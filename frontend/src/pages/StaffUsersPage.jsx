@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { Ban, Search, Trash2, Users } from "lucide-react";
-import { deleteUser, listUsers, toggleUserBlock } from "../services/adminApi";
+import { createUser, deleteUser, listUsers, toggleUserBlock } from "../services/adminApi";
 import { useStaffPermission } from "../hooks/useStaffAuth";
 
 function normalizeError(error) {
   return error?.response?.data?.message || error?.message || "Request failed";
 }
+
+const initialForm = {
+  name: "",
+  email: "",
+  phone: "",
+  password: "",
+  role: "user",
+};
 
 export function StaffUsersPage() {
   const { hasPermission } = useStaffPermission();
@@ -14,6 +21,9 @@ export function StaffUsersPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [form, setForm] = useState(initialForm);
 
   useEffect(() => {
     let active = true;
@@ -76,6 +86,28 @@ export function StaffUsersPage() {
     }
   }
 
+  async function handleCreate(event) {
+    event.preventDefault();
+    setCreating(true);
+    setError("");
+    try {
+      const response = await createUser({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        password: form.password,
+        role: form.role,
+      });
+      setUsers((current) => [response.data, ...current.filter((item) => item._id !== response.data?._id)]);
+      setForm(initialForm);
+      setShowCreateForm(false);
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -83,14 +115,106 @@ export function StaffUsersPage() {
           <h1 className="text-2xl font-bold text-slate-900">Users</h1>
           <p className="mt-1 text-slate-600">Live customer account management based on your user permissions.</p>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
-          <Users size={16} />
-          {filteredUsers.length} visible
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+            <UsersIcon className="h-4 w-4" />
+            {filteredUsers.length} visible
+          </div>
+          {hasPermission("users.create") ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreateForm((current) => !current);
+                setError("");
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Create User
+            </button>
+          ) : null}
         </div>
       </div>
 
+      {hasPermission("users.create") && showCreateForm ? (
+        <form onSubmit={handleCreate} className="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
+          <label className="grid gap-2 text-sm text-slate-700">
+            <span>Name</span>
+            <input
+              value={form.name}
+              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+              required
+            />
+          </label>
+          <label className="grid gap-2 text-sm text-slate-700">
+            <span>Email</span>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+              placeholder="Optional for user"
+            />
+          </label>
+          <label className="grid gap-2 text-sm text-slate-700">
+            <span>Phone</span>
+            <input
+              value={form.phone}
+              onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+              inputMode="numeric"
+              maxLength={10}
+              required
+            />
+          </label>
+          <label className="grid gap-2 text-sm text-slate-700">
+            <span>Password</span>
+            <input
+              type="password"
+              value={form.password}
+              onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+              minLength={6}
+              required
+            />
+          </label>
+          <label className="grid gap-2 text-sm text-slate-700 md:col-span-2">
+            <span>Role</span>
+            <select
+              value={form.role}
+              onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}
+              className="max-w-xs rounded-xl border border-slate-200 px-4 py-3 text-sm"
+            >
+              <option value="user">User</option>
+              <option value="vendor">Vendor</option>
+            </select>
+          </label>
+          <div className="flex gap-3 md:col-span-2">
+            <button
+              type="submit"
+              disabled={creating}
+              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {creating ? "Creating..." : "Create"}
+            </button>
+            <button
+              type="button"
+              disabled={creating}
+              onClick={() => {
+                setShowCreateForm(false);
+                setForm(initialForm);
+              }}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : null}
+
       <div className="relative flex-1">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <SearchIcon className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           placeholder="Search by name, email, or phone"
@@ -138,7 +262,7 @@ export function StaffUsersPage() {
                       onClick={() => handleBlock(user)}
                       className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                     >
-                      <Ban size={14} />
+                      <BanIcon className="h-3.5 w-3.5" />
                       {user.status === "disabled" ? "Unblock" : "Block"}
                     </button>
                   ) : null}
@@ -149,7 +273,7 @@ export function StaffUsersPage() {
                       onClick={() => handleDelete(user)}
                       className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                     >
-                      <Trash2 size={14} />
+                      <TrashIcon className="h-3.5 w-3.5" />
                       Delete
                     </button>
                   ) : null}
@@ -162,5 +286,72 @@ export function StaffUsersPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function IconBase({ className = "h-4 w-4", children }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function SearchIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </IconBase>
+  );
+}
+
+function UsersIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+      <circle cx="9.5" cy="7" r="3" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 4.13a3 3 0 0 1 0 5.74" />
+    </IconBase>
+  );
+}
+
+function BanIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 8.5 7 7" />
+    </IconBase>
+  );
+}
+
+function TrashIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 10v6" />
+      <path d="M14 10v6" />
+    </IconBase>
+  );
+}
+
+function PlusIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </IconBase>
   );
 }

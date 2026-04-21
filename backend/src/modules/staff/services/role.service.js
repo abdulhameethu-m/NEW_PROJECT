@@ -93,9 +93,21 @@ async function updateRole(roleId, payload) {
   }
 
   if (payload.description !== undefined) role.description = payload.description || "";
-  if (payload.permissions) role.permissions = normalizePermissions(payload.permissions);
+  
+  const oldPermissions = role.permissions ? JSON.parse(JSON.stringify(role.permissions)) : {};
+  
+  if (payload.permissions) {
+    role.permissions = normalizePermissions(payload.permissions);
+  }
 
   await role.save();
+  
+  // Log permission change for audit trail
+  console.log(`[PERMISSION_INVALIDATION] Role ${roleId} (${role.name}) updated`);
+  console.log(`[PERMISSION_INVALIDATION] Old permissions:`, oldPermissions);
+  console.log(`[PERMISSION_INVALIDATION] New permissions:`, role.permissions);
+  console.log(`[PERMISSION_INVALIDATION] All staff with this role will see updated permissions on next sync`);
+  
   return role;
 }
 

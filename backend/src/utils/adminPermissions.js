@@ -4,6 +4,7 @@ const ALL_PERMISSIONS = [
   "dashboard:read",
   "analytics:read",
   "users:read",
+  "users:create",
   "users:update",
   "users:delete",
   "vendors:read",
@@ -30,6 +31,7 @@ const ROLE_PERMISSIONS = {
   support_admin: [
     "dashboard:read",
     "users:read",
+    "users:create",
     "users:update",
     "vendors:read",
     "vendors:approve",

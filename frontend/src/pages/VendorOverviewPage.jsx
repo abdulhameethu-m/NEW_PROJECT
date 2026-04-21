@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { ReportingToolbar } from "../components/ReportingToolbar";
+import { InlineToast } from "../components/commerce/InlineToast";
+import { useReporting } from "../hooks/useReporting";
 import { formatCurrency } from "../utils/formatCurrency";
 import { StatusBadge } from "../components/StatusBadge";
 import { VendorDataTable, VendorMetricCard, VendorMiniBarChart, VendorSection } from "../components/VendorPanel";
@@ -7,12 +10,23 @@ import { useVendorDashboardStore } from "../context/vendorDashboardStore";
 export function VendorOverviewPage() {
   const { dashboard, fetchDashboard } = useVendorDashboardStore();
   const [error, setError] = useState("");
+  const reporting = useReporting({
+    module: "analytics",
+  });
 
   useEffect(() => {
-    fetchDashboard().catch((err) => {
+    fetchDashboard(reporting.appliedParams).catch((err) => {
       setError(err?.response?.data?.message || "Failed to load vendor dashboard.");
     });
-  }, [fetchDashboard]);
+  }, [fetchDashboard, reporting.appliedParams]);
+
+  async function handleExport(format) {
+    try {
+      await reporting.exportReport(format);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to export dashboard report.");
+    }
+  }
 
   if (error) {
     return <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>;
@@ -31,6 +45,16 @@ export function VendorOverviewPage() {
 
   return (
     <div className="grid gap-6">
+      <ReportingToolbar
+        startDate={reporting.startDate}
+        endDate={reporting.endDate}
+        onDateChange={reporting.setDateRange}
+        onApply={reporting.applyDateRange}
+        onExport={handleExport}
+        exportingFormat={reporting.exportingFormat}
+        isDirty={reporting.hasPendingChanges}
+      />
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {statCards.map((card) => (
           <VendorMetricCard key={card.label} {...card} />
@@ -88,6 +112,7 @@ export function VendorOverviewPage() {
           ]}
         />
       </VendorSection>
+      <InlineToast toast={reporting.toast} onClose={reporting.clearToast} />
     </div>
   );
 }

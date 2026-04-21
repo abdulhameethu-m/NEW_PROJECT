@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
 import { listOrders, updateOrderStatus } from "../services/adminApi";
 import { useStaffPermission } from "../hooks/useStaffAuth";
 
@@ -73,7 +72,7 @@ export function StaffOrdersPage() {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <SearchIcon className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search orders"
@@ -153,5 +152,31 @@ export function StaffOrdersPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function IconBase({ className = "h-4 w-4", children }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function SearchIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </IconBase>
   );
 }

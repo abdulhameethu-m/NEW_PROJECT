@@ -39,7 +39,7 @@ export function AdminCategoriesPage() {
     try {
       const response = await listCategories();
       setCategories(response?.data || []);
-    } catch (err) {
+    } catch {
       try {
         const fallback = await categoryService.getCategories();
         setCategories(fallback?.data || []);

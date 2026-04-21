@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getAuditLogs } from "../services/adminApi";
 import { ReportingToolbar } from "../components/ReportingToolbar";
 import { InlineToast } from "../components/commerce/InlineToast";
@@ -37,11 +37,7 @@ export function AuditLogsPage() {
     onApply: () => setPagination((current) => ({ ...current, page: 1 })),
   });
 
-  useEffect(() => {
-    loadLogs();
-  }, [pagination.page, filters, reporting.appliedParams]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     try {
       setIsLoading(true);
       setError("");
@@ -63,7 +59,11 @@ export function AuditLogsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filters, pagination.limit, pagination.page, reporting.appliedParams]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   async function handleExport(format) {
     try {

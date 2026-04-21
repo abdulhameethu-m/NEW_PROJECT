@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Package, Receipt, ShieldCheck, TrendingUp, Users } from "lucide-react";
 import { getDashboard, listOrders, listProducts, listUsers } from "../services/adminApi";
 import { getAccessibleModules } from "../config/staffModules";
 import { useStaffPermission, useStaffUser } from "../hooks/useStaffAuth";
 
 const FALLBACK_STATS = {
-  users: { label: "Users", value: "Access granted", icon: Users, accent: "bg-sky-50 text-sky-700" },
-  orders: { label: "Orders", value: "Access granted", icon: Receipt, accent: "bg-emerald-50 text-emerald-700" },
-  products: { label: "Products", value: "Access granted", icon: Package, accent: "bg-amber-50 text-amber-700" },
-  payouts: { label: "Payouts", value: "Access granted", icon: TrendingUp, accent: "bg-violet-50 text-violet-700" },
+  users: { label: "Users", value: "Access granted", icon: UsersIcon, accent: "bg-sky-50 text-sky-700" },
+  orders: { label: "Orders", value: "Access granted", icon: ReceiptIcon, accent: "bg-emerald-50 text-emerald-700" },
+  products: { label: "Products", value: "Access granted", icon: PackageIcon, accent: "bg-amber-50 text-amber-700" },
+  payouts: { label: "Payouts", value: "Access granted", icon: TrendingUpIcon, accent: "bg-violet-50 text-violet-700" },
 };
 
 function formatCompact(value) {
@@ -21,6 +20,15 @@ export function StaffDashboardPage() {
   const { user } = useStaffUser();
   const { hasPermission, permissions } = useStaffPermission();
   const accessibleModules = useMemo(() => getAccessibleModules(permissions), [permissions]);
+  const visibleModules = useMemo(
+    () => accessibleModules.filter((module) => module.key !== "dashboard"),
+    [accessibleModules]
+  );
+  const canReadAnalytics = hasPermission("analytics.read");
+  const canReadUsers = hasPermission("users.read");
+  const canReadOrders = hasPermission("orders.read");
+  const canReadProducts = hasPermission("products.read");
+  const canReadPayouts = hasPermission("payouts.read");
 
   const [stats, setStats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,16 +40,16 @@ export function StaffDashboardPage() {
       setLoading(true);
       const tasks = [];
 
-      if (hasPermission("analytics.read")) {
+      if (canReadAnalytics) {
         tasks.push(getDashboard().then((response) => ({ type: "dashboard", payload: response.data })));
       }
-      if (hasPermission("users.read")) {
+      if (canReadUsers) {
         tasks.push(listUsers().then((response) => ({ type: "users", payload: response.data })));
       }
-      if (hasPermission("orders.read")) {
+      if (canReadOrders) {
         tasks.push(listOrders({ page: 1, limit: 1 }).then((response) => ({ type: "orders", payload: response.data })));
       }
-      if (hasPermission("products.read")) {
+      if (canReadProducts) {
         tasks.push(listProducts({ page: 1, limit: 1 }).then((response) => ({ type: "products", payload: response.data })));
       }
 
@@ -59,7 +67,7 @@ export function StaffDashboardPage() {
             key: "revenue",
             label: "Platform Revenue",
             value: typeof totals.revenue === "number" ? `$${formatCompact(totals.revenue)}` : "Available",
-            icon: ShieldCheck,
+            icon: ShieldCheckIcon,
             accent: "bg-slate-900 text-white",
           });
         }
@@ -89,7 +97,7 @@ export function StaffDashboardPage() {
         }
       }
 
-      if (hasPermission("payouts.read")) {
+      if (canReadPayouts) {
         nextStats.push({ key: "payouts", ...FALLBACK_STATS.payouts });
       }
 
@@ -102,12 +110,12 @@ export function StaffDashboardPage() {
     return () => {
       active = false;
     };
-  }, [hasPermission]);
+  }, [canReadAnalytics, canReadUsers, canReadOrders, canReadProducts, canReadPayouts]);
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-6 bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.16),_transparent_42%),linear-gradient(135deg,_#0f172a,_#1e293b)] px-6 py-8 text-white lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,.9fr)] lg:px-8">
+      <section className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-md">
+        <div className="grid gap-6 bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.16),_transparent_42%),linear-gradient(135deg,_#0f172a,_#1e293b)] px-6 py-8 text-white lg:grid-cols-[minmax(0,1.35fr)_minmax(17rem,.8fr)] lg:px-8">
           <div>
             <div className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-200">
               Staff Access
@@ -121,15 +129,15 @@ export function StaffDashboardPage() {
 
           <div className="rounded-[1.5rem] border border-white/10 bg-white/10 p-5 backdrop-blur">
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">Current access</div>
-            <div className="mt-4 text-4xl font-semibold">{accessibleModules.length}</div>
+            <div className="mt-4 text-4xl font-semibold">{visibleModules.length}</div>
             <div className="mt-1 text-sm text-slate-300">
-              module{accessibleModules.length === 1 ? "" : "s"} available in your workspace
+              module{visibleModules.length === 1 ? "" : "s"} available in your workspace
             </div>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
         {loading
           ? Array.from({ length: 4 }).map((_, index) => (
               <div key={index} className="h-36 animate-pulse rounded-[1.5rem] bg-slate-100" />
@@ -137,7 +145,7 @@ export function StaffDashboardPage() {
           : stats.map((stat) => {
               const Icon = stat.icon;
               return (
-                <article key={stat.key} className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+                <article key={stat.key} className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-md">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-sm font-medium text-slate-500">{stat.label}</p>
@@ -152,14 +160,12 @@ export function StaffDashboardPage() {
             })}
       </section>
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-md">
         <h2 className="text-xl font-semibold text-slate-950">Modules you can access</h2>
         <p className="mt-1 text-sm text-slate-500">Every card below is generated from the shared staff module config.</p>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {accessibleModules
-            .filter((module) => module.key !== "dashboard")
-            .map((module) => (
+        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {visibleModules.map((module) => (
               <Link
                 key={module.key}
                 to={module.route}
@@ -169,14 +175,14 @@ export function StaffDashboardPage() {
                 <p className="mt-2 text-sm text-slate-500">{module.description}</p>
                 <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-amber-700">
                   Open module
-                  <ArrowRight size={16} className="transition group-hover:translate-x-1" />
+                  <ArrowRightIcon className="h-4 w-4 transition group-hover:translate-x-1" />
                 </div>
               </Link>
             ))}
         </div>
       </section>
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-md">
         <h2 className="text-xl font-semibold text-slate-950">Permission matrix</h2>
         <p className="mt-1 text-sm text-slate-500">Actions available to your current role.</p>
 
@@ -203,5 +209,82 @@ export function StaffDashboardPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function IconBase({ className = "h-5 w-5", children }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function UsersIcon({ className = "h-5 w-5" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+      <circle cx="9.5" cy="7" r="3" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 4.13a3 3 0 0 1 0 5.74" />
+    </IconBase>
+  );
+}
+
+function ReceiptIcon({ className = "h-5 w-5" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M7 3h10v18l-2.5-1.5L12 21l-2.5-1.5L7 21V3Z" />
+      <path d="M9.5 8h5" />
+      <path d="M9.5 12h5" />
+      <path d="M9.5 16h3" />
+    </IconBase>
+  );
+}
+
+function PackageIcon({ className = "h-5 w-5" }) {
+  return (
+    <IconBase className={className}>
+      <path d="m12 2 8 4.5v11L12 22 4 17.5v-11L12 2Z" />
+      <path d="M12 22V11.5" />
+      <path d="m20 6.5-8 5-8-5" />
+    </IconBase>
+  );
+}
+
+function TrendingUpIcon({ className = "h-5 w-5" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M4 16 10 10l4 4 6-8" />
+      <path d="M20 10V6h-4" />
+      <path d="M4 20h16" />
+    </IconBase>
+  );
+}
+
+function ShieldCheckIcon({ className = "h-5 w-5" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3Z" />
+      <path d="m9.5 12 1.8 1.8 3.7-4.3" />
+    </IconBase>
+  );
+}
+
+function ArrowRightIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </IconBase>
   );
 }

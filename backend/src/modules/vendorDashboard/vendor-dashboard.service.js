@@ -49,16 +49,24 @@ class VendorDashboardService {
     return await VendorNotification.create({ vendorId, ...payload });
   }
 
-  async getDashboard(userId) {
+  async getDashboard(userId, query = {}) {
     const vendor = await this.getVendorContext(userId);
-    const todayMatch = { sellerId: vendor._id, createdAt: { $gte: startOfToday(), $lte: endOfToday() } };
+    const dashboardDateRange = normalizeDateRange({
+      startDate: query.startDate,
+      endDate: query.endDate,
+    });
+    const orderMatch = { sellerId: vendor._id };
+    applyDateRange(orderMatch, dashboardDateRange);
+    const todayMatch = dashboardDateRange || query.startDate || query.endDate
+      ? orderMatch
+      : { sellerId: vendor._id, createdAt: { $gte: startOfToday(), $lte: endOfToday() } };
 
     const [todayOrders, pendingOrders, shippedOrders, revenueAggregate, lowStockProducts, unreadNotifications] = await Promise.all([
       Order.countDocuments(todayMatch),
-      Order.countDocuments({ sellerId: vendor._id, status: { $in: ["Pending", "Placed", "Packed"] } }),
-      Order.countDocuments({ sellerId: vendor._id, status: "Shipped" }),
+      Order.countDocuments({ ...orderMatch, status: { $in: ["Pending", "Placed", "Packed"] } }),
+      Order.countDocuments({ ...orderMatch, status: "Shipped" }),
       Order.aggregate([
-        { $match: { sellerId: vendor._id, status: { $in: ["Shipped", "Delivered"] } } },
+        { $match: { ...orderMatch, status: { $in: ["Shipped", "Delivered"] } } },
         { $group: { _id: null, revenue: { $sum: "$totalAmount" } } },
       ]),
       Product.countDocuments({
@@ -70,7 +78,7 @@ class VendorDashboardService {
     ]);
 
     const [recentOrders, topProducts] = await Promise.all([
-      Order.find({ sellerId: vendor._id })
+      Order.find(orderMatch)
         .sort({ createdAt: -1 })
         .limit(5)
         .select("orderNumber totalAmount status paymentStatus createdAt deliveryStatus"),

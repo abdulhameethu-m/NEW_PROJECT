@@ -40,6 +40,7 @@ router.get("/daily-revenue", requireWorkspacePermission("analytics.read"), admin
 router.get("/audit-logs", requireLegacyAdminPermission("audit:read"), adminController.listAuditLogs);
 
 router.get("/users", requireWorkspacePermission("users.read"), adminController.listUsers);
+router.post("/users", requireWorkspacePermission("users.create"), adminController.createUser);
 router.patch("/users/:id/block", requireWorkspacePermission("users.update"), adminController.toggleUserBlocked);
 router.delete("/users/:id", requireWorkspacePermission("users.delete"), adminController.deleteUser);
 

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { adminService } from '../services/adminService';
 
 /**
@@ -131,7 +131,7 @@ export function useAdminNotifications(pollingInterval = 30000) {
   }, [fetchNotifications]);
 
   // Start polling
-  React.useEffect(() => {
+  useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, pollingInterval);
     return () => clearInterval(interval);
