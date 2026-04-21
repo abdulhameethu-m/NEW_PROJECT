@@ -4,9 +4,11 @@ const http = require("http");
 const { createApp } = require("./app");
 const { connectDb } = require("./config/db");
 const { logger } = require("./utils/logger");
+const { ensurePredefinedStaffRoles } = require("./modules/staff/services/role.service");
 
 async function start() {
   await connectDb();
+  await ensurePredefinedStaffRoles();
 
   const app = createApp();
   const server = http.createServer(app);

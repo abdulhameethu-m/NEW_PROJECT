@@ -5,6 +5,9 @@ import { VendorLayout } from "./components/VendorLayout";
 import { UserAccountLayout } from "./components/UserAccountLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RoleGate } from "./components/RoleGate";
+import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
+import { StaffPermissionRoute } from "./components/StaffPermissionRoute";
+import { StaffDashboardLayout } from "./components/staff/DashboardLayout";
 
 import { HomePage } from "./pages/HomePage";
 import { RoleSelectionPage } from "./pages/RoleSelectionPage";
@@ -31,6 +34,8 @@ import { AdminRevenuePage } from "./pages/AdminRevenuePage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
+import { AdminRolesPage } from "./pages/AdminRolesPage";
+import { AdminStaffPage } from "./pages/AdminStaffPage";
 import { SellerProductsPage } from "./pages/SellerProductsPage";
 import { ProductFormPage } from "./pages/ProductFormPage";
 import { ProductDetailsPage } from "./pages/ProductDetailsPage";
@@ -62,6 +67,12 @@ import { TermsAndConditionsPage } from "./pages/TermsAndConditionsPage";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
 import { ReturnPolicyPage } from "./pages/ReturnPolicyPage";
 import { ShippingPolicyPage } from "./pages/ShippingPolicyPage";
+import { StaffDashboardPage } from "./pages/StaffDashboardPage";
+import { StaffUsersPage } from "./pages/StaffUsersPage";
+import { StaffOrdersPage } from "./pages/StaffOrdersPage";
+import { StaffProductsPage } from "./pages/StaffProductsPage";
+import { StaffPayoutsPage } from "./pages/StaffPayoutsPage";
+import { StaffUnauthorizedPage } from "./pages/StaffUnauthorizedPage";
 
 export default function App() {
   return (
@@ -70,6 +81,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/role" element={<RoleSelectionPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/staff/login" element={<Navigate to="/login" replace />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/product/:productId" element={<ProductDetailsPage />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
@@ -144,6 +156,29 @@ export default function App() {
               <Route path="revenue" element={<AdminRevenuePage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
+              <Route path="roles" element={<AdminRolesPage />} />
+              <Route path="staff" element={<AdminStaffPage />} />
+            </Route>
+          </Route>
+        </Route>
+
+        <Route element={<StaffProtectedRoute />}>
+          <Route path="/staff" element={<StaffDashboardLayout />}>
+            <Route index element={<Navigate to="/staff/dashboard" replace />} />
+            <Route path="dashboard" element={<StaffDashboardPage />} />
+            <Route path="unauthorized" element={<StaffUnauthorizedPage />} />
+
+            <Route element={<StaffPermissionRoute permission="users.read" />}>
+              <Route path="users" element={<StaffUsersPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="orders.read" />}>
+              <Route path="orders" element={<StaffOrdersPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="products.read" />}>
+              <Route path="products" element={<StaffProductsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="payouts.read" />}>
+              <Route path="payouts" element={<StaffPayoutsPage />} />
             </Route>
           </Route>
         </Route>

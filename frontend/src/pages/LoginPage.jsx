@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../context/authStore";
+import { useStaffAuthStore } from "../context/staffAuthStore";
 import * as authService from "../services/authService";
+import * as staffAuthService from "../services/staffAuthService";
 import * as vendorService from "../services/vendorService";
 import { validateAuthForm } from "../utils/authValidation";
 import { consumeRedirectAfterLogin } from "../utils/loginRedirect";
@@ -14,17 +16,72 @@ function normalizeError(err) {
   );
 }
 
+function getPathnameFromTarget(target) {
+  if (!target) return "";
+
+  if (target.startsWith("http://") || target.startsWith("https://")) {
+    try {
+      return new URL(target).pathname;
+    } catch {
+      return "";
+    }
+  }
+
+  return target;
+}
+
+function isAllowedStaffTarget(target) {
+  const pathname = getPathnameFromTarget(target);
+  return pathname.startsWith("/staff");
+}
+
 export function LoginPage() {
   const nav = useNavigate();
   const location = useLocation();
   const from = useMemo(() => location.state?.from?.pathname, [location.state]);
   const setAuth = useAuthStore((s) => s.setAuth);
+  const clearAuth = useAuthStore((s) => s.logout);
+  const setStaffAuth = useStaffAuthStore((s) => s.setAuth);
+  const clearStaffAuth = useStaffAuthStore((s) => s.logout);
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
+
+  async function navigateAfterPrimaryLogin(result, attemptedFrom) {
+    const redirect = consumeRedirectAfterLogin();
+    const role = result.data.user.role;
+    if (redirect) return window.location.assign(redirect);
+    if (attemptedFrom) return nav(attemptedFrom, { replace: true });
+
+    if (["admin", "super_admin", "support_admin", "finance_admin"].includes(role)) {
+      return nav("/dashboard/admin", { replace: true });
+    }
+    if (role === "user") return nav("/user/dashboard", { replace: true });
+
+    try {
+      const vendorResponse = await vendorService.getVendorMe();
+      const status = vendorResponse.data.status;
+      if (status === "approved") return nav("/dashboard/vendor", { replace: true });
+      if (status === "pending") return nav("/vendor/status", { replace: true });
+      return nav("/vendor/onboarding", { replace: true });
+    } catch {
+      return nav("/vendor/onboarding", { replace: true });
+    }
+  }
+
+  async function navigateAfterStaffLogin(attemptedFrom) {
+    const redirect = consumeRedirectAfterLogin();
+    if (redirect && isAllowedStaffTarget(redirect)) {
+      return window.location.assign(redirect);
+    }
+    if (attemptedFrom && isAllowedStaffTarget(attemptedFrom)) {
+      return nav(attemptedFrom, { replace: true });
+    }
+    return nav("/staff/dashboard", { replace: true });
+  }
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -33,32 +90,36 @@ export function LoginPage() {
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
     setLoading(true);
+    const normalizedIdentifier = identifier.trim();
+    const normalizedPassword = password.trim();
+
     try {
-      const res = await authService.login({ identifier, password });
-      setAuth(res.data);
-
-      const redirect = consumeRedirectAfterLogin();
-      const role = res.data.user.role;
-      if (redirect) return window.location.assign(redirect);
-      if (from) return nav(from, { replace: true });
-
-      if (["admin", "super_admin", "support_admin", "finance_admin"].includes(role)) {
-        return nav("/dashboard/admin", { replace: true });
+      const primaryResponse = await authService.login({
+        identifier: normalizedIdentifier,
+        password: normalizedPassword,
+      });
+      clearStaffAuth();
+      setAuth(primaryResponse.data);
+      return navigateAfterPrimaryLogin(primaryResponse, from);
+    } catch (primaryError) {
+      const isEmailLogin = normalizedIdentifier.includes("@");
+      if (!isEmailLogin) {
+        setError(normalizeError(primaryError));
+        setLoading(false);
+        return;
       }
-      if (role === "user") return nav("/user/dashboard", { replace: true });
 
-      // vendor
       try {
-        const v = await vendorService.getVendorMe();
-        const status = v.data.status;
-        if (status === "approved") return nav("/dashboard/vendor", { replace: true });
-        if (status === "pending") return nav("/vendor/status", { replace: true });
-        return nav("/vendor/onboarding", { replace: true });
-      } catch {
-        return nav("/vendor/onboarding", { replace: true });
+        const staffResponse = await staffAuthService.login({
+          email: normalizedIdentifier,
+          password: normalizedPassword,
+        });
+        clearAuth();
+        setStaffAuth(staffResponse.data);
+        return navigateAfterStaffLogin(from);
+      } catch (staffError) {
+        setError(normalizeError(staffError?.response ? staffError : primaryError));
       }
-    } catch (err) {
-      setError(normalizeError(err));
     } finally {
       setLoading(false);
     }
@@ -68,7 +129,7 @@ export function LoginPage() {
     <div className="mx-auto max-w-md">
       <h1 className="text-2xl font-semibold tracking-tight">Login</h1>
       <p className="mt-2 text-slate-600">
-        Users can login with <span className="font-medium">phone</span>; vendors/admin can use email.
+        Users can login with <span className="font-medium">phone</span>; vendors, admin, and staff can use email.
       </p>
 
       <form

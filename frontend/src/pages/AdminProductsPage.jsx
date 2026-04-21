@@ -12,12 +12,14 @@ import { StatusBadge } from "../components/StatusBadge";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
 import { formatCurrency } from "../utils/formatCurrency";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
 }
 
 export function AdminProductsPage() {
+  const { basePath, isLegacyAdmin, canAccess } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
   const [stats, setStats] = useState([]);
@@ -137,12 +139,14 @@ export function AdminProductsPage() {
             </button>
           ))}
         </div>
-        <Link
-          to="/admin/products/create"
-          className="inline-flex w-full justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:w-auto"
-        >
-          Create product
-        </Link>
+        {isLegacyAdmin || canAccess("products.create") ? (
+          <Link
+            to={`${basePath}/products/create`}
+            className="inline-flex w-full justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:w-auto"
+          >
+            Create product
+          </Link>
+        ) : null}
       </div>
 
       <div className="grid min-w-0 max-w-full grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -211,19 +215,21 @@ export function AdminProductsPage() {
                       {selectedProduct === product._id ? "Hide" : "Review"}
                     </button>
                     <Link
-                      to={`/admin/products/${product._id}/edit`}
+                      to={`${basePath}/products/${product._id}/edit`}
                       className="w-full rounded-xl border border-slate-300 px-3 py-2 text-center text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto"
                     >
                       Edit
                     </Link>
-                    <button
-                      type="button"
-                      disabled={busyId === product._id}
-                      onClick={() => handleDelete(product._id)}
-                      className="w-full rounded-xl border border-red-300 px-3 py-2 text-center text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950 sm:w-auto"
-                    >
-                      Delete
-                    </button>
+                    {isLegacyAdmin || canAccess("products.delete") ? (
+                      <button
+                        type="button"
+                        disabled={busyId === product._id}
+                        onClick={() => handleDelete(product._id)}
+                        className="w-full rounded-xl border border-red-300 px-3 py-2 text-center text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950 sm:w-auto"
+                      >
+                        Delete
+                      </button>
+                    ) : null}
                   </div>
                 </div>
 
@@ -259,30 +265,38 @@ export function AdminProductsPage() {
 
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                         <div className="text-sm font-semibold text-slate-950 dark:text-white">Moderation</div>
-                        <textarea
-                          value={rejectReason}
-                          onChange={(e) => setRejectReason(e.target.value)}
-                          placeholder="Reason for rejection"
-                          className="mt-3 min-h-28 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                        />
-                        <div className="mt-4 flex flex-wrap gap-2 sm:gap-3">
-                          <button
-                            type="button"
-                            disabled={busyId === product._id || product.status === "APPROVED"}
-                            onClick={() => handleApprove(product._id)}
-                            className="w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 sm:w-auto"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === product._id}
-                            onClick={() => handleReject(product._id)}
-                            className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200 sm:w-auto"
-                          >
-                            Reject
-                          </button>
-                        </div>
+                        {isLegacyAdmin ? (
+                          <>
+                            <textarea
+                              value={rejectReason}
+                              onChange={(e) => setRejectReason(e.target.value)}
+                              placeholder="Reason for rejection"
+                              className="mt-3 min-h-28 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                            />
+                            <div className="mt-4 flex flex-wrap gap-2 sm:gap-3">
+                              <button
+                                type="button"
+                                disabled={busyId === product._id || product.status === "APPROVED"}
+                                onClick={() => handleApprove(product._id)}
+                                className="w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 sm:w-auto"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busyId === product._id}
+                                onClick={() => handleReject(product._id)}
+                                className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200 sm:w-auto"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:bg-slate-950 dark:text-slate-300">
+                            Product moderation actions are reserved for legacy admin accounts.
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

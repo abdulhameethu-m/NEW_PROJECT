@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { createProduct } from "../services/adminService";
 import { BackButton } from "../components/BackButton";
 import { useCategories } from "../hooks/useCategories";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 export function AdminProductCreate() {
+  const { basePath } = useAdminSession();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -127,7 +129,7 @@ export function AdminProductCreate() {
       await createProduct(payload);
       setSuccess("Product created successfully!");
       setTimeout(() => {
-        navigate("/admin/products");
+        navigate(`${basePath}/products`);
       }, 1500);
     } catch (err) {
       setError(normalizeError(err));
@@ -393,7 +395,7 @@ export function AdminProductCreate() {
             </button>
             <button
               type="button"
-              onClick={() => navigate("/admin/products")}
+              onClick={() => navigate(`${basePath}/products`)}
               className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               Cancel

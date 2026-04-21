@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteOrder, getOrderById, updateOrder } from "../services/adminApi";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
@@ -11,6 +12,7 @@ function normalizeError(err) {
 const STATUS_OPTIONS = ["Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Returned"];
 
 export function AdminOrderDetailsPage() {
+  const { basePath, isLegacyAdmin } = useAdminSession();
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -113,7 +115,7 @@ export function AdminOrderDetailsPage() {
     setError("");
     try {
       await deleteOrder(id);
-      navigate("/admin/orders", { replace: true });
+      navigate(`${basePath}/orders`, { replace: true });
     } catch (err) {
       setError(normalizeError(err));
     } finally {
@@ -132,7 +134,7 @@ export function AdminOrderDetailsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            to="/admin/orders"
+            to={`${basePath}/orders`}
             className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Back
@@ -153,14 +155,16 @@ export function AdminOrderDetailsPage() {
           >
             Mark as Shipped
           </button>
-          <button
-            type="button"
-            disabled={loading || deleting}
-            onClick={onDelete}
-            className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:text-rose-200 dark:hover:bg-rose-950/30"
-          >
-            {deleting ? "Deleting..." : "Delete"}
-          </button>
+          {isLegacyAdmin ? (
+            <button
+              type="button"
+              disabled={loading || deleting}
+              onClick={onDelete}
+              className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:text-rose-200 dark:hover:bg-rose-950/30"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </button>
+          ) : null}
         </div>
       </div>
 

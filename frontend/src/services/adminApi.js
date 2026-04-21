@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { adminHttp } from "./adminHttp";
 import { buildDateRangeParams } from "../utils/reporting";
 
 function triggerBlobDownload(response, fallbackName) {
@@ -17,32 +17,32 @@ function triggerBlobDownload(response, fallbackName) {
 }
 
 export async function getDashboard() {
-  const { data } = await api.get("/api/admin/dashboard");
+  const { data } = await adminHttp.get("/api/admin/dashboard");
   return data;
 }
 
 export async function getAnalytics(params = {}) {
-  const { data } = await api.get("/api/admin/analytics", { params });
+  const { data } = await adminHttp.get("/api/admin/analytics", { params });
   return data;
 }
 
 export async function getDailyRevenue(days = 7) {
-  const { data } = await api.get("/api/admin/daily-revenue", { params: { days } });
+  const { data } = await adminHttp.get("/api/admin/daily-revenue", { params: { days } });
   return data;
 }
 
 export async function getRevenueSummary(params = {}) {
-  const { data } = await api.get("/api/admin/revenue", { params });
+  const { data } = await adminHttp.get("/api/admin/revenue", { params });
   return data;
 }
 
 export async function getVendorRevenue(params = {}) {
-  const { data } = await api.get("/api/admin/revenue/vendors", { params });
+  const { data } = await adminHttp.get("/api/admin/revenue/vendors", { params });
   return data;
 }
 
 export async function exportRevenueReport({ format, startDate, endDate }) {
-  const response = await api.get("/api/admin/revenue/export", {
+  const response = await adminHttp.get("/api/admin/revenue/export", {
     params: {
       format,
       ...buildDateRangeParams(startDate, endDate),
@@ -54,136 +54,191 @@ export async function exportRevenueReport({ format, startDate, endDate }) {
 }
 
 export async function listUsers(params = {}) {
-  const { data } = await api.get("/api/admin/users", { params });
+  const { data } = await adminHttp.get("/api/admin/users", { params });
   return data;
 }
 
 export async function toggleUserBlock(id) {
-  const { data } = await api.patch(`/api/admin/users/${id}/block`);
+  const { data } = await adminHttp.patch(`/api/admin/users/${id}/block`);
   return data;
 }
 
 export async function deleteUser(id) {
-  const { data } = await api.delete(`/api/admin/users/${id}`);
+  const { data } = await adminHttp.delete(`/api/admin/users/${id}`);
   return data;
 }
 
 export async function listSellers(params = {}) {
-  const { data } = await api.get("/api/admin/sellers", { params });
+  const { data } = await adminHttp.get("/api/admin/sellers", { params });
   return data;
 }
 
 export async function getSellerDetails(id) {
-  const { data } = await api.get(`/api/admin/sellers/${id}`);
+  const { data } = await adminHttp.get(`/api/admin/sellers/${id}`);
   return data;
 }
 
 export async function approveSeller(id) {
-  const { data } = await api.patch(`/api/admin/sellers/${id}/approve`);
+  const { data } = await adminHttp.patch(`/api/admin/sellers/${id}/approve`);
   return data;
 }
 
 export async function rejectSeller(id, reason) {
-  const { data } = await api.patch(`/api/admin/sellers/${id}/reject`, { reason });
+  const { data } = await adminHttp.patch(`/api/admin/sellers/${id}/reject`, { reason });
   return data;
 }
 
 export async function removeSeller(id) {
-  const { data } = await api.delete(`/api/admin/vendor/${id}`);
+  const { data } = await adminHttp.delete(`/api/admin/vendor/${id}`);
   return data;
 }
 
 export async function listProducts(params = {}) {
-  const { data } = await api.get("/api/admin/products", { params });
+  const { data } = await adminHttp.get("/api/admin/products", { params });
   return data;
 }
 
 export async function getProductById(id) {
-  const { data } = await api.get(`/api/admin/products/${id}`);
+  const { data } = await adminHttp.get(`/api/admin/products/${id}`);
   return data;
 }
 
 export async function createProduct(productData) {
-  const { data } = await api.post("/api/admin/products", productData);
+  const { data } = await adminHttp.post("/api/admin/products", productData);
   return data;
 }
 
 export async function updateProduct(id, productData) {
-  const { data } = await api.patch(`/api/admin/products/${id}`, productData);
+  const { data } = await adminHttp.patch(`/api/admin/products/${id}`, productData);
   return data;
 }
 
 export async function deleteProduct(id) {
-  const { data } = await api.delete(`/api/admin/products/${id}`);
+  const { data } = await adminHttp.delete(`/api/admin/products/${id}`);
   return data;
 }
 
 export async function approveProduct(id) {
-  const { data } = await api.patch(`/api/admin/products/${id}/approve`);
+  const { data } = await adminHttp.patch(`/api/admin/products/${id}/approve`);
   return data;
 }
 
 export async function rejectProduct(id, rejectionReason) {
-  const { data } = await api.patch(`/api/admin/products/${id}/reject`, { rejectionReason });
+  const { data } = await adminHttp.patch(`/api/admin/products/${id}/reject`, { rejectionReason });
   return data;
 }
 
 export async function getProductStats() {
-  const { data } = await api.get("/api/admin/products/stats");
+  const { data } = await adminHttp.get("/api/admin/products/stats");
   return data;
 }
 
 export async function listOrders(params = {}) {
-  const { data } = await api.get("/api/admin/orders", { params });
+  const { data } = await adminHttp.get("/api/admin/orders", { params });
+  return data;
+}
+
+export async function listPayouts(params = {}) {
+  const { data } = await adminHttp.get("/api/admin/payouts", { params });
   return data;
 }
 
 export async function updateOrderStatus(id, status) {
-  const { data } = await api.patch(`/api/admin/orders/${id}/status`, { status });
+  const { data } = await adminHttp.patch(`/api/admin/orders/${id}/status`, { status });
   return data;
 }
 
 export async function getOrderById(id) {
-  const { data } = await api.get(`/api/admin/orders/${id}`);
+  const { data } = await adminHttp.get(`/api/admin/orders/${id}`);
   return data;
 }
 
 export async function createOrder(payload) {
-  const { data } = await api.post("/api/admin/orders", payload);
+  const { data } = await adminHttp.post("/api/admin/orders", payload);
   return data;
 }
 
 export async function updateOrder(id, patch) {
-  const { data } = await api.patch(`/api/admin/orders/${id}`, patch);
+  const { data } = await adminHttp.patch(`/api/admin/orders/${id}`, patch);
   return data;
 }
 
 export async function deleteOrder(id) {
-  const { data } = await api.delete(`/api/admin/orders/${id}`);
+  const { data } = await adminHttp.delete(`/api/admin/orders/${id}`);
   return data;
 }
 
 export async function getAuditLogs(params = {}) {
-  const { data } = await api.get("/api/admin/audit-logs", { params });
+  const { data } = await adminHttp.get("/api/admin/audit-logs", { params });
   return data;
 }
 
 export async function listCategories() {
-  const { data } = await api.get("/api/admin/categories");
+  const { data } = await adminHttp.get("/api/admin/categories");
   return data;
 }
 
 export async function createCategory(payload) {
-  const { data } = await api.post("/api/admin/categories", payload);
+  const { data } = await adminHttp.post("/api/admin/categories", payload);
   return data;
 }
 
 export async function updateCategory(id, payload) {
-  const { data } = await api.patch(`/api/admin/categories/${id}`, payload);
+  const { data } = await adminHttp.patch(`/api/admin/categories/${id}`, payload);
   return data;
 }
 
 export async function toggleCategory(id, isActive) {
-  const { data } = await api.patch(`/api/admin/categories/${id}/toggle`, { isActive });
+  const { data } = await adminHttp.patch(`/api/admin/categories/${id}/toggle`, { isActive });
+  return data;
+}
+
+export async function getStaffPermissionCatalog() {
+  const { data } = await adminHttp.get("/api/admin/permissions/catalog");
+  return data;
+}
+
+export async function listStaffRoles() {
+  const { data } = await adminHttp.get("/api/admin/roles");
+  return data;
+}
+
+export async function createStaffRole(payload) {
+  const { data } = await adminHttp.post("/api/admin/roles", payload);
+  return data;
+}
+
+export async function updateStaffRole(id, payload) {
+  const { data } = await adminHttp.patch(`/api/admin/roles/${id}`, payload);
+  return data;
+}
+
+export async function deleteStaffRole(id) {
+  const { data } = await adminHttp.delete(`/api/admin/roles/${id}`);
+  return data;
+}
+
+export async function listStaffAccounts() {
+  const { data } = await adminHttp.get("/api/staff/admin/accounts");
+  return data;
+}
+
+export async function createStaffAccount(payload) {
+  const { data } = await adminHttp.post("/api/staff/admin/accounts", payload);
+  return data;
+}
+
+export async function updateStaffAccount(id, payload) {
+  const { data } = await adminHttp.patch(`/api/staff/admin/accounts/${id}`, payload);
+  return data;
+}
+
+export async function deleteStaffAccount(id) {
+  const { data } = await adminHttp.delete(`/api/staff/admin/accounts/${id}`);
+  return data;
+}
+
+export async function forceLogoutStaffAccount(id) {
+  const { data } = await adminHttp.post(`/api/staff/admin/accounts/${id}/force-logout`);
   return data;
 }

@@ -17,6 +17,7 @@ export function Layout() {
     location.pathname === "/dashboard/admin" ||
     location.pathname.startsWith("/admin");
   const isVendorWorkspace = location.pathname.startsWith("/vendor/");
+  const isStaffWorkspace = location.pathname.startsWith("/staff/");
   const showShopActions = user?.role === "user";
 
   useEffect(() => {
@@ -67,7 +68,7 @@ export function Layout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-slate-900 transition-colors dark:bg-slate-950 dark:text-white">
-      {!isAdminRoute && !isVendorWorkspace ? (
+      {!isAdminRoute && !isVendorWorkspace && !isStaffWorkspace ? (
         <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
           <div className="mx-auto w-full max-w-7xl px-3 py-2 sm:px-4 sm:py-3">
             {/* Mobile Header: Logo + User Menu */}
@@ -133,11 +134,11 @@ export function Layout() {
         </header>
       ) : null}
 
-      <main className={isAdminRoute || isVendorWorkspace ? "flex-1" : "mx-auto w-full max-w-6xl flex-1 px-3 py-4 sm:px-4 sm:py-6 lg:py-8"}>
+      <main className={isAdminRoute || isVendorWorkspace || isStaffWorkspace ? "flex-1" : "mx-auto w-full max-w-6xl flex-1 px-3 py-4 sm:px-4 sm:py-6 lg:py-8"}>
         <Outlet />
       </main>
 
-      {!isAdminRoute && !isVendorWorkspace ? <Footer /> : null}
+      {!isAdminRoute && !isVendorWorkspace && !isStaffWorkspace ? <Footer /> : null}
     </div>
   );
 }

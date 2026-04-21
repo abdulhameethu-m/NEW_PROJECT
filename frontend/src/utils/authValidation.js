@@ -1,5 +1,6 @@
 const PHONE_REGEX = /^[0-9]{10}$/;
 const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 export function isValidPhone(phone) {
   return PHONE_REGEX.test(String(phone || "").trim());
@@ -7,6 +8,10 @@ export function isValidPhone(phone) {
 
 export function isValidGmail(email) {
   return GMAIL_REGEX.test(String(email || "").trim());
+}
+
+export function isValidEmail(email) {
+  return EMAIL_REGEX.test(String(email || "").trim());
 }
 
 export function validateAuthForm({ identifier, email, phone, password, requireEmail = false } = {}) {
@@ -17,8 +22,8 @@ export function validateAuthForm({ identifier, email, phone, password, requireEm
     if (!value) {
       errors.identifier = "Enter your 10-digit phone number or Gmail address.";
     } else if (value.includes("@")) {
-      if (!isValidGmail(value)) {
-        errors.identifier = "Use a valid Gmail address ending with @gmail.com.";
+      if (!isValidEmail(value)) {
+        errors.identifier = "Use a valid email address.";
       }
     } else if (!isValidPhone(value)) {
       errors.identifier = "Phone number must be exactly 10 digits.";

@@ -4,6 +4,7 @@ const userRepo = require("../repositories/user.repository");
 const productRepo = require("../repositories/product.repository");
 const orderRepo = require("../repositories/order.repository");
 const { ORDER_STATUS, PAYMENT_STATUS } = require("../models/Order");
+const { Payout } = require("../models/Payout");
 const auditService = require("./audit.service");
 const productService = require("./product.service");
 const { queueWhatsAppMessage } = require("./whatsapp.service");
@@ -581,6 +582,33 @@ async function updateOrderStatus(orderId, status, actor, meta) {
   return updated;
 }
 
+async function listPayouts({ status, startDate, endDate } = {}) {
+  const match = {};
+  if (status) match.status = status;
+  applyDateRange(match, normalizeDateRange({ startDate, endDate }));
+
+  const payouts = await Payout.find(match)
+    .populate("sellerId", "companyName")
+    .populate("orderId", "orderNumber totalAmount status createdAt")
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();
+
+  const overview = payouts.reduce(
+    (summary, payout) => {
+      const amount = Number(payout.amount || 0);
+      summary.totalAmount += amount;
+      if (payout.status === "PENDING") summary.pendingAmount += amount;
+      if (payout.status === "PAID") summary.paidAmount += amount;
+      if (payout.status === "FAILED") summary.failedAmount += amount;
+      return summary;
+    },
+    { totalAmount: 0, pendingAmount: 0, paidAmount: 0, failedAmount: 0 }
+  );
+
+  return { overview, payouts };
+}
+
 module.exports = {
   getDashboardOverview,
   getAnalytics,
@@ -601,4 +629,5 @@ module.exports = {
   updateOrder,
   softDeleteOrder,
   updateOrderStatus,
+  listPayouts,
 };

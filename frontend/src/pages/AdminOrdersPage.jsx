@@ -7,12 +7,14 @@ import { StatusBadge } from "../components/StatusBadge";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
 import { formatCurrency } from "../utils/formatCurrency";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
 }
 
 export function AdminOrdersPage() {
+  const { basePath, isLegacyAdmin } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState("");
@@ -108,12 +110,14 @@ export function AdminOrdersPage() {
           ))}
         </div>
 
-        <Link
-          to="/admin/orders/create"
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          Create order
-        </Link>
+        {isLegacyAdmin ? (
+          <Link
+            to="/admin/orders/create"
+            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Create order
+          </Link>
+        ) : null}
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[1fr_220px]">
@@ -203,19 +207,21 @@ export function AdminOrdersPage() {
               <td className="px-4 py-3 text-right">
                 <div className="inline-flex flex-wrap justify-end gap-2">
                   <Link
-                    to={`/admin/orders/${order._id}`}
+                    to={`${basePath}/orders/${order._id}`}
                     className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     View / Edit
                   </Link>
-                  <button
-                    type="button"
-                    disabled={busyId === order._id}
-                    onClick={() => handleDelete(order._id)}
-                    className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:text-rose-200 dark:hover:bg-rose-950/30"
-                  >
-                    Delete
-                  </button>
+                  {isLegacyAdmin ? (
+                    <button
+                      type="button"
+                      disabled={busyId === order._id}
+                      onClick={() => handleDelete(order._id)}
+                      className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:text-rose-200 dark:hover:bg-rose-950/30"
+                    >
+                      Delete
+                    </button>
+                  ) : null}
                 </div>
               </td>
             </tr>

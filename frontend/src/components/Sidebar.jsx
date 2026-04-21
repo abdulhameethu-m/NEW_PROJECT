@@ -1,19 +1,23 @@
 import { NavLink } from "react-router-dom";
-
-const navItems = [
-  { label: "Dashboard", to: "/admin/dashboard" },
-  { label: "Users", to: "/admin/users" },
-  { label: "Sellers", to: "/admin/sellers" },
-  { label: "Categories", to: "/admin/categories" },
-  { label: "Products", to: "/admin/products" },
-  { label: "Orders", to: "/admin/orders" },
-  { label: "Analytics", to: "/admin/analytics" },
-  { label: "Revenue", to: "/admin/revenue" },
-  { label: "Audit Logs", to: "/admin/audit-logs" },
-  { label: "Settings", to: "/admin/settings" },
-];
+import { useAdminSession } from "../hooks/useAdminSession";
 
 export function Sidebar({ open, onClose }) {
+  const { basePath, isLegacyAdmin, canAccess } = useAdminSession();
+  const navItems = [
+    { label: "Dashboard", to: `${basePath}/dashboard`, visible: isLegacyAdmin || canAccess("analytics.read") },
+    { label: "Users", to: `${basePath}/users`, visible: isLegacyAdmin || canAccess("users.read") },
+    { label: "Products", to: `${basePath}/products`, visible: isLegacyAdmin || canAccess("products.read") },
+    { label: "Orders", to: `${basePath}/orders`, visible: isLegacyAdmin || canAccess("orders.read") },
+    { label: "Analytics", to: `${basePath}/analytics`, visible: isLegacyAdmin || canAccess("analytics.read") },
+    { label: "Settings", to: `${basePath}/settings`, visible: isLegacyAdmin || canAccess("settings.update") || canAccess("analytics.read") },
+    { label: "Sellers", to: "/admin/sellers", visible: isLegacyAdmin },
+    { label: "Categories", to: "/admin/categories", visible: isLegacyAdmin },
+    { label: "Revenue", to: "/admin/revenue", visible: isLegacyAdmin },
+    { label: "Audit Logs", to: "/admin/audit-logs", visible: isLegacyAdmin },
+    { label: "Staff Roles", to: "/admin/roles", visible: isLegacyAdmin },
+    { label: "Staff Accounts", to: "/admin/staff", visible: isLegacyAdmin },
+  ].filter((item) => item.visible);
+
   return (
     <>
       <div
@@ -27,8 +31,12 @@ export function Sidebar({ open, onClose }) {
       >
         <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4 dark:border-slate-800">
           <div className="min-w-0">
-            <div className="truncate text-base font-semibold text-slate-950 dark:text-white sm:text-lg">Admin Hub</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">Control center</div>
+            <div className="truncate text-base font-semibold text-slate-950 dark:text-white sm:text-lg">
+              {isLegacyAdmin ? "Admin Hub" : "Staff Hub"}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {isLegacyAdmin ? "Control center" : "Permission-based workspace"}
+            </div>
           </div>
           <button
             type="button"

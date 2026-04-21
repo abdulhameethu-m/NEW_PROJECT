@@ -53,7 +53,8 @@ const ROLE_PERMISSIONS = {
 };
 
 function hasPermission(role, permission) {
-  return (ROLE_PERMISSIONS[role] || []).includes(permission);
+  const normalized = String(permission || "").replace(/\./g, ":");
+  return (ROLE_PERMISSIONS[role] || []).includes(normalized);
 }
 
 module.exports = {

@@ -44,6 +44,38 @@ const pageMeta = {
     title: "Settings",
     subtitle: "Admin workspace preferences and operational notes.",
   },
+  "/admin/roles": {
+    title: "Staff Roles",
+    subtitle: "Create reusable role templates and manage RBAC permissions.",
+  },
+  "/admin/staff": {
+    title: "Staff Accounts",
+    subtitle: "Provision staff access, assign roles, and control account status.",
+  },
+  "/staff/dashboard": {
+    title: "Staff Dashboard",
+    subtitle: "Your assigned workspace modules and operational overview.",
+  },
+  "/staff/users": {
+    title: "Users",
+    subtitle: "Customer records you are permitted to view or update.",
+  },
+  "/staff/products": {
+    title: "Products",
+    subtitle: "Catalog controls available to your assigned role.",
+  },
+  "/staff/orders": {
+    title: "Orders",
+    subtitle: "Order tasks and workflow actions available to your role.",
+  },
+  "/staff/analytics": {
+    title: "Analytics",
+    subtitle: "Reporting and dashboards granted to your role.",
+  },
+  "/staff/settings": {
+    title: "Settings",
+    subtitle: "Staff-facing operational settings and workspace notes.",
+  },
 };
 
 export function AdminLayout() {

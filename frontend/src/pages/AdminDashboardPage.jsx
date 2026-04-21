@@ -4,12 +4,14 @@ import { getDashboard, getAnalytics, getDailyRevenue } from "../services/adminAp
 import { DailyRevenueChart } from "../components/DailyRevenueChart";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
 }
 
 export function AdminDashboardPage() {
+  const { basePath, isLegacyAdmin } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dashboard, setDashboard] = useState(null);
@@ -104,7 +106,7 @@ export function AdminDashboardPage() {
               <h2 className="text-base font-semibold text-slate-950 dark:text-white sm:text-lg">Sales Overview</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">Last 6 recorded revenue periods</p>
             </div>
-            <Link to="/admin/analytics" className="w-full text-sm font-medium text-blue-600 hover:underline sm:w-auto">
+            <Link to={`${basePath}/analytics`} className="w-full text-sm font-medium text-blue-600 hover:underline sm:w-auto">
               View analytics
             </Link>
           </div>
@@ -144,15 +146,15 @@ export function AdminDashboardPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
             <h2 className="text-base font-semibold text-slate-950 dark:text-white sm:text-lg">Approval Queue</h2>
             <div className="mt-4 grid gap-3">
-              <QueueRow label="Pending sellers" value={queues.pendingSellers ?? 0} href="/admin/sellers" />
-              <QueueRow label="Pending products" value={queues.pendingProducts ?? 0} href="/admin/products" />
+              {isLegacyAdmin ? <QueueRow label="Pending sellers" value={queues.pendingSellers ?? 0} href="/admin/sellers" /> : null}
+              <QueueRow label="Pending products" value={queues.pendingProducts ?? 0} href={`${basePath}/products`} />
             </div>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-base font-semibold text-slate-950 dark:text-white sm:text-lg">Top Products</h2>
-              <Link to="/admin/products" className="w-full text-sm font-medium text-blue-600 hover:underline sm:w-auto">
+              <Link to={`${basePath}/products`} className="w-full text-sm font-medium text-blue-600 hover:underline sm:w-auto">
                 Open catalog
               </Link>
             </div>

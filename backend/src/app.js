@@ -27,6 +27,7 @@ const wishlistRoutes = require("./routes/wishlist.routes");
 const userRoutes = require("./routes/user.routes");
 const categoryRoutes = require("./routes/category.routes");
 const exportRoutes = require("./routes/export.routes");
+const staffRoutes = require("./modules/staff/routes");
 
 function createApp() {
   const app = express();
@@ -87,6 +88,7 @@ function createApp() {
   app.use("/api/user", userRoutes);
   app.use("/api/categories", categoryRoutes);
   app.use("/api/export", exportRoutes);
+  app.use("/api/staff", staffRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

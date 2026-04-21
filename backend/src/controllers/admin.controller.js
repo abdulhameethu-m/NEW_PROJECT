@@ -123,6 +123,15 @@ const listOrders = asyncHandler(async (req, res) => {
   return ok(res, result, "Orders loaded");
 });
 
+const listPayouts = asyncHandler(async (req, res) => {
+  const result = await adminService.listPayouts({
+    status: req.query.status,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate,
+  });
+  return ok(res, result, "Payouts loaded");
+});
+
 const getOrderById = asyncHandler(async (req, res) => {
   const order = await adminService.getOrderById(req.params.id);
   return ok(res, order, "Order loaded");
@@ -186,6 +195,7 @@ module.exports = {
   rejectVendor,
   removeVendor,
   listOrders,
+  listPayouts,
   getOrderById,
   createOrder,
   updateOrder,

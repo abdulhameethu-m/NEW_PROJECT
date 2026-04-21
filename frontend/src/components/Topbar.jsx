@@ -1,24 +1,40 @@
-import { useAuthStore } from "../context/authStore";
 import * as authService from "../services/authService";
+import * as staffAuthService from "../services/staffAuthService";
+import { useAuthStore } from "../context/authStore";
+import { useStaffAuthStore } from "../context/staffAuthStore";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 export function Topbar({ title, subtitle, onMenuToggle }) {
-  const user = useAuthStore((s) => s.user);
-  const refreshToken = useAuthStore((s) => s.refreshToken);
-  const logout = useAuthStore((s) => s.logout);
+  const authRefreshToken = useAuthStore((s) => s.refreshToken);
+  const authLogout = useAuthStore((s) => s.logout);
+  const staffRefreshToken = useStaffAuthStore((s) => s.refreshToken);
+  const staffLogout = useStaffAuthStore((s) => s.logout);
+  const { currentUser, sessionType } = useAdminSession();
 
-  const initials = user?.name
+  const initials = currentUser?.name
     ?.split(" ")
     .map((part) => part[0])
     .join("")
     .toUpperCase() || "A";
 
   async function handleLogout() {
+    if (sessionType === "staff") {
+      try {
+        await staffAuthService.logout(staffRefreshToken);
+      } catch {
+        // local logout is still the fallback
+      } finally {
+        staffLogout();
+      }
+      return;
+    }
+
     try {
-      await authService.logout(refreshToken);
+      await authService.logout(authRefreshToken);
     } catch {
       // local logout is still the fallback
     } finally {
-      logout();
+      authLogout();
     }
   }
 
@@ -47,8 +63,10 @@ export function Topbar({ title, subtitle, onMenuToggle }) {
         {/* Right section: User info + Logout */}
         <div className="flex flex-shrink-0 items-center justify-between gap-2 sm:gap-3 md:ml-auto lg:ml-0">
           <div className="hidden text-right sm:block">
-            <div className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white">{user?.name || "Admin"}</div>
-            <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{user?.role || "admin"}</div>
+            <div className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white">{currentUser?.name || "Admin"}</div>
+            <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {sessionType === "staff" ? currentUser?.role?.name || "staff" : currentUser?.role || "admin"}
+            </div>
           </div>
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs sm:text-sm font-semibold text-white dark:bg-white dark:text-slate-950">
             {initials}
