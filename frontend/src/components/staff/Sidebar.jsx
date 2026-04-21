@@ -8,6 +8,12 @@ const ICON_MAP = {
   ShoppingCart: OrdersIcon,
   Package: PackageIcon,
   TrendingUp: PayoutsIcon,
+  MessageCircle: MessageCircleIcon,
+  CreditCard: CreditCardIcon,
+  BarChart3: BarChart3Icon,
+  Settings: SettingsIcon,
+  Lock: LockIcon,
+  UserCheck: UserCheckIcon,
 };
 
 export function StaffSidebar({ permissions, isOpen, onToggle }) {
@@ -222,6 +228,62 @@ function PayoutsIcon({ size = 24, className = "shrink-0" }) {
       <path d="M4 16 10 10l4 4 6-8" />
       <path d="M20 10V6h-4" />
       <path d="M4 20h16" />
+    </IconBase>
+  );
+}
+
+function MessageCircleIcon({ size = 24, className = "shrink-0" }) {
+  return (
+    <IconBase size={size} className={className}>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </IconBase>
+  );
+}
+
+function CreditCardIcon({ size = 24, className = "shrink-0" }) {
+  return (
+    <IconBase size={size} className={className}>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path d="M2 10h20" />
+    </IconBase>
+  );
+}
+
+function BarChart3Icon({ size = 24, className = "shrink-0" }) {
+  return (
+    <IconBase size={size} className={className}>
+      <path d="M3 3v18h18" />
+      <path d="M18 17V9" />
+      <path d="M13 17v-4" />
+      <path d="M8 17v-2" />
+    </IconBase>
+  );
+}
+
+function SettingsIcon({ size = 24, className = "shrink-0" }) {
+  return (
+    <IconBase size={size} className={className}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m0 5.08l4.24 4.24M1 12h6m6 0h6m-1-8.22l-4.24 4.24m-5.08 0L4.22 19.78" />
+    </IconBase>
+  );
+}
+
+function LockIcon({ size = 24, className = "shrink-0" }) {
+  return (
+    <IconBase size={size} className={className}>
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </IconBase>
+  );
+}
+
+function UserCheckIcon({ size = 24, className = "shrink-0" }) {
+  return (
+    <IconBase size={size} className={className}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+      <circle cx="9.5" cy="7" r="3" />
+      <polyline points="16 11 18 13 22 9" />
     </IconBase>
   );
 }

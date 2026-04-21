@@ -72,6 +72,12 @@ import { StaffUsersPage } from "./pages/StaffUsersPage";
 import { StaffOrdersPage } from "./pages/StaffOrdersPage";
 import { StaffProductsPage } from "./pages/StaffProductsPage";
 import { StaffPayoutsPage } from "./pages/StaffPayoutsPage";
+import { StaffPaymentsPage } from "./pages/StaffPaymentsPage";
+import { StaffReviewsPage } from "./pages/StaffReviewsPage";
+import { StaffAnalyticsPage } from "./pages/StaffAnalyticsPage";
+import { StaffSettingsPage } from "./pages/StaffSettingsPage";
+import { StaffRolesPage } from "./pages/StaffRolesPage";
+import { StaffStaffPage } from "./pages/StaffStaffPage";
 import { StaffUnauthorizedPage } from "./pages/StaffUnauthorizedPage";
 
 export default function App() {
@@ -177,8 +183,26 @@ export default function App() {
             <Route element={<StaffPermissionRoute permission="products.read" />}>
               <Route path="products" element={<StaffProductsPage />} />
             </Route>
+            <Route element={<StaffPermissionRoute permission="reviews.read" />}>
+              <Route path="reviews" element={<StaffReviewsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="payments.read" />}>
+              <Route path="payments" element={<StaffPaymentsPage />} />
+            </Route>
             <Route element={<StaffPermissionRoute permission="payouts.read" />}>
               <Route path="payouts" element={<StaffPayoutsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="analytics.read" />}>
+              <Route path="analytics" element={<StaffAnalyticsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="settings.update" />}>
+              <Route path="settings" element={<StaffSettingsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="roles.read" />}>
+              <Route path="roles" element={<StaffRolesPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="staff.read" />}>
+              <Route path="staff" element={<StaffStaffPage />} />
             </Route>
           </Route>
         </Route>

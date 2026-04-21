@@ -32,10 +32,16 @@ export function StaffDashboardLayout({ children }) {
       }
 
       try {
-        console.log("[DASHBOARD] Starting permission sync...");
+        console.log("[DASHBOARD_LAYOUT] Starting permission sync...");
         const response = await staffAuthService.getMe();
         
         if (active) {
+          console.log("[DASHBOARD_LAYOUT] Permission sync successful", {
+            modules: Object.keys(response.data.permissions || {}),
+            syncedAt: response.data.syncedAt,
+            fullResponse: response.data,
+          });
+          
           setAuth({
             token,
             refreshToken: useStaffAuthStore.getState().refreshToken,
@@ -43,23 +49,19 @@ export function StaffDashboardLayout({ children }) {
           });
           setLastSyncTime(new Date());
           setError("");
-          console.log("[DASHBOARD] Permission sync successful", {
-            modules: Object.keys(response.data.permissions || {}),
-            syncedAt: response.data.syncedAt,
-          });
         }
       } catch (err) {
         if (!active) return;
 
         if (err.response?.status === 401) {
-          console.log("[DASHBOARD] Unauthorized - logging out");
+          console.log("[DASHBOARD_LAYOUT] Unauthorized - logging out");
           logout();
           return;
         }
 
         const errorMsg = err.response?.data?.message || "Failed to load the latest staff permissions.";
         setError(errorMsg);
-        console.error("[DASHBOARD] Permission sync failed:", errorMsg);
+        console.error("[DASHBOARD_LAYOUT] Permission sync failed:", errorMsg, { error: err });
       } finally {
         if (active) setLoading(false);
       }
@@ -70,7 +72,7 @@ export function StaffDashboardLayout({ children }) {
 
     // Setup periodic sync
     syncInterval = setInterval(() => {
-      console.log("[DASHBOARD] Periodic permission sync triggered");
+      console.log("[DASHBOARD_LAYOUT] Periodic permission sync triggered");
       syncSession();
     }, PERMISSION_SYNC_INTERVAL);
 

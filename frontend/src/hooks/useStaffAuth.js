@@ -20,11 +20,13 @@ export function useStaffPermission() {
 
     try {
       setSyncing(true);
+      console.log("[PERMISSION_SYNC] Starting sync from /api/staff/auth/me");
       const response = await staffAuthService.getMe();
       
-      console.log("[PERMISSION_HOOK] Synced permissions from /me endpoint", {
+      console.log("[PERMISSION_SYNC] Sync successful", {
         syncedAt: response.data.syncedAt,
-        permissions: Object.keys(response.data.permissions || {}),
+        modules: Object.keys(response.data.permissions || {}),
+        permissions: response.data.permissions,
       });
 
       setAuth({
@@ -33,14 +35,18 @@ export function useStaffPermission() {
         user: response.data,
       });
     } catch (error) {
-      console.error("[PERMISSION_HOOK] Sync failed:", error.message);
+      console.error("[PERMISSION_SYNC] Sync failed:", error.message);
     } finally {
       setSyncing(false);
     }
   }, [token, refreshToken, setAuth, syncing]);
 
   const hasPermission = useCallback(
-    (permissionKey) => hasStaffPermission(permissions, permissionKey),
+    (permissionKey) => {
+      const result = hasStaffPermission(permissions, permissionKey);
+      console.log(`[PERMISSION_CHECK] ${permissionKey}: ${result}`, { permissions });
+      return result;
+    },
     [permissions]
   );
 
@@ -72,6 +78,7 @@ export function useRequirePermission(permissionKey) {
 
   useEffect(() => {
     if (permissionKey && user && !hasStaffPermission(user.permissions, permissionKey)) {
+      console.warn(`[PERMISSION_GUARD] Access denied for ${permissionKey}`);
       navigate("/staff/unauthorized", { replace: true });
     }
   }, [navigate, permissionKey, user]);
