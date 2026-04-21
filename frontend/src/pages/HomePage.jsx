@@ -1,32 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BannerCarousel } from "../components/BannerCarousel";
 import { CategoryCarousel } from "../components/CategoryCarousel";
+import { useCategories } from "../hooks/useCategories";
 import * as productService from "../services/productService";
 import { formatCurrency } from "../utils/formatCurrency";
+import { usePresentedCategories } from "../utils/categoryPresentation.jsx";
 
 export function HomePage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   const [popularPicks, setPopularPicks] = useState([]);
   const [trending, setTrending] = useState([]);
   const [recommended, setRecommended] = useState([]);
-
-  const categories = useMemo(
-    () => [
-      { id: "mobiles", name: "Mobiles", icon: "📱", color: "from-blue-500 to-indigo-600" },
-      { id: "electronics", name: "Electronics", icon: "🎧", color: "from-cyan-500 to-blue-600" },
-      { id: "fashion", name: "Fashion", icon: "👕", color: "from-pink-500 to-rose-600" },
-      { id: "grocery", name: "Grocery", icon: "🛒", color: "from-emerald-500 to-green-600" },
-      { id: "home", name: "Home", icon: "🏠", color: "from-amber-500 to-orange-600" },
-      { id: "beauty", name: "Beauty", icon: "💄", color: "from-violet-500 to-purple-600" },
-      { id: "sports", name: "Sports", icon: "⚽", color: "from-lime-500 to-green-600" },
-      { id: "books", name: "Books", icon: "📚", color: "from-fuchsia-500 to-pink-600" },
-    ],
-    []
-  );
+  const { categories, loading: categoriesLoading } = useCategories();
+  const presentedCategories = usePresentedCategories(categories);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +54,8 @@ export function HomePage() {
       <div className="-mx-3 sm:mx-0">
         <CategoryCarousel
           title="Top Categories"
-          categories={categories}
+          categories={presentedCategories}
+          loading={categoriesLoading}
           onSelect={(cat) => navigate(`/shop?category=${encodeURIComponent(cat.name)}`)}
         />
       </div>
@@ -73,7 +63,7 @@ export function HomePage() {
       <BannerCarousel />
 
       {error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200 sm:px-4 sm:py-3 sm:text-sm">
           {error}
         </div>
       ) : null}
@@ -88,7 +78,7 @@ export function HomePage() {
 
       <ProductSection
         title="Trending"
-        subtitle="Fresh arrivals & fast movers"
+        subtitle="Fresh arrivals and fast movers"
         items={trending}
         loading={loading}
         viewAllHref="/shop?sortBy=createdAt&sortOrder=desc"
@@ -102,10 +92,10 @@ export function HomePage() {
         viewAllHref="/shop?sortBy=ratings.averageRating&sortOrder=desc"
       />
 
-      <div className="grid gap-2 sm:gap-3 lg:gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 xs:grid-cols-2 sm:gap-3 lg:grid-cols-4 lg:gap-4">
         <TrustBadge title="Fast Delivery" detail="Quick shipping to your doorstep" icon="🚚" />
         <TrustBadge title="Secure Payment" detail="Safe and encrypted transactions" icon="🔒" />
-        <TrustBadge title="Easy Returns" detail="Hassle-free return policy" icon="↩️" />
+        <TrustBadge title="Easy Returns" detail="Hassle-free return policy" icon="↩" />
         <TrustBadge title="24/7 Support" detail="Always here to help you" icon="💬" />
       </div>
     </div>
@@ -114,25 +104,25 @@ export function HomePage() {
 
 function ProductSection({ title, subtitle, items, loading, viewAllHref }) {
   return (
-    <section className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-3 sm:p-4 lg:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:rounded-3xl lg:p-6 sm:p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">{title}</h2>
-          <p className="mt-0.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white sm:text-lg">{title}</h2>
+          <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300 sm:text-sm">{subtitle}</p>
         </div>
         <Link
           to={viewAllHref}
-          className="inline-flex flex-shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 whitespace-nowrap"
+          className="inline-flex flex-shrink-0 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 sm:text-sm"
         >
           View all
         </Link>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-2 xs:grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 lg:gap-4">
+      <div className="mt-4 grid grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:gap-4">
         {loading ? (
-          Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)
+          Array.from({ length: 8 }).map((_, index) => <ProductCardSkeleton key={index} />)
         ) : items?.length ? (
-          items.map((p) => <ProductCard key={p._id} product={p} />)
+          items.map((product) => <ProductCard key={product._id} product={product} />)
         ) : (
           <div className="col-span-full rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-300">
             No products to show yet.
@@ -145,14 +135,12 @@ function ProductSection({ title, subtitle, items, loading, viewAllHref }) {
 
 function ProductCard({ product }) {
   const img = product?.images?.[0]?.url || "";
-  const discountPercent = product?.discountPrice
-    ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
-    : 0;
+  const discountPercent = product?.discountPrice ? Math.round(((product.price - product.discountPrice) / product.price) * 100) : 0;
 
   return (
     <Link
       to={`/product/${product._id}`}
-      className="group flex flex-col overflow-hidden rounded-xl lg:rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-950"
+      className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-950 lg:rounded-2xl"
     >
       <div className="relative aspect-[4/3] bg-slate-100 dark:bg-slate-800">
         {img ? (
@@ -161,8 +149,8 @@ function ProductCard({ product }) {
             alt={product.name}
             className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
             loading="lazy"
-            onError={(e) => {
-              e.currentTarget.src = "https://via.placeholder.com/600x450?text=Product";
+            onError={(event) => {
+              event.currentTarget.src = "https://via.placeholder.com/600x450?text=Product";
             }}
           />
         ) : (
@@ -172,36 +160,36 @@ function ProductCard({ product }) {
         )}
 
         {discountPercent > 0 ? (
-          <div className="absolute left-2 top-2 rounded-lg bg-rose-600 px-2 py-1 text-[10px] sm:text-[11px] font-bold text-white">
+          <div className="absolute left-2 top-2 rounded-lg bg-rose-600 px-2 py-1 text-[10px] font-bold text-white sm:text-[11px]">
             {discountPercent}% OFF
           </div>
         ) : null}
       </div>
 
       <div className="flex flex-1 flex-col p-2 sm:p-3">
-        <div className="line-clamp-2 text-xs sm:text-sm font-medium text-slate-900 group-hover:text-blue-700 dark:text-slate-100 dark:group-hover:text-blue-400">
+        <div className="line-clamp-2 text-xs font-medium text-slate-900 group-hover:text-blue-700 dark:text-slate-100 dark:group-hover:text-blue-400 sm:text-sm">
           {product.name}
         </div>
-        <div className="mt-0.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{product.category}</div>
+        <div className="mt-0.5 line-clamp-1 text-[11px] text-slate-500 dark:text-slate-400 sm:text-xs">{product.category}</div>
 
         <div className="mt-auto flex items-end justify-between gap-2 pt-2">
           <div className="min-w-0">
             {product.discountPrice ? (
               <div className="flex items-baseline gap-1 sm:gap-2">
-                <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
+                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 sm:text-sm">
                   {formatCurrency(product.discountPrice)}
                 </div>
-                <div className="truncate text-[10px] sm:text-xs text-slate-500 line-through dark:text-slate-400">
+                <div className="truncate text-[10px] text-slate-500 line-through dark:text-slate-400 sm:text-xs">
                   {formatCurrency(product.price)}
                 </div>
               </div>
             ) : (
-              <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">{formatCurrency(product.price)}</div>
+              <div className="text-xs font-bold text-slate-900 dark:text-slate-100 sm:text-sm">{formatCurrency(product.price)}</div>
             )}
           </div>
 
           {product?.ratings?.averageRating > 0 ? (
-            <div className="flex-shrink-0 rounded-md bg-emerald-600 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-white whitespace-nowrap">
+            <div className="flex-shrink-0 whitespace-nowrap rounded-md bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white sm:px-2 sm:text-[11px]">
               ★ {Number(product.ratings.averageRating).toFixed(1)}
             </div>
           ) : null}
@@ -226,14 +214,14 @@ function ProductCardSkeleton() {
 
 function TrustBadge({ icon, title, detail }) {
   return (
-    <div className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-3 sm:p-4 lg:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:rounded-3xl lg:p-6 sm:p-4">
       <div className="flex items-start gap-2 sm:gap-3">
-        <div className="flex h-9 sm:h-11 w-9 sm:w-11 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xl sm:text-2xl dark:bg-slate-800">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xl dark:bg-slate-800 sm:h-11 sm:w-11 sm:text-2xl">
           {icon}
         </div>
         <div className="min-w-0">
-          <div className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">{title}</div>
-          <div className="mt-0.5 text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 line-clamp-2">{detail}</div>
+          <div className="text-xs font-semibold text-slate-900 dark:text-white sm:text-sm">{title}</div>
+          <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-600 dark:text-slate-300 sm:text-xs">{detail}</div>
         </div>
       </div>
     </div>

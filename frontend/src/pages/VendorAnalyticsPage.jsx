@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { ReportingToolbar } from "../components/ReportingToolbar";
+import { InlineToast } from "../components/commerce/InlineToast";
+import { useReporting } from "../hooks/useReporting";
 import { formatCurrency } from "../utils/formatCurrency";
 import { StatusBadge } from "../components/StatusBadge";
 import { VendorDataTable, VendorMiniBarChart, VendorSection } from "../components/VendorPanel";
@@ -7,16 +10,27 @@ import * as vendorDashboardService from "../services/vendorDashboardService";
 export function VendorAnalyticsPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const reporting = useReporting({
+    module: "analytics",
+  });
 
   useEffect(() => {
     vendorDashboardService
-      .getVendorAnalytics()
+      .getVendorAnalytics(reporting.appliedParams)
       .then((response) => {
         setData(response.data);
         setError("");
       })
       .catch((err) => setError(err?.response?.data?.message || "Failed to load analytics."));
-  }, []);
+  }, [reporting.appliedParams]);
+
+  async function handleExport(format) {
+    try {
+      await reporting.exportReport(format);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to export analytics.");
+    }
+  }
 
   if (error) {
     return <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>;
@@ -28,6 +42,17 @@ export function VendorAnalyticsPage() {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="xl:col-span-2">
+        <ReportingToolbar
+          startDate={reporting.startDate}
+          endDate={reporting.endDate}
+          onDateChange={reporting.setDateRange}
+          onApply={reporting.applyDateRange}
+          onExport={handleExport}
+          exportingFormat={reporting.exportingFormat}
+          isDirty={reporting.hasPendingChanges}
+        />
+      </div>
       <VendorSection title="Revenue Trend" description="Monthly order and revenue trendline expressed as a simple ops chart.">
         <VendorMiniBarChart
           points={(data.salesTrend || []).map((entry) => ({
@@ -69,6 +94,7 @@ export function VendorAnalyticsPage() {
           />
         </VendorSection>
       </div>
+      <InlineToast toast={reporting.toast} onClose={reporting.clearToast} />
     </div>
   );
 }

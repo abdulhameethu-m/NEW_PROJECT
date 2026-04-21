@@ -1,18 +1,56 @@
 import { api } from "./api";
+import { buildDateRangeParams } from "../utils/reporting";
+
+function triggerBlobDownload(response, fallbackName) {
+  const blob = new Blob([response.data], { type: response.headers["content-type"] || "application/octet-stream" });
+  const contentDisposition = response.headers["content-disposition"] || "";
+  const match = contentDisposition.match(/filename="?([^"]+)"?/i);
+  const filename = match?.[1] || fallbackName;
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+}
 
 export async function getDashboard() {
   const { data } = await api.get("/api/admin/dashboard");
   return data;
 }
 
-export async function getAnalytics() {
-  const { data } = await api.get("/api/admin/analytics");
+export async function getAnalytics(params = {}) {
+  const { data } = await api.get("/api/admin/analytics", { params });
   return data;
 }
 
 export async function getDailyRevenue(days = 7) {
   const { data } = await api.get("/api/admin/daily-revenue", { params: { days } });
   return data;
+}
+
+export async function getRevenueSummary(params = {}) {
+  const { data } = await api.get("/api/admin/revenue", { params });
+  return data;
+}
+
+export async function getVendorRevenue(params = {}) {
+  const { data } = await api.get("/api/admin/revenue/vendors", { params });
+  return data;
+}
+
+export async function exportRevenueReport({ format, startDate, endDate }) {
+  const response = await api.get("/api/admin/revenue/export", {
+    params: {
+      format,
+      ...buildDateRangeParams(startDate, endDate),
+    },
+    responseType: "blob",
+  });
+
+  triggerBlobDownload(response, `revenue-report.${format === "excel" ? "xlsx" : format}`);
 }
 
 export async function listUsers(params = {}) {
@@ -122,5 +160,30 @@ export async function updateOrder(id, patch) {
 
 export async function deleteOrder(id) {
   const { data } = await api.delete(`/api/admin/orders/${id}`);
+  return data;
+}
+
+export async function getAuditLogs(params = {}) {
+  const { data } = await api.get("/api/admin/audit-logs", { params });
+  return data;
+}
+
+export async function listCategories() {
+  const { data } = await api.get("/api/admin/categories");
+  return data;
+}
+
+export async function createCategory(payload) {
+  const { data } = await api.post("/api/admin/categories", payload);
+  return data;
+}
+
+export async function updateCategory(id, payload) {
+  const { data } = await api.patch(`/api/admin/categories/${id}`, payload);
+  return data;
+}
+
+export async function toggleCategory(id, isActive) {
+  const { data } = await api.patch(`/api/admin/categories/${id}/toggle`, { isActive });
   return data;
 }

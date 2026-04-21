@@ -18,6 +18,11 @@ export {
   approveProduct,
   rejectProduct,
   getProductStats,
+  listCategories,
+  createCategory as createAdminCategory,
+  updateCategory as updateAdminCategory,
+  toggleCategory as toggleAdminCategory,
   listOrders,
   updateOrderStatus,
+  getAuditLogs,
 } from "./adminApi";

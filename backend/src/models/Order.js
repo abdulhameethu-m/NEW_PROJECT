@@ -57,6 +57,9 @@ const orderSchema = new mongoose.Schema(
     shippingFee: { type: Number, min: 0, default: 0 },
     taxAmount: { type: Number, min: 0, default: 0 },
     totalAmount: { type: Number, required: true, min: 0, default: 0 },
+    platformCommissionRate: { type: Number, min: 0, default: 0 },
+    platformCommissionAmount: { type: Number, min: 0, default: 0 },
+    vendorEarning: { type: Number, min: 0, default: 0 },
     currency: {
       type: String,
       default: "INR",

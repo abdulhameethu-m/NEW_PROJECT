@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getProductById, updateProduct } from "../services/adminService";
 import { BackButton } from "../components/BackButton";
+import { useCategories } from "../hooks/useCategories";
 
 export function AdminProductEdit() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export function AdminProductEdit() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const { categories, loading: categoriesLoading } = useCategories();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -273,14 +275,28 @@ export function AdminProductEdit() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Category *</label>
-                <input
-                  type="text"
+                <select
                   name="category"
                   value={formData.category}
                   onChange={handleInputChange}
-                  placeholder="e.g., Electronics, Fashion"
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 placeholder-slate-400 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                />
+                  disabled={categoriesLoading || categories.length === 0}
+                >
+                  <option value="">
+                    {categoriesLoading ? "Loading categories..." : categories.length ? "Select a category" : "No active categories available"}
+                  </option>
+                  {categories.map((category) => (
+                    <option key={category._id || category.slug} value={category.name}>
+                      {category.name}
+                    </option>
+                  ))}
+                  {formData.category && !categories.some((category) => category.name === formData.category) ? (
+                    <option value={formData.category}>{formData.category}</option>
+                  ) : null}
+                </select>
+                {!categoriesLoading && categories.length === 0 ? (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">No active categories are currently available.</p>
+                ) : null}
               </div>
 
               <div>

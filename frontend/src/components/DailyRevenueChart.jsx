@@ -20,6 +20,13 @@ function formatCurrency(value) {
   }).format(value);
 }
 
+function tooltipFormatter(value, name) {
+  if (name === "Orders Count") {
+    return [value, name];
+  }
+  return [formatCurrency(value), name];
+}
+
 export function DailyRevenueChart({ data = [], loading = false, type = "line" }) {
   if (loading) {
     return (
@@ -52,7 +59,7 @@ export function DailyRevenueChart({ data = [], loading = false, type = "line" })
           <XAxis dataKey="date" stroke="#64748b" />
           <YAxis stroke="#64748b" />
           <Tooltip
-            formatter={(value) => formatCurrency(value)}
+            formatter={tooltipFormatter}
             contentStyle={{
               backgroundColor: "#1e293b",
               border: "1px solid #475569",
@@ -82,7 +89,7 @@ export function DailyRevenueChart({ data = [], loading = false, type = "line" })
           <XAxis dataKey="date" stroke="#64748b" />
           <YAxis stroke="#64748b" />
           <Tooltip
-            formatter={(value) => formatCurrency(value)}
+            formatter={tooltipFormatter}
             contentStyle={{
               backgroundColor: "#1e293b",
               border: "1px solid #475569",
@@ -105,7 +112,7 @@ export function DailyRevenueChart({ data = [], loading = false, type = "line" })
         <XAxis dataKey="date" stroke="#64748b" />
         <YAxis stroke="#64748b" />
         <Tooltip
-          formatter={(value) => formatCurrency(value)}
+          formatter={tooltipFormatter}
           contentStyle={{
             backgroundColor: "#1e293b",
             border: "1px solid #475569",

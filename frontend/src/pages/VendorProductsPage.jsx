@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ReportingToolbar } from "../components/ReportingToolbar";
+import { InlineToast } from "../components/commerce/InlineToast";
+import { useReporting } from "../hooks/useReporting";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
 import { VendorDataTable, VendorSection } from "../components/VendorPanel";
@@ -10,22 +13,39 @@ export function VendorProductsPage() {
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const reporting = useReporting({
+    module: "products",
+    getFilters: () => ({ ...(status ? { status } : {}) }),
+  });
 
   const load = useCallback(async () => {
     try {
-      const response = await vendorDashboardService.getVendorProducts({ status, search, limit: 20 });
+      const response = await vendorDashboardService.getVendorProducts({
+        status,
+        search,
+        limit: 20,
+        ...reporting.appliedParams,
+      });
       setData(response.data);
       setError("");
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load products.");
     }
-  }, [search, status]);
+  }, [reporting.appliedParams, search, status]);
 
   useEffect(() => {
     (async () => {
       await load();
     })();
   }, [load]);
+
+  async function handleExport(format) {
+    try {
+      await reporting.exportReport(format);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to export products.");
+    }
+  }
 
   return (
     <div className="grid gap-6">
@@ -60,6 +80,17 @@ export function VendorProductsPage() {
             </button>
           ))}
         </div>
+        <div className="mb-4">
+          <ReportingToolbar
+            startDate={reporting.startDate}
+            endDate={reporting.endDate}
+            onDateChange={reporting.setDateRange}
+            onApply={reporting.applyDateRange}
+            onExport={handleExport}
+            exportingFormat={reporting.exportingFormat}
+            isDirty={reporting.hasPendingChanges}
+          />
+        </div>
         {error ? <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
         <VendorDataTable
           rows={(data?.products || []).map((product) => ({
@@ -89,6 +120,7 @@ export function VendorProductsPage() {
             },
           ]}
         />
+        <InlineToast toast={reporting.toast} onClose={reporting.clearToast} />
       </VendorSection>
     </div>
   );

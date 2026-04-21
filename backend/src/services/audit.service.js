@@ -1,4 +1,5 @@
 const { AuditLog } = require("../models/AuditLog");
+const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
 
 class AuditService {
   async log({
@@ -24,12 +25,13 @@ class AuditService {
     });
   }
 
-  async list({ page = 1, limit = 20, action, actorRole, entityType, status } = {}) {
+  async list({ page = 1, limit = 20, action, actorRole, entityType, status, startDate, endDate } = {}) {
     const query = {};
     if (action) query.action = action;
     if (actorRole) query.actorRole = actorRole;
     if (entityType) query.entityType = entityType;
     if (status) query.status = status;
+    applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
     const skip = (page - 1) * limit;
     const [logs, total] = await Promise.all([

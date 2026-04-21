@@ -25,6 +25,8 @@ const deliveryRoutes = require("./routes/delivery.routes");
 const webhookRoutes = require("./routes/webhook.routes");
 const wishlistRoutes = require("./routes/wishlist.routes");
 const userRoutes = require("./routes/user.routes");
+const categoryRoutes = require("./routes/category.routes");
+const exportRoutes = require("./routes/export.routes");
 
 function createApp() {
   const app = express();
@@ -83,6 +85,8 @@ function createApp() {
   app.use("/api/webhooks", webhookRoutes);
   app.use("/api/wishlist", wishlistRoutes);
   app.use("/api/user", userRoutes);
+  app.use("/api/categories", categoryRoutes);
+  app.use("/api/export", exportRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

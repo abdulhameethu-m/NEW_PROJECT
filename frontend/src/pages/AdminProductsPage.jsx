@@ -7,7 +7,10 @@ import {
   listProducts,
   rejectProduct,
 } from "../services/adminApi";
+import { ReportingToolbar } from "../components/ReportingToolbar";
 import { StatusBadge } from "../components/StatusBadge";
+import { InlineToast } from "../components/commerce/InlineToast";
+import { useReporting } from "../hooks/useReporting";
 import { formatCurrency } from "../utils/formatCurrency";
 
 function normalizeError(err) {
@@ -25,13 +28,18 @@ export function AdminProductsPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [busyId, setBusyId] = useState("");
+  const reporting = useReporting({
+    module: "products",
+    getFilters: () => ({ ...(status ? { status } : {}) }),
+    onApply: () => setPage(1),
+  });
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const [productsRes, statsRes] = await Promise.all([
-        listProducts({ page, limit: 10, ...(status ? { status } : {}) }),
+        listProducts({ page, limit: 10, ...(status ? { status } : {}), ...reporting.appliedParams }),
         getProductStats(),
       ]);
       setProducts(productsRes.data.products);
@@ -42,7 +50,7 @@ export function AdminProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, status]);
+  }, [page, reporting.appliedParams, status]);
 
   useEffect(() => {
     (async () => {
@@ -99,6 +107,14 @@ export function AdminProductsPage() {
     }
   }
 
+  async function handleExport(format) {
+    try {
+      await reporting.exportReport(format);
+    } catch (err) {
+      setError(normalizeError(err));
+    }
+  }
+
   return (
     <div className="grid min-w-0 max-w-full gap-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -142,6 +158,16 @@ export function AdminProductsPage() {
           </div>
         ))}
       </div>
+
+      <ReportingToolbar
+        startDate={reporting.startDate}
+        endDate={reporting.endDate}
+        onDateChange={reporting.setDateRange}
+        onApply={reporting.applyDateRange}
+        onExport={handleExport}
+        exportingFormat={reporting.exportingFormat}
+        isDirty={reporting.hasPendingChanges}
+      />
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
@@ -290,6 +316,7 @@ export function AdminProductsPage() {
           </button>
         </div>
       </div>
+      <InlineToast toast={reporting.toast} onClose={reporting.clearToast} />
     </div>
   );
 }

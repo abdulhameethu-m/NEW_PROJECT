@@ -11,6 +11,7 @@ const { Review } = require("../../models/Review");
 const { ReturnRequest, RETURN_REQUEST_STATUS } = require("../../models/ReturnRequest");
 const { Offer } = require("../../models/Offer");
 const { SupportTicket } = require("../../models/SupportTicket");
+const { normalizeDateRange, applyDateRange } = require("../../utils/dateRange");
 
 const VENDOR_ORDER_FLOW = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 
@@ -111,6 +112,8 @@ class VendorDashboardService {
       sortBy: query.sortBy || "createdAt",
       sortOrder: query.sortOrder === "asc" ? 1 : -1,
       category: query.category,
+      startDate: query.startDate,
+      endDate: query.endDate,
     });
   }
 
@@ -155,6 +158,8 @@ class VendorDashboardService {
       status: query.status,
       sortBy: query.sortBy || "createdAt",
       sortOrder: query.sortOrder === "asc" ? 1 : -1,
+      startDate: query.startDate,
+      endDate: query.endDate,
     });
   }
 
@@ -217,6 +222,8 @@ class VendorDashboardService {
       search: query.search,
       sortBy: query.sortBy || "stock",
       sortOrder: query.sortOrder === "desc" ? -1 : 1,
+      startDate: query.startDate,
+      endDate: query.endDate,
     });
 
     return {
@@ -253,12 +260,18 @@ class VendorDashboardService {
     return product;
   }
 
-  async getAnalytics(userId) {
+  async getAnalytics(userId, query = {}) {
     const vendor = await this.getVendorContext(userId);
+    const orderDateRange = normalizeDateRange({
+      startDate: query.startDate,
+      endDate: query.endDate,
+    });
+    const orderMatch = { sellerId: vendor._id };
+    applyDateRange(orderMatch, orderDateRange);
 
     const [salesTrend, topProducts, statusBreakdown] = await Promise.all([
       Order.aggregate([
-        { $match: { sellerId: vendor._id } },
+        { $match: orderMatch },
         {
           $group: {
             _id: {
@@ -296,7 +309,7 @@ class VendorDashboardService {
         .limit(10)
         .select("name analytics stock status"),
       Order.aggregate([
-        { $match: { sellerId: vendor._id } },
+        { $match: orderMatch },
         { $group: { _id: "$status", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
@@ -305,13 +318,19 @@ class VendorDashboardService {
     return { salesTrend, topProducts, statusBreakdown };
   }
 
-  async getPayouts(userId) {
+  async getPayouts(userId, query = {}) {
     const vendor = await this.getVendorContext(userId);
+    const dateRange = normalizeDateRange({
+      startDate: query.startDate,
+      endDate: query.endDate,
+    });
+    const payoutMatch = { sellerId: vendor._id };
+    applyDateRange(payoutMatch, dateRange);
     const [pending, history, aggregates] = await Promise.all([
-      Payout.find({ sellerId: vendor._id, status: "PENDING" }).sort({ createdAt: -1 }).populate("orderId", "orderNumber totalAmount status createdAt"),
-      Payout.find({ sellerId: vendor._id }).sort({ createdAt: -1 }).limit(20).populate("orderId", "orderNumber totalAmount status createdAt"),
+      Payout.find({ ...payoutMatch, status: "PENDING" }).sort({ createdAt: -1 }).populate("orderId", "orderNumber totalAmount status createdAt"),
+      Payout.find(payoutMatch).sort({ createdAt: -1 }).limit(20).populate("orderId", "orderNumber totalAmount status createdAt"),
       Payout.aggregate([
-        { $match: { sellerId: vendor._id } },
+        { $match: payoutMatch },
         {
           $group: {
             _id: "$status",
@@ -455,6 +474,7 @@ class VendorDashboardService {
     const skip = (page - 1) * limit;
     const filter = { vendorId: vendor._id };
     if (query.rating) filter.rating = Number(query.rating);
+    applyDateRange(filter, normalizeDateRange({ startDate: query.startDate, endDate: query.endDate }));
 
     const [reviews, total] = await Promise.all([
       Review.find(filter)
@@ -505,6 +525,7 @@ class VendorDashboardService {
     const skip = (page - 1) * limit;
     const filter = { vendorId: vendor._id };
     if (query.status) filter.status = query.status;
+    applyDateRange(filter, normalizeDateRange({ startDate: query.startDate, endDate: query.endDate }));
 
     const [requests, total] = await Promise.all([
       ReturnRequest.find(filter)

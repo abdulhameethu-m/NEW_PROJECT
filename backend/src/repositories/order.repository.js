@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { Order } = require("../models/Order");
+const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
 
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -30,6 +31,8 @@ class OrderRepository {
     includeInactive = false,
     sortBy = "createdAt",
     sortOrder = -1,
+    startDate,
+    endDate,
   } = {}) {
     const query = {};
 
@@ -57,6 +60,8 @@ class OrderRepository {
         query.$or = searchConditions;
       }
     }
+
+    applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
     const skip = (page - 1) * limit;
     const sort = { [sortBy]: sortOrder };
@@ -88,9 +93,9 @@ class OrderRepository {
     return await Order.countDocuments(query);
   }
 
-  async sumRevenue() {
+  async sumRevenue(query = {}) {
     const [result] = await Order.aggregate([
-      { $match: { status: { $in: ["Shipped", "Delivered"] } } },
+      { $match: { ...query, status: { $in: ["Shipped", "Delivered"] } } },
       { $group: { _id: null, totalRevenue: { $sum: "$totalAmount" } } },
     ]);
 
@@ -119,9 +124,12 @@ class OrderRepository {
     status,
     sortBy = "createdAt",
     sortOrder = -1,
+    startDate,
+    endDate,
   } = {}) {
     const query = { userId, isActive: true };
     if (status) query.status = status;
+    applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
     const skip = (page - 1) * limit;
     const sort = { [sortBy]: sortOrder };
@@ -155,9 +163,12 @@ class OrderRepository {
     status,
     sortBy = "createdAt",
     sortOrder = -1,
+    startDate,
+    endDate,
   } = {}) {
     const query = { sellerId, isActive: true };
     if (status) query.status = status;
+    applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
     const skip = (page - 1) * limit;
     const sort = { [sortBy]: sortOrder };
@@ -222,9 +233,9 @@ class OrderRepository {
       .exec();
   }
 
-  async getMonthlyRevenue(limit = 6) {
+  async getMonthlyRevenue(limit = 6, match = {}) {
     return await Order.aggregate([
-      { $match: { status: { $in: ["Shipped", "Delivered"] } } },
+      { $match: { ...match, status: { $in: ["Shipped", "Delivered"] } } },
       {
         $group: {
           _id: {

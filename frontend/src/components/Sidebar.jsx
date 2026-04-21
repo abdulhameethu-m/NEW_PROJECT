@@ -4,9 +4,12 @@ const navItems = [
   { label: "Dashboard", to: "/admin/dashboard" },
   { label: "Users", to: "/admin/users" },
   { label: "Sellers", to: "/admin/sellers" },
+  { label: "Categories", to: "/admin/categories" },
   { label: "Products", to: "/admin/products" },
   { label: "Orders", to: "/admin/orders" },
   { label: "Analytics", to: "/admin/analytics" },
+  { label: "Revenue", to: "/admin/revenue" },
+  { label: "Audit Logs", to: "/admin/audit-logs" },
   { label: "Settings", to: "/admin/settings" },
 ];
 

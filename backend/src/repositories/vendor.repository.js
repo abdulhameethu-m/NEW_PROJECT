@@ -1,4 +1,5 @@
 const { Vendor } = require("../models/Vendor");
+const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
 
 async function findByUserId(userId) {
   return await Vendor.findOne({ userId }).exec();
@@ -12,9 +13,10 @@ async function upsertByUserId(userId, update) {
   ).exec();
 }
 
-async function listVendors({ status } = {}) {
+async function listVendors({ status, startDate, endDate } = {}) {
   const query = {};
   if (status) query.status = status;
+  applyDateRange(query, normalizeDateRange({ startDate, endDate }));
   return await Vendor.find(query)
     .populate("userId", "name email phone role status createdAt")
     .sort({ createdAt: -1 })

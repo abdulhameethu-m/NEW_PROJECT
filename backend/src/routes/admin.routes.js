@@ -1,6 +1,7 @@
 const express = require("express");
 const { authRequired, requireRole, requirePermission } = require("../middleware/auth");
 const adminController = require("../controllers/admin.controller");
+const revenueController = require("../controllers/revenue.controller");
 const productController = require("../controllers/product.controller");
 const { validate } = require("../middleware/validate");
 const { ADMIN_ROLES } = require("../utils/adminPermissions");
@@ -10,6 +11,12 @@ const {
   rejectProductSchema,
 } = require("../utils/validators/product.validation");
 const { createAdminOrderSchema, updateAdminOrderSchema } = require("../utils/validators/order.validation");
+const {
+  createCategorySchema,
+  updateCategorySchema,
+  toggleCategorySchema,
+} = require("../utils/validators/category.validation");
+const categoryController = require("../controllers/category.controller");
 
 const router = express.Router();
 
@@ -17,6 +24,9 @@ router.use(authRequired, requireRole(...ADMIN_ROLES));
 
 router.get("/dashboard", requirePermission("dashboard:read"), adminController.dashboard);
 router.get("/analytics", requirePermission("analytics:read"), adminController.analytics);
+router.get("/revenue", requirePermission("analytics:read"), revenueController.getRevenueSummary);
+router.get("/revenue/vendors", requirePermission("analytics:read"), revenueController.getVendorRevenue);
+router.get("/revenue/export", requirePermission("analytics:read"), revenueController.exportRevenue);
 router.get("/daily-revenue", requirePermission("analytics:read"), adminController.dailyRevenue);
 router.get("/audit-logs", requirePermission("audit:read"), adminController.listAuditLogs);
 
@@ -58,5 +68,15 @@ router.patch("/products/:id", requirePermission("products:update"), validate(upd
 router.delete("/products/:id", requirePermission("products:delete"), productController.deleteProduct);
 router.patch("/products/:id/approve", requirePermission("products:approve"), productController.approveProduct);
 router.patch("/products/:id/reject", requirePermission("products:reject"), validate(rejectProductSchema), productController.rejectProduct);
+
+router.get("/categories", requirePermission("categories:read"), categoryController.getAdminCategories);
+router.post("/categories", requirePermission("categories:create"), validate(createCategorySchema), categoryController.createCategory);
+router.patch("/categories/:id", requirePermission("categories:update"), validate(updateCategorySchema), categoryController.updateCategory);
+router.patch(
+  "/categories/:id/toggle",
+  requirePermission("categories:update"),
+  validate(toggleCategorySchema),
+  categoryController.toggleCategory
+);
 
 module.exports = router;

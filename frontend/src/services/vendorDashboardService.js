@@ -45,13 +45,13 @@ export async function updateVendorInventory(id, payload) {
   return data;
 }
 
-export async function getVendorAnalytics() {
-  const { data } = await api.get("/api/vendor/analytics");
+export async function getVendorAnalytics(params = {}) {
+  const { data } = await api.get("/api/vendor/analytics", { params });
   return data;
 }
 
-export async function getVendorPayouts() {
-  const { data } = await api.get("/api/vendor/payouts");
+export async function getVendorPayouts(params = {}) {
+  const { data } = await api.get("/api/vendor/payouts", { params });
   return data;
 }
 

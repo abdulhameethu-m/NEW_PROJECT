@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { getAnalytics } from "../services/adminApi";
+import { ReportingToolbar } from "../components/ReportingToolbar";
 import { StatusBadge } from "../components/StatusBadge";
+import { InlineToast } from "../components/commerce/InlineToast";
+import { useReporting } from "../hooks/useReporting";
 import { formatCurrency } from "../utils/formatCurrency";
 
 function normalizeError(err) {
@@ -11,6 +14,9 @@ export function AdminAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState(null);
   const [error, setError] = useState("");
+  const reporting = useReporting({
+    module: "analytics",
+  });
 
   useEffect(() => {
     let alive = true;
@@ -19,7 +25,7 @@ export function AdminAnalyticsPage() {
       setLoading(true);
       setError("");
       try {
-        const res = await getAnalytics();
+        const res = await getAnalytics(reporting.appliedParams);
         if (alive) setAnalytics(res.data);
       } catch (err) {
         if (alive) setError(normalizeError(err));
@@ -31,7 +37,15 @@ export function AdminAnalyticsPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [reporting.appliedParams]);
+
+  async function handleExport(format) {
+    try {
+      await reporting.exportReport(format);
+    } catch (err) {
+      setError(normalizeError(err));
+    }
+  }
 
   const stats = analytics?.stats || {};
   const overview = analytics?.salesOverview || [];
@@ -44,6 +58,16 @@ export function AdminAnalyticsPage() {
           {error}
         </div>
       ) : null}
+
+      <ReportingToolbar
+        startDate={reporting.startDate}
+        endDate={reporting.endDate}
+        onDateChange={reporting.setDateRange}
+        onApply={reporting.applyDateRange}
+        onExport={handleExport}
+        exportingFormat={reporting.exportingFormat}
+        isDirty={reporting.hasPendingChanges}
+      />
 
       <div className="grid min-w-0 max-w-full grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label="Revenue" value={formatCurrency(stats.revenue || 0)} />
@@ -110,6 +134,7 @@ export function AdminAnalyticsPage() {
           </div>
         </div>
       </div>
+      <InlineToast toast={reporting.toast} onClose={reporting.clearToast} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { BackButton } from "../components/BackButton";
+import { useCategories } from "../hooks/useCategories";
 import * as productService from "../services/productService";
 import { formatCurrency } from "../utils/formatCurrency";
 
@@ -21,6 +22,7 @@ export function ProductsPage() {
 
   const [pagination, setPagination] = useState({ total: 0, pages: 1 });
   const [showFilters, setShowFilters] = useState(false);
+  const { categories } = useCategories();
 
   useEffect(() => {
     setLoading(true);
@@ -95,6 +97,7 @@ export function ProductsPage() {
             maxPrice={maxPrice}
             sortBy={sortBy}
             sortOrder={sortOrder}
+            categories={categories}
             onFilterChange={handleFilterChange}
           />
         </div>
@@ -115,6 +118,7 @@ export function ProductsPage() {
                 maxPrice={maxPrice}
                 sortBy={sortBy}
                 sortOrder={sortOrder}
+                categories={categories}
                 onFilterChange={handleFilterChange}
               />
             </div>
@@ -180,6 +184,7 @@ function FilterSidebar({
   maxPrice,
   sortBy,
   sortOrder,
+  categories,
   onFilterChange,
 }) {
   const [localSearch, setLocalSearch] = useState(search);
@@ -250,14 +255,11 @@ function FilterSidebar({
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 sm:text-sm"
         >
           <option value="">All Categories</option>
-          <option value="Electronics">Electronics</option>
-          <option value="Clothing">Clothing & Fashion</option>
-          <option value="Home">Home & Garden</option>
-          <option value="Sports">Sports & Outdoors</option>
-          <option value="Books">Books & Media</option>
-          <option value="Toys">Toys & Games</option>
-          <option value="Health">Health & Beauty</option>
-          <option value="Food">Food & Beverages</option>
+          {categories.map((item) => (
+            <option key={item._id || item.slug} value={item.name}>
+              {item.name}
+            </option>
+          ))}
         </select>
       </div>
 

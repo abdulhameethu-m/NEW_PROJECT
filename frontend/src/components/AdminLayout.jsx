@@ -20,6 +20,10 @@ const pageMeta = {
     title: "Products",
     subtitle: "Moderate product catalog quality and approval workflow.",
   },
+  "/admin/categories": {
+    title: "Categories",
+    subtitle: "Control category visibility, ordering, and storefront presentation.",
+  },
   "/admin/orders": {
     title: "Orders",
     subtitle: "Track fulfillment progress and update order statuses.",
@@ -27,6 +31,14 @@ const pageMeta = {
   "/admin/analytics": {
     title: "Analytics",
     subtitle: "Review revenue, top products, and sales momentum.",
+  },
+  "/admin/revenue": {
+    title: "Revenue",
+    subtitle: "Track platform sales, commission, and vendor earnings with export-ready reporting.",
+  },
+  "/admin/audit-logs": {
+    title: "Audit Logs",
+    subtitle: "Inspect admin actions, compliance events, and operational history.",
   },
   "/admin/settings": {
     title: "Settings",

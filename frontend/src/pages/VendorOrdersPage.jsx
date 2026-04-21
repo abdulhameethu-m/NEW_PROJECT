@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { ReportingToolbar } from "../components/ReportingToolbar";
+import { InlineToast } from "../components/commerce/InlineToast";
+import { useReporting } from "../hooks/useReporting";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
 import { VendorDataTable, VendorSection } from "../components/VendorPanel";
@@ -9,10 +12,13 @@ const orderStatuses = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 export function VendorOrdersPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const reporting = useReporting({
+    module: "orders",
+  });
 
   async function load() {
     try {
-      const response = await vendorDashboardService.getVendorOrders({ limit: 20 });
+      const response = await vendorDashboardService.getVendorOrders({ limit: 20, ...reporting.appliedParams });
       setData(response.data);
       setError("");
     } catch (err) {
@@ -24,7 +30,7 @@ export function VendorOrdersPage() {
     (async () => {
       await load();
     })();
-  }, []);
+  }, [reporting.appliedParams]);
 
   async function updateStatus(id, status) {
     try {
@@ -35,8 +41,27 @@ export function VendorOrdersPage() {
     }
   }
 
+  async function handleExport(format) {
+    try {
+      await reporting.exportReport(format);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to export orders.");
+    }
+  }
+
   return (
     <VendorSection title="Order Management" description="Accept and move orders through packed, shipped, and delivered states.">
+      <div className="mb-4">
+        <ReportingToolbar
+          startDate={reporting.startDate}
+          endDate={reporting.endDate}
+          onDateChange={reporting.setDateRange}
+          onApply={reporting.applyDateRange}
+          onExport={handleExport}
+          exportingFormat={reporting.exportingFormat}
+          isDirty={reporting.hasPendingChanges}
+        />
+      </div>
       {error ? <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       <VendorDataTable
         rows={(data?.orders || []).map((order) => ({
@@ -74,6 +99,7 @@ export function VendorOrdersPage() {
           },
         ]}
       />
+      <InlineToast toast={reporting.toast} onClose={reporting.clearToast} />
     </VendorSection>
   );
 }

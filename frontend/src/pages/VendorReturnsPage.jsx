@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { ReportingToolbar } from "../components/ReportingToolbar";
+import { InlineToast } from "../components/commerce/InlineToast";
+import { useReporting } from "../hooks/useReporting";
 import { formatCurrency } from "../utils/formatCurrency";
 import { StatusBadge } from "../components/StatusBadge";
 import { VendorDataTable, VendorSection } from "../components/VendorPanel";
@@ -7,10 +10,13 @@ import * as vendorDashboardService from "../services/vendorDashboardService";
 export function VendorReturnsPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const reporting = useReporting({
+    module: "returns",
+  });
 
   async function load() {
     try {
-      const response = await vendorDashboardService.getVendorReturns({ limit: 20 });
+      const response = await vendorDashboardService.getVendorReturns({ limit: 20, ...reporting.appliedParams });
       setData(response.data);
       setError("");
     } catch (err) {
@@ -22,7 +28,7 @@ export function VendorReturnsPage() {
     (async () => {
       await load();
     })();
-  }, []);
+  }, [reporting.appliedParams]);
 
   async function updateReturn(id, status) {
     const resolutionNote = window.prompt("Resolution note", "");
@@ -42,8 +48,27 @@ export function VendorReturnsPage() {
     }
   }
 
+  async function handleExport(format) {
+    try {
+      await reporting.exportReport(format);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to export returns.");
+    }
+  }
+
   return (
     <VendorSection title="Returns & Refunds" description="Approve, reject, or refund return requests with a decision trail.">
+      <div className="mb-4">
+        <ReportingToolbar
+          startDate={reporting.startDate}
+          endDate={reporting.endDate}
+          onDateChange={reporting.setDateRange}
+          onApply={reporting.applyDateRange}
+          onExport={handleExport}
+          exportingFormat={reporting.exportingFormat}
+          isDirty={reporting.hasPendingChanges}
+        />
+      </div>
       {error ? <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       <VendorDataTable
         rows={(data?.returns || []).map((item) => ({
@@ -75,6 +100,7 @@ export function VendorReturnsPage() {
           },
         ]}
       />
+      <InlineToast toast={reporting.toast} onClose={reporting.clearToast} />
     </VendorSection>
   );
 }

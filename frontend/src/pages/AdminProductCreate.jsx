@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createProduct } from "../services/adminService";
 import { BackButton } from "../components/BackButton";
+import { useCategories } from "../hooks/useCategories";
 
 export function AdminProductCreate() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const { categories, loading: categoriesLoading } = useCategories();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -220,14 +222,25 @@ export function AdminProductCreate() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Category *</label>
-                <input
-                  type="text"
+                <select
                   name="category"
                   value={formData.category}
                   onChange={handleInputChange}
-                  placeholder="e.g., Electronics, Fashion"
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 placeholder-slate-400 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                />
+                  disabled={categoriesLoading || categories.length === 0}
+                >
+                  <option value="">
+                    {categoriesLoading ? "Loading categories..." : categories.length ? "Select a category" : "No active categories available"}
+                  </option>
+                  {categories.map((category) => (
+                    <option key={category._id || category.slug} value={category.name}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                {!categoriesLoading && categories.length === 0 ? (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">Create and enable categories from the Categories section first.</p>
+                ) : null}
               </div>
 
               <div>

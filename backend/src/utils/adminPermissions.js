@@ -18,6 +18,9 @@ const ALL_PERMISSIONS = [
   "products:delete",
   "products:approve",
   "products:reject",
+  "categories:read",
+  "categories:create",
+  "categories:update",
   "audit:read",
 ];
 
@@ -34,6 +37,7 @@ const ROLE_PERMISSIONS = {
     "orders:read",
     "orders:update",
     "products:read",
+    "categories:read",
     "audit:read",
   ],
   finance_admin: [
@@ -44,6 +48,7 @@ const ROLE_PERMISSIONS = {
     "users:read",
     "vendors:read",
     "products:read",
+    "categories:read",
   ],
 };
 

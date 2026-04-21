@@ -1,7 +1,11 @@
-import { useState, useEffect } from 'react';
-import { adminService } from '../services/adminService';
-import { AdminDataTable, StatusBadge } from '../components/AdminComponents';
-import { formatDateTime, truncate } from '../utils/adminUtils';
+import { useEffect, useState } from "react";
+import { getAuditLogs } from "../services/adminApi";
+import { ReportingToolbar } from "../components/ReportingToolbar";
+import { InlineToast } from "../components/commerce/InlineToast";
+import { useReporting } from "../hooks/useReporting";
+import { StatusBadge } from "../components/AdminComponents";
+import { AdminDataTable } from "../components/AdminDataTable";
+import { formatDateTime } from "../utils/adminUtils";
 
 /**
  * Audit Logs Viewer Page
@@ -10,44 +14,64 @@ import { formatDateTime, truncate } from '../utils/adminUtils';
 export function AuditLogsPage() {
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
     total: 0,
   });
   const [filters, setFilters] = useState({
-    action: '',
-    actorRole: '',
-    entityType: '',
-    status: '',
+    action: "",
+    actorRole: "",
+    entityType: "",
+    status: "",
+  });
+  const reporting = useReporting({
+    module: "audit_logs",
+    getFilters: () => ({
+      ...(filters.action ? { action: filters.action } : {}),
+      ...(filters.actorRole ? { actorRole: filters.actorRole } : {}),
+      ...(filters.entityType ? { entityType: filters.entityType } : {}),
+      ...(filters.status ? { status: filters.status } : {}),
+    }),
+    onApply: () => setPagination((current) => ({ ...current, page: 1 })),
   });
 
   useEffect(() => {
     loadLogs();
-  }, [pagination.page, filters]);
+  }, [pagination.page, filters, reporting.appliedParams]);
 
   const loadLogs = async () => {
     try {
       setIsLoading(true);
-      const data = await adminService.getAuditLogs({
+      setError("");
+      const response = await getAuditLogs({
         page: pagination.page,
         limit: pagination.limit,
         ...filters,
+        ...reporting.appliedParams,
       });
-
-      setLogs(data.data || data);
-      if (data.pagination) {
-        setPagination(prev => ({
+      setLogs(response.data.logs || []);
+      if (response.data.pagination) {
+        setPagination((prev) => ({
           ...prev,
-          total: data.pagination.total,
+          total: response.data.pagination.total,
         }));
       }
     } catch (error) {
-      console.error('Failed to load audit logs:', error);
+      setError(error?.response?.data?.message || "Failed to load audit logs.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  async function handleExport(format) {
+    try {
+      await reporting.exportReport(format);
+    } catch (exportError) {
+      setError(exportError?.response?.data?.message || "Failed to export audit logs.");
+    }
+  }
 
   const columns = [
     {
@@ -56,7 +80,7 @@ export function AuditLogsPage() {
       sortable: true,
       render: (value) => (
         <span className="font-medium text-slate-900 dark:text-white">
-          {value?.replace(/_/g, ' ') || '-'}
+          {value?.replace(/_/g, " ") || "-"}
         </span>
       ),
     },
@@ -65,7 +89,7 @@ export function AuditLogsPage() {
       label: 'Actor Role',
       render: (value) => (
         <span className="text-xs font-semibold uppercase text-slate-600 dark:text-slate-300">
-          {value || '-'}
+          {value || "-"}
         </span>
       ),
     },
@@ -74,7 +98,7 @@ export function AuditLogsPage() {
       label: 'Entity',
       render: (value) => (
         <span className="text-sm text-slate-700 dark:text-slate-200">
-          {value || '-'}
+          {value || "-"}
         </span>
       ),
     },
@@ -95,8 +119,6 @@ export function AuditLogsPage() {
     },
   ];
 
-  const pages = Math.ceil(pagination.total / pagination.limit);
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -109,6 +131,22 @@ export function AuditLogsPage() {
         </p>
       </div>
 
+      <ReportingToolbar
+        startDate={reporting.startDate}
+        endDate={reporting.endDate}
+        onDateChange={reporting.setDateRange}
+        onApply={reporting.applyDateRange}
+        onExport={handleExport}
+        exportingFormat={reporting.exportingFormat}
+        isDirty={reporting.hasPendingChanges}
+      />
+
+      {error ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {error}
+        </div>
+      ) : null}
+
       {/* Filters */}
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
         <div>
@@ -120,8 +158,8 @@ export function AuditLogsPage() {
             placeholder="Search actions..."
             value={filters.action}
             onChange={(e) => {
-              setFilters(prev => ({ ...prev, action: e.target.value }));
-              setPagination(prev => ({ ...prev, page: 1 }));
+              setFilters((prev) => ({ ...prev, action: e.target.value }));
+              setPagination((prev) => ({ ...prev, page: 1 }));
             }}
             className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
           />
@@ -134,8 +172,8 @@ export function AuditLogsPage() {
           <select
             value={filters.actorRole}
             onChange={(e) => {
-              setFilters(prev => ({ ...prev, actorRole: e.target.value }));
-              setPagination(prev => ({ ...prev, page: 1 }));
+              setFilters((prev) => ({ ...prev, actorRole: e.target.value }));
+              setPagination((prev) => ({ ...prev, page: 1 }));
             }}
             className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
           >
@@ -154,8 +192,8 @@ export function AuditLogsPage() {
           <select
             value={filters.entityType}
             onChange={(e) => {
-              setFilters(prev => ({ ...prev, entityType: e.target.value }));
-              setPagination(prev => ({ ...prev, page: 1 }));
+              setFilters((prev) => ({ ...prev, entityType: e.target.value }));
+              setPagination((prev) => ({ ...prev, page: 1 }));
             }}
             className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
           >
@@ -166,6 +204,24 @@ export function AuditLogsPage() {
             <option value="Order">Order</option>
             <option value="Payment">Payment</option>
             <option value="PlatformConfig">Configuration</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">
+            Status
+          </label>
+          <select
+            value={filters.status}
+            onChange={(e) => {
+              setFilters((prev) => ({ ...prev, status: e.target.value }));
+              setPagination((prev) => ({ ...prev, page: 1 }));
+            }}
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          >
+            <option value="">All statuses</option>
+            <option value="SUCCESS">Success</option>
+            <option value="FAILURE">Failure</option>
           </select>
         </div>
       </div>
@@ -179,7 +235,7 @@ export function AuditLogsPage() {
         page={pagination.page}
         limit={pagination.limit}
         onPageChange={(page) =>
-          setPagination(prev => ({ ...prev, page }))
+          setPagination((prev) => ({ ...prev, page }))
         }
         getRowKey={(row) => row._id}
       />
@@ -188,6 +244,7 @@ export function AuditLogsPage() {
       <div className="text-center text-xs text-slate-600 dark:text-slate-300">
         Showing {logs.length} of {pagination.total} logs
       </div>
+      <InlineToast toast={reporting.toast} onClose={reporting.clearToast} />
     </div>
   );
 }

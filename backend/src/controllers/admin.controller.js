@@ -9,12 +9,19 @@ const dashboard = asyncHandler(async (req, res) => {
 });
 
 const analytics = asyncHandler(async (req, res) => {
-  const result = await adminService.getAnalytics();
+  const result = await adminService.getAnalytics({
+    startDate: req.query.startDate,
+    endDate: req.query.endDate,
+  });
   return ok(res, result, "Analytics loaded");
 });
 
 const listVendors = asyncHandler(async (req, res) => {
-  const vendors = await adminService.listVendors({ status: req.query.status });
+  const vendors = await adminService.listVendors({
+    status: req.query.status,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate,
+  });
   return ok(res, vendors, "OK");
 });
 
@@ -24,7 +31,11 @@ const getVendorDetails = asyncHandler(async (req, res) => {
 });
 
 const listUsers = asyncHandler(async (req, res) => {
-  const users = await adminService.listUsers({ role: req.query.role });
+  const users = await adminService.listUsers({
+    role: req.query.role,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate,
+  });
   return ok(res, users, "OK");
 });
 
@@ -36,6 +47,8 @@ const listAuditLogs = asyncHandler(async (req, res) => {
     actorRole: req.query.actorRole,
     entityType: req.query.entityType,
     status: req.query.status,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate,
   });
   return ok(res, logs, "OK");
 });
@@ -104,6 +117,8 @@ const listOrders = asyncHandler(async (req, res) => {
     includeInactive: req.query.includeInactive === "true",
     sortBy: req.query.sortBy || "createdAt",
     sortOrder: req.query.sortOrder === "asc" ? 1 : -1,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate,
   });
   return ok(res, result, "Orders loaded");
 });

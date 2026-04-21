@@ -1,4 +1,5 @@
 const { Product } = require("../models/Product");
+const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
 
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -43,6 +44,8 @@ class ProductRepository {
     sortOrder = -1,
     minPrice,
     maxPrice,
+    startDate,
+    endDate,
   } = {}) {
     const query = {};
 
@@ -62,6 +65,8 @@ class ProductRepository {
     if (search) {
       query.name = { $regex: escapeRegex(search.trim()), $options: "i" };
     }
+
+    applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
     const skip = (page - 1) * limit;
     const sortObj = { [sortBy]: sortOrder };
@@ -113,9 +118,10 @@ class ProductRepository {
   }
 
   // Get seller's products
-  async getSellerProducts(sellerId, { page = 1, limit = 20, status } = {}) {
+  async getSellerProducts(sellerId, { page = 1, limit = 20, status, startDate, endDate } = {}) {
     const query = { sellerId };
     if (status) query.status = status;
+    applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
     const skip = (page - 1) * limit;
     const [products, total] = await Promise.all([
@@ -152,16 +158,18 @@ class ProductRepository {
   }
 
   // Find pending products (for admin approval)
-  async getPendingProducts({ page = 1, limit = 20 } = {}) {
+  async getPendingProducts({ page = 1, limit = 20, startDate, endDate } = {}) {
+    const query = { status: "PENDING" };
+    applyDateRange(query, normalizeDateRange({ startDate, endDate }));
     const skip = (page - 1) * limit;
     const [products, total] = await Promise.all([
-      Product.find({ status: "PENDING" })
+      Product.find(query)
         .populate("sellerId", "companyName")
         .populate("createdBy", "name email")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      Product.countDocuments({ status: "PENDING" }),
+      Product.countDocuments(query),
     ]);
 
     return {

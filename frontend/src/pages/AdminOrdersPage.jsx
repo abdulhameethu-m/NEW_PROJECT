@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { deleteOrder, listOrders } from "../services/adminApi";
 import { AdminTable } from "../components/AdminTable";
+import { ReportingToolbar } from "../components/ReportingToolbar";
 import { StatusBadge } from "../components/StatusBadge";
+import { InlineToast } from "../components/commerce/InlineToast";
+import { useReporting } from "../hooks/useReporting";
 import { formatCurrency } from "../utils/formatCurrency";
 
 function normalizeError(err) {
@@ -19,6 +22,14 @@ export function AdminOrdersPage() {
   const [paymentStatus, setPaymentStatus] = useState("");
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState("");
+  const reporting = useReporting({
+    module: "orders",
+    getFilters: () => ({
+      ...(status ? { status } : {}),
+      ...(paymentStatus ? { paymentStatus } : {}),
+    }),
+    onApply: () => setPage(1),
+  });
 
   const query = useMemo(
     () => ({
@@ -27,8 +38,9 @@ export function AdminOrdersPage() {
       ...(status ? { status } : {}),
       ...(paymentStatus ? { paymentStatus } : {}),
       ...(search.trim() ? { search: search.trim() } : {}),
+      ...reporting.appliedParams,
     }),
-    [page, status, paymentStatus, search]
+    [page, paymentStatus, reporting.appliedParams, search, status]
   );
 
   const refresh = useCallback(async () => {
@@ -62,6 +74,14 @@ export function AdminOrdersPage() {
       setError(normalizeError(err));
     } finally {
       setBusyId("");
+    }
+  }
+
+  async function handleExport(format) {
+    try {
+      await reporting.exportReport(format);
+    } catch (err) {
+      setError(normalizeError(err));
     }
   }
 
@@ -123,6 +143,16 @@ export function AdminOrdersPage() {
           </select>
         </label>
       </div>
+
+      <ReportingToolbar
+        startDate={reporting.startDate}
+        endDate={reporting.endDate}
+        onDateChange={reporting.setDateRange}
+        onApply={reporting.applyDateRange}
+        onExport={handleExport}
+        exportingFormat={reporting.exportingFormat}
+        isDirty={reporting.hasPendingChanges}
+      />
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
@@ -204,6 +234,7 @@ export function AdminOrdersPage() {
           <button type="button" disabled={page === totalPages} onClick={() => setPage(Math.min(totalPages, page + 1))} className="w-full rounded-xl border border-slate-300 px-3 py-2 disabled:opacity-50 dark:border-slate-700 sm:w-auto">Next</button>
         </div>
       </div>
+      <InlineToast toast={reporting.toast} onClose={reporting.clearToast} />
     </div>
   );
 }

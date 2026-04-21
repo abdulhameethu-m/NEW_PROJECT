@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { ReportingToolbar } from "../components/ReportingToolbar";
+import { InlineToast } from "../components/commerce/InlineToast";
+import { useReporting } from "../hooks/useReporting";
 import { VendorDataTable, VendorSection } from "../components/VendorPanel";
 import * as vendorDashboardService from "../services/vendorDashboardService";
 
@@ -14,10 +17,13 @@ export function VendorInventoryPage() {
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const reporting = useReporting({
+    module: "inventory",
+  });
 
   async function load() {
     try {
-      const response = await vendorDashboardService.getVendorInventory({ limit: 20 });
+      const response = await vendorDashboardService.getVendorInventory({ limit: 20, ...reporting.appliedParams });
       setData(response.data);
       setError("");
     } catch (err) {
@@ -27,7 +33,7 @@ export function VendorInventoryPage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [reporting.appliedParams]);
 
   function startAdjust(product) {
     setForm({
@@ -75,9 +81,28 @@ export function VendorInventoryPage() {
     }
   }
 
+  async function handleExport(format) {
+    try {
+      await reporting.exportReport(format);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to export inventory.");
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <VendorSection title="Inventory" description="Track stock health, adjust available quantity, and respond to low stock alerts.">
+        <div className="mb-4">
+          <ReportingToolbar
+            startDate={reporting.startDate}
+            endDate={reporting.endDate}
+            onDateChange={reporting.setDateRange}
+            onApply={reporting.applyDateRange}
+            onExport={handleExport}
+            exportingFormat={reporting.exportingFormat}
+            isDirty={reporting.hasPendingChanges}
+          />
+        </div>
         {error ? <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
         <VendorDataTable
           rows={(data?.products || []).map((product) => ({
@@ -148,6 +173,7 @@ export function VendorInventoryPage() {
           </form>
         </VendorSection>
       ) : null}
+      <InlineToast toast={reporting.toast} onClose={reporting.clearToast} />
     </div>
   );
 }

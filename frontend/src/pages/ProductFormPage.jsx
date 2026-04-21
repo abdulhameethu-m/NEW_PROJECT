@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../context/authStore";
 import { BackButton } from "../components/BackButton";
+import { useCategories } from "../hooks/useCategories";
 import * as productService from "../services/productService";
 
 function normalizeError(err) {
@@ -15,6 +16,7 @@ export function ProductFormPage() {
   
   const isEditing = !!productId;
   const isAdmin = user?.role === "admin";
+  const { categories, loading: categoriesLoading } = useCategories();
 
   const [loading, setLoading] = useState(isEditing);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,7 +27,7 @@ export function ProductFormPage() {
     slug: "",
     description: "",
     shortDescription: "",
-    category: "Electronics", // Default category
+    category: "",
     subCategory: "",
     price: "",
     discountPrice: "",
@@ -57,7 +59,7 @@ export function ProductFormPage() {
           slug: product.slug || "",
           description: product.description || "",
           shortDescription: product.shortDescription || "",
-          category: product.category || "Electronics",
+          category: product.category || "",
           subCategory: product.subCategory || "",
           price: product.price?.toString() || "",
           discountPrice: product.discountPrice?.toString() || "",
@@ -303,18 +305,23 @@ export function ProductFormPage() {
                 onChange={handleChange}
                 className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm"
                 required
+                disabled={categoriesLoading || categories.length === 0}
               >
-                <option value="">Select a category</option>
-                <option value="Electronics">Electronics</option>
-                <option value="Clothing">Clothing & Fashion</option>
-                <option value="Home">Home & Garden</option>
-                <option value="Sports">Sports & Outdoors</option>
-                <option value="Books">Books & Media</option>
-                <option value="Toys">Toys & Games</option>
-                <option value="Health">Health & Beauty</option>
-                <option value="Food">Food & Beverages</option>
-                <option value="Other">Other</option>
+                <option value="">
+                  {categoriesLoading ? "Loading categories..." : categories.length ? "Select a category" : "No active categories available"}
+                </option>
+                {categories.map((category) => (
+                  <option key={category._id || category.slug} value={category.name}>
+                    {category.name}
+                  </option>
+                ))}
+                {formData.category && !categories.some((category) => category.name === formData.category) ? (
+                  <option value={formData.category}>{formData.category}</option>
+                ) : null}
               </select>
+              {!categoriesLoading && categories.length === 0 ? (
+                <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">Ask an admin to create and enable categories first.</p>
+              ) : null}
             </div>
 
             <div>

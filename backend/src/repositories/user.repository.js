@@ -1,4 +1,5 @@
 const { User } = require("../models/User");
+const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
 
 async function createUser(data) {
   const user = await User.create(data);
@@ -31,9 +32,10 @@ async function deleteById(id) {
   return await User.findByIdAndDelete(id).exec();
 }
 
-async function listUsers({ role } = {}) {
+async function listUsers({ role, startDate, endDate } = {}) {
   const query = {};
   if (role) query.role = role;
+  applyDateRange(query, normalizeDateRange({ startDate, endDate }));
   return await User.find(query).sort({ createdAt: -1 }).exec();
 }
 

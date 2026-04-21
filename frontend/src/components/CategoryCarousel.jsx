@@ -1,28 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function CategoryCarousel({
   categories: categoriesProp,
   onSelect,
   title = "Categories",
+  loading = false,
 }) {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const scrollContainerRef = useRef(null);
-
-  const categories = useMemo(() => {
-    const fallback = [
-      { id: 1, name: "Electronics", icon: "ðŸ“±", color: "from-blue-400 to-blue-600" },
-      { id: 2, name: "Fashion", icon: "ðŸ‘”", color: "from-pink-400 to-pink-600" },
-      { id: 3, name: "Home", icon: "ðŸ ", color: "from-yellow-400 to-yellow-600" },
-      { id: 4, name: "Books", icon: "ðŸ“š", color: "from-purple-400 to-purple-600" },
-      { id: 5, name: "Sports", icon: "âš½", color: "from-green-400 to-green-600" },
-      { id: 6, name: "Toys", icon: "ðŸŽ®", color: "from-red-400 to-red-600" },
-      { id: 7, name: "Beauty", icon: "ðŸ’„", color: "from-indigo-400 to-indigo-600" },
-      { id: 8, name: "Grocery", icon: "ðŸ›’", color: "from-orange-400 to-orange-600" },
-    ];
-    const normalized = Array.isArray(categoriesProp) ? categoriesProp.filter(Boolean) : [];
-    return normalized.length ? normalized : fallback;
-  }, [categoriesProp]);
+  const categories = Array.isArray(categoriesProp) ? categoriesProp.filter(Boolean) : [];
 
   const handleScroll = () => {
     if (scrollContainerRef.current) {
@@ -54,15 +41,15 @@ export function CategoryCarousel({
         window.removeEventListener("resize", handleScroll);
       };
     }
-  }, []);
+  }, [categories.length, loading]);
 
-  const onKeyDown = (e) => {
-    if (e.key === "ArrowLeft") {
-      e.preventDefault();
+  const onKeyDown = (event) => {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
       scroll("left");
     }
-    if (e.key === "ArrowRight") {
-      e.preventDefault();
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
       scroll("right");
     }
   };
@@ -73,7 +60,7 @@ export function CategoryCarousel({
         <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h2>
       </div>
 
-      {canScrollLeft && (
+      {canScrollLeft && !loading ? (
         <button
           onClick={() => scroll("left")}
           type="button"
@@ -84,7 +71,7 @@ export function CategoryCarousel({
             <path d="M12.7 15.7a1 1 0 0 1-1.4 0l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 1 1 1.4 1.4L8.41 10l4.29 4.3a1 1 0 0 1 0 1.4Z" />
           </svg>
         </button>
-      )}
+      ) : null}
 
       <div
         ref={scrollContainerRef}
@@ -94,22 +81,41 @@ export function CategoryCarousel({
         role="region"
         aria-label="Category carousel"
       >
-        {categories.map((category) => (
-          <button
-            key={category.id}
-            type="button"
-            onClick={() => onSelect?.(category)}
-            className={`snap-start flex w-[86px] shrink-0 flex-col items-center gap-2 rounded-2xl bg-gradient-to-br px-2.5 py-3 text-white shadow-md transition hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-[96px] sm:px-3 ${category.color}`}
-          >
-            <span className="text-xl leading-none sm:text-2xl">{category.icon}</span>
-            <span className="line-clamp-2 text-center text-[11px] font-medium leading-4 sm:text-xs">
-              {category.name}
-            </span>
-          </button>
-        ))}
+        {loading
+          ? Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={index}
+                className="snap-start flex h-[96px] w-[86px] shrink-0 animate-pulse rounded-xl bg-slate-100 sm:w-[96px] dark:bg-slate-800"
+              />
+            ))
+          : categories.map((category) => {
+              const Icon = category.IconComponent;
+
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => onSelect?.(category)}
+                  className={`snap-start flex h-[96px] w-[86px] shrink-0 translate-y-0 flex-col items-center justify-center gap-2 rounded-xl bg-gradient-to-br px-2.5 py-3 text-white shadow-md transition duration-200 hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-[96px] sm:px-3 ${category.color}`}
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/18">
+                    <CategoryIcon Icon={Icon} />
+                  </span>
+                  <span className="line-clamp-2 text-center text-[11px] font-medium leading-4 sm:text-xs">
+                    {category.name}
+                  </span>
+                </button>
+              );
+            })}
+
+        {!loading && categories.length === 0 ? (
+          <div className="flex min-h-[96px] w-full items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            No categories available
+          </div>
+        ) : null}
       </div>
 
-      {canScrollRight && (
+      {canScrollRight && !loading ? (
         <button
           onClick={() => scroll("right")}
           type="button"
@@ -120,7 +126,24 @@ export function CategoryCarousel({
             <path d="M7.3 4.3a1 1 0 0 1 1.4 0l5 5a1 1 0 0 1 0 1.4l-5 5a1 1 0 1 1-1.4-1.4L11.59 10 7.3 5.7a1 1 0 0 1 0-1.4Z" />
           </svg>
         </button>
-      )}
+      ) : null}
     </div>
+  );
+}
+
+function CategoryIcon({ Icon }) {
+  if (!Icon) {
+    return null;
+  }
+
+  const sample = <Icon className="h-5 w-5" />;
+  if (sample?.type === "span") {
+    return sample;
+  }
+
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+      {sample}
+    </svg>
   );
 }

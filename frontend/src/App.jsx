@@ -27,6 +27,9 @@ import { AdminOrdersPage } from "./pages/AdminOrdersPage";
 import { AdminOrderDetailsPage } from "./pages/AdminOrderDetailsPage";
 import { AdminOrderCreatePage } from "./pages/AdminOrderCreatePage";
 import { AdminAnalyticsPage } from "./pages/AdminAnalyticsPage";
+import { AdminRevenuePage } from "./pages/AdminRevenuePage";
+import { AuditLogsPage } from "./pages/AuditLogsPage";
+import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { SellerProductsPage } from "./pages/SellerProductsPage";
 import { ProductFormPage } from "./pages/ProductFormPage";
@@ -131,12 +134,15 @@ export default function App() {
               <Route path="sellers" element={<AdminSellersPage />} />
               <Route path="sellers/:id" element={<AdminVendorDetailsPage />} />
               <Route path="products" element={<AdminProductsPage />} />
+              <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="products/create" element={<AdminProductCreate />} />
               <Route path="products/:id/edit" element={<AdminProductEdit />} />
               <Route path="orders" element={<AdminOrdersPage />} />
               <Route path="orders/create" element={<AdminOrderCreatePage />} />
               <Route path="orders/:id" element={<AdminOrderDetailsPage />} />
               <Route path="analytics" element={<AdminAnalyticsPage />} />
+              <Route path="revenue" element={<AdminRevenuePage />} />
+              <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
             </Route>
           </Route>

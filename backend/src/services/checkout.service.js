@@ -5,6 +5,7 @@ const productRepo = require("../repositories/product.repository");
 const orderRepo = require("../repositories/order.repository");
 const payoutRepo = require("../repositories/payout.repository");
 const vendorRepo = require("../repositories/vendor.repository");
+const { getCommissionPercentage } = require("./finance-config.service");
 
 function asObjectId(id, fieldName) {
   if (!mongoose.isValidObjectId(id)) throw new AppError(`Invalid ${fieldName}`, 400, "VALIDATION_ERROR");
@@ -133,6 +134,7 @@ class CheckoutService {
     const bySeller = groupBySeller(validated);
     const orderPayloads = [];
     const payouts = [];
+    const commissionPercentage = await getCommissionPercentage();
 
     for (const [sellerId, sellerData] of bySeller) {
       const items = sellerData.items;
@@ -150,8 +152,8 @@ class CheckoutService {
       const shippingFee = 0; // Calculate per seller or global
       const taxAmount = 0;
       const totalAmount = subtotal + shippingFee + taxAmount;
-      const commission = totalAmount * 0.1; // 10% commission, configurable
-      const sellerAmount = totalAmount - commission;
+      const commission = Number(((totalAmount * commissionPercentage) / 100).toFixed(2));
+      const sellerAmount = Number((totalAmount - commission).toFixed(2));
 
       const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 
@@ -164,6 +166,9 @@ class CheckoutService {
         shippingFee,
         taxAmount,
         totalAmount,
+        platformCommissionRate: commissionPercentage,
+        platformCommissionAmount: commission,
+        vendorEarning: sellerAmount,
         currency: "INR",
         status: "Placed",
         paymentStatus: "Pending", // For both COD and online until verified
@@ -182,10 +187,8 @@ class CheckoutService {
     for (let i = 0; i < orders.length; i++) {
       const order = orders[i];
       const orderPayload = orderPayloads[i];
-      const subtotal = orderPayload.subtotal;
-      const totalAmount = orderPayload.totalAmount;
-      const commission = totalAmount * 0.1;
-      const sellerAmount = totalAmount - commission;
+      const commission = orderPayload.platformCommissionAmount;
+      const sellerAmount = orderPayload.vendorEarning;
 
       const payout = await payoutRepo.create({
         sellerId: order.sellerId,

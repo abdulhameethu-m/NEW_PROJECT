@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { approveSeller, listSellers, rejectSeller } from "../services/adminApi";
+import { ReportingToolbar } from "../components/ReportingToolbar";
 import { StatusBadge } from "../components/StatusBadge";
+import { InlineToast } from "../components/commerce/InlineToast";
+import { useReporting } from "../hooks/useReporting";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
@@ -16,6 +19,11 @@ export function AdminSellersPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [busyId, setBusyId] = useState("");
+  const reporting = useReporting({
+    module: "sellers",
+    getFilters: () => ({ ...(status ? { status } : {}) }),
+    onApply: () => setPage(1),
+  });
 
   useEffect(() => {
     let alive = true;
@@ -24,7 +32,10 @@ export function AdminSellersPage() {
       setLoading(true);
       setError("");
       try {
-        const res = await listSellers(status ? { status } : {});
+        const res = await listSellers({
+          ...(status ? { status } : {}),
+          ...reporting.appliedParams,
+        });
         if (alive) setSellers(res.data);
       } catch (err) {
         if (alive) setError(normalizeError(err));
@@ -36,7 +47,7 @@ export function AdminSellersPage() {
     return () => {
       alive = false;
     };
-  }, [status]);
+  }, [reporting.appliedParams, status]);
 
   const pageCount = Math.max(1, Math.ceil(sellers.length / PAGE_SIZE));
   const pageItems = useMemo(
@@ -75,6 +86,14 @@ export function AdminSellersPage() {
     }
   }
 
+  async function handleExport(format) {
+    try {
+      await reporting.exportReport(format);
+    } catch (err) {
+      setError(normalizeError(err));
+    }
+  }
+
   return (
     <div className="grid min-w-0 max-w-full gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -91,6 +110,16 @@ export function AdminSellersPage() {
         </select>
         <div className="text-sm text-slate-500 dark:text-slate-400">Applications: {sellers.length}</div>
       </div>
+
+      <ReportingToolbar
+        startDate={reporting.startDate}
+        endDate={reporting.endDate}
+        onDateChange={reporting.setDateRange}
+        onApply={reporting.applyDateRange}
+        onExport={handleExport}
+        exportingFormat={reporting.exportingFormat}
+        isDirty={reporting.hasPendingChanges}
+      />
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
@@ -167,6 +196,7 @@ export function AdminSellersPage() {
       </div>
 
       <Pagination page={page} totalPages={pageCount} onChange={setPage} />
+      <InlineToast toast={reporting.toast} onClose={reporting.clearToast} />
     </div>
   );
 }

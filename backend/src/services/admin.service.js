@@ -8,6 +8,7 @@ const auditService = require("./audit.service");
 const productService = require("./product.service");
 const { queueWhatsAppMessage } = require("./whatsapp.service");
 const { logger } = require("../utils/logger");
+const { getCommissionPercentage } = require("./finance-config.service");
 
 async function getDashboardOverview() {
   const [totalUsers, totalSellers, totalOrders, revenue, pendingProducts, pendingSellers] = await Promise.all([
@@ -33,16 +34,22 @@ async function getDashboardOverview() {
   };
 }
 
-async function getAnalytics() {
+const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
+
+async function getAnalytics({ startDate, endDate } = {}) {
+  const orderDateRange = normalizeDateRange({ startDate, endDate });
+  const orderMatch = {};
+  applyDateRange(orderMatch, orderDateRange);
+
   const [salesOverview, topProducts, orderCount, deliveredOrders, approvedProducts, users, sellers, revenue] = await Promise.all([
-    orderRepo.getMonthlyRevenue(6),
+    orderRepo.getMonthlyRevenue(6, orderMatch),
     productRepo.getTopProducts(5),
-    orderRepo.countDocuments(),
-    orderRepo.countDocuments({ status: "Delivered" }),
+    orderRepo.countDocuments(orderMatch),
+    orderRepo.countDocuments({ ...orderMatch, status: "Delivered" }),
     productRepo.countDocuments({ status: "APPROVED", isActive: true }),
     userRepo.countUsers({ role: "user" }),
     vendorRepo.countVendors({ status: "approved" }),
-    orderRepo.sumRevenue(),
+    orderRepo.sumRevenue(orderMatch),
   ]);
 
   return {
@@ -87,8 +94,8 @@ async function getDailyRevenue(days = 7) {
   return Object.values(dailyData).sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
-async function listVendors({ status } = {}) {
-  return await vendorRepo.listVendors({ status });
+async function listVendors({ status, startDate, endDate } = {}) {
+  return await vendorRepo.listVendors({ status, startDate, endDate });
 }
 
 async function getVendorDetails(vendorId) {
@@ -97,8 +104,8 @@ async function getVendorDetails(vendorId) {
   return vendor;
 }
 
-async function listUsers({ role } = {}) {
-  return await userRepo.listUsers({ role });
+async function listUsers({ role, startDate, endDate } = {}) {
+  return await userRepo.listUsers({ role, startDate, endDate });
 }
 
 async function listAuditLogs(filters = {}) {
@@ -358,6 +365,7 @@ async function createOrder(payload, actor, meta) {
 
   const storedStatus = toStoredOrderStatus(orderStatus || "PLACED") || "Placed";
   const storedPaymentStatus = toStoredPaymentStatus(paymentStatus || "PENDING") || "Pending";
+  const commissionPercentage = await getCommissionPercentage();
   if (!ORDER_STATUS.includes(storedStatus)) throw new AppError("Invalid order status", 400, "VALIDATION_ERROR");
   if (!PAYMENT_STATUS.includes(storedPaymentStatus)) throw new AppError("Invalid payment status", 400, "VALIDATION_ERROR");
   if (!["ONLINE", "COD"].includes(paymentMethod)) throw new AppError("Invalid payment method", 400, "VALIDATION_ERROR");
@@ -372,6 +380,8 @@ async function createOrder(payload, actor, meta) {
     }));
     const subtotal = cleanedItems.reduce((sum, x) => sum + x.price * x.quantity, 0);
     const totalAmount = subtotal;
+    const platformCommissionAmount = Number(((totalAmount * commissionPercentage) / 100).toFixed(2));
+    const vendorEarning = Number((totalAmount - platformCommissionAmount).toFixed(2));
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(16).slice(2, 8).toUpperCase()}`;
 
     return {
@@ -383,6 +393,9 @@ async function createOrder(payload, actor, meta) {
       shippingFee: 0,
       taxAmount: 0,
       totalAmount,
+      platformCommissionRate: commissionPercentage,
+      platformCommissionAmount,
+      vendorEarning,
       currency: "INR",
       status: storedStatus,
       paymentStatus: storedPaymentStatus,
