@@ -5,12 +5,14 @@ const { generateSlug } = require("../utils/slug");
 function sanitizeCategoryPayload(payload = {}) {
   const name = String(payload.name || "").trim();
   const slug = generateSlug(payload.slug || name);
+  const code = String(payload.code || "").trim().toUpperCase() || name.charAt(0).toUpperCase();
   const icon = typeof payload.icon === "string" ? payload.icon.trim() : "";
   const color = typeof payload.color === "string" ? payload.color.trim() : "";
   const order = Number.isFinite(Number(payload.order)) ? Number(payload.order) : 0;
 
   return {
     name,
+    code,
     slug,
     icon,
     color,
@@ -78,6 +80,7 @@ async function updateCategory(categoryId, payload) {
   await ensureUniqueSlug(nextValues.slug, existing._id);
 
   existing.name = nextValues.name;
+  existing.code = nextValues.code;
   existing.slug = nextValues.slug;
   existing.icon = nextValues.icon;
   existing.color = nextValues.color;

@@ -9,6 +9,7 @@ import * as categoryService from "../services/categoryService";
 
 const initialForm = {
   name: "",
+  code: "",
   slug: "",
   icon: "",
   color: "",
@@ -93,6 +94,7 @@ export function AdminCategoriesPage() {
     setEditingId(category._id);
     setForm({
       name: category.name || "",
+      code: category.code || "",
       slug: category.slug || "",
       icon: category.icon || "",
       color: category.color || "",
@@ -135,7 +137,9 @@ export function AdminCategoriesPage() {
                       </div>
                       <div className="min-w-0">
                         <div className="truncate font-medium text-slate-900 dark:text-white">{category.name}</div>
-                        <div className="truncate text-xs text-slate-500 dark:text-slate-400">{category.slug}</div>
+            <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+              {category.code || "-"} • {category.slug}
+            </div>
                       </div>
                     </div>
                   </div>
@@ -180,6 +184,16 @@ export function AdminCategoriesPage() {
               onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
               className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               required
+            />
+          </label>
+
+          <label className="grid gap-2">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Code</span>
+            <input
+              value={form.code}
+              onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))}
+              className="rounded-xl border border-slate-300 px-4 py-3 text-sm uppercase dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              placeholder="E"
             />
           </label>
 

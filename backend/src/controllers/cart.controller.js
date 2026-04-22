@@ -19,7 +19,8 @@ const update = asyncHandler(async (req, res) => {
 
 const remove = asyncHandler(async (req, res) => {
   const productId = req.body?.productId || req.query?.productId;
-  const cart = await cartService.removeItem(req.user.sub, { productId });
+  const variantId = req.body?.variantId || req.query?.variantId || "";
+  const cart = await cartService.removeItem(req.user.sub, { productId, variantId });
   return ok(res, cart, "Removed from cart");
 });
 

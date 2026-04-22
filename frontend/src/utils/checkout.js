@@ -100,6 +100,8 @@ export function getSummaryItems(summary) {
           ...item,
           sellerId: seller.sellerId,
           sellerSubtotal: seller.subtotal,
+          variantId: item?.variantId || "",
+          variantTitle: item?.variantTitle || "",
         }))
       : []
   );

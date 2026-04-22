@@ -28,6 +28,10 @@ const pageMeta = {
     title: "Orders",
     subtitle: "Track fulfillment progress and update order statuses.",
   },
+  "/admin/product-modules": {
+    title: "Product Modules",
+    subtitle: "Control dynamic product tabs and additional info sections from admin.",
+  },
   "/admin/analytics": {
     title: "Analytics",
     subtitle: "Review revenue, top products, and sales momentum.",

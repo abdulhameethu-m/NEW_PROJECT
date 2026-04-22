@@ -15,6 +15,7 @@ export function OrderSummaryCard({ item, onQuantityChange, busy = false, editabl
 
         <div className="min-w-0 flex-1">
           <div className="line-clamp-2 text-sm font-semibold text-slate-950 dark:text-white">{item?.name}</div>
+          {item?.variantTitle ? <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Variant: {item.variantTitle}</div> : null}
           <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Unit price: {formatCurrency(item?.price || 0)}</div>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">

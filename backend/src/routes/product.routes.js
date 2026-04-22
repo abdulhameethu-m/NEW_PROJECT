@@ -23,6 +23,12 @@ const router = express.Router();
 router.get("/public", productController.getPublicProducts);
 
 /**
+ * GET /products/generate-number
+ * Preview next product number for category + subcategory
+ */
+router.get("/generate-number", authRequired, productController.generateProductNumber);
+
+/**
  * GET /products/:id
  * Get single product by ID
  * (Anyone can view approved products)

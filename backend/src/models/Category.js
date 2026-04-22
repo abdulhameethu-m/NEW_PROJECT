@@ -9,6 +9,12 @@ const categorySchema = new mongoose.Schema(
       trim: true,
       maxlength: 120,
     },
+    code: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: 10,
+    },
     slug: {
       type: String,
       unique: true,
@@ -41,6 +47,12 @@ const categorySchema = new mongoose.Schema(
 );
 
 categorySchema.pre("validate", function setCategorySlug() {
+  if (!this.code && this.name) {
+    this.code = this.name.charAt(0).toUpperCase();
+  } else if (this.code) {
+    this.code = this.code.trim().toUpperCase();
+  }
+
   if (!this.slug && this.name) {
     this.slug = generateSlug(this.name);
   } else if (this.slug) {

@@ -3,6 +3,188 @@ const productRepo = require("../repositories/product.repository");
 const { Vendor } = require("../models/Vendor");
 const vendorRepo = require("../repositories/vendor.repository");
 const { generateSlug } = require("../utils/slug");
+const {
+  generateNextProductNumber,
+  previewNextProductNumber,
+  getCategoryAndSubcategory,
+  assertUniqueProductNumber,
+} = require("./product-number.service");
+const {
+  listAttributeDefinitions,
+  validateAndNormalizeModulesData,
+  flattenModulesDataToAttributes,
+} = require("./attribute.service");
+
+function normalizeImage(image = {}) {
+  return {
+    url: String(image.url || "").trim(),
+    altText: String(image.altText || "").trim(),
+    isPrimary: Boolean(image.isPrimary),
+  };
+}
+
+function buildVariantTitle(options = []) {
+  return options.map((item) => item.value).filter(Boolean).join(" / ");
+}
+
+async function normalizeProductVariants({ categoryId, subCategoryId, variants = [], fallbackImages = [] }) {
+  const attributeDefs = await listAttributeDefinitions({ categoryId, subCategoryId, activeOnly: true });
+  const variantDefs = attributeDefs.filter((item) => item.isVariant);
+  const variantKeys = variantDefs.map((item) => item.key);
+  const variantDefByKey = new Map(variantDefs.map((item) => [item.key, item]));
+
+  if (!variantDefs.length) {
+    return {
+      variantConfig: [],
+      variants: [],
+      defaultVariant: null,
+      aggregate: null,
+    };
+  }
+
+  if (!Array.isArray(variants) || variants.length === 0) {
+    throw new AppError("At least one product variant is required for this category", 400, "VALIDATION_ERROR");
+  }
+
+  const normalized = [];
+  const seenIds = new Set();
+  const seenSkus = new Set();
+
+  for (const rawVariant of variants) {
+    const variantId = String(rawVariant.variantId || "").trim();
+    if (!variantId) throw new AppError("Each variant must include a variantId", 400, "VALIDATION_ERROR");
+    if (seenIds.has(variantId)) throw new AppError("Variant IDs must be unique", 400, "VALIDATION_ERROR");
+    seenIds.add(variantId);
+
+    const attributeMap = {};
+    const options = [];
+    for (const key of variantKeys) {
+      const value = String(rawVariant.attributes?.[key] || "").trim();
+      if (!value) {
+        throw new AppError(`Variant value is required for ${variantDefByKey.get(key)?.name || key}`, 400, "VALIDATION_ERROR");
+      }
+      const def = variantDefByKey.get(key);
+      if (Array.isArray(def?.options) && def.options.length && !def.options.includes(value)) {
+        throw new AppError(`${def.name} has an invalid option`, 400, "VALIDATION_ERROR");
+      }
+      attributeMap[key] = value;
+      options.push({ key, name: def?.name || key, value });
+    }
+
+    const variantSku = String(rawVariant.sku || "").trim().toUpperCase();
+    if (!variantSku) throw new AppError("Each variant must include a SKU", 400, "VALIDATION_ERROR");
+    if (seenSkus.has(variantSku)) throw new AppError("Variant SKUs must be unique", 400, "VALIDATION_ERROR");
+    seenSkus.add(variantSku);
+
+    const price = Number(rawVariant.price);
+    if (!Number.isFinite(price) || price < 0) {
+      throw new AppError("Each variant must include a valid price", 400, "VALIDATION_ERROR");
+    }
+
+    const stock = Number(rawVariant.stock);
+    if (!Number.isFinite(stock) || stock < 0) {
+      throw new AppError("Each variant must include a valid stock quantity", 400, "VALIDATION_ERROR");
+    }
+
+    const discountPrice =
+      rawVariant.discountPrice === undefined || rawVariant.discountPrice === null || rawVariant.discountPrice === ""
+        ? undefined
+        : Number(rawVariant.discountPrice);
+    if (discountPrice !== undefined && (!Number.isFinite(discountPrice) || discountPrice < 0)) {
+      throw new AppError("Variant discount price is invalid", 400, "VALIDATION_ERROR");
+    }
+
+    const images = (Array.isArray(rawVariant.images) ? rawVariant.images : [])
+      .map(normalizeImage)
+      .filter((image) => image.url);
+
+    normalized.push({
+      variantId,
+      title: String(rawVariant.title || "").trim() || buildVariantTitle(options),
+      attributes: attributeMap,
+      options,
+      price,
+      ...(discountPrice !== undefined ? { discountPrice } : {}),
+      stock,
+      sku: variantSku,
+      images: images.length ? images : fallbackImages,
+      isDefault: Boolean(rawVariant.isDefault),
+      isActive: rawVariant.isActive !== false,
+    });
+  }
+
+  let defaultVariant =
+    normalized.find((item) => item.isDefault && item.isActive && item.stock > 0) ||
+    normalized.find((item) => item.isActive && item.stock > 0) ||
+    normalized.find((item) => item.isActive) ||
+    normalized[0];
+
+  normalized.forEach((item) => {
+    item.isDefault = item.variantId === defaultVariant?.variantId;
+  });
+
+  const aggregate = normalized.reduce(
+    (acc, item) => {
+      if (!item.isActive) return acc;
+      acc.stock += Number(item.stock || 0);
+      acc.price = Math.min(acc.price, Number(item.price || 0));
+      if (item.discountPrice !== undefined) {
+        acc.discountPrice = Math.min(acc.discountPrice, Number(item.discountPrice || item.price || 0));
+      }
+      return acc;
+    },
+    { price: Number.POSITIVE_INFINITY, discountPrice: Number.POSITIVE_INFINITY, stock: 0 }
+  );
+
+  return {
+    variantConfig: variantKeys,
+    variants: normalized,
+    defaultVariant,
+    aggregate: {
+      price: Number.isFinite(aggregate.price) ? aggregate.price : Number(defaultVariant?.price || 0),
+      discountPrice: Number.isFinite(aggregate.discountPrice) ? aggregate.discountPrice : undefined,
+      stock: aggregate.stock,
+    },
+  };
+}
+
+async function prepareDynamicProductData({
+  categoryId,
+  subCategoryId,
+  modulesData = {},
+  attributes = {},
+  variants = [],
+  images = [],
+  extraDetails = {},
+}) {
+  const normalizedModulesData = await validateAndNormalizeModulesData({
+    categoryId,
+    subCategoryId,
+    modulesData,
+    attributes,
+    extraDetails,
+    requireAll: true,
+  });
+  const normalizedAttributes = await flattenModulesDataToAttributes({
+    categoryId,
+    subCategoryId,
+    modulesData: normalizedModulesData,
+  });
+  const normalizedImages = (Array.isArray(images) ? images : []).map(normalizeImage).filter((item) => item.url);
+  const variantState = await normalizeProductVariants({
+    categoryId,
+    subCategoryId,
+    variants,
+    fallbackImages: normalizedImages,
+  });
+
+  return {
+    normalizedModulesData,
+    normalizedAttributes,
+    normalizedImages,
+    variantState,
+  };
+}
 
 async function ensureAdminVendor(userId) {
   // Admin-created products must still map to a Vendor because cart/order schemas require it.
@@ -29,8 +211,8 @@ class ProductService {
    */
   async createProduct(productData, userId, userRole, sellerId = null) {
     // Validate inputs
-    if (!productData.name || !productData.description || !productData.category) {
-      throw new AppError("Missing required fields: name, description, category", 400, "VALIDATION_ERROR");
+    if (!productData.name || !productData.description || !productData.categoryId || !productData.subCategoryId) {
+      throw new AppError("Missing required fields: name, description, category, subcategory", 400, "VALIDATION_ERROR");
     }
 
     if (userRole === "seller" && !sellerId) {
@@ -64,13 +246,22 @@ class ProductService {
       throw new AppError("Product with this name already exists", 409, "DUPLICATE_PRODUCT");
     }
 
-    // Check if SKU already exists
-    if (productData.SKU) {
-      const skuExists = await productRepo.findBySKU(productData.SKU);
-      if (skuExists) {
-        throw new AppError("SKU already exists", 409, "DUPLICATE_SKU");
-      }
-    }
+    const { category, subcategory } = await getCategoryAndSubcategory(productData.categoryId, productData.subCategoryId);
+    const { normalizedModulesData, normalizedAttributes, normalizedImages, variantState } =
+      await prepareDynamicProductData({
+        categoryId: productData.categoryId,
+        subCategoryId: productData.subCategoryId,
+        modulesData: productData.modulesData || {},
+        attributes: productData.attributes || {},
+        variants: productData.variants || [],
+        images: productData.images || [],
+        extraDetails: productData.extraDetails || {},
+      });
+    const generatedProductNumber = await generateNextProductNumber({
+      categoryId: productData.categoryId,
+      subCategoryId: productData.subCategoryId,
+    });
+    await assertUniqueProductNumber(generatedProductNumber);
 
     // Determine status based on role
     const status = userRole === "admin" ? "APPROVED" : "PENDING";
@@ -79,6 +270,23 @@ class ProductService {
     const productPayload = {
       ...productData,
       slug,
+      category: category.name,
+      subCategory: subcategory.name,
+      SKU: generatedProductNumber,
+      productNumber: generatedProductNumber,
+      price: variantState.aggregate?.price ?? Number(productData.price || 0),
+      ...(variantState.aggregate?.discountPrice !== undefined
+        ? { discountPrice: variantState.aggregate.discountPrice }
+        : productData.discountPrice !== undefined
+          ? { discountPrice: productData.discountPrice }
+          : {}),
+      stock: variantState.aggregate?.stock ?? Number(productData.stock || 0),
+      images: normalizedImages,
+      modulesData: normalizedModulesData,
+      attributes: normalizedAttributes,
+      extraDetails: normalizedModulesData,
+      variantConfig: variantState.variantConfig,
+      variants: variantState.variants,
       status,
       isActive,
       createdBy: userId,
@@ -120,8 +328,49 @@ class ProductService {
       delete updateData.createdBy;
     }
 
-    // Don't allow changing slug (product slug should be immutable after creation)
+    // Don't allow changing immutable identifiers
     delete updateData.slug;
+    delete updateData.SKU;
+    delete updateData.productNumber;
+
+    const nextCategoryId = updateData.categoryId || product.categoryId;
+    const nextSubCategoryId = updateData.subCategoryId || product.subCategoryId;
+    if (nextCategoryId && nextSubCategoryId) {
+      const { category, subcategory } = await getCategoryAndSubcategory(nextCategoryId, nextSubCategoryId);
+      updateData.category = category.name;
+      updateData.subCategory = subcategory.name;
+
+      const hasModulesDataUpdate = updateData.modulesData !== undefined;
+      const hasAttributeUpdate = updateData.attributes !== undefined;
+      const hasVariantUpdate = updateData.variants !== undefined;
+      const hasExtraDetailsUpdate = updateData.extraDetails !== undefined;
+      const categoryChanged = String(nextCategoryId) !== String(product.categoryId);
+      const subcategoryChanged = String(nextSubCategoryId) !== String(product.subCategoryId);
+      if (hasModulesDataUpdate || hasAttributeUpdate || hasVariantUpdate || hasExtraDetailsUpdate || categoryChanged || subcategoryChanged) {
+        const { normalizedModulesData, normalizedAttributes, normalizedImages, variantState } =
+          await prepareDynamicProductData({
+            categoryId: nextCategoryId,
+            subCategoryId: nextSubCategoryId,
+            modulesData: hasModulesDataUpdate ? updateData.modulesData || {} : product.modulesData || {},
+            attributes: hasAttributeUpdate ? updateData.attributes || {} : product.attributes || {},
+            variants: hasVariantUpdate ? updateData.variants || [] : product.variants || [],
+            images: updateData.images !== undefined ? updateData.images || [] : product.images || [],
+            extraDetails: hasExtraDetailsUpdate ? updateData.extraDetails || {} : product.extraDetails || {},
+          });
+
+        updateData.modulesData = normalizedModulesData;
+        updateData.attributes = normalizedAttributes;
+        updateData.extraDetails = normalizedModulesData;
+        updateData.images = normalizedImages;
+        updateData.variantConfig = variantState.variantConfig;
+        updateData.variants = variantState.variants;
+        if (variantState.aggregate) {
+          updateData.price = variantState.aggregate.price;
+          updateData.stock = variantState.aggregate.stock;
+          updateData.discountPrice = variantState.aggregate.discountPrice;
+        }
+      }
+    }
 
     const updatedProduct = await productRepo.updateById(productId, updateData);
     return updatedProduct;
@@ -147,6 +396,13 @@ class ProductService {
       }
     }
 
+    // Admin deletes should fully remove the product so it disappears from admin/vendor listings.
+    if (userRole === "admin") {
+      const deletedProduct = await productRepo.deleteById(productId);
+      return deletedProduct;
+    }
+
+    // Vendor delete remains soft-delete for safer self-service operations.
     const deletedProduct = await productRepo.softDeleteById(productId);
     return deletedProduct;
   }
@@ -238,6 +494,14 @@ class ProductService {
     };
   }
 
+  async previewProductNumber({ categoryId, subCategoryId }) {
+    if (!categoryId || !subCategoryId) {
+      throw new AppError("Category and subcategory are required", 400, "VALIDATION_ERROR");
+    }
+
+    return await previewNextProductNumber({ categoryId, subCategoryId });
+  }
+
   /**
    * Record product view
    */
@@ -248,17 +512,26 @@ class ProductService {
   /**
    * Record product sale
    */
-  async recordSale(productId, quantity, amount) {
+  async recordSale(productId, quantity, amount, variantId = "") {
     const product = await productRepo.findById(productId);
     if (!product) {
       throw new AppError("Product not found", 404, "NOT_FOUND");
+    }
+
+    const targetVariant =
+      variantId && Array.isArray(product.variants)
+        ? product.variants.find((item) => item.variantId === variantId && item.isActive)
+        : null;
+
+    if (targetVariant && Number(targetVariant.stock || 0) < quantity) {
+      throw new AppError("Insufficient stock", 400, "INSUFFICIENT_STOCK");
     }
 
     if (product.stock < quantity) {
       throw new AppError("Insufficient stock", 400, "INSUFFICIENT_STOCK");
     }
 
-    return await productRepo.recordSale(productId, quantity, amount);
+    return await productRepo.recordSale(productId, quantity, amount, variantId);
   }
 }
 

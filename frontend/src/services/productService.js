@@ -24,6 +24,11 @@ export async function getProducts(params = {}) {
   return response.data;
 }
 
+export async function generateProductNumber(params = {}) {
+  const response = await api.get("/api/products/generate-number", { params });
+  return response.data;
+}
+
 /**
  * Create new product (seller or admin)
  */

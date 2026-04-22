@@ -3,10 +3,79 @@ const mongoose = require("mongoose");
 const PRODUCT_STATUS = ["PENDING", "APPROVED", "REJECTED"];
 const CREATOR_TYPE = ["ADMIN", "SELLER"];
 
-const variantSchema = new mongoose.Schema(
+const variantOptionSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true }, // e.g., "Color", "Size"
-    values: [{ type: String, required: true, trim: true }], // e.g., ["Red", "Blue", "Green"]
+    key: { type: String, required: true, trim: true, lowercase: true },
+    name: { type: String, required: true, trim: true },
+    value: { type: String, required: true, trim: true },
+  },
+  { _id: false }
+);
+
+const variantImageSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true },
+    altText: String,
+    isPrimary: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const productVariantSchema = new mongoose.Schema(
+  {
+    variantId: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
+    },
+    title: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    attributes: {
+      type: Map,
+      of: String,
+      default: {},
+    },
+    options: {
+      type: [variantOptionSchema],
+      default: [],
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    discountPrice: {
+      type: Number,
+      min: 0,
+    },
+    stock: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    sku: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+    images: {
+      type: [variantImageSchema],
+      default: [],
+    },
+    isDefault: {
+      type: Boolean,
+      default: false,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
   },
   { _id: false }
 );
@@ -45,9 +114,19 @@ const productSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      index: true,
+    },
     subCategory: {
       type: String,
       trim: true,
+    },
+    subCategoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Subcategory",
+      index: true,
     },
     tags: [{ type: String, trim: true, lowercase: true }],
 
@@ -79,6 +158,14 @@ const productSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
+      index: true,
+    },
+    productNumber: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      uppercase: true,
       index: true,
     },
     lowStockThreshold: {
@@ -170,8 +257,14 @@ const productSchema = new mongoose.Schema(
       },
     },
 
-    // Product Variants (Optional - for size, color, etc.)
-    variants: [variantSchema],
+    variantConfig: {
+      type: [String],
+      default: [],
+    },
+    variants: {
+      type: [productVariantSchema],
+      default: [],
+    },
 
     // SEO
     metaDescription: String,
@@ -185,7 +278,18 @@ const productSchema = new mongoose.Schema(
       height: Number,
     },
     returnPolicy: String,
-    warranty: String,
+    modulesData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    attributes: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    extraDetails: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   { timestamps: true }
 );
@@ -193,6 +297,7 @@ const productSchema = new mongoose.Schema(
 // Indexes for performance
 productSchema.index({ name: "text", description: "text" });
 productSchema.index({ category: 1, isActive: 1, status: 1 });
+productSchema.index({ categoryId: 1, subCategoryId: 1, createdAt: -1 });
 productSchema.index({ sellerId: 1, isActive: 1 });
 productSchema.index({ createdBy: 1, status: 1 });
 productSchema.index({ isActive: 1, status: 1, "ratings.averageRating": -1 });

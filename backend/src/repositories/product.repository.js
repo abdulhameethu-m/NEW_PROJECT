@@ -119,7 +119,7 @@ class ProductRepository {
 
   // Get seller's products
   async getSellerProducts(sellerId, { page = 1, limit = 20, status, startDate, endDate } = {}) {
-    const query = { sellerId };
+    const query = { sellerId, isActive: true };
     if (status) query.status = status;
     applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
@@ -250,18 +250,34 @@ class ProductRepository {
   }
 
   // Update sales count and revenue
-  async recordSale(productId, quantity, amount) {
-    return await Product.findByIdAndUpdate(
-      productId,
-      {
-        $inc: {
-          "analytics.salesCount": quantity,
-          "analytics.totalRevenue": amount,
-          stock: -quantity,
+  async recordSale(productId, quantity, amount, variantId = "") {
+    if (!variantId) {
+      return await Product.findByIdAndUpdate(
+        productId,
+        {
+          $inc: {
+            "analytics.salesCount": quantity,
+            "analytics.totalRevenue": amount,
+            stock: -quantity,
+          },
         },
-      },
-      { new: true }
-    );
+        { new: true }
+      );
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) return null;
+    const variant = Array.isArray(product.variants)
+      ? product.variants.find((item) => item.variantId === variantId)
+      : null;
+    if (variant) {
+      variant.stock = Math.max(0, Number(variant.stock || 0) - quantity);
+    }
+    product.stock = Math.max(0, Number(product.stock || 0) - quantity);
+    product.analytics.salesCount = Number(product.analytics?.salesCount || 0) + quantity;
+    product.analytics.totalRevenue = Number(product.analytics?.totalRevenue || 0) + amount;
+    await product.save();
+    return product;
   }
 }
 

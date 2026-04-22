@@ -58,6 +58,20 @@ async function resolveSellerIdForProduct(product) {
   return null;
 }
 
+function resolveVariant(product, variantId = "") {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  if (!variants.length) return null;
+  if (!variantId) {
+    return (
+      variants.find((item) => item.isDefault && item.isActive && item.stock > 0) ||
+      variants.find((item) => item.isActive && item.stock > 0) ||
+      variants.find((item) => item.isActive) ||
+      null
+    );
+  }
+  return variants.find((item) => item.variantId === variantId && item.isActive) || null;
+}
+
 class OrderService {
   async createFromCart(userId, { address, currency } = {}) {
     const cart = await cartRepo.findByUserId(userId);
@@ -74,7 +88,9 @@ class OrderService {
       if (product.status !== "APPROVED" || product.isActive !== true) {
         throw new AppError(`Product not available: ${product.name}`, 400, "NOT_AVAILABLE");
       }
-      if (product.stock < item.quantity) {
+      const variant = resolveVariant(product, item.variantId);
+      const availableStock = variant ? Number(variant.stock || 0) : Number(product.stock || 0);
+      if (availableStock < item.quantity) {
         throw new AppError(`Out of stock: ${product.name}`, 400, "INSUFFICIENT_STOCK");
       }
       const resolvedSellerId = await resolveSellerIdForProduct(product);
@@ -86,14 +102,18 @@ class OrderService {
         sellerId: resolvedSellerId,
         quantity: item.quantity,
         // snapshot price (refresh to current unit price at checkout time)
-        price: Number(product.discountPrice || product.price || 0),
+        price: Number(variant?.discountPrice || variant?.price || product.discountPrice || product.price || 0),
+        variantId: variant?.variantId || item.variantId || "",
+        variantSku: variant?.sku || item.variantSku || "",
+        variantTitle: variant?.title || item.variantTitle || "",
+        variantAttributes: variant?.attributes || item.variantAttributes || {},
       });
     }
 
     // "Lock" inventory by decrementing stock right away (simple and consistent with current schema).
     // If any decrement fails mid-way, we fail fast (no transaction). In production you'd use a Mongo transaction or stock reservations.
     for (const it of validated) {
-      await productService.recordSale(it.productId, it.quantity, it.price * it.quantity);
+      await productService.recordSale(it.productId, it.quantity, it.price * it.quantity, it.variantId);
     }
 
     const bySeller = groupBySeller(validated);
@@ -105,7 +125,14 @@ class OrderService {
         name: it.product.name,
         price: it.price,
         quantity: it.quantity,
-        image: Array.isArray(it.product.images) && it.product.images.length ? it.product.images[0]?.url : undefined,
+        image:
+          it.product.variants?.find((variant) => variant.variantId === it.variantId)?.images?.find((image) => image.isPrimary)?.url ||
+          it.product.variants?.find((variant) => variant.variantId === it.variantId)?.images?.[0]?.url ||
+          (Array.isArray(it.product.images) && it.product.images.length ? it.product.images[0]?.url : undefined),
+        variantId: it.variantId,
+        variantSku: it.variantSku,
+        variantTitle: it.variantTitle,
+        variantAttributes: it.variantAttributes,
       }));
 
       const subtotal = orderItems.reduce((sum, it) => sum + it.price * it.quantity, 0);

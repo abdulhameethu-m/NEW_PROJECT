@@ -179,7 +179,9 @@ export function SellerProductsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="truncate">
                       <div className="text-sm font-medium text-slate-900 dark:text-white truncate">{product.name}</div>
-                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">SKU: {product.SKU}</div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">
+                        Product Number: {product.productNumber || product.SKU}
+                      </div>
                     </div>
 
                     <div className="mt-2 flex gap-2 flex-wrap">

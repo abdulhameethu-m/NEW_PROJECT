@@ -11,11 +11,12 @@ const productRepo = require("../repositories/product.repository");
  * Seller products: require approval
  */
 const createProduct = asyncHandler(async (req, res) => {
-  const { name, description, category, price, stock, SKU, images } = req.body;
+  const isVendor = req.user.role === "vendor";
+  const isAdminContext = !isVendor;
 
   // Get seller info if user is seller
   let sellerId = null;
-  if (req.user.role === "vendor") {
+  if (isVendor) {
     // Assuming vendor profile is stored with userId reference
     const vendorModule = require("../repositories/vendor.repository");
     const vendor = await vendorModule.findByUserId(req.user.sub);
@@ -25,10 +26,10 @@ const createProduct = asyncHandler(async (req, res) => {
     sellerId = vendor._id;
   }
 
-  const product = await productService.createProduct(req.body, req.user.sub, req.user.role === "admin" ? "admin" : "seller", sellerId);
+  const product = await productService.createProduct(req.body, req.user.sub, isAdminContext ? "admin" : "seller", sellerId);
 
-  const statusCode = req.user.role === "admin" ? 201 : 202; // 202 Accepted for pending approval
-  const message = req.user.role === "admin" ? "Product created and approved" : "Product created and pending approval";
+  const statusCode = isAdminContext ? 201 : 202; // 202 Accepted for pending approval
+  const message = isAdminContext ? "Product created and approved" : "Product created and pending approval";
 
   return ok(res, product, message);
 });
@@ -120,8 +121,10 @@ const getProductById = asyncHandler(async (req, res) => {
  * Admins can update any product
  */
 const updateProduct = asyncHandler(async (req, res) => {
+  const isVendor = req.user.role === "vendor";
+  const isAdminContext = !isVendor;
   let sellerId = null;
-  if (req.user.role === "vendor") {
+  if (isVendor) {
     const vendorModule = require("../repositories/vendor.repository");
     const vendor = await vendorModule.findByUserId(req.user.sub);
     if (!vendor) {
@@ -134,7 +137,7 @@ const updateProduct = asyncHandler(async (req, res) => {
     req.params.id,
     req.body,
     req.user.sub,
-    req.user.role === "admin" ? "admin" : "seller",
+    isAdminContext ? "admin" : "seller",
     sellerId
   );
 
@@ -147,8 +150,10 @@ const updateProduct = asyncHandler(async (req, res) => {
  * Soft delete - sets isActive to false
  */
 const deleteProduct = asyncHandler(async (req, res) => {
+  const isVendor = req.user.role === "vendor";
+  const isAdminContext = !isVendor;
   let sellerId = null;
-  if (req.user.role === "vendor") {
+  if (isVendor) {
     const vendorModule = require("../repositories/vendor.repository");
     const vendor = await vendorModule.findByUserId(req.user.sub);
     if (!vendor) {
@@ -160,7 +165,7 @@ const deleteProduct = asyncHandler(async (req, res) => {
   const product = await productService.deleteProduct(
     req.params.id,
     req.user.sub,
-    req.user.role === "admin" ? "admin" : "seller",
+    isAdminContext ? "admin" : "seller",
     sellerId
   );
 
@@ -223,6 +228,14 @@ const getProductStats = asyncHandler(async (req, res) => {
   return ok(res, stats, "Product statistics retrieved");
 });
 
+const generateProductNumber = asyncHandler(async (req, res) => {
+  const productNumber = await productService.previewProductNumber({
+    categoryId: req.query.categoryId,
+    subCategoryId: req.query.subCategoryId,
+  });
+  return ok(res, { productNumber }, "Product number generated");
+});
+
 module.exports = {
   createProduct,
   getProducts,
@@ -234,4 +247,5 @@ module.exports = {
   approveProduct,
   rejectProduct,
   getProductStats,
+  generateProductNumber,
 };

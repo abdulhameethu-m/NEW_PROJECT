@@ -36,11 +36,11 @@ export function CartPage() {
   const items = useMemo(() => (Array.isArray(cart?.items) ? cart.items : []), [cart]);
   const total = Number(cart?.totalAmount || 0);
 
-  async function changeQty(productId, nextQty) {
-    setBusyId(productId);
+  async function changeQty(productId, variantId, nextQty) {
+    setBusyId(`${productId}:${variantId || ""}`);
     setError("");
     try {
-      const res = await cartService.updateCartItem(productId, nextQty);
+      const res = await cartService.updateCartItem(productId, nextQty, variantId);
       setCart(res.data);
     } catch (e) {
       setError(normalizeError(e));
@@ -49,11 +49,11 @@ export function CartPage() {
     }
   }
 
-  async function remove(productId) {
-    setBusyId(productId);
+  async function remove(productId, variantId) {
+    setBusyId(`${productId}:${variantId || ""}`);
     setError("");
     try {
-      const res = await cartService.removeCartItem(productId);
+      const res = await cartService.removeCartItem(productId, variantId);
       setCart(res.data);
     } catch (e) {
       setError(normalizeError(e));
@@ -105,12 +105,15 @@ export function CartPage() {
               const p = item?.productId;
               const id = p?._id || item.productId;
               const name = p?.name || "Product";
-              const img = Array.isArray(p?.images) && p.images.length ? p.images[0]?.url : "";
+              const img = item.image || (Array.isArray(p?.images) && p.images.length ? p.images[0]?.url : "");
               const qty = Number(item.quantity || 1);
               const price = Number(item.price || 0);
               const sellerName = item?.sellerId?.companyName || "";
+              const variantLabel = item?.variantTitle || "";
+              const variantId = item?.variantId || "";
+              const busyKey = `${id}:${variantId}`;
               return (
-                <div key={String(id)} className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 dark:border-slate-800 dark:bg-slate-900">
+                <div key={`${String(id)}:${variantId}`} className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 dark:border-slate-800 dark:bg-slate-900">
                   <div className="flex gap-3 sm:gap-4">
                     <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
                       {img ? <img src={img} alt={name} className="h-full w-full object-cover" /> : null}
@@ -119,6 +122,7 @@ export function CartPage() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
                           <div className="truncate text-sm sm:text-base font-semibold text-slate-950 dark:text-white">{name}</div>
+                          {variantLabel ? <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 truncate">Variant: {variantLabel}</div> : null}
                           {sellerName ? (
                             <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 truncate">Seller: {sellerName}</div>
                           ) : null}
@@ -131,8 +135,8 @@ export function CartPage() {
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <button
                           type="button"
-                          disabled={busyId === String(id) || qty <= 1}
-                          onClick={() => changeQty(String(id), qty - 1)}
+                          disabled={busyId === busyKey || qty <= 1}
+                          onClick={() => changeQty(String(id), variantId, qty - 1)}
                           className="rounded-lg border border-slate-300 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"
                         >
                           −
@@ -142,8 +146,8 @@ export function CartPage() {
                         </div>
                         <button
                           type="button"
-                          disabled={busyId === String(id)}
-                          onClick={() => changeQty(String(id), qty + 1)}
+                          disabled={busyId === busyKey}
+                          onClick={() => changeQty(String(id), variantId, qty + 1)}
                           className="rounded-lg border border-slate-300 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"
                         >
                           +
@@ -151,8 +155,8 @@ export function CartPage() {
 
                         <button
                           type="button"
-                          disabled={busyId === String(id)}
-                          onClick={() => remove(String(id))}
+                          disabled={busyId === busyKey}
+                          onClick={() => remove(String(id), variantId)}
                           className="ml-auto rounded-lg border border-rose-200 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900 dark:text-rose-200 dark:hover:bg-rose-950/30"
                         >
                           Remove

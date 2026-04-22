@@ -286,6 +286,20 @@ async function removeVendor(vendorId, actor, meta) {
   return { user: updatedUser };
 }
 
+function resolveVariant(product, variantId = "") {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  if (!variants.length) return null;
+  if (!variantId) {
+    return (
+      variants.find((item) => item.isDefault && item.isActive && item.stock > 0) ||
+      variants.find((item) => item.isActive && item.stock > 0) ||
+      variants.find((item) => item.isActive) ||
+      null
+    );
+  }
+  return variants.find((item) => item.variantId === variantId && item.isActive) || null;
+}
+
 async function listOrders(filters = {}) {
   return await orderRepo.list(filters);
 }
@@ -368,7 +382,9 @@ async function createOrder(payload, actor, meta) {
     if (!product) throw new AppError("Product not found", 404, "NOT_FOUND");
     const qty = Number(it.quantity || 0);
     if (!Number.isFinite(qty) || qty < 1) throw new AppError("Invalid quantity", 400, "VALIDATION_ERROR");
-    if (product.stock < qty) throw new AppError(`Insufficient stock: ${product.name}`, 400, "INSUFFICIENT_STOCK");
+    const variant = resolveVariant(product, it.variantId);
+    const availableStock = variant ? Number(variant.stock || 0) : Number(product.stock || 0);
+    if (availableStock < qty) throw new AppError(`Insufficient stock: ${product.name}`, 400, "INSUFFICIENT_STOCK");
 
     // Resolve sellerId for admin-created products
     let sellerId = product.sellerId;
@@ -384,7 +400,7 @@ async function createOrder(payload, actor, meta) {
     }
     if (!sellerId) throw new AppError("Seller not found for product", 400, "INVALID_PRODUCT");
 
-    const price = Number(product.discountPrice || product.price || 0);
+    const price = Number(variant?.discountPrice || variant?.price || product.discountPrice || product.price || 0);
     validated.push({
       product,
       productId: product._id,
@@ -392,13 +408,20 @@ async function createOrder(payload, actor, meta) {
       name: product.name,
       price,
       quantity: qty,
-      image: Array.isArray(product.images) && product.images.length ? product.images[0]?.url : undefined,
+      image:
+        variant?.images?.find((image) => image.isPrimary)?.url ||
+        variant?.images?.[0]?.url ||
+        (Array.isArray(product.images) && product.images.length ? product.images[0]?.url : undefined),
+      variantId: variant?.variantId || it.variantId || "",
+      variantSku: variant?.sku || "",
+      variantTitle: variant?.title || "",
+      variantAttributes: variant?.attributes || {},
     });
   }
 
   // decrement stock and record revenue
   for (const it of validated) {
-    await productService.recordSale(it.productId, it.quantity, it.price * it.quantity);
+    await productService.recordSale(it.productId, it.quantity, it.price * it.quantity, it.variantId);
   }
 
   // group by seller and create one order per seller (consistent with current checkout design)
@@ -423,6 +446,10 @@ async function createOrder(payload, actor, meta) {
       price: x.price,
       quantity: x.quantity,
       image: x.image,
+      variantId: x.variantId,
+      variantSku: x.variantSku,
+      variantTitle: x.variantTitle,
+      variantAttributes: x.variantAttributes,
     }));
     const subtotal = cleanedItems.reduce((sum, x) => sum + x.price * x.quantity, 0);
     const totalAmount = subtotal;

@@ -198,6 +198,31 @@ export async function toggleCategory(id, isActive) {
   return data;
 }
 
+export async function listSubcategories() {
+  const { data } = await adminHttp.get("/api/admin/subcategories");
+  return data;
+}
+
+export async function createSubcategory(payload) {
+  const { data } = await adminHttp.post("/api/admin/subcategories", payload);
+  return data;
+}
+
+export async function updateSubcategory(id, payload) {
+  const { data } = await adminHttp.put(`/api/admin/subcategories/${id}`, payload);
+  return data;
+}
+
+export async function deleteSubcategory(id) {
+  const { data } = await adminHttp.delete(`/api/admin/subcategories/${id}`);
+  return data;
+}
+
+export async function toggleSubcategoryStatus(id, status) {
+  const { data } = await adminHttp.patch(`/api/admin/subcategories/${id}/status`, { status });
+  return data;
+}
+
 export async function getStaffPermissionCatalog() {
   const { data } = await adminHttp.get("/api/admin/permissions/catalog");
   return data;

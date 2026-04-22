@@ -1,4 +1,33 @@
 const Joi = require("joi");
+const objectId = Joi.string().hex().length(24);
+
+const productImageSchema = Joi.object({
+  url: Joi.string().uri().required(),
+  altText: Joi.string().trim().max(255).allow(""),
+  isPrimary: Joi.boolean(),
+});
+
+const productVariantSchema = Joi.object({
+  variantId: Joi.string().trim().required(),
+  title: Joi.string().trim().allow(""),
+  attributes: Joi.object().pattern(Joi.string(), Joi.string().allow("")).default({}),
+  options: Joi.array()
+    .items(
+      Joi.object({
+        key: Joi.string().trim().lowercase().pattern(/^[a-z][a-z0-9_]*$/).required(),
+        name: Joi.string().trim().required(),
+        value: Joi.string().trim().required(),
+      })
+    )
+    .default([]),
+  price: Joi.number().required().min(0),
+  discountPrice: Joi.number().min(0),
+  stock: Joi.number().required().integer().min(0),
+  sku: Joi.string().trim().uppercase().regex(/^[A-Z0-9-]+$/).required(),
+  images: Joi.array().items(productImageSchema).max(10).default([]),
+  isDefault: Joi.boolean().default(false),
+  isActive: Joi.boolean().default(true),
+});
 
 // Schema for creating/updating a product
 const productSchema = Joi.object({
@@ -19,8 +48,16 @@ const productSchema = Joi.object({
   category: Joi.string().required().trim().messages({
     "string.empty": "Category is required",
   }),
+  categoryId: objectId.required().messages({
+    "string.length": "Category is invalid",
+    "any.required": "Category is required",
+  }),
 
-  subCategory: Joi.string().trim().allow(null),
+  subCategory: Joi.string().trim().allow("", null),
+  subCategoryId: objectId.required().messages({
+    "string.length": "Subcategory is invalid",
+    "any.required": "Subcategory is required",
+  }),
 
   tags: Joi.array().items(Joi.string().trim()).max(10),
 
@@ -43,26 +80,13 @@ const productSchema = Joi.object({
     "number.min": "Stock cannot be negative",
   }),
 
-  SKU: Joi.string()
-    .required()
-    .trim()
-    .uppercase()
-    .regex(/^[A-Z0-9-]+$/)
-    .messages({
-      "string.empty": "SKU is required",
-      "string.pattern.base": "SKU can only contain uppercase letters, numbers, and hyphens",
-    }),
+  SKU: Joi.string().trim().uppercase().regex(/^[A-Z0-9-]+$/).allow(""),
+  productNumber: Joi.string().trim().uppercase().regex(/^[A-Z0-9]+$/).allow(""),
 
   lowStockThreshold: Joi.number().integer().min(0).default(10),
 
   images: Joi.array()
-    .items(
-      Joi.object({
-        url: Joi.string().uri().required(),
-        altText: Joi.string().trim().max(255),
-        isPrimary: Joi.boolean(),
-      })
-    )
+    .items(productImageSchema)
     .min(1)
     .max(10)
     .messages({
@@ -72,12 +96,8 @@ const productSchema = Joi.object({
 
   thumbnail: Joi.string().uri(),
 
-  variants: Joi.array().items(
-    Joi.object({
-      name: Joi.string().required().trim(),
-      values: Joi.array().items(Joi.string().trim()).min(1).required(),
-    })
-  ),
+  variantConfig: Joi.array().items(Joi.string().trim().lowercase().pattern(/^[a-z][a-z0-9_]*$/)).default([]),
+  variants: Joi.array().items(productVariantSchema).default([]),
 
   metaDescription: Joi.string().trim().max(160),
   metaKeywords: Joi.array().items(Joi.string().trim()).max(10),
@@ -91,12 +111,20 @@ const productSchema = Joi.object({
   }),
 
   returnPolicy: Joi.string().trim().max(1000),
-  warranty: Joi.string().trim().max(500),
+  modulesData: Joi.object().pattern(
+    Joi.string(),
+    Joi.object().pattern(Joi.string(), Joi.alternatives().try(Joi.string().allow(""), Joi.number(), Joi.boolean(), Joi.array()))
+  ).default({}),
+  attributes: Joi.object().pattern(Joi.string(), Joi.alternatives().try(Joi.string(), Joi.number(), Joi.boolean(), Joi.array())).default({}),
+  extraDetails: Joi.object().pattern(
+    Joi.string(),
+    Joi.object().pattern(Joi.string(), Joi.alternatives().try(Joi.string().allow(""), Joi.number(), Joi.boolean(), Joi.array()))
+  ).default({}),
 }).unknown(true); // Allow unknown fields but validate known ones
 
 // Schema for creating product (stricter)
 const createProductSchema = productSchema.fork(
-  ["name", "description", "category", "price", "stock", "SKU", "images"],
+  ["name", "description", "category", "categoryId", "subCategoryId", "price", "stock", "images"],
   (schema) => schema.required()
 );
 
@@ -106,30 +134,23 @@ const updateProductSchema = Joi.object({
   description: Joi.string().trim().min(10).max(5000),
   shortDescription: Joi.string().trim().max(500),
   category: Joi.string().trim(),
-  subCategory: Joi.string().trim().allow(null),
+  categoryId: objectId,
+  subCategory: Joi.string().trim().allow("", null),
+  subCategoryId: objectId,
   tags: Joi.array().items(Joi.string().trim()).max(10),
   price: Joi.number().min(0),
   discountPrice: Joi.number().min(0),
   currency: Joi.string().valid("USD", "EUR", "INR", "GBP"),
   stock: Joi.number().integer().min(0),
-  SKU: Joi.string().trim().uppercase().regex(/^[A-Z0-9-]+$/),
+  SKU: Joi.string().trim().uppercase().regex(/^[A-Z0-9-]+$/).allow(""),
+  productNumber: Joi.string().trim().uppercase().regex(/^[A-Z0-9]+$/).allow(""),
   lowStockThreshold: Joi.number().integer().min(0),
   images: Joi.array()
-    .items(
-      Joi.object({
-        url: Joi.string().uri(),
-        altText: Joi.string().trim().max(255),
-        isPrimary: Joi.boolean(),
-      })
-    )
+    .items(productImageSchema)
     .max(10),
   thumbnail: Joi.string().uri(),
-  variants: Joi.array().items(
-    Joi.object({
-      name: Joi.string().required().trim(),
-      values: Joi.array().items(Joi.string().trim()).min(1).required(),
-    })
-  ),
+  variantConfig: Joi.array().items(Joi.string().trim().lowercase().pattern(/^[a-z][a-z0-9_]*$/)),
+  variants: Joi.array().items(productVariantSchema),
   metaDescription: Joi.string().trim().max(160),
   metaKeywords: Joi.array().items(Joi.string().trim()).max(10),
   weight: Joi.number().min(0),
@@ -139,7 +160,15 @@ const updateProductSchema = Joi.object({
     height: Joi.number().min(0),
   }),
   returnPolicy: Joi.string().trim().max(1000),
-  warranty: Joi.string().trim().max(500),
+  modulesData: Joi.object().pattern(
+    Joi.string(),
+    Joi.object().pattern(Joi.string(), Joi.alternatives().try(Joi.string().allow(""), Joi.number(), Joi.boolean(), Joi.array()))
+  ),
+  attributes: Joi.object().pattern(Joi.string(), Joi.alternatives().try(Joi.string(), Joi.number(), Joi.boolean(), Joi.array())),
+  extraDetails: Joi.object().pattern(
+    Joi.string(),
+    Joi.object().pattern(Joi.string(), Joi.alternatives().try(Joi.string().allow(""), Joi.number(), Joi.boolean(), Joi.array()))
+  ),
 }).unknown(true);
 
 // Schema for admin approval

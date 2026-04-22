@@ -19,7 +19,20 @@ const {
   updateCategorySchema,
   toggleCategorySchema,
 } = require("../utils/validators/category.validation");
+const {
+  createSubcategorySchema,
+  updateSubcategorySchema,
+  updateSubcategoryStatusSchema,
+} = require("../utils/validators/subcategory.validation");
 const categoryController = require("../controllers/category.controller");
+const subcategoryController = require("../controllers/subcategory.controller");
+const attributeController = require("../controllers/attribute.controller");
+const productModuleController = require("../controllers/product-module.controller");
+const { createAttributeSchema, updateAttributeSchema } = require("../utils/validators/attribute.validation");
+const {
+  createProductModuleSchema,
+  updateProductModuleSchema,
+} = require("../utils/validators/product-module.validation");
 const roleController = require("../modules/staff/controllers/role.controller");
 const { roleSchema } = require("../modules/staff/validators");
 
@@ -88,6 +101,61 @@ router.patch(
   requireLegacyAdminPermission("categories:update"),
   validate(toggleCategorySchema),
   categoryController.toggleCategory
+);
+
+router.get("/subcategories", requireLegacyAdminPermission("categories:read"), subcategoryController.getAdminSubcategories);
+router.post(
+  "/subcategories",
+  requireLegacyAdminPermission("categories:create"),
+  validate(createSubcategorySchema),
+  subcategoryController.createSubcategory
+);
+router.put(
+  "/subcategories/:id",
+  requireLegacyAdminPermission("categories:update"),
+  validate(updateSubcategorySchema),
+  subcategoryController.updateSubcategory
+);
+router.delete("/subcategories/:id", requireLegacyAdminPermission("categories:update"), subcategoryController.deleteSubcategory);
+router.patch(
+  "/subcategories/:id/status",
+  requireLegacyAdminPermission("categories:update"),
+  validate(updateSubcategoryStatusSchema),
+  subcategoryController.updateSubcategoryStatus
+);
+
+router.get("/attributes", requireLegacyAdminPermission("categories:read"), attributeController.getAdminAttributes);
+router.post(
+  "/attributes",
+  requireLegacyAdminPermission("categories:create"),
+  validate(createAttributeSchema),
+  attributeController.createAttribute
+);
+router.put(
+  "/attributes/:id",
+  requireLegacyAdminPermission("categories:update"),
+  validate(updateAttributeSchema),
+  attributeController.updateAttribute
+);
+router.delete("/attributes/:id", requireLegacyAdminPermission("categories:update"), attributeController.deleteAttribute);
+
+router.get("/product-modules", requireLegacyAdminPermission("categories:read"), productModuleController.getAdminProductModules);
+router.post(
+  "/product-modules",
+  requireLegacyAdminPermission("categories:create"),
+  validate(createProductModuleSchema),
+  productModuleController.createProductModule
+);
+router.put(
+  "/product-modules/:id",
+  requireLegacyAdminPermission("categories:update"),
+  validate(updateProductModuleSchema),
+  productModuleController.updateProductModule
+);
+router.delete(
+  "/product-modules/:id",
+  requireLegacyAdminPermission("categories:update"),
+  productModuleController.deleteProductModule
 );
 
 // Role management routes

@@ -19,6 +19,14 @@ const orderItemSchema = new mongoose.Schema(
     price: { type: Number, required: true, min: 0 },
     quantity: { type: Number, required: true, min: 1 },
     image: { type: String },
+    variantId: { type: String, trim: true, default: "" },
+    variantSku: { type: String, trim: true, default: "" },
+    variantTitle: { type: String, trim: true, default: "" },
+    variantAttributes: {
+      type: Map,
+      of: String,
+      default: {},
+    },
   },
   { _id: false }
 );

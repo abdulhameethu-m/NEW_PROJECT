@@ -98,11 +98,11 @@ export function CheckoutPage() {
     return getShippingAddressFromForm(addressForm);
   }
 
-  async function handleQuantityChange(productId, quantity) {
-    setUpdatingItemId(String(productId));
+  async function handleQuantityChange(productId, variantId, quantity) {
+    setUpdatingItemId(`${String(productId)}:${variantId || ""}`);
     setError("");
     try {
-      await cartService.updateCartItem(productId, quantity);
+      await cartService.updateCartItem(productId, quantity, variantId);
       const checkoutRes = await checkoutService.prepareCheckout();
       setSummary(checkoutRes?.data || null);
       setToast({ type: "success", message: "Order summary updated." });
@@ -337,10 +337,10 @@ export function CheckoutPage() {
               <div className="mt-5 grid gap-4">
                 {orderItems.map((item) => (
                   <OrderSummaryCard
-                    key={String(item.productId)}
+                    key={`${String(item.productId)}:${item.variantId || ""}`}
                     item={item}
-                    busy={updatingItemId === String(item.productId)}
-                    onQuantityChange={(quantity) => handleQuantityChange(String(item.productId), quantity)}
+                    busy={updatingItemId === `${String(item.productId)}:${item.variantId || ""}`}
+                    onQuantityChange={(quantity) => handleQuantityChange(String(item.productId), item.variantId || "", quantity)}
                   />
                 ))}
               </div>

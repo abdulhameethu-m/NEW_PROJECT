@@ -2,6 +2,7 @@ const Joi = require("joi");
 
 const categoryPayload = {
   name: Joi.string().trim().max(120),
+  code: Joi.string().trim().max(10).allow(""),
   slug: Joi.string().trim().max(120).allow(""),
   icon: Joi.string().trim().max(120).allow(""),
   color: Joi.string().trim().max(120).allow(""),
@@ -15,6 +16,7 @@ const createCategorySchema = Joi.object({
     "string.empty": "Category name is required",
   }),
   slug: categoryPayload.slug,
+  code: categoryPayload.code,
   icon: categoryPayload.icon,
   color: categoryPayload.color,
   isActive: categoryPayload.isActive,

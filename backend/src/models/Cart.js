@@ -16,6 +16,15 @@ const cartItemSchema = new mongoose.Schema(
     },
     quantity: { type: Number, required: true, min: 1 },
     price: { type: Number, required: true, min: 0 }, // snapshot (unit price at time of add)
+    image: { type: String, default: "" },
+    variantId: { type: String, trim: true, default: "" },
+    variantSku: { type: String, trim: true, default: "" },
+    variantTitle: { type: String, trim: true, default: "" },
+    variantAttributes: {
+      type: Map,
+      of: String,
+      default: {},
+    },
   },
   { _id: false }
 );

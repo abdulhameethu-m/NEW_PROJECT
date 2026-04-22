@@ -26,6 +26,9 @@ const webhookRoutes = require("./routes/webhook.routes");
 const wishlistRoutes = require("./routes/wishlist.routes");
 const userRoutes = require("./routes/user.routes");
 const categoryRoutes = require("./routes/category.routes");
+const subcategoryRoutes = require("./routes/subcategory.routes");
+const attributeRoutes = require("./routes/attribute.routes");
+const productModuleRoutes = require("./routes/product-module.routes");
 const exportRoutes = require("./routes/export.routes");
 const staffRoutes = require("./modules/staff/routes");
 
@@ -126,6 +129,9 @@ function createApp() {
   app.use("/api/wishlist", wishlistRoutes);
   app.use("/api/user", userRoutes);
   app.use("/api/categories", categoryRoutes);
+  app.use("/api/subcategories", subcategoryRoutes);
+  app.use("/api/attributes", attributeRoutes);
+  app.use("/api/product-modules", productModuleRoutes);
   app.use("/api/export", exportRoutes);
   app.use("/api/staff", staffRoutes);
 

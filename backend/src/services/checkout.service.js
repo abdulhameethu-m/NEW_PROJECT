@@ -12,6 +12,20 @@ function asObjectId(id, fieldName) {
   return id;
 }
 
+function resolveVariant(product, variantId = "") {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  if (!variants.length) return null;
+  if (!variantId) {
+    return (
+      variants.find((item) => item.isDefault && item.isActive && item.stock > 0) ||
+      variants.find((item) => item.isActive && item.stock > 0) ||
+      variants.find((item) => item.isActive) ||
+      null
+    );
+  }
+  return variants.find((item) => item.variantId === variantId && item.isActive) || null;
+}
+
 function groupBySeller(items = []) {
   const map = new Map();
   for (const it of items) {
@@ -53,7 +67,9 @@ class CheckoutService {
       if (product.status !== "APPROVED" || product.isActive !== true) {
         throw new AppError(`Product not available: ${product.name}`, 400, "NOT_AVAILABLE");
       }
-      if (product.stock < item.quantity) {
+      const variant = resolveVariant(product, item.variantId);
+      const availableStock = variant ? Number(variant.stock || 0) : Number(product.stock || 0);
+      if (availableStock < item.quantity) {
         throw new AppError(`Out of stock: ${product.name}`, 400, "INSUFFICIENT_STOCK");
       }
       const resolvedSellerId = await resolveSellerIdForProduct(product);
@@ -63,10 +79,18 @@ class CheckoutService {
         productId: product._id,
         sellerId: resolvedSellerId,
         name: product.name,
-        image: Array.isArray(product.images) && product.images.length ? product.images[0]?.url : undefined,
+        image:
+          variant?.images?.find((image) => image.isPrimary)?.url ||
+          variant?.images?.[0]?.url ||
+          item.image ||
+          (Array.isArray(product.images) && product.images.length ? product.images[0]?.url : undefined),
         quantity: item.quantity,
-        price: Number(product.discountPrice || product.price || 0),
-        maxAvailable: product.stock,
+        price: Number(variant?.discountPrice || variant?.price || product.discountPrice || product.price || 0),
+        maxAvailable: availableStock,
+        variantId: variant?.variantId || item.variantId || "",
+        variantSku: variant?.sku || item.variantSku || "",
+        variantTitle: variant?.title || item.variantTitle || "",
+        variantAttributes: variant?.attributes || item.variantAttributes || {},
       });
     }
 
@@ -115,7 +139,9 @@ class CheckoutService {
       if (product.status !== "APPROVED" || product.isActive !== true) {
         throw new AppError(`Product not available: ${product.name}`, 400, "NOT_AVAILABLE");
       }
-      if (product.stock < item.quantity) {
+      const variant = resolveVariant(product, item.variantId);
+      const availableStock = variant ? Number(variant.stock || 0) : Number(product.stock || 0);
+      if (availableStock < item.quantity) {
         throw new AppError(`Out of stock: ${product.name}`, 400, "INSUFFICIENT_STOCK");
       }
       const resolvedSellerId = await resolveSellerIdForProduct(product);
@@ -125,9 +151,17 @@ class CheckoutService {
         productId: product._id,
         sellerId: resolvedSellerId,
         name: product.name,
-        price: Number(product.discountPrice || product.price || 0),
+        price: Number(variant?.discountPrice || variant?.price || product.discountPrice || product.price || 0),
         quantity: item.quantity,
-        image: Array.isArray(product.images) && product.images.length ? product.images[0]?.url : undefined,
+        image:
+          variant?.images?.find((image) => image.isPrimary)?.url ||
+          variant?.images?.[0]?.url ||
+          item.image ||
+          (Array.isArray(product.images) && product.images.length ? product.images[0]?.url : undefined),
+        variantId: variant?.variantId || item.variantId || "",
+        variantSku: variant?.sku || item.variantSku || "",
+        variantTitle: variant?.title || item.variantTitle || "",
+        variantAttributes: variant?.attributes || item.variantAttributes || {},
       });
     }
 
@@ -146,6 +180,10 @@ class CheckoutService {
         price: it.price,
         quantity: it.quantity,
         image: it.image,
+        variantId: it.variantId,
+        variantSku: it.variantSku,
+        variantTitle: it.variantTitle,
+        variantAttributes: it.variantAttributes,
       }));
 
       const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
