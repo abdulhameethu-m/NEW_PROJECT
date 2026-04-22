@@ -15,6 +15,7 @@ export function Sidebar({ open, onClose }) {
     { label: "Subcategories", to: "/admin/subcategories", visible: isLegacyAdmin },
     { label: "Attributes", to: "/admin/attributes", visible: isLegacyAdmin },
     { label: "Product Modules", to: "/admin/product-modules", visible: isLegacyAdmin },
+    { label: "Vendor Access", to: "/admin/vendor-access", visible: isLegacyAdmin },
     { label: "Revenue", to: "/admin/revenue", visible: isLegacyAdmin },
     { label: "Audit Logs", to: "/admin/audit-logs", visible: isLegacyAdmin },
     { label: "Staff Roles", to: "/admin/roles", visible: isLegacyAdmin },

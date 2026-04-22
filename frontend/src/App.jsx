@@ -36,6 +36,7 @@ import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
 import { AdminSubcategoriesPage } from "./pages/AdminSubcategoriesPage";
 import { AdminAttributesPage } from "./pages/AdminAttributesPage";
 import { AdminProductModulesPage } from "./pages/AdminProductModulesPage";
+import { AdminVendorAccessPage } from "./pages/AdminVendorAccessPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminRolesPage } from "./pages/AdminRolesPage";
 import { AdminStaffPage } from "./pages/AdminStaffPage";
@@ -159,6 +160,7 @@ export default function App() {
               <Route path="subcategories" element={<AdminSubcategoriesPage />} />
               <Route path="attributes" element={<AdminAttributesPage />} />
               <Route path="product-modules" element={<AdminProductModulesPage />} />
+              <Route path="vendor-access" element={<AdminVendorAccessPage />} />
               <Route path="products/create" element={<AdminProductCreate />} />
               <Route path="products/:id/edit" element={<AdminProductEdit />} />
               <Route path="orders" element={<AdminOrdersPage />} />
