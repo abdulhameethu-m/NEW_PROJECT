@@ -8,6 +8,8 @@ import { RoleGate } from "./components/RoleGate";
 import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
 import { StaffPermissionRoute } from "./components/StaffPermissionRoute";
 import { StaffDashboardLayout } from "./components/staff/DashboardLayout";
+import VendorModuleRoute from "./components/VendorModuleRoute";
+import { VendorModuleProvider } from "./context/VendorModuleContext";
 
 import { HomePage } from "./pages/HomePage";
 import { RoleSelectionPage } from "./pages/RoleSelectionPage";
@@ -36,7 +38,7 @@ import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
 import { AdminSubcategoriesPage } from "./pages/AdminSubcategoriesPage";
 import { AdminAttributesPage } from "./pages/AdminAttributesPage";
 import { AdminProductModulesPage } from "./pages/AdminProductModulesPage";
-import { AdminVendorAccessPage } from "./pages/AdminVendorAccessPage";
+import AdminVendorAccessPage from "./pages/AdminVendorAccessPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminRolesPage } from "./pages/AdminRolesPage";
 import { AdminStaffPage } from "./pages/AdminStaffPage";
@@ -125,21 +127,21 @@ export default function App() {
             <Route path="/vendor/onboarding" element={<VendorOnboardingPage />} />
             <Route path="/vendor/status" element={<VendorStatusPage />} />
             <Route path="/dashboard/vendor" element={<VendorDashboardPage />} />
-            <Route path="/seller/products" element={<SellerProductsPage />} />
-            <Route path="/seller/products/create" element={<ProductFormPage />} />
-            <Route path="/seller/products/:productId/edit" element={<ProductFormPage />} />
+            <Route path="/seller/products" element={<VendorModuleProvider><VendorModuleRoute moduleKey="products" action="read"><SellerProductsPage /></VendorModuleRoute></VendorModuleProvider>} />
+            <Route path="/seller/products/create" element={<VendorModuleProvider><VendorModuleRoute moduleKey="products" action="create"><ProductFormPage /></VendorModuleRoute></VendorModuleProvider>} />
+            <Route path="/seller/products/:productId/edit" element={<VendorModuleProvider><VendorModuleRoute moduleKey="products" action="update"><ProductFormPage /></VendorModuleRoute></VendorModuleProvider>} />
             <Route path="/vendor" element={<VendorLayout />}>
               <Route index element={<Navigate to="/vendor/dashboard" replace />} />
               <Route path="dashboard" element={<VendorOverviewPage />} />
-              <Route path="products" element={<VendorProductsPage />} />
-              <Route path="orders" element={<VendorOrdersPage />} />
-              <Route path="inventory" element={<VendorInventoryPage />} />
-              <Route path="analytics" element={<VendorAnalyticsPage />} />
-              <Route path="payouts" element={<VendorPayoutsPage />} />
-              <Route path="delivery" element={<VendorDeliveryPage />} />
+              <Route path="products" element={<VendorModuleRoute moduleKey="products"><VendorProductsPage /></VendorModuleRoute>} />
+              <Route path="orders" element={<VendorModuleRoute moduleKey="orders"><VendorOrdersPage /></VendorModuleRoute>} />
+              <Route path="inventory" element={<VendorModuleRoute moduleKey="inventory"><VendorInventoryPage /></VendorModuleRoute>} />
+              <Route path="analytics" element={<VendorModuleRoute moduleKey="analytics"><VendorAnalyticsPage /></VendorModuleRoute>} />
+              <Route path="payouts" element={<VendorModuleRoute moduleKey="payments"><VendorPayoutsPage /></VendorModuleRoute>} />
+              <Route path="delivery" element={<VendorModuleRoute moduleKey="delivery"><VendorDeliveryPage /></VendorModuleRoute>} />
               <Route path="notifications" element={<VendorNotificationsPage />} />
-              <Route path="reviews" element={<VendorReviewsPage />} />
-              <Route path="returns" element={<VendorReturnsPage />} />
+              <Route path="reviews" element={<VendorModuleRoute moduleKey="reviews"><VendorReviewsPage /></VendorModuleRoute>} />
+              <Route path="returns" element={<VendorModuleRoute moduleKey="returns"><VendorReturnsPage /></VendorModuleRoute>} />
               <Route path="offers" element={<VendorOffersPage />} />
               <Route path="support" element={<VendorSupportPage />} />
               <Route path="settings" element={<VendorSettingsPage />} />

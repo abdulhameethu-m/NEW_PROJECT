@@ -1,7 +1,8 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { Sidebar } from "./Sidebar";
+import { Sidebar } from "./sidebar/Sidebar";
 import { Topbar } from "./Topbar";
+import { useAdminSidebarData } from "../hooks/useAdminSidebarData";
 
 const pageMeta = {
   "/admin/dashboard": {
@@ -89,6 +90,7 @@ const pageMeta = {
 export function AdminLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarData = useAdminSidebarData();
 
   const meta = useMemo(() => {
     if (location.pathname.startsWith("/admin/sellers/")) {
@@ -102,7 +104,16 @@ export function AdminLayout() {
 
   return (
     <div className="flex min-h-screen max-w-full overflow-x-hidden bg-slate-100 dark:bg-slate-950">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        title={sidebarData.title}
+        subtitle={sidebarData.subtitle}
+        primaryItem={sidebarData.primaryItem}
+        sections={sidebarData.sections}
+        loading={sidebarData.loading}
+        error={sidebarData.error}
+      />
       <div className="flex min-w-0 max-w-full flex-1 flex-col">
         <Topbar
           title={meta.title}

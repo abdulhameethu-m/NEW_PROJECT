@@ -3,11 +3,13 @@ import { ReportingToolbar } from "../components/ReportingToolbar";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
 import { VendorList, VendorSection } from "../components/VendorPanel";
+import { useModuleAccess } from "../context/VendorModuleContext";
 import * as vendorDashboardService from "../services/vendorDashboardService";
 
 export function VendorReviewsPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const { can } = useModuleAccess();
   const reporting = useReporting({
     module: "reviews",
   });
@@ -79,9 +81,11 @@ export function VendorReviewsPage() {
                   </div>
                 ) : null}
               </div>
-              <button onClick={() => respondToReview(review._id)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
-                {review.sellerResponse?.message ? "Edit Reply" : "Reply"}
-              </button>
+              {can("reviews.update") ? (
+                <button onClick={() => respondToReview(review._id)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+                  {review.sellerResponse?.message ? "Edit Reply" : "Reply"}
+                </button>
+              ) : null}
             </div>
           </div>
         )}

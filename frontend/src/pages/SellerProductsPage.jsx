@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "../components/BackButton";
 import { useNavigate } from "react-router-dom";
+import { useModuleAccess } from "../context/VendorModuleContext";
 import * as productService from "../services/productService";
 import { formatCurrency } from "../utils/formatCurrency";
 
@@ -16,6 +17,7 @@ const STATUS_COLORS = {
 
 export function SellerProductsPage() {
   const navigate = useNavigate();
+  const { can } = useModuleAccess();
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
   const [error, setError] = useState("");
@@ -79,6 +81,7 @@ export function SellerProductsPage() {
           <BackButton fallbackTo="/dashboard/vendor" />
           <button
             onClick={() => navigate("/seller/products/create")}
+            disabled={!can("products.create")}
             className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             + Add Product
@@ -225,13 +228,14 @@ export function SellerProductsPage() {
                 <div className="flex gap-1 sm:gap-2 flex-wrap sm:flex-col w-full sm:w-auto">
                   <button
                     onClick={() => navigate(`/seller/products/${product._id}/edit`)}
+                    disabled={!can("products.update")}
                     className="flex-1 sm:flex-none rounded border border-blue-300 dark:border-blue-600 px-2 sm:px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => deleteProduct(product._id)}
-                    disabled={isDeleting === product._id}
+                    disabled={isDeleting === product._id || !can("products.delete")}
                     className="flex-1 sm:flex-none rounded border border-red-300 dark:border-red-600 px-2 sm:px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-50 transition-colors"
                   >
                     {isDeleting === product._id ? "..." : "Delete"}

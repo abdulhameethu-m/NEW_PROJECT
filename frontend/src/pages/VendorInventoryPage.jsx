@@ -3,6 +3,7 @@ import { ReportingToolbar } from "../components/ReportingToolbar";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
 import { VendorDataTable, VendorSection } from "../components/VendorPanel";
+import { useModuleAccess } from "../context/VendorModuleContext";
 import * as vendorDashboardService from "../services/vendorDashboardService";
 
 const emptyForm = {
@@ -17,6 +18,7 @@ export function VendorInventoryPage() {
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const { can } = useModuleAccess();
   const reporting = useReporting({
     module: "inventory",
   });
@@ -119,9 +121,13 @@ export function VendorInventoryPage() {
               key: "actions",
               label: "Update",
               render: (row) => (
-                <button onClick={() => startAdjust(row)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
-                  Adjust
-                </button>
+                can("inventory.update") ? (
+                  <button onClick={() => startAdjust(row)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+                    Adjust
+                  </button>
+                ) : (
+                  <span className="text-xs text-slate-400">Read only</span>
+                )
               ),
             },
           ]}

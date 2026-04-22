@@ -20,7 +20,7 @@ function requireVendorModule(moduleKey) {
     }
 
     try {
-      const hasAccess = await vendorModuleService.canVendorAccessModule(moduleKey);
+      const hasAccess = await vendorModuleService.canVendorPerformAction(moduleKey, "read", req.user);
 
       if (!hasAccess) {
         return next(
@@ -41,6 +41,38 @@ function requireVendorModule(moduleKey) {
   };
 }
 
+function requireVendorPermission(permission) {
+  return async (req, res, next) => {
+    if (!req.user || req.user.role !== "vendor") {
+      return next();
+    }
+
+    const [moduleKey, action] = String(permission || "").split(".");
+    if (!moduleKey || !action) {
+      return next(new AppError("Invalid vendor permission format", 500, "INVALID_VENDOR_PERMISSION"));
+    }
+
+    try {
+      const allowed = await vendorModuleService.canVendorPerformAction(moduleKey, action, req.user);
+
+      if (!allowed) {
+        return next(
+          new AppError(
+            `Access denied for permission '${permission}'. Contact admin for access.`,
+            403,
+            "VENDOR_PERMISSION_DENIED"
+          )
+        );
+      }
+
+      req.module = { key: moduleKey, action };
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  };
+}
+
 /**
  * Batch check module access
  * Validates array of module keys
@@ -53,7 +85,7 @@ function requireVendorModules(moduleKeys) {
     }
 
     try {
-      const access = await vendorModuleService.canVendorAccessModules(moduleKeys);
+      const access = await vendorModuleService.canVendorAccessModules(moduleKeys, req.user);
 
       // Check if all modules are accessible
       const inaccessibleModules = Object.keys(access).filter((key) => !access[key]);
@@ -79,4 +111,5 @@ function requireVendorModules(moduleKeys) {
 module.exports = {
   requireVendorModule,
   requireVendorModules,
+  requireVendorPermission,
 };

@@ -17,7 +17,7 @@ const getAllModules = asyncHandler(async (req, res) => {
  * Get vendor-accessible modules (for vendor frontend)
  */
 const getVendorAccessibleModules = asyncHandler(async (req, res) => {
-  const modules = await vendorModuleService.getVendorAccessibleModules();
+  const modules = await vendorModuleService.getVendorAccessibleModules(req.user);
   return ok(res, modules, "Vendor-accessible modules fetched");
 });
 
@@ -26,17 +26,26 @@ const getVendorAccessibleModules = asyncHandler(async (req, res) => {
  * Batch check if vendor can access specific modules
  */
 const checkVendorModuleAccess = asyncHandler(async (req, res) => {
-  const { modules } = req.body;
+  const { modules, permissions } = req.body;
+
+  if (Array.isArray(permissions) && permissions.length > 0) {
+    if (permissions.length > 50) {
+      throw new AppError("Cannot check more than 50 permissions at once", 400, "INVALID_INPUT");
+    }
+
+    const result = await vendorModuleService.canVendorPerformActions(permissions, req.user);
+    return ok(res, result, "Module permissions checked");
+  }
 
   if (!Array.isArray(modules) || modules.length === 0) {
-    throw new AppError("modules array is required", 400, "INVALID_INPUT");
+    throw new AppError("modules or permissions array is required", 400, "INVALID_INPUT");
   }
 
   if (modules.length > 20) {
     throw new AppError("Cannot check more than 20 modules at once", 400, "INVALID_INPUT");
   }
 
-  const result = await vendorModuleService.canVendorAccessModules(modules);
+  const result = await vendorModuleService.canVendorAccessModules(modules, req.user);
   return ok(res, result, "Module access checked");
 });
 
@@ -70,6 +79,63 @@ const updateModuleVendorAccess = asyncHandler(async (req, res) => {
   });
 
   return ok(res, module, `Module '${key}' vendor access updated to ${vendorEnabled}`);
+});
+
+/**
+ * PATCH /api/modules/:key
+ * Update vendor module feature flags and CRUD permissions
+ */
+const updateVendorModuleSettings = asyncHandler(async (req, res) => {
+  const { key } = req.params;
+  const { enabled, vendorEnabled, vendorPermissions } = req.body;
+
+  if (
+    enabled === undefined &&
+    vendorEnabled === undefined &&
+    vendorPermissions === undefined
+  ) {
+    throw new AppError(
+      "At least one of enabled, vendorEnabled, or vendorPermissions is required",
+      400,
+      "INVALID_INPUT"
+    );
+  }
+
+  if (enabled !== undefined && typeof enabled !== "boolean") {
+    throw new AppError("enabled must be a boolean", 400, "INVALID_INPUT");
+  }
+
+  if (vendorEnabled !== undefined && typeof vendorEnabled !== "boolean") {
+    throw new AppError("vendorEnabled must be a boolean", 400, "INVALID_INPUT");
+  }
+
+  if (vendorPermissions !== undefined) {
+    if (typeof vendorPermissions !== "object" || Array.isArray(vendorPermissions) || vendorPermissions === null) {
+      throw new AppError("vendorPermissions must be an object", 400, "INVALID_INPUT");
+    }
+
+    const allowedActions = ["create", "read", "update", "delete"];
+    for (const [action, value] of Object.entries(vendorPermissions)) {
+      if (!allowedActions.includes(action)) {
+        throw new AppError(`Invalid vendor permission '${action}'`, 400, "INVALID_INPUT");
+      }
+      if (typeof value !== "boolean") {
+        throw new AppError(`vendorPermissions.${action} must be a boolean`, 400, "INVALID_INPUT");
+      }
+    }
+  }
+
+  const module = await vendorModuleService.updateVendorModuleSettings(
+    key,
+    { enabled, vendorEnabled, vendorPermissions },
+    {
+      _id: req.user.sub,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    }
+  );
+
+  return ok(res, module, `Module '${key}' settings updated`);
 });
 
 /**
@@ -118,6 +184,7 @@ module.exports = {
   checkVendorModuleAccess,
   getModuleByKey,
   updateModuleVendorAccess,
+  updateVendorModuleSettings,
   updateModuleGlobalStatus,
   getModuleStats,
   initializeModules,

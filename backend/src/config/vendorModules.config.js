@@ -4,6 +4,25 @@
  */
 
 const VENDOR_MODULE_CONFIG = {
+  delivery: {
+    key: "delivery",
+    name: "Delivery",
+    description: "Manage shipment workflows and fulfillment updates",
+    icon: "Truck",
+    category: "operations",
+    requiredPermission: "delivery:read",
+    default: {
+      enabled: true,
+      vendorEnabled: true,
+      vendorPermissions: {
+        create: false,
+        read: true,
+        update: true,
+        delete: false,
+      },
+    },
+  },
+
   orders: {
     key: "orders",
     name: "Orders",
@@ -14,6 +33,12 @@ const VENDOR_MODULE_CONFIG = {
     default: {
       enabled: true,
       vendorEnabled: true,
+      vendorPermissions: {
+        create: false,
+        read: true,
+        update: true,
+        delete: false,
+      },
     },
   },
 
@@ -27,6 +52,12 @@ const VENDOR_MODULE_CONFIG = {
     default: {
       enabled: true,
       vendorEnabled: true,
+      vendorPermissions: {
+        create: true,
+        read: true,
+        update: true,
+        delete: true,
+      },
     },
   },
 
@@ -40,6 +71,12 @@ const VENDOR_MODULE_CONFIG = {
     default: {
       enabled: true,
       vendorEnabled: true,
+      vendorPermissions: {
+        create: false,
+        read: true,
+        update: false,
+        delete: false,
+      },
     },
   },
 
@@ -53,6 +90,12 @@ const VENDOR_MODULE_CONFIG = {
     default: {
       enabled: true,
       vendorEnabled: true,
+      vendorPermissions: {
+        create: false,
+        read: true,
+        update: false,
+        delete: false,
+      },
     },
   },
 
@@ -66,6 +109,12 @@ const VENDOR_MODULE_CONFIG = {
     default: {
       enabled: true,
       vendorEnabled: true,
+      vendorPermissions: {
+        create: false,
+        read: true,
+        update: true,
+        delete: false,
+      },
     },
   },
 
@@ -79,6 +128,12 @@ const VENDOR_MODULE_CONFIG = {
     default: {
       enabled: true,
       vendorEnabled: true,
+      vendorPermissions: {
+        create: false,
+        read: true,
+        update: true,
+        delete: false,
+      },
     },
   },
 
@@ -92,6 +147,12 @@ const VENDOR_MODULE_CONFIG = {
     default: {
       enabled: true,
       vendorEnabled: true,
+      vendorPermissions: {
+        create: false,
+        read: true,
+        update: true,
+        delete: false,
+      },
     },
   },
 };
@@ -124,9 +185,25 @@ function getModulesByCategory(category) {
   return Object.values(VENDOR_MODULE_CONFIG).filter((m) => m.category === category);
 }
 
+function getDefaultVendorModules() {
+  return Object.values(VENDOR_MODULE_CONFIG).map((module, index) => ({
+    key: module.key,
+    name: module.name,
+    description: module.description,
+    icon: module.icon,
+    enabled: module.default.enabled,
+    vendorEnabled: module.default.vendorEnabled,
+    vendorPermissions: module.default.vendorPermissions,
+    order: index + 1,
+    requiredPermission: module.requiredPermission,
+    metadata: { category: module.category, beta: Boolean(module.beta) },
+  }));
+}
+
 module.exports = {
   VENDOR_MODULE_CONFIG,
   getAllModuleKeys,
+  getDefaultVendorModules,
   getModuleConfig,
   isValidModuleKey,
   getModulesByCategory,

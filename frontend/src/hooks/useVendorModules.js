@@ -10,12 +10,32 @@ export const useVendorModules = () => {
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
 
+  const buildStats = useCallback((moduleList) => {
+    const total = moduleList.length;
+    const enabledGlobally = moduleList.filter((module) => module.enabled).length;
+    const enabledForVendors = moduleList.filter(
+      (module) => module.enabled && module.vendorEnabled
+    ).length;
+    const disabledForVendors = total - enabledForVendors;
+
+    return {
+      total,
+      enabledGlobally,
+      enabledForVendors,
+      disabledForVendors,
+      readableForVendors: moduleList.filter(
+        (module) => module.enabled && module.vendorEnabled && module.vendorPermissions?.read
+      ).length,
+    };
+  }, []);
+
   // Fetch all modules
   const fetchModules = useCallback(async () => {
     try {
       setLoading(true);
       const data = await vendorModuleService.getAllModules();
       setModules(data);
+      setStats(buildStats(data));
       setError(null);
     } catch (err) {
       setError(err.message || "Failed to fetch modules");
@@ -23,7 +43,7 @@ export const useVendorModules = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buildStats]);
 
   // Fetch module statistics
   const fetchStats = useCallback(async () => {
@@ -36,26 +56,53 @@ export const useVendorModules = () => {
   }, []);
 
   // Update vendor access for a module
-  const updateVendorAccess = useCallback(async (moduleKey, vendorEnabled) => {
+  const updateVendorAccess = useCallback(
+    async (moduleKey, vendorEnabled) => {
+      try {
+        const updatedModule = await vendorModuleService.updateVendorAccess(
+          moduleKey,
+          vendorEnabled
+        );
+        setModules((prev) =>
+          {
+            const nextModules = prev.map((m) =>
+              m.key === moduleKey ? { ...m, vendorEnabled } : m
+            );
+            setStats(buildStats(nextModules));
+            return nextModules;
+          }
+        );
+        return updatedModule;
+      } catch (err) {
+        setError(err.message || "Failed to update module access");
+        throw err;
+      }
+    },
+    [buildStats]
+  );
+
+  const updateModuleSettings = useCallback(async (moduleKey, payload) => {
     try {
-      const updatedModule = await vendorModuleService.updateVendorAccess(
-        moduleKey,
-        vendorEnabled
-      );
-
-      // Update local state
-      setModules((prevModules) =>
-        prevModules.map((m) =>
-          m.key === moduleKey ? { ...m, vendorEnabled } : m
-        )
-      );
-
+      const updatedModule = await vendorModuleService.updateModuleSettings(moduleKey, payload);
+      setModules((prev) => {
+        const nextModules = prev.map((module) =>
+          module.key === moduleKey
+            ? {
+                ...module,
+                ...updatedModule,
+              }
+            : module
+        );
+        setStats(buildStats(nextModules));
+        return nextModules;
+      });
+      setError(null);
       return updatedModule;
     } catch (err) {
-      setError(err.message || "Failed to update module access");
+      setError(err.message || "Failed to update module settings");
       throw err;
     }
-  }, []);
+  }, [buildStats]);
 
   // Update global module status
   const updateModuleStatus = useCallback(async (moduleKey, enabled) => {
@@ -64,34 +111,34 @@ export const useVendorModules = () => {
         moduleKey,
         enabled
       );
-
-      // Update local state
-      setModules((prevModules) =>
-        prevModules.map((m) =>
-          m.key === moduleKey ? { ...m, enabled } : m
-        )
+      setModules((prev) =>
+        {
+          const nextModules = prev.map((m) => (m.key === moduleKey ? { ...m, enabled } : m));
+          setStats(buildStats(nextModules));
+          return nextModules;
+        }
       );
-
       return updatedModule;
     } catch (err) {
       setError(err.message || "Failed to update module status");
       throw err;
     }
-  }, []);
+  }, [buildStats]);
 
   // Initialize modules
   const initModules = useCallback(async () => {
     try {
       const data = await vendorModuleService.initializeModules();
       setModules(data);
+      setStats(buildStats(data));
       return data;
     } catch (err) {
       setError(err.message || "Failed to initialize modules");
       throw err;
     }
-  }, []);
+  }, [buildStats]);
 
-  // Load initial data
+  // Load initial data once on mount
   useEffect(() => {
     fetchModules();
     fetchStats();
@@ -102,10 +149,9 @@ export const useVendorModules = () => {
     loading,
     error,
     stats,
-    fetchModules,
-    fetchStats,
     updateVendorAccess,
     updateModuleStatus,
+    updateModuleSettings,
     initModules,
   };
 };
@@ -145,29 +191,71 @@ export const useVendorModuleAccess = () => {
 
 /**
  * Hook to get vendor-accessible modules
+ * ✅ Fetches only enabled modules for vendors
  */
 export const useAccessibleVendorModules = () => {
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchAccessibleModules = async () => {
-      try {
+  const fetchAccessibleModules = useCallback(async ({ silent = false } = {}) => {
+    try {
+      if (!silent) {
         setLoading(true);
-        const data = await vendorModuleService.getAccessibleModules();
-        setModules(data);
-        setError(null);
-      } catch (err) {
-        setError(err.message || "Failed to fetch accessible modules");
-        console.error("Error fetching accessible modules:", err);
-      } finally {
+      }
+      const data = await vendorModuleService.getAccessibleModules();
+      setModules(data);
+      setError(null);
+      return data;
+    } catch (err) {
+      setError(err.message || "Failed to fetch accessible modules");
+      console.error("Error fetching accessible modules:", err);
+      return [];
+    } finally {
+      if (!silent) {
         setLoading(false);
       }
-    };
-
-    fetchAccessibleModules();
+    }
   }, []);
 
-  return { modules, loading, error };
+  useEffect(() => {
+    fetchAccessibleModules();
+
+    // Poll every 10 seconds so admin toggles remove access quickly.
+    const intervalId = setInterval(() => {
+      fetchAccessibleModules({ silent: true });
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [fetchAccessibleModules]);
+
+  return { modules, loading, error, refreshModules: fetchAccessibleModules };
+};
+
+export const useVendorPermissionMap = () => {
+  const [permissions, setPermissions] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  const checkPermissions = useCallback(async (requestedPermissions) => {
+    try {
+      setLoading(true);
+      const data = await vendorModuleService.checkModulePermissions(requestedPermissions);
+      setPermissions(data);
+      return data;
+    } catch (err) {
+      console.error("Error checking module permissions:", err);
+      return {};
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const can = useCallback((permission) => permissions[permission] === true, [permissions]);
+
+  return {
+    permissions,
+    loading,
+    checkPermissions,
+    can,
+  };
 };

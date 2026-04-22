@@ -2,6 +2,7 @@ const express = require("express");
 const { authRequired, requireRole } = require("../middleware/auth");
 const { validate } = require("../middleware/validate");
 const { upload } = require("../middleware/upload");
+const { requireVendorModule, requireVendorPermission } = require("../middleware/vendorModuleAccess");
 const vendorController = require("../controllers/vendor.controller");
 const {
   step1Schema,
@@ -37,31 +38,45 @@ router.post(
 router.get("/me", vendorController.me);
 router.get("/dashboard", vendorDashboardController.getDashboard);
 
-router.route("/products").get(vendorDashboardController.listProducts).post(validate(createProductSchema), vendorDashboardController.createProduct);
-router.route("/products/:id").patch(validate(updateProductSchema), vendorDashboardController.updateProduct).delete(vendorDashboardController.deleteProduct);
+// 🔥 PRODUCTS MODULE - Protected by vendorModuleAccess
+router.route("/products")
+  .get(requireVendorModule("products"), vendorDashboardController.listProducts)
+  .post(requireVendorPermission("products.create"), validate(createProductSchema), vendorDashboardController.createProduct);
+router.route("/products/:id")
+  .patch(requireVendorPermission("products.update"), validate(updateProductSchema), vendorDashboardController.updateProduct)
+  .delete(requireVendorPermission("products.delete"), vendorDashboardController.deleteProduct);
 
-router.get("/orders", vendorDashboardController.listOrders);
-router.patch("/orders/:id/status", vendorDashboardController.updateOrderStatus);
+// 🔥 ORDERS MODULE - Protected by vendorModuleAccess
+router.get("/orders", requireVendorModule("orders"), vendorDashboardController.listOrders);
+router.patch("/orders/:id/status", requireVendorPermission("orders.update"), vendorDashboardController.updateOrderStatus);
 
-router.get("/inventory", vendorDashboardController.getInventory);
-router.patch("/inventory/:id", vendorDashboardController.updateInventory);
+// 🔥 INVENTORY MODULE - Protected by vendorModuleAccess
+router.get("/inventory", requireVendorModule("inventory"), vendorDashboardController.getInventory);
+router.patch("/inventory/:id", requireVendorPermission("inventory.update"), vendorDashboardController.updateInventory);
 
-router.get("/analytics", vendorDashboardController.getAnalytics);
-router.get("/payouts", vendorDashboardController.getPayouts);
+// 🔥 ANALYTICS MODULE - Protected by vendorModuleAccess
+router.get("/analytics", requireVendorModule("analytics"), vendorDashboardController.getAnalytics);
 
-router.get("/delivery", vendorDashboardController.getDelivery);
-router.patch("/delivery/:id", vendorDashboardController.updateDelivery);
+// 🔥 PAYMENTS MODULE - Protected by vendorModuleAccess
+router.get("/payouts", requireVendorModule("payments"), vendorDashboardController.getPayouts);
+
+// 🔥 DELIVERY MODULE - Protected by vendorModuleAccess
+router.get("/delivery", requireVendorModule("delivery"), vendorDashboardController.getDelivery);
+router.patch("/delivery/:id", requireVendorPermission("delivery.update"), vendorDashboardController.updateDelivery);
 
 router.route("/settings").get(vendorDashboardController.getSettings).patch(vendorDashboardController.updateSettings);
 
+// 🔥 NOTIFICATIONS - All modules can have notifications
 router.get("/notifications", vendorDashboardController.getNotifications);
 router.patch("/notifications/:id/read", vendorDashboardController.markNotificationRead);
 
-router.get("/reviews", vendorDashboardController.getReviews);
-router.post("/reviews/:id/respond", vendorDashboardController.respondToReview);
+// 🔥 REVIEWS MODULE - Protected by vendorModuleAccess
+router.get("/reviews", requireVendorModule("reviews"), vendorDashboardController.getReviews);
+router.post("/reviews/:id/respond", requireVendorPermission("reviews.update"), vendorDashboardController.respondToReview);
 
-router.get("/returns", vendorDashboardController.getReturns);
-router.patch("/returns/:id", vendorDashboardController.updateReturnStatus);
+// 🔥 RETURNS MODULE - Protected by vendorModuleAccess
+router.get("/returns", requireVendorModule("returns"), vendorDashboardController.getReturns);
+router.patch("/returns/:id", requireVendorPermission("returns.update"), vendorDashboardController.updateReturnStatus);
 
 router.route("/offers").get(vendorDashboardController.getOffers).post(vendorDashboardController.createOffer);
 router.patch("/offers/:id", vendorDashboardController.updateOffer);

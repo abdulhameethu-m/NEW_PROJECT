@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { useVendorModuleAccess } from "../hooks/useVendorModules";
+import React, { createContext, useContext, useMemo } from "react";
+import { useAccessibleVendorModules } from "../hooks/useVendorModules";
 
 // Create context
 const VendorModuleContext = createContext(null);
@@ -8,31 +8,41 @@ const VendorModuleContext = createContext(null);
  * Provider component for vendor module access
  */
 export function VendorModuleProvider({ children }) {
-  const { accessMap, checkAccess, hasAccess } = useVendorModuleAccess();
-  const [isReady, setIsReady] = useState(false);
-
-  // Initialize by checking all modules
-  useEffect(() => {
-    const initializeAccess = async () => {
-      const commonModules = ["orders", "products", "payments", "analytics", "inventory", "returns", "reviews"];
-      await checkAccess(commonModules);
-      setIsReady(true);
-    };
-
-    initializeAccess();
-  }, [checkAccess]);
+  const { modules, loading, error, refreshModules } = useAccessibleVendorModules();
+  const moduleMap = useMemo(
+    () => Object.fromEntries(modules.map((module) => [module.key, module])),
+    [modules]
+  );
+  const canAccessAction = useMemo(
+    () => (moduleKey, action = "read") => {
+      const module = moduleMap[moduleKey];
+      if (!module || !module.vendorPermissions) {
+        return false;
+      }
+      return module.enabled && module.vendorEnabled && module.vendorPermissions[action] === true;
+    },
+    [moduleMap]
+  );
+  const value = useMemo(
+    () => ({
+      modules,
+      moduleMap,
+      loading,
+      error,
+      isReady: !loading,
+      hasAccess: (moduleKey) => canAccessAction(moduleKey, "read"),
+      canAccessAction,
+      can: (permission) => {
+        const [moduleKey, action = "read"] = String(permission || "").split(".");
+        return canAccessAction(moduleKey, action);
+      },
+      refreshModules,
+    }),
+    [canAccessAction, error, loading, moduleMap, modules, refreshModules]
+  );
 
   return (
-    <VendorModuleContext.Provider
-      value={{
-        accessMap,
-        hasAccess,
-        checkAccess,
-        isReady,
-      }}
-    >
-      {children}
-    </VendorModuleContext.Provider>
+    <VendorModuleContext.Provider value={value}>{children}</VendorModuleContext.Provider>
   );
 }
 

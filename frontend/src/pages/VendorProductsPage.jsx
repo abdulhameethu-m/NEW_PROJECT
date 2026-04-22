@@ -6,6 +6,7 @@ import { useReporting } from "../hooks/useReporting";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
 import { VendorDataTable, VendorSection } from "../components/VendorPanel";
+import { useModuleAccess } from "../context/VendorModuleContext";
 import * as vendorDashboardService from "../services/vendorDashboardService";
 
 export function VendorProductsPage() {
@@ -13,6 +14,7 @@ export function VendorProductsPage() {
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const { can } = useModuleAccess();
   const reporting = useReporting({
     module: "products",
     getFilters: () => ({ ...(status ? { status } : {}) }),
@@ -63,9 +65,11 @@ export function VendorProductsPage() {
             <button onClick={load} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
               Search
             </button>
-            <Link to="/seller/products/create" className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-slate-950">
-              New Product
-            </Link>
+            {can("products.create") ? (
+              <Link to="/seller/products/create" className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-slate-950">
+                New Product
+              </Link>
+            ) : null}
           </div>
         }
       >
@@ -113,9 +117,13 @@ export function VendorProductsPage() {
               key: "actions",
               label: "Actions",
               render: (row) => (
-                <Link to={`/seller/products/${row.id}/edit`} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
-                  Edit
-                </Link>
+                can("products.update") ? (
+                  <Link to={`/seller/products/${row.id}/edit`} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+                    Edit
+                  </Link>
+                ) : (
+                  <span className="text-xs text-slate-400">No actions</span>
+                )
               ),
             },
           ]}

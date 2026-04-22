@@ -1,6 +1,7 @@
 const express = require("express");
 const { authRequired, requireRole } = require("../middleware/auth");
 const { validate } = require("../middleware/validate");
+const { requireVendorPermission } = require("../middleware/vendorModuleAccess");
 const productController = require("../controllers/product.controller");
 const {
   createProductSchema,
@@ -26,7 +27,7 @@ router.get("/public", productController.getPublicProducts);
  * GET /products/generate-number
  * Preview next product number for category + subcategory
  */
-router.get("/generate-number", authRequired, productController.generateProductNumber);
+router.get("/generate-number", authRequired, requireVendorPermission("products.create"), productController.generateProductNumber);
 
 /**
  * GET /products/:id
@@ -48,7 +49,7 @@ router.get("/:id", productController.getProductById);
  * - Sellers: see only their own
  * - Admins: see all
  */
-router.get("/", authRequired, productController.getProducts);
+router.get("/", authRequired, requireVendorPermission("products.read"), productController.getProducts);
 
 /**
  * ==========================================
@@ -65,6 +66,7 @@ router.get("/", authRequired, productController.getProducts);
 router.post(
   "/",
   authRequired,
+  requireVendorPermission("products.create"),
   validate(createProductSchema),
   productController.createProduct
 );
@@ -78,6 +80,7 @@ router.post(
 router.patch(
   "/:id",
   authRequired,
+  requireVendorPermission("products.update"),
   validate(updateProductSchema),
   productController.updateProduct
 );
@@ -88,7 +91,7 @@ router.patch(
  * Sellers: only their own
  * Admins: any product
  */
-router.delete("/:id", authRequired, productController.deleteProduct);
+router.delete("/:id", authRequired, requireVendorPermission("products.delete"), productController.deleteProduct);
 
 /**
  * ==========================================

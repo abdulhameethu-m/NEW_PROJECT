@@ -1,6 +1,10 @@
 const express = require("express");
 const vendorModuleController = require("../controllers/vendorModule.controller");
-const { requireLegacyAdminPermission } = require("../middleware/adminAccess");
+const {
+  adminWorkspaceAuthRequired,
+  requireLegacyAdminPermission,
+} = require("../middleware/adminAccess");
+const { authRequired, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -10,17 +14,39 @@ const router = express.Router();
  */
 
 // Public vendor routes
-router.get("/vendor/accessible", vendorModuleController.getVendorAccessibleModules);
-router.post("/vendor/check", vendorModuleController.checkVendorModuleAccess);
+router.get("/vendor/accessible", authRequired, requireRole("vendor"), vendorModuleController.getVendorAccessibleModules);
+router.post("/vendor/check", authRequired, requireRole("vendor"), vendorModuleController.checkVendorModuleAccess);
 
 // Admin routes
-router.get("/", requireLegacyAdminPermission("dashboard:read"), vendorModuleController.getAllModules);
-router.get("/stats/overview", requireLegacyAdminPermission("dashboard:read"), vendorModuleController.getModuleStats);
-router.get("/:key", requireLegacyAdminPermission("dashboard:read"), vendorModuleController.getModuleByKey);
+router.get(
+  "/",
+  adminWorkspaceAuthRequired,
+  requireLegacyAdminPermission("dashboard:read"),
+  vendorModuleController.getAllModules
+);
+router.get(
+  "/stats/overview",
+  adminWorkspaceAuthRequired,
+  requireLegacyAdminPermission("dashboard:read"),
+  vendorModuleController.getModuleStats
+);
+router.get(
+  "/:key",
+  adminWorkspaceAuthRequired,
+  requireLegacyAdminPermission("dashboard:read"),
+  vendorModuleController.getModuleByKey
+);
+router.patch(
+  "/:key",
+  adminWorkspaceAuthRequired,
+  requireLegacyAdminPermission("dashboard:read"),
+  vendorModuleController.updateVendorModuleSettings
+);
 
 // 🔥 CRITICAL: Vendor access control
 router.patch(
   "/:key/vendor-access",
+  adminWorkspaceAuthRequired,
   requireLegacyAdminPermission("dashboard:read"),
   vendorModuleController.updateModuleVendorAccess
 );
@@ -28,11 +54,17 @@ router.patch(
 // Global status update
 router.patch(
   "/:key/status",
+  adminWorkspaceAuthRequired,
   requireLegacyAdminPermission("dashboard:read"),
   vendorModuleController.updateModuleGlobalStatus
 );
 
 // Initialize modules (run once during setup)
-router.post("/init", requireLegacyAdminPermission("dashboard:read"), vendorModuleController.initializeModules);
+router.post(
+  "/init",
+  adminWorkspaceAuthRequired,
+  requireLegacyAdminPermission("dashboard:read"),
+  vendorModuleController.initializeModules
+);
 
 module.exports = router;

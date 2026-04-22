@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { StatusBadge } from "../components/StatusBadge";
 import { VendorDataTable, VendorSection } from "../components/VendorPanel";
+import { useModuleAccess } from "../context/VendorModuleContext";
 import * as vendorDashboardService from "../services/vendorDashboardService";
 
 export function VendorDeliveryPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const { can } = useModuleAccess();
 
   async function load() {
     try {
@@ -67,9 +69,13 @@ export function VendorDeliveryPage() {
             key: "actions",
             label: "Update",
             render: (row) => (
-              <button onClick={() => updateShipment(row.id, row)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
-                Assign Courier
-              </button>
+              can("delivery.update") ? (
+                <button onClick={() => updateShipment(row.id, row)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+                  Assign Courier
+                </button>
+              ) : (
+                <span className="text-xs text-slate-400">Read only</span>
+              )
             ),
           },
         ]}

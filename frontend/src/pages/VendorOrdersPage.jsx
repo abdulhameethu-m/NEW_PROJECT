@@ -5,6 +5,7 @@ import { useReporting } from "../hooks/useReporting";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
 import { VendorDataTable, VendorSection } from "../components/VendorPanel";
+import { useModuleAccess } from "../context/VendorModuleContext";
 import * as vendorDashboardService from "../services/vendorDashboardService";
 
 const orderStatuses = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
@@ -12,6 +13,7 @@ const orderStatuses = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 export function VendorOrdersPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const { can } = useModuleAccess();
   const reporting = useReporting({
     module: "orders",
   });
@@ -87,15 +89,19 @@ export function VendorOrdersPage() {
             label: "Next Step",
             render: (row) => (
               <div className="flex flex-wrap gap-2">
-                {orderStatuses.map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => updateStatus(row.id, status)}
-                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-                  >
-                    {status}
-                  </button>
-                ))}
+                {can("orders.update") ? (
+                  orderStatuses.map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => updateStatus(row.id, status)}
+                      className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                    >
+                      {status}
+                    </button>
+                  ))
+                ) : (
+                  <span className="text-xs text-slate-400">Read only</span>
+                )}
               </div>
             ),
           },

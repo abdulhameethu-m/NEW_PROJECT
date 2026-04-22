@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { Topbar } from "./Topbar";
-import { VendorSidebar } from "./VendorSidebar";
+import { Sidebar } from "./sidebar/Sidebar";
 import { useVendorDashboardStore } from "../context/vendorDashboardStore";
 import { useAuthStore } from "../context/authStore";
+import { VendorModuleProvider, useModuleAccess } from "../context/VendorModuleContext";
+import { useVendorSidebarData } from "../hooks/useVendorSidebarData";
 
 const pageMeta = {
   "/vendor/dashboard": {
@@ -60,10 +62,12 @@ const pageMeta = {
   },
 };
 
-export function VendorLayout() {
+function VendorLayoutInner() {
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
   const { sidebarOpen, setSidebarOpen, notificationsUnread, fetchNotificationsUnread } = useVendorDashboardStore();
+  const { can } = useModuleAccess();
+  const sidebarData = useVendorSidebarData({ unreadCount: notificationsUnread });
   const meta = pageMeta[location.pathname] || pageMeta["/vendor/dashboard"];
 
   useEffect(() => {
@@ -77,7 +81,16 @@ export function VendorLayout() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="flex min-h-screen max-w-full overflow-x-hidden">
-        <VendorSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} unreadCount={notificationsUnread} />
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          title={sidebarData.title}
+          subtitle={sidebarData.subtitle}
+          primaryItem={sidebarData.primaryItem}
+          sections={sidebarData.sections}
+          loading={sidebarData.loading}
+          error={sidebarData.error}
+        />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar title={meta.title} subtitle={meta.subtitle} onMenuToggle={() => setSidebarOpen(true)} />
           <main className="min-w-0 max-w-full flex-1 overflow-x-hidden px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
@@ -92,12 +105,14 @@ export function VendorLayout() {
                 >
                   Overview
                 </Link>
-                <Link 
-                  to="/seller/products/create" 
-                  className="inline-flex justify-center rounded-xl bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-                >
-                  Add Product
-                </Link>
+                {can("products.create") ? (
+                  <Link 
+                    to="/seller/products/create" 
+                    className="inline-flex justify-center rounded-xl bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                  >
+                    Add Product
+                  </Link>
+                ) : null}
               </div>
             </div>
             <Outlet />
@@ -105,5 +120,13 @@ export function VendorLayout() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function VendorLayout() {
+  return (
+    <VendorModuleProvider>
+      <VendorLayoutInner />
+    </VendorModuleProvider>
   );
 }

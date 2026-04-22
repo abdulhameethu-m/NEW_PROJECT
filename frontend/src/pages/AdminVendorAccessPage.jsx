@@ -14,10 +14,11 @@ import {
   RotateCcw,
   Star,
   ShoppingCart,
+  Truck,
 } from "lucide-react";
 
-// Map module keys to icons
 const MODULE_ICONS = {
+  delivery: Truck,
   orders: ShoppingCart,
   products: Package,
   payments: CreditCard,
@@ -27,24 +28,57 @@ const MODULE_ICONS = {
   reviews: Star,
 };
 
-/**
- * Admin Panel: Vendor Module Access Control
- * Allows admin to enable/disable modules for vendors globally
- */
+const ACTION_COLUMNS = [
+  { key: "create", label: "Create" },
+  { key: "read", label: "Read" },
+  { key: "update", label: "Update" },
+  { key: "delete", label: "Delete" },
+];
+
+function Toggle({ checked, disabled, loading, onClick, color = "bg-blue-500" }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+        checked ? `${color} ${disabled ? "" : "hover:brightness-95"}` : "bg-gray-300 hover:bg-gray-400"
+      } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+    >
+      <span
+        className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+          checked ? "translate-x-7" : "translate-x-1"
+        }`}
+      >
+        {loading ? <Loader className="absolute inset-1 h-4 w-4 animate-spin text-blue-500" /> : null}
+      </span>
+    </button>
+  );
+}
+
 export default function AdminVendorAccessPage() {
-  const { modules, loading, error, stats, updateVendorAccess, updateModuleStatus, initModules } =
-    useVendorModules();
-  const [togglingModule, setTogglingModule] = useState(null);
-  const [actionType, setActionType] = useState(null);
+  const {
+    modules,
+    loading,
+    error,
+    stats,
+    updateModuleSettings,
+    initModules,
+  } = useVendorModules();
+  const [pendingControl, setPendingControl] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [initializingModules, setInitializingModules] = useState(false);
+
+  const showSuccess = (message) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
 
   const handleInitializeModules = async () => {
     try {
       setInitializingModules(true);
       await initModules();
-      setSuccessMessage("Modules initialized successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
+      showSuccess("Modules initialized successfully.");
     } catch (err) {
       console.error("Error initializing modules:", err);
     } finally {
@@ -52,43 +86,24 @@ export default function AdminVendorAccessPage() {
     }
   };
 
-  const handleToggleVendorAccess = async (moduleKey, currentValue) => {
+  const handleModuleUpdate = async (moduleKey, payload, successLabel) => {
     try {
-      setTogglingModule(moduleKey);
-      setActionType("vendor");
-      await updateVendorAccess(moduleKey, !currentValue);
-      setSuccessMessage(
-        `Module '${moduleKey}' ${!currentValue ? "enabled" : "disabled"} for vendors`
-      );
-      setTimeout(() => setSuccessMessage(null), 3000);
+      const pendingKey = `${moduleKey}:${successLabel}`;
+      setPendingControl(pendingKey);
+      await updateModuleSettings(moduleKey, payload);
+      showSuccess(successLabel);
     } catch (err) {
-      console.error("Error updating vendor access:", err);
+      console.error("Error updating module settings:", err);
     } finally {
-      setTogglingModule(null);
-      setActionType(null);
-    }
-  };
-
-  const handleToggleGlobalStatus = async (moduleKey, currentValue) => {
-    try {
-      setTogglingModule(moduleKey);
-      setActionType("global");
-      await updateModuleStatus(moduleKey, !currentValue);
-      setSuccessMessage(`Module '${moduleKey}' globally ${!currentValue ? "enabled" : "disabled"}`);
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      console.error("Error updating module status:", err);
-    } finally {
-      setTogglingModule(null);
-      setActionType(null);
+      setPendingControl(null);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <Loader className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+          <Loader className="mx-auto mb-4 h-12 w-12 animate-spin text-blue-500" />
           <p className="text-gray-600">Loading vendor modules...</p>
         </div>
       </div>
@@ -97,222 +112,202 @@ export default function AdminVendorAccessPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
+      <div className="mx-auto max-w-7xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Vendor Module Access Control</h1>
+          <h1 className="mb-2 text-3xl font-bold text-gray-900">Vendor Module Access Control</h1>
           <p className="text-gray-600">
-            Control which modules are accessible to vendors. Disabling a module will immediately
-            revoke vendor access.
+            Manage global feature flags, vendor availability, and CRUD actions for each vendor-facing module.
           </p>
         </div>
 
-        {/* Error Alert */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+        {error ? (
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
             <div>
               <h3 className="font-semibold text-red-900">Error</h3>
               <p className="text-red-700">{error}</p>
             </div>
           </div>
-        )}
+        ) : null}
 
-        {/* Success Message */}
-        {successMessage && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-            <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+        {successMessage ? (
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
+            <Check className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" />
             <div>
               <p className="text-green-700">{successMessage}</p>
             </div>
           </div>
-        )}
+        ) : null}
 
-        {/* No Modules - Initialize */}
-        {modules.length === 0 && !error && (
-          <div className="mb-8 p-8 bg-blue-50 border border-blue-200 rounded-lg text-center">
-            <h2 className="text-xl font-semibold text-blue-900 mb-2">Initialize Vendor Modules</h2>
-            <p className="text-blue-700 mb-4">
-              No modules found. Click the button below to initialize default vendor modules.
+        {modules.length === 0 && !error ? (
+          <div className="mb-8 rounded-lg border border-blue-200 bg-blue-50 p-8 text-center">
+            <h2 className="mb-2 text-xl font-semibold text-blue-900">Initialize Vendor Modules</h2>
+            <p className="mb-4 text-blue-700">
+              No modules found. Initialize the default vendor module catalog to begin permission management.
             </p>
             <button
+              type="button"
               onClick={handleInitializeModules}
               disabled={initializingModules}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+              className="mx-auto flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {initializingModules && <Loader className="w-4 h-4 animate-spin" />}
+              {initializingModules ? <Loader className="h-4 w-4 animate-spin" /> : null}
               {initializingModules ? "Initializing..." : "Initialize Modules"}
             </button>
           </div>
-        )}
+        ) : null}
 
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
+        {stats ? (
+          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-5">
+            <div className="rounded-lg bg-white p-6 shadow">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Modules</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.total}</p>
+                  <p className="mt-2 text-3xl font-bold text-gray-900">{stats.total}</p>
                 </div>
-                <Activity className="w-12 h-12 text-blue-100" />
+                <Activity className="h-12 w-12 text-blue-100" />
               </div>
             </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="rounded-lg bg-white p-6 shadow">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Enabled Globally</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.enabledGlobally}</p>
+                  <p className="mt-2 text-3xl font-bold text-gray-900">{stats.enabledGlobally}</p>
                 </div>
-                <Check className="w-12 h-12 text-green-100" />
+                <Check className="h-12 w-12 text-green-100" />
               </div>
             </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="rounded-lg bg-white p-6 shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Enabled for Vendors</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.enabledForVendors}</p>
+                  <p className="text-sm font-medium text-gray-600">Vendor Enabled</p>
+                  <p className="mt-2 text-3xl font-bold text-gray-900">{stats.enabledForVendors}</p>
                 </div>
-                <Eye className="w-12 h-12 text-purple-100" />
+                <Eye className="h-12 w-12 text-purple-100" />
               </div>
             </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="rounded-lg bg-white p-6 shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Readable by Vendors</p>
+                  <p className="mt-2 text-3xl font-bold text-gray-900">{stats.readableForVendors ?? 0}</p>
+                </div>
+                <Eye className="h-12 w-12 text-sky-100" />
+              </div>
+            </div>
+            <div className="rounded-lg bg-white p-6 shadow">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Disabled for Vendors</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.disabledForVendors}</p>
+                  <p className="mt-2 text-3xl font-bold text-gray-900">{stats.disabledForVendors}</p>
                 </div>
-                <EyeOff className="w-12 h-12 text-red-100" />
+                <EyeOff className="h-12 w-12 text-red-100" />
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
-        {/* Modules Table */}
-        {modules.length > 0 && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Module</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Description</th>
-                  <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                    Global Status
-                  </th>
-                  <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                    Vendor Access
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {modules.map((module) => {
-                  const IconComponent = MODULE_ICONS[module.key] || Package;
-                  const isToggling = togglingModule === module.key;
+        {modules.length > 0 ? (
+          <div className="overflow-hidden rounded-lg bg-white shadow">
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="border-b border-gray-200 bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Module</th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Global</th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Vendor</th>
+                    {ACTION_COLUMNS.map((action) => (
+                      <th key={action.key} className="px-4 py-4 text-center text-sm font-semibold text-gray-900">
+                        {action.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {modules.map((module) => {
+                    const IconComponent = MODULE_ICONS[module.key] || Package;
+                    const vendorPermissions = module.vendorPermissions || {};
+                    const moduleActive = module.enabled && module.vendorEnabled;
 
-                  return (
-                    <tr key={module.key} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <IconComponent className="w-5 h-5 text-gray-600" />
-                          <div>
-                            <p className="font-semibold text-gray-900">{module.name}</p>
-                            <p className="text-xs text-gray-500 uppercase tracking-wider">{module.key}</p>
+                    return (
+                      <tr key={module.key} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="flex items-start gap-3">
+                            <IconComponent className="mt-0.5 h-5 w-5 flex-shrink-0 text-gray-600" />
+                            <div>
+                              <p className="font-semibold text-gray-900">{module.name}</p>
+                              <p className="text-xs uppercase tracking-wider text-gray-500">{module.key}</p>
+                              <p className="mt-1 text-sm text-gray-600">{module.description}</p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-600">{module.description}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-center">
-                          <button
-                            onClick={() => handleToggleGlobalStatus(module.key, module.enabled)}
-                            disabled={isToggling}
-                            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-                              module.enabled
-                                ? "bg-green-500 hover:bg-green-600"
-                                : "bg-gray-300 hover:bg-gray-400"
-                            } ${isToggling ? "opacity-50 cursor-not-allowed" : ""}`}
-                          >
-                            <span
-                              className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                                module.enabled ? "translate-x-7" : "translate-x-1"
-                              }`}
-                            >
-                              {isToggling && actionType === "global" && (
-                                <Loader className="w-4 h-4 animate-spin absolute inset-1 text-blue-500" />
-                              )}
-                            </span>
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-center">
-                          {/* 🔥 VENDOR ACCESS TOGGLE */}
-                          <button
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <Toggle
+                            checked={module.enabled}
+                            loading={pendingControl === `${module.key}:global`}
                             onClick={() =>
-                              handleToggleVendorAccess(module.key, module.vendorEnabled)
+                              handleModuleUpdate(
+                                module.key,
+                                { enabled: !module.enabled },
+                                "global"
+                              )
                             }
-                            disabled={isToggling || !module.enabled}
-                            title={
-                              !module.enabled
-                                ? "Enable globally first to allow vendor access"
-                                : ""
+                            color="bg-green-500"
+                          />
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <Toggle
+                            checked={module.vendorEnabled}
+                            disabled={!module.enabled}
+                            loading={pendingControl === `${module.key}:vendor`}
+                            onClick={() =>
+                              handleModuleUpdate(
+                                module.key,
+                                { vendorEnabled: !module.vendorEnabled },
+                                "vendor"
+                              )
                             }
-                            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-                              module.vendorEnabled
-                                ? "bg-blue-500 hover:bg-blue-600"
-                                : "bg-gray-300 hover:bg-gray-400"
-                            } ${
-                              isToggling || !module.enabled ? "opacity-50 cursor-not-allowed" : ""
-                            }`}
-                          >
-                            <span
-                              className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                                module.vendorEnabled ? "translate-x-7" : "translate-x-1"
-                              }`}
-                            >
-                              {isToggling && actionType === "vendor" && (
-                                <Loader className="w-4 h-4 animate-spin absolute inset-1 text-blue-500" />
-                              )}
-                            </span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        )}
+                            color="bg-blue-500"
+                          />
+                        </td>
+                        {ACTION_COLUMNS.map((action) => {
+                          const actionDisabled = !moduleActive;
+                          const controlKey = `${module.key}:${action.key}`;
 
-        {/* Info Box */}
-        <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="font-semibold text-blue-900 mb-2">How it works:</h3>
-          <ul className="text-sm text-blue-800 space-y-2">
-            <li>
-              <strong>Global Status:</strong> Controls whether the module is available system-wide
-            </li>
-            <li>
-              <strong>Vendor Access:</strong> 🔥 Controls whether vendors can access this module (requires
-              global status to be enabled)
-            </li>
-            <li>
-              <strong>Real-time:</strong> Changes take effect immediately. Vendors lose access
-              instantly when disabled.
-            </li>
-            <li>
-              <strong>Security:</strong> Backend enforces access control - UI restrictions alone are
-              insufficient
-            </li>
-          </ul>
-        </div>
+                          return (
+                            <td key={action.key} className="px-4 py-4 text-center">
+                              <label className={`inline-flex items-center justify-center ${actionDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  checked={Boolean(vendorPermissions[action.key])}
+                                  disabled={actionDisabled || pendingControl === controlKey}
+                                  onChange={() =>
+                                    handleModuleUpdate(
+                                      module.key,
+                                      {
+                                        vendorPermissions: {
+                                          ...vendorPermissions,
+                                          [action.key]: !vendorPermissions[action.key],
+                                        },
+                                      },
+                                      action.key
+                                    )
+                                  }
+                                />
+                              </label>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+
       </div>
     </div>
   );
