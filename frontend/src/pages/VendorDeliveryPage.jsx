@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { VendorDataTable, VendorSection } from "../components/VendorPanel";
 import { useModuleAccess } from "../context/VendorModuleContext";
@@ -8,6 +9,7 @@ export function VendorDeliveryPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const { can } = useModuleAccess();
+  const navigate = useNavigate();
 
   async function load() {
     try {
@@ -25,27 +27,6 @@ export function VendorDeliveryPage() {
     })();
   }, []);
 
-  async function updateShipment(id, row) {
-    const deliveryPartner = window.prompt("Courier name", row.deliveryPartner || "Shiprocket");
-    if (deliveryPartner == null) return;
-    const trackingId = window.prompt("Tracking ID", row.trackingId || "");
-    if (trackingId == null) return;
-    const trackingUrl = window.prompt("Tracking URL", row.trackingUrl || "");
-    if (trackingUrl == null) return;
-
-    try {
-      await vendorDashboardService.updateVendorDelivery(id, {
-        deliveryPartner,
-        trackingId,
-        trackingUrl,
-        deliveryStatus: trackingId ? "SHIPPED" : row.deliveryStatus,
-      });
-      await load();
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to update shipment.");
-    }
-  }
-
   return (
     <VendorSection title="Delivery" description="Assign courier, update tracking, and maintain order shipment visibility.">
       {error ? <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
@@ -58,6 +39,9 @@ export function VendorDeliveryPage() {
           deliveryStatus: shipment.deliveryStatus,
           destination: [shipment.shippingAddress?.city, shipment.shippingAddress?.state].filter(Boolean).join(", ") || "Address pending",
           trackingUrl: shipment.trackingUrl,
+          courierAssignedByRole: shipment.courierAssignedByRole || "",
+          courierAssignedAt: shipment.courierAssignedAt || "",
+          isCourierLocked: shipment.courierAssignedByRole === "ADMIN",
         }))}
         columns={[
           { key: "orderNumber", label: "Order" },
@@ -70,9 +54,26 @@ export function VendorDeliveryPage() {
             label: "Update",
             render: (row) => (
               can("delivery.update") ? (
-                <button onClick={() => updateShipment(row.id, row)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
-                  Assign Courier
-                </button>
+                row.isCourierLocked ? (
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      disabled
+                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-400 dark:border-slate-700"
+                    >
+                      Assigned by Admin
+                    </button>
+                    {row.courierAssignedAt ? (
+                      <div className="mt-1 text-[11px] text-slate-400">
+                        {new Date(row.courierAssignedAt).toLocaleString()}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <button onClick={() => navigate(`/vendor/delivery/${row.id}/edit`)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+                    {row.deliveryPartner && row.deliveryPartner !== "Unassigned" ? "Edit" : "Assign Courier"}
+                  </button>
+                )
               ) : (
                 <span className="text-xs text-slate-400">Read only</span>
               )

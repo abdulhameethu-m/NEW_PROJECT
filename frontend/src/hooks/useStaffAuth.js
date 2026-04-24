@@ -12,6 +12,7 @@ export function useStaffPermission() {
   const [syncing, setSyncing] = useState(false);
 
   const permissions = useMemo(() => user?.permissions || {}, [user]);
+  const enabledModules = useMemo(() => user?.enabledModules || {}, [user]);
   const roleName = user?.role?.name || user?.roleName || null;
 
   // Force sync permissions from server
@@ -43,16 +44,17 @@ export function useStaffPermission() {
 
   const hasPermission = useCallback(
     (permissionKey) => {
-      const result = hasStaffPermission(permissions, permissionKey);
-      console.log(`[PERMISSION_CHECK] ${permissionKey}: ${result}`, { permissions });
+      const [moduleName] = String(permissionKey || "").split(".");
+      const result = enabledModules?.[moduleName] === false ? false : hasStaffPermission(permissions, permissionKey);
+      console.log(`[PERMISSION_CHECK] ${permissionKey}: ${result}`, { permissions, enabledModules });
       return result;
     },
-    [permissions]
+    [enabledModules, permissions]
   );
 
   const canAccess = useCallback(
-    (permissionKey) => (!permissionKey ? true : hasStaffPermission(permissions, permissionKey)),
-    [permissions]
+    (permissionKey) => (!permissionKey ? true : hasPermission(permissionKey)),
+    [hasPermission]
   );
 
   const getPermissions = useCallback(() => permissions, [permissions]);
@@ -67,8 +69,9 @@ export function useStaffPermission() {
       getRole,
       syncPermissions,
       syncing,
+      enabledModules,
     }),
-    [permissions, hasPermission, canAccess, getPermissions, getRole, syncPermissions, syncing]
+    [permissions, hasPermission, canAccess, getPermissions, getRole, syncPermissions, syncing, enabledModules]
   );
 }
 
@@ -77,7 +80,12 @@ export function useRequirePermission(permissionKey) {
   const user = useStaffAuthStore((state) => state.user);
 
   useEffect(() => {
-    if (permissionKey && user && !hasStaffPermission(user.permissions, permissionKey)) {
+    const [moduleName] = String(permissionKey || "").split(".");
+    if (
+      permissionKey &&
+      user &&
+      (user?.enabledModules?.[moduleName] === false || !hasStaffPermission(user.permissions, permissionKey))
+    ) {
       console.warn(`[PERMISSION_GUARD] Access denied for ${permissionKey}`);
       navigate("/staff/unauthorized", { replace: true });
     }

@@ -2,17 +2,6 @@ const mongoose = require("mongoose");
 const { getAllModuleKeys } = require("../config/vendorModules.config");
 
 const VENDOR_MODULES = getAllModuleKeys();
-const VENDOR_PERMISSION_ACTIONS = ["create", "read", "update", "delete"];
-
-const vendorPermissionsSchema = new mongoose.Schema(
-  {
-    create: { type: Boolean, default: false },
-    read: { type: Boolean, default: true },
-    update: { type: Boolean, default: false },
-    delete: { type: Boolean, default: false },
-  },
-  { _id: false }
-);
 
 const vendorModuleSchema = new mongoose.Schema(
   {
@@ -54,15 +43,6 @@ const vendorModuleSchema = new mongoose.Schema(
       default: true,
       index: true,
     },
-    vendorPermissions: {
-      type: vendorPermissionsSchema,
-      default: () => ({
-        create: false,
-        read: true,
-        update: false,
-        delete: false,
-      }),
-    },
     // Display order in UI
     order: {
       type: Number,
@@ -98,12 +78,10 @@ const vendorModuleSchema = new mongoose.Schema(
 
 // Compound indexes for efficient querying
 vendorModuleSchema.index({ enabled: 1, vendorEnabled: 1 });
-vendorModuleSchema.index({ enabled: 1, vendorEnabled: 1, "vendorPermissions.read": 1 });
 vendorModuleSchema.index({ enabled: 1, order: 1 });
 vendorModuleSchema.index({ updatedAt: -1 });
 
 module.exports = {
   VendorModule: mongoose.model("VendorModule", vendorModuleSchema),
   VENDOR_MODULES,
-  VENDOR_PERMISSION_ACTIONS,
 };

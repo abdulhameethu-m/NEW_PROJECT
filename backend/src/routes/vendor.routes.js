@@ -48,6 +48,7 @@ router.route("/products/:id")
 
 // 🔥 ORDERS MODULE - Protected by vendorModuleAccess
 router.get("/orders", requireVendorModule("orders"), vendorDashboardController.listOrders);
+router.get("/orders/:id", requireVendorModule("orders"), vendorDashboardController.getOrderById);
 router.patch("/orders/:id/status", requireVendorPermission("orders.update"), vendorDashboardController.updateOrderStatus);
 
 // 🔥 INVENTORY MODULE - Protected by vendorModuleAccess

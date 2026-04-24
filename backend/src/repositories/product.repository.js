@@ -9,6 +9,29 @@ function getAttributePath(key) {
   return `attributes.${key}`;
 }
 
+function getVariantAttributePath(key) {
+  return `variants.attributes.${key}`;
+}
+
+function buildFilterCondition(rawValue) {
+  if (Array.isArray(rawValue) && rawValue.length) {
+    return { $in: rawValue };
+  }
+
+  if (rawValue && typeof rawValue === "object" && (rawValue.min !== undefined || rawValue.max !== undefined)) {
+    const condition = {};
+    if (rawValue.min !== undefined) condition.$gte = rawValue.min;
+    if (rawValue.max !== undefined) condition.$lte = rawValue.max;
+    return Object.keys(condition).length ? condition : undefined;
+  }
+
+  if (rawValue !== undefined && rawValue !== null && rawValue !== "") {
+    return rawValue;
+  }
+
+  return undefined;
+}
+
 function buildProductQuery({
   category,
   categoryId,
@@ -21,10 +44,12 @@ function buildProductQuery({
   minPrice,
   maxPrice,
   attributeFilters = {},
+  filterDefMap = {},
   startDate,
   endDate,
 } = {}) {
   const query = {};
+  const variantConditions = {};
 
   if (category) query.category = category;
   if (categoryId) query.categoryId = categoryId;
@@ -45,22 +70,30 @@ function buildProductQuery({
   }
 
   for (const [key, rawValue] of Object.entries(attributeFilters || {})) {
-    const path = key === "price" ? "price" : key === "rating" ? "ratings.averageRating" : getAttributePath(key);
-    if (Array.isArray(rawValue) && rawValue.length) {
-      query[path] = { $in: rawValue };
+    const filterDef = filterDefMap?.[key];
+    const condition = buildFilterCondition(rawValue);
+    if (condition === undefined) continue;
+
+    if (key === "price") {
+      query.price = condition;
       continue;
     }
 
-    if (rawValue && typeof rawValue === "object" && (rawValue.min !== undefined || rawValue.max !== undefined)) {
-      query[path] = {};
-      if (rawValue.min !== undefined) query[path].$gte = rawValue.min;
-      if (rawValue.max !== undefined) query[path].$lte = rawValue.max;
+    if (key === "rating") {
+      query["ratings.averageRating"] = condition;
       continue;
     }
 
-    if (rawValue !== undefined && rawValue !== null && rawValue !== "") {
-      query[path] = rawValue;
+    if (filterDef?.isVariant) {
+      variantConditions[`attributes.${key}`] = condition;
+      continue;
     }
+
+    query[getAttributePath(key)] = condition;
+  }
+
+  if (Object.keys(variantConditions).length) {
+    query.variants = { $elemMatch: variantConditions };
   }
 
   applyDateRange(query, normalizeDateRange({ startDate, endDate }));
@@ -80,12 +113,24 @@ async function buildFacetPayload(filterDefs = [], baseFilters = {}) {
     const scopedQuery = buildProductQuery({
       ...baseFilters,
       attributeFilters: omitAttributeFilter(baseFilters.attributeFilters, filterDef.key),
+      filterDefMap: baseFilters.filterDefMap,
     });
 
     if (filterDef.type === "range") {
-      const targetPath = filterDef.key === "price" ? "$price" : `$${getAttributePath(filterDef.key)}`;
+      const targetPath =
+        filterDef.key === "price"
+          ? "$price"
+          : filterDef.isVariant
+            ? `$${getVariantAttributePath(filterDef.key)}`
+            : `$${getAttributePath(filterDef.key)}`;
       const [rangeStats] = await Product.aggregate([
         { $match: scopedQuery },
+        ...(filterDef.isVariant
+          ? [
+              { $unwind: "$variants" },
+              { $match: { "variants.isActive": { $ne: false } } },
+            ]
+          : []),
         {
           $group: {
             _id: null,
@@ -98,6 +143,9 @@ async function buildFacetPayload(filterDefs = [], baseFilters = {}) {
       return {
         key: filterDef.key,
         type: filterDef.type,
+        name: filterDef.name,
+        group: filterDef.group,
+        order: filterDef.order,
         min: Number.isFinite(rangeStats?.min) ? rangeStats.min : filterDef.rangeConfig?.min ?? 0,
         max: Number.isFinite(rangeStats?.max) ? rangeStats.max : filterDef.rangeConfig?.max ?? 0,
         step: filterDef.rangeConfig?.step ?? 1,
@@ -107,13 +155,21 @@ async function buildFacetPayload(filterDefs = [], baseFilters = {}) {
 
     const [countBuckets] = await Product.aggregate([
       { $match: scopedQuery },
+      ...(filterDef.isVariant
+        ? [
+            { $unwind: "$variants" },
+            { $match: { "variants.isActive": { $ne: false } } },
+          ]
+        : []),
       {
         $project: {
-          rawValue: `$${getAttributePath(filterDef.key)}`,
+          productId: "$_id",
+          rawValue: filterDef.isVariant ? `$${getVariantAttributePath(filterDef.key)}` : `$${getAttributePath(filterDef.key)}`,
         },
       },
       {
         $project: {
+          productId: 1,
           values: {
             $cond: [
               { $isArray: "$rawValue" },
@@ -133,8 +189,21 @@ async function buildFacetPayload(filterDefs = [], baseFilters = {}) {
       },
       { $unwind: "$values" },
       {
+        $match: {
+          values: { $nin: [null, ""] },
+        },
+      },
+      {
         $group: {
-          _id: "$values",
+          _id: {
+            productId: "$productId",
+            value: "$values",
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$_id.value",
           count: { $sum: 1 },
         },
       },
@@ -152,10 +221,25 @@ async function buildFacetPayload(filterDefs = [], baseFilters = {}) {
     ]);
 
     const optionCountMap = new Map((countBuckets?.options || []).map((item) => [String(item.value), Number(item.count || 0)]));
+    const dynamicOptions = (countBuckets?.options || [])
+      .map((item) => String(item.value))
+      .filter(Boolean);
+    const preferredOptions = Array.isArray(filterDef.options) && filterDef.options.length ? filterDef.options : dynamicOptions;
+    const preferredOptionSet = new Set(preferredOptions.map((item) => String(item)));
+    const mergedOptions = [
+      ...preferredOptions.map((item) => String(item)),
+      ...dynamicOptions
+        .filter((item) => !preferredOptionSet.has(String(item)))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })),
+    ];
+
     return {
       key: filterDef.key,
       type: filterDef.type,
-      options: (filterDef.options || []).map((option) => ({
+      name: filterDef.name,
+      group: filterDef.group,
+      order: filterDef.order,
+      options: mergedOptions.map((option) => ({
         value: option,
         count: optionCountMap.get(String(option)) || 0,
       })),
@@ -206,6 +290,7 @@ class ProductRepository {
     maxPrice,
     attributeFilters = {},
     filterDefs = [],
+    filterDefMap = {},
     startDate,
     endDate,
   } = {}) {
@@ -221,6 +306,7 @@ class ProductRepository {
       minPrice,
       maxPrice,
       attributeFilters,
+      filterDefMap,
       startDate,
       endDate,
     });
@@ -248,6 +334,7 @@ class ProductRepository {
         minPrice,
         maxPrice,
         attributeFilters,
+        filterDefMap,
         startDate,
         endDate,
       }),
@@ -279,6 +366,7 @@ class ProductRepository {
     maxPrice,
     attributeFilters = {},
     filterDefs = [],
+    filterDefMap = {},
   } = {}) {
     return this.list({
       page,
@@ -295,7 +383,55 @@ class ProductRepository {
       maxPrice,
       attributeFilters,
       filterDefs,
+      filterDefMap,
     });
+  }
+
+  async getPublicProductFilters({
+    category,
+    categoryId,
+    subCategoryId,
+    search,
+    minPrice,
+    maxPrice,
+    attributeFilters = {},
+    filterDefs = [],
+    filterDefMap = {},
+  } = {}) {
+    const query = buildProductQuery({
+      category,
+      categoryId,
+      subCategoryId,
+      status: "APPROVED",
+      isActive: true,
+      search,
+      minPrice,
+      maxPrice,
+      attributeFilters,
+      filterDefMap,
+    });
+
+    const [total, facets] = await Promise.all([
+      Product.countDocuments(query),
+      buildFacetPayload(filterDefs, {
+        category,
+        categoryId,
+        subCategoryId,
+        status: "APPROVED",
+        isActive: true,
+        search,
+        minPrice,
+        maxPrice,
+        attributeFilters,
+        filterDefMap,
+      }),
+    ]);
+
+    return {
+      total,
+      filters: filterDefs,
+      facets,
+    };
   }
 
   // Get seller's products

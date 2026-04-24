@@ -15,9 +15,9 @@ const {
   flattenModulesDataToAttributes,
 } = require("./attribute.service");
 const {
+  normalizeDynamicFilterQuery,
   validateAndNormalizeFilterAttributes,
-  normalizeFilterQuery,
-} = require("./filter.service");
+} = require("./product-filter.service");
 
 function normalizeImage(image = {}) {
   return {
@@ -214,6 +214,28 @@ async function ensureAdminVendor(userId) {
 }
 
 class ProductService {
+  getReferenceId(value) {
+    if (!value) return null;
+    if (typeof value === "string") return value;
+    if (typeof value === "object") {
+      if (value._id) return String(value._id);
+      if (typeof value.toString === "function" && value.toString() !== "[object Object]") {
+        return String(value);
+      }
+    }
+    return null;
+  }
+
+  isSellerProductOwner(product, userId, sellerId) {
+    const productSellerId = this.getReferenceId(product?.sellerId);
+    const productCreatorId = this.getReferenceId(product?.createdBy);
+    const matchesSeller = productSellerId && sellerId && productSellerId === String(sellerId);
+    const matchesCreator = productCreatorId && userId && productCreatorId === String(userId);
+    const isSellerCreatedProduct = String(product?.creatorType || "").toUpperCase() === "SELLER";
+
+    return Boolean(matchesSeller || (isSellerCreatedProduct && matchesCreator));
+  }
+
   /**
    * Create a new product
    * @param {Object} productData - Product details
@@ -331,9 +353,14 @@ class ProductService {
     // Authorization check
     if (userRole === "seller") {
       // Sellers can only edit their own products
-      if (product.sellerId?.toString() !== sellerId?.toString()) {
+      if (!this.isSellerProductOwner(product, userId, sellerId)) {
         throw new AppError("You can only edit your own products", 403, "FORBIDDEN");
       }
+
+      if (!product.sellerId && sellerId) {
+        updateData.sellerId = sellerId;
+      }
+
       // Sellers cannot change status
       delete updateData.status;
       delete updateData.creatorType;
@@ -389,7 +416,7 @@ class ProductService {
   }
 
   /**
-   * Delete product (soft delete)
+   * Delete product permanently
    * @param {String} productId - Product ID
    * @param {String} userId - User ID
    * @param {String} userRole - User role
@@ -403,19 +430,13 @@ class ProductService {
 
     // Authorization check
     if (userRole === "seller") {
-      if (product.sellerId?.toString() !== sellerId?.toString()) {
+      if (!this.isSellerProductOwner(product, userId, sellerId)) {
         throw new AppError("You can only delete your own products", 403, "FORBIDDEN");
       }
     }
 
-    // Admin deletes should fully remove the product so it disappears from admin/vendor listings.
-    if (userRole === "admin") {
-      const deletedProduct = await productRepo.deleteById(productId);
-      return deletedProduct;
-    }
-
-    // Vendor delete remains soft-delete for safer self-service operations.
-    const deletedProduct = await productRepo.softDeleteById(productId);
+    // Admin and vendor deletes permanently remove the product.
+    const deletedProduct = await productRepo.deleteById(productId);
     return deletedProduct;
   }
 
@@ -441,7 +462,7 @@ class ProductService {
    * Get public products (only approved and active)
    */
   async getPublicProducts(filters) {
-    const { filterDefs, attributeFilters } = await normalizeFilterQuery({
+    const { filterDefs, filterDefMap, attributeFilters } = await normalizeDynamicFilterQuery({
       categoryId: filters.categoryId,
       subCategoryId: filters.subCategoryId,
       query: filters.rawQuery || {},
@@ -451,6 +472,22 @@ class ProductService {
       ...filters,
       attributeFilters,
       filterDefs,
+      filterDefMap,
+    });
+  }
+
+  async getPublicProductFilters(filters) {
+    const { filterDefs, filterDefMap, attributeFilters } = await normalizeDynamicFilterQuery({
+      categoryId: filters.categoryId,
+      subCategoryId: filters.subCategoryId,
+      query: filters.rawQuery || {},
+    });
+
+    return await productRepo.getPublicProductFilters({
+      ...filters,
+      attributeFilters,
+      filterDefs,
+      filterDefMap,
     });
   }
 

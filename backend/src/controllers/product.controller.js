@@ -125,6 +125,21 @@ const getPublicProducts = asyncHandler(async (req, res) => {
   return ok(res, result, "Public products retrieved");
 });
 
+const getProductFilters = asyncHandler(async (req, res) => {
+  const filters = {
+    category: req.query.category,
+    categoryId: req.query.categoryId,
+    subCategoryId: req.query.subCategoryId,
+    search: req.query.search,
+    minPrice: req.query.minPrice ? parseFloat(req.query.minPrice) : undefined,
+    maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice) : undefined,
+    rawQuery: pickDynamicQueryFilters(req.query),
+  };
+
+  const result = await productService.getPublicProductFilters(filters);
+  return ok(res, result, "Product filters retrieved");
+});
+
 /**
  * GET PRODUCT BY ID
  * GET /products/:id
@@ -266,6 +281,7 @@ module.exports = {
   createProduct,
   getProducts,
   getPublicProducts,
+  getProductFilters,
   getProductById,
   updateProduct,
   deleteProduct,

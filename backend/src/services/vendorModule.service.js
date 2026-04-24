@@ -1,5 +1,5 @@
-const { VendorModule, VENDOR_PERMISSION_ACTIONS } = require("../models/VendorModule");
-const { getDefaultVendorModules } = require("../config/vendorModules.config");
+const { VendorModule } = require("../models/VendorModule");
+const { getDefaultVendorModules, isValidModuleKey } = require("../config/vendorModules.config");
 const { AppError } = require("../utils/AppError");
 const { AuditLog } = require("../models/AuditLog");
 
@@ -44,12 +44,52 @@ class VendorModuleService {
     return String(permission || "").trim().replace(/:/g, ".");
   }
 
-  _normalizeVendorPermissions(vendorPermissions = {}) {
+  _shouldLogDebug() {
+    return process.env.NODE_ENV !== "production";
+  }
+
+  _buildAccessDecision(module, user, action = "read") {
+    const featureEnabled = module?.enabled === true;
+    const vendorModuleEnabled = module?.vendorEnabled === true;
+    const permissionAllowed = this._hasRequiredPermission(user, module?.requiredPermission);
+    const normalizedAction = action || "read";
+
     return {
-      create: Boolean(vendorPermissions.create),
-      read: vendorPermissions.read !== false,
-      update: Boolean(vendorPermissions.update),
-      delete: Boolean(vendorPermissions.delete),
+      allowed: Boolean(module) && featureEnabled && vendorModuleEnabled && permissionAllowed,
+      action: normalizedAction,
+      moduleKey: module?.key || null,
+      featureEnabled,
+      vendorModuleEnabled,
+      permissionAllowed,
+      requiredPermission: module?.requiredPermission || null,
+      userPermissions: user?.permissions || null,
+    };
+  }
+
+  _logAccessDecision(context, decision, user) {
+    if (!this._shouldLogDebug()) return;
+    console.log("[VENDOR_ACCESS]", {
+      context,
+      module: decision.moduleKey,
+      action: decision.action,
+      allowed: decision.allowed,
+      featureEnabled: decision.featureEnabled,
+      vendorModuleEnabled: decision.vendorModuleEnabled,
+      permissionAllowed: decision.permissionAllowed,
+      requiredPermission: decision.requiredPermission,
+      userId: user?.sub || user?._id || null,
+      role: user?.role || null,
+      rolePermissions: decision.userPermissions,
+    });
+  }
+
+  _buildEffectivePermissions(module, user) {
+    const allowed = this._buildAccessDecision(module, user, "read").allowed;
+    return {
+      create: allowed,
+      read: allowed,
+      update: allowed,
+      delete: allowed,
     };
   }
 
@@ -88,28 +128,11 @@ class VendorModuleService {
   }
 
   _canUserAccessModule(module, user) {
-    if (!module) {
-      return false;
-    }
-
-    const featureEnabled = module.enabled === true;
-    const vendorModuleEnabled = module.vendorEnabled === true;
-    const permissionAllowed = this._hasRequiredPermission(user, module.requiredPermission);
-
-    return featureEnabled && vendorModuleEnabled && permissionAllowed && module.vendorPermissions?.read === true;
+    return this._buildAccessDecision(module, user, "read").allowed;
   }
 
   _canUserPerformAction(module, action, user) {
-    if (!module || !VENDOR_PERMISSION_ACTIONS.includes(action)) {
-      return false;
-    }
-
-    const featureEnabled = module.enabled === true;
-    const vendorModuleEnabled = module.vendorEnabled === true;
-    const permissionAllowed = this._hasRequiredPermission(user, module.requiredPermission);
-    const actionAllowed = module.vendorPermissions?.[action] === true;
-
-    return featureEnabled && vendorModuleEnabled && permissionAllowed && actionAllowed;
+    return this._buildAccessDecision(module, user, action).allowed;
   }
 
   /**
@@ -117,9 +140,14 @@ class VendorModuleService {
    */
   async initializeModules() {
     const defaultModules = getDefaultVendorModules();
+    const existingModules = await VendorModule.find({ key: { $in: defaultModules.map((module) => module.key) } })
+      .select("key")
+      .lean();
+    const existingKeys = new Set(existingModules.map((module) => module.key));
+    const missingModules = defaultModules.filter((module) => !existingKeys.has(module.key));
 
-    for (const module of defaultModules) {
-      await VendorModule.updateOne({ key: module.key }, { $set: module }, { upsert: true });
+    if (missingModules.length > 0) {
+      await VendorModule.insertMany(missingModules, { ordered: false });
     }
   }
 
@@ -132,7 +160,8 @@ class VendorModuleService {
    */
   async getAllModules() {
     await this.ensureModulesInitialized();
-    return await VendorModule.find().sort({ order: 1 });
+    const modules = await VendorModule.find().sort({ order: 1 });
+    return modules.filter((module) => isValidModuleKey(module.key));
   }
 
   /**
@@ -145,7 +174,23 @@ class VendorModuleService {
       vendorEnabled: true,
     }).sort({ order: 1 });
 
-    return modules.filter((module) => this._canUserPerformAction(module, "read", user));
+    return modules
+      .filter((module) => isValidModuleKey(module.key) && this._canUserAccessModule(module, user))
+      .map((module) => {
+        const decision = this._buildAccessDecision(module, user, "read");
+
+        return {
+          ...(module.toObject?.() || module),
+          accessDebug: this._shouldLogDebug()
+            ? {
+                requiredPermission: decision.requiredPermission,
+                permissionAllowed: decision.permissionAllowed,
+                featureEnabled: decision.featureEnabled,
+                vendorModuleEnabled: decision.vendorModuleEnabled,
+              }
+            : undefined,
+        };
+      });
   }
 
   /**
@@ -154,7 +199,7 @@ class VendorModuleService {
   async getModuleByKey(key) {
     await this.ensureModulesInitialized();
     const module = await VendorModule.findOne({ key });
-    if (!module) {
+    if (!module || !isValidModuleKey(module.key)) {
       throw new AppError(`Module '${key}' not found`, 404, "MODULE_NOT_FOUND");
     }
     return module;
@@ -169,7 +214,7 @@ class VendorModuleService {
     const module = await this.getModuleByKey(moduleKey);
 
     const oldValue = module.vendorEnabled;
-    module.vendorEnabled = vendorEnabled;
+    module.vendorEnabled = module.enabled === true ? vendorEnabled : false;
     module.updatedBy = adminUser._id;
     await module.save();
 
@@ -184,7 +229,7 @@ class VendorModuleService {
           entity: "VendorModule",
           entityId: module._id,
           changedFields: {
-            vendorEnabled: { oldValue, newValue: vendorEnabled },
+            vendorEnabled: { oldValue, newValue: module.vendorEnabled },
           },
           userId: adminUser._id,
           ipAddress: adminUser.ipAddress,
@@ -218,17 +263,12 @@ class VendorModuleService {
       module.vendorEnabled = updates.vendorEnabled;
     }
 
-    if (updates.vendorPermissions && typeof updates.vendorPermissions === "object") {
-      const nextPermissions = this._normalizeVendorPermissions({
-        ...module.vendorPermissions?.toObject?.(),
-        ...updates.vendorPermissions,
-      });
-
-      changedFields.vendorPermissions = {
-        oldValue: this._normalizeVendorPermissions(module.vendorPermissions?.toObject?.()),
-        newValue: nextPermissions,
+    if (module.enabled === false && module.vendorEnabled !== false) {
+      changedFields.vendorEnabled = {
+        oldValue: module.vendorEnabled,
+        newValue: false,
       };
-      module.vendorPermissions = nextPermissions;
+      module.vendorEnabled = false;
     }
 
     module.updatedBy = adminUser._id;
@@ -262,7 +302,11 @@ class VendorModuleService {
     const module = await this.getModuleByKey(moduleKey);
 
     const oldValue = module.enabled;
+    const oldVendorEnabled = module.vendorEnabled;
     module.enabled = enabled;
+    if (enabled === false) {
+      module.vendorEnabled = false;
+    }
     module.updatedBy = adminUser._id;
     await module.save();
 
@@ -278,6 +322,11 @@ class VendorModuleService {
           entityId: module._id,
           changedFields: {
             enabled: { oldValue, newValue: enabled },
+            ...(enabled === false && oldVendorEnabled !== false
+              ? {
+                  vendorEnabled: { oldValue: oldVendorEnabled, newValue: false },
+                }
+              : {}),
           },
           userId: adminUser._id,
           ipAddress: adminUser.ipAddress,
@@ -289,6 +338,28 @@ class VendorModuleService {
     }
 
     return module;
+  }
+
+  async getGlobalModuleEnabledMap() {
+    await this.ensureModulesInitialized();
+    const modules = await VendorModule.find().select("key enabled").lean();
+
+    return modules.reduce((accumulator, module) => {
+      if (isValidModuleKey(module.key)) {
+        accumulator[module.key] = module.enabled === true;
+      }
+      return accumulator;
+    }, {});
+  }
+
+  async isModuleGloballyEnabled(moduleKey) {
+    if (!isValidModuleKey(moduleKey)) {
+      return true;
+    }
+
+    await this.ensureModulesInitialized();
+    const module = await VendorModule.findOne({ key: moduleKey }).select("enabled").lean();
+    return module ? module.enabled === true : true;
   }
 
   /**
@@ -307,16 +378,16 @@ class VendorModuleService {
       return cached;
     }
 
-    const module = await VendorModule.findOne({ key: moduleKey });
-
-    if (!module) {
+    if (!isValidModuleKey(moduleKey)) {
       this._setCache(cacheKey, false);
       return false;
     }
 
-    const accessible = this._canUserAccessModule(module, user);
-    this._setCache(cacheKey, accessible);
-    return accessible;
+    const module = await VendorModule.findOne({ key: moduleKey });
+    const decision = this._buildAccessDecision(module, user, "read");
+    this._logAccessDecision("module.read", decision, user);
+    this._setCache(cacheKey, decision.allowed);
+    return decision.allowed;
   }
 
   async canVendorPerformAction(moduleKey, action, user) {
@@ -328,10 +399,16 @@ class VendorModuleService {
       return cached;
     }
 
+    if (!isValidModuleKey(moduleKey)) {
+      this._setCache(cacheKey, false);
+      return false;
+    }
+
     const module = await VendorModule.findOne({ key: moduleKey });
-    const accessible = this._canUserPerformAction(module, action, user);
-    this._setCache(cacheKey, accessible);
-    return accessible;
+    const decision = this._buildAccessDecision(module, user, "read");
+    this._logAccessDecision("module.action", decision, user);
+    this._setCache(cacheKey, decision.allowed);
+    return decision.allowed;
   }
 
   /**
@@ -339,7 +416,8 @@ class VendorModuleService {
    */
   async canVendorAccessModules(moduleKeys, user) {
     await this.ensureModulesInitialized();
-    const modules = await VendorModule.find({ key: { $in: moduleKeys } });
+    const validModuleKeys = moduleKeys.filter((key) => isValidModuleKey(key));
+    const modules = await VendorModule.find({ key: { $in: validModuleKeys } });
 
     const result = {};
     moduleKeys.forEach((key) => {
@@ -353,13 +431,19 @@ class VendorModuleService {
   async canVendorPerformActions(requestedPermissions, user) {
     await this.ensureModulesInitialized();
     const results = {};
-    const moduleKeys = [...new Set(requestedPermissions.map((permission) => permission.split(".")[0]))];
+    const moduleKeys = [
+      ...new Set(
+        requestedPermissions
+          .map((permission) => String(permission || "").split(".")[0])
+          .filter((moduleKey) => isValidModuleKey(moduleKey))
+      ),
+    ];
     const modules = await VendorModule.find({ key: { $in: moduleKeys } });
 
     requestedPermissions.forEach((permission) => {
-      const [moduleKey, action] = String(permission || "").split(".");
+      const [moduleKey] = String(permission || "").split(".");
       const module = modules.find((entry) => entry.key === moduleKey);
-      results[permission] = this._canUserPerformAction(module, action, user);
+      results[permission] = this._canUserAccessModule(module, user);
     });
 
     return results;
@@ -370,22 +454,18 @@ class VendorModuleService {
    */
   async getModuleStats() {
     await this.ensureModulesInitialized();
-    const totalModules = await VendorModule.countDocuments();
-    const enabledGlobally = await VendorModule.countDocuments({ enabled: true });
-    const enabledForVendors = await VendorModule.countDocuments({ enabled: true, vendorEnabled: true });
-    const disabledForVendors = totalModules - enabledForVendors;
-    const readableForVendors = await VendorModule.countDocuments({
-      enabled: true,
-      vendorEnabled: true,
-      "vendorPermissions.read": true,
-    });
+    const validModules = await VendorModule.find().lean();
+    const supportedModules = validModules.filter((module) => isValidModuleKey(module.key));
+    const enabledGlobally = supportedModules.filter((module) => module.enabled).length;
+    const enabledForVendors = supportedModules.filter((module) => module.enabled && module.vendorEnabled).length;
+    const disabledForVendors = supportedModules.length - enabledForVendors;
 
     return {
-      total: totalModules,
+      total: supportedModules.length,
       enabledGlobally,
       enabledForVendors,
       disabledForVendors,
-      readableForVendors,
+      readableForVendors: enabledForVendors,
     };
   }
 }

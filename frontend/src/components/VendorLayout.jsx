@@ -111,7 +111,7 @@ function VendorLayoutInner() {
                 </Link>
                 {can("products.create") ? (
                   <Link 
-                    to="/seller/products/create" 
+                    to="/vendor/products/create" 
                     className="inline-flex justify-center rounded-xl bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
                   >
                     Add Product

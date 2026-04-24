@@ -19,16 +19,33 @@ function formatCompact(value) {
 export function StaffDashboardPage() {
   const { user } = useStaffUser();
   const { hasPermission, permissions } = useStaffPermission();
-  const accessibleModules = useMemo(() => getAccessibleModules(permissions), [permissions]);
+  const enabledModules = user?.enabledModules || {};
+  const accessibleModules = useMemo(
+    () => getAccessibleModules(permissions, enabledModules),
+    [enabledModules, permissions]
+  );
   const visibleModules = useMemo(
     () => accessibleModules.filter((module) => module.key !== "dashboard"),
     [accessibleModules]
   );
-  const canReadAnalytics = hasPermission("analytics.read");
-  const canReadUsers = hasPermission("users.read");
-  const canReadOrders = hasPermission("orders.read");
-  const canReadProducts = hasPermission("products.read");
-  const canReadPayouts = hasPermission("payouts.read");
+  const effectivePermissionEntries = useMemo(
+    () =>
+      Object.entries(permissions)
+        .filter(([moduleName]) => enabledModules?.[moduleName] !== false)
+        .map(([moduleName, actions]) => [
+          moduleName,
+          Object.fromEntries(
+            Object.entries(actions || {}).filter(([action]) => hasPermission(`${moduleName}.${action}`))
+          ),
+        ])
+        .filter(([, actions]) => Object.keys(actions).length > 0),
+    [enabledModules, hasPermission, permissions]
+  );
+  const canReadAnalytics = enabledModules.analytics !== false && hasPermission("analytics.read");
+  const canReadUsers = enabledModules.users !== false && hasPermission("users.read");
+  const canReadOrders = enabledModules.orders !== false && hasPermission("orders.read");
+  const canReadProducts = enabledModules.products !== false && hasPermission("products.read");
+  const canReadPayouts = enabledModules.payouts !== false && hasPermission("payouts.read");
 
   const [stats, setStats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -184,17 +201,17 @@ export function StaffDashboardPage() {
 
       <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-md">
         <h2 className="text-xl font-semibold text-slate-950">Permission matrix</h2>
-        <p className="mt-1 text-sm text-slate-500">Actions available to your current role.</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Actions currently available after applying both your role and global module access.
+        </p>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {Object.entries(permissions)
-            .filter(([, actions]) => Object.values(actions || {}).some(Boolean))
+          {effectivePermissionEntries
             .map(([moduleName, actions]) => (
               <div key={moduleName} className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
                 <div className="text-sm font-semibold capitalize text-slate-950">{moduleName}</div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {Object.entries(actions)
-                    .filter(([, enabled]) => enabled)
                     .map(([action]) => (
                       <span
                         key={action}
@@ -207,6 +224,11 @@ export function StaffDashboardPage() {
               </div>
             ))}
         </div>
+        {!effectivePermissionEntries.length ? (
+          <div className="mt-6 rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
+            No staff permissions are currently active.
+          </div>
+        ) : null}
       </section>
     </div>
   );

@@ -15,6 +15,7 @@ const attributePayload = {
   order: Joi.number().integer().min(0),
   template: Joi.string().trim().max(120).allow(""),
   isVariant: Joi.boolean(),
+  useInFilters: Joi.boolean(),
   variantConfig: Joi.object({
     displayType: variantDisplayType,
     affectsImage: Joi.boolean(),
@@ -36,6 +37,7 @@ const createAttributeSchema = Joi.object({
   group: attributePayload.group,
   order: attributePayload.order,
   template: attributePayload.template,
+  useInFilters: attributePayload.useInFilters,
   isActive: attributePayload.isActive,
   appliesTo: attributePayload.appliesTo.required(),
 });

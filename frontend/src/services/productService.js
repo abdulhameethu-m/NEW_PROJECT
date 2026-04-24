@@ -8,6 +8,11 @@ export async function getPublicProducts(params = {}) {
   return response.data;
 }
 
+export async function getPublicProductFilters(params = {}) {
+  const response = await api.get("/api/products/filters", { params });
+  return response.data;
+}
+
 /**
  * Get single product by ID
  */

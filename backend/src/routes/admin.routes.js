@@ -27,10 +27,8 @@ const {
 const categoryController = require("../controllers/category.controller");
 const subcategoryController = require("../controllers/subcategory.controller");
 const attributeController = require("../controllers/attribute.controller");
-const filterController = require("../controllers/filter.controller");
 const productModuleController = require("../controllers/product-module.controller");
 const { createAttributeSchema, updateAttributeSchema } = require("../utils/validators/attribute.validation");
-const { createFilterSchema, updateFilterSchema } = require("../utils/validators/filter.validation");
 const {
   createProductModuleSchema,
   updateProductModuleSchema,
@@ -76,6 +74,7 @@ router.delete("/vendor/:id", requireLegacyAdminPermission("vendors:delete"), adm
 
 router.get("/orders", requireWorkspacePermission("orders.read"), adminController.listOrders);
 router.patch("/orders/:id/status", requireWorkspacePermission("orders.update"), express.json(), adminController.updateOrderStatus);
+router.patch("/orders/:id/cancel", requireWorkspacePermission("orders.cancel"), adminController.cancelOrder);
 router.get("/orders/:id", requireWorkspacePermission("orders.read"), adminController.getOrderById);
 router.get("/payouts", requireWorkspacePermission("payouts.read"), adminController.listPayouts);
 router.post("/orders", requireLegacyAdminPermission("orders:create"), validate(createAdminOrderSchema), adminController.createOrder);
@@ -86,7 +85,10 @@ router.delete("/orders/:id", requireLegacyAdminPermission("orders:delete"), admi
 router.get("/products", requireWorkspacePermission("products.read"), productController.getProducts);
 router.get("/products/stats", requireWorkspacePermission("products.read"), productController.getProductStats);
 router.get("/products/pending", requireWorkspacePermission("products.read"), productController.getPendingProducts);
+router.get("/products/generate-number", requireWorkspacePermission("products.create"), productController.generateProductNumber);
 router.post("/products", requireWorkspacePermission("products.create"), validate(createProductSchema), productController.createProduct);
+router.get("/reviews", requireWorkspacePermission("reviews.read"), adminController.listReviews);
+router.delete("/reviews/:id", requireWorkspacePermission("reviews.delete"), adminController.deleteReview);
 
 // Parameter-based product routes (after specific routes)
 router.get("/products/:id", requireWorkspacePermission("products.read"), productController.getProductById);
@@ -95,7 +97,11 @@ router.delete("/products/:id", requireWorkspacePermission("products.delete"), pr
 router.patch("/products/:id/approve", requireLegacyAdminPermission("products:approve"), productController.approveProduct);
 router.patch("/products/:id/reject", requireLegacyAdminPermission("products:reject"), validate(rejectProductSchema), productController.rejectProduct);
 
-router.get("/categories", requireLegacyAdminPermission("categories:read"), categoryController.getAdminCategories);
+router.get(
+  "/categories",
+  requireWorkspacePermission("products.read", { legacyPermission: "categories:read" }),
+  categoryController.getAdminCategories
+);
 router.post("/categories", requireLegacyAdminPermission("categories:create"), validate(createCategorySchema), categoryController.createCategory);
 router.patch("/categories/:id", requireLegacyAdminPermission("categories:update"), validate(updateCategorySchema), categoryController.updateCategory);
 router.patch(
@@ -140,25 +146,6 @@ router.put(
   attributeController.updateAttribute
 );
 router.delete("/attributes/:id", requireLegacyAdminPermission("categories:update"), attributeController.deleteAttribute);
-
-router.get("/filters", requireWorkspacePermission("filters.read", { legacyPermission: "filters:read" }), filterController.getAdminFilters);
-router.post(
-  "/filters",
-  requireWorkspacePermission("filters.create", { legacyPermission: "filters:create" }),
-  validate(createFilterSchema),
-  filterController.createFilter
-);
-router.put(
-  "/filters/:id",
-  requireWorkspacePermission("filters.update", { legacyPermission: "filters:update" }),
-  validate(updateFilterSchema),
-  filterController.updateFilter
-);
-router.delete(
-  "/filters/:id",
-  requireWorkspacePermission("filters.delete", { legacyPermission: "filters:delete" }),
-  filterController.deleteFilter
-);
 
 router.get("/product-modules", requireLegacyAdminPermission("categories:read"), productModuleController.getAdminProductModules);
 router.post(

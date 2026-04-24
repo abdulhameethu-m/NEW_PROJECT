@@ -84,16 +84,23 @@ async function ensureUser(userId) {
   return user;
 }
 
-async function ensureOrderedProduct(userId, productId) {
-  const order = await Order.findOne({
+async function resolveDeliveredOrderForReview(userId, productId, orderId) {
+  const query = {
     userId,
     status: "Delivered",
     "items.productId": productId,
-  }).select("_id");
+  };
 
+  if (orderId) {
+    query._id = orderId;
+  }
+
+  const order = await Order.findOne(query).select("_id sellerId items.productId");
   if (!order) {
     throw new AppError("Only delivered products can be reviewed", 400, "INVALID_OPERATION");
   }
+
+  return order;
 }
 
 async function recomputeProductRatings(productId) {
@@ -535,15 +542,19 @@ class UserService {
     const product = await Product.findById(payload.productId).select("_id sellerId");
     if (!product) throw new AppError("Product not found", 404, "NOT_FOUND");
 
-    await ensureOrderedProduct(userId, payload.productId);
+    const deliveredOrder = await resolveDeliveredOrderForReview(userId, payload.productId, payload.orderId);
+    const vendorId = deliveredOrder.sellerId?._id || deliveredOrder.sellerId || product.sellerId;
+    if (!vendorId) {
+      throw new AppError("Vendor not found for reviewed product", 400, "INVALID_OPERATION");
+    }
 
     const existing = await Review.findOne({ userId, productId: payload.productId });
     if (existing) throw new AppError("Review already exists for this product", 409, "ALREADY_EXISTS");
 
     const review = await Review.create({
-      vendorId: product.sellerId,
+      vendorId,
       productId: payload.productId,
-      orderId: payload.orderId || undefined,
+      orderId: deliveredOrder._id,
       userId,
       rating: payload.rating,
       title: payload.title,

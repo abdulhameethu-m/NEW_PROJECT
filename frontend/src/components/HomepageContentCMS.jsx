@@ -42,6 +42,8 @@ function HeroSlider({ heroes }) {
   const prefersReducedMotion = useReducedMotion();
   const [currentIndex, setCurrentIndex] = useState(0);
   const viewedIdsRef = useRef(new Set());
+  const advanceTimerRef = useRef(null);
+  const activeVideoRef = useRef(null);
   const activeHero = heroes[currentIndex] || heroes[0];
 
   const goToSlide = useCallback((index) => {
@@ -57,13 +59,52 @@ function HeroSlider({ heroes }) {
   }, [heroes.length]);
 
   useEffect(() => {
+    return () => {
+      if (advanceTimerRef.current) {
+        window.clearTimeout(advanceTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (prefersReducedMotion || heroes.length <= 1) {
       return undefined;
     }
 
-    const intervalId = window.setInterval(goToNext, 5500);
-    return () => window.clearInterval(intervalId);
-  }, [goToNext, heroes.length, prefersReducedMotion]);
+    if (advanceTimerRef.current) {
+      window.clearTimeout(advanceTimerRef.current);
+    }
+
+    if (activeHero?.mediaType === "video") {
+      const video = activeVideoRef.current;
+      if (!video) {
+        return undefined;
+      }
+
+      const handleVideoEnded = () => {
+        goToNext();
+      };
+
+      video.currentTime = 0;
+      const playAttempt = video.play();
+      if (playAttempt?.catch) {
+        playAttempt.catch(() => {});
+      }
+      video.addEventListener("ended", handleVideoEnded);
+
+      return () => {
+        video.removeEventListener("ended", handleVideoEnded);
+      };
+    }
+
+    advanceTimerRef.current = window.setTimeout(goToNext, 3000);
+
+    return () => {
+      if (advanceTimerRef.current) {
+        window.clearTimeout(advanceTimerRef.current);
+      }
+    };
+  }, [activeHero?._id, activeHero?.mediaType, goToNext, heroes.length, prefersReducedMotion]);
 
   useEffect(() => {
     if (!activeHero?._id || viewedIdsRef.current.has(activeHero._id)) {
@@ -79,7 +120,7 @@ function HeroSlider({ heroes }) {
   }
 
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-white/60 bg-slate-950 shadow-[0_40px_120px_-55px_rgba(15,23,42,0.75)] dark:border-white/10">
+    <section className="group relative overflow-hidden rounded-[2rem] border border-white/60 bg-slate-950 shadow-[0_40px_120px_-55px_rgba(15,23,42,0.75)] dark:border-white/10">
       <div className="relative h-[340px] sm:h-[440px] lg:h-[560px]">
         <AnimatePresence mode="wait">
           <Motion.div
@@ -90,7 +131,20 @@ function HeroSlider({ heroes }) {
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             className="absolute inset-0"
           >
-            <MediaPreview item={activeHero} eager className="h-full w-full object-cover" />
+            {activeHero.mediaType === "video" ? (
+              <video
+                key={activeHero._id}
+                ref={activeVideoRef}
+                src={resolveMediaSource(activeHero)}
+                autoPlay
+                muted
+                playsInline
+                preload="auto"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <MediaPreview item={activeHero} eager className="h-full w-full object-cover" />
+            )}
             <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/55 to-slate-950/20" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.22),transparent_28%)]" />
             {activeHero.mediaType === "video" ? (
@@ -120,38 +174,30 @@ function HeroSlider({ heroes }) {
 
           <div className="max-w-3xl">
             <Motion.h2
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.08 }}
-              className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl"
+              initial={false}
+              className="translate-y-6 text-2xl font-semibold tracking-[-0.04em] text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 sm:text-4xl lg:text-5xl"
             >
               {activeHero.title}
             </Motion.h2>
             {activeHero.description ? (
               <Motion.p
-                initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.55, delay: 0.16 }}
-                className="mt-4 max-w-2xl text-sm leading-7 text-slate-200 sm:text-base lg:text-lg"
+                initial={false}
+                className="mt-4 max-w-2xl translate-y-6 text-sm leading-7 text-slate-200 opacity-0 transition-all duration-300 delay-75 group-hover:translate-y-0 group-hover:opacity-100 sm:text-base lg:text-lg"
               >
                 {activeHero.description}
               </Motion.p>
             ) : null}
-            {activeHero.ctaUrl ? (
-              <Motion.button
-                type="button"
-                initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.55, delay: 0.24 }}
-                onClick={() => {
-                  trackClick(activeHero._id).catch(() => {});
-                  window.location.assign(activeHero.ctaUrl);
-                }}
-                className="mt-6 inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5 hover:bg-slate-100 active:scale-95"
-              >
-                {activeHero.ctaText || "Shop now"}
-              </Motion.button>
-            ) : null}
+            <Motion.button
+              type="button"
+              initial={false}
+              onClick={() => {
+                trackClick(activeHero._id).catch(() => {});
+                window.location.assign(activeHero.ctaUrl || "/shop");
+              }}
+              className="mt-6 inline-flex translate-y-6 items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 opacity-0 transition-all duration-300 delay-100 group-hover:translate-y-0 group-hover:opacity-100 hover:-translate-y-0.5 hover:bg-slate-100 active:scale-95"
+            >
+              {activeHero.ctaText || "Explore"}
+            </Motion.button>
           </div>
 
           <div className="flex items-center gap-2">

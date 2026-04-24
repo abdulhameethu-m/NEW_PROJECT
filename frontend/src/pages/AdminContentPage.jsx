@@ -15,21 +15,23 @@ const CONTENT_TYPES = [
   { value: "collection", label: "Collection Spotlight", description: "Large spotlight banner shown above the footer" },
 ];
 
-const initialForm = {
-  title: "",
-  description: "",
-  image: "",
-  mediaType: "image",
-  altText: "",
-  type: "hero",
-  position: 0,
-  startDate: new Date().toISOString().split("T")[0],
-  endDate: "",
-  ctaUrl: "",
-  ctaText: "View More",
-  tags: "",
-  isActive: true,
-};
+function getInitialForm() {
+  return {
+    title: "",
+    description: "",
+    image: "",
+    mediaType: "image",
+    altText: "",
+    type: "hero",
+    position: 0,
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: "",
+    ctaUrl: "",
+    ctaText: "View More",
+    tags: "",
+    isActive: true,
+  };
+}
 
 function normalizeError(error) {
   return error?.response?.data?.message || error?.message || "Request failed";
@@ -43,8 +45,9 @@ export function AdminContentPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState("");
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(() => getInitialForm());
   const [imagePreview, setImagePreview] = useState("");
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -95,8 +98,9 @@ export function AdminContentPage() {
       }
 
       setEditingId("");
-      setForm(initialForm);
+      setForm(getInitialForm());
       setImagePreview("");
+      setFileInputKey((prev) => prev + 1);
       await refresh();
     } catch (err) {
       setError(normalizeError(err));
@@ -127,8 +131,9 @@ export function AdminContentPage() {
 
   function handleCancel() {
     setEditingId("");
-    setForm(initialForm);
+    setForm(getInitialForm());
     setImagePreview("");
+    setFileInputKey((prev) => prev + 1);
   }
 
   async function handleDelete(id) {
@@ -300,6 +305,7 @@ export function AdminContentPage() {
               <label className="block text-sm font-medium text-slate-950 dark:text-white mb-1">Image *</label>
               <div className="flex gap-2">
                 <input
+                  key={fileInputKey}
                   type="file"
                   accept="image/*,video/*"
                   onChange={handleImageUpload}

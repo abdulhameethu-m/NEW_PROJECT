@@ -1,11 +1,10 @@
 const STAFF_PERMISSION_CATALOG = Object.freeze({
-  users: ["read", "create", "update", "delete"],
+  users: ["read", "create", "delete"],
   orders: ["read", "update", "cancel"],
   products: ["read", "create", "update", "delete"],
   payments: ["read", "refund"],
   payouts: ["read", "process"],
   reviews: ["read", "delete"],
-  filters: ["read", "create", "update", "delete"],
   analytics: ["read"],
   settings: ["update"],
   roles: ["read", "create", "update", "delete"],

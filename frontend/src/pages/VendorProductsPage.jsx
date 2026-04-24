@@ -14,6 +14,7 @@ export function VendorProductsPage() {
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState("");
   const { can } = useModuleAccess();
   const reporting = useReporting({
     module: "products",
@@ -49,6 +50,23 @@ export function VendorProductsPage() {
     }
   }
 
+  async function handleDelete(productId, productName) {
+    if (!window.confirm(`Delete "${productName}" permanently? This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingId(productId);
+    setError("");
+    try {
+      await vendorDashboardService.deleteVendorProduct(productId);
+      await load();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to delete product.");
+    } finally {
+      setDeletingId("");
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <VendorSection
@@ -66,7 +84,7 @@ export function VendorProductsPage() {
               Search
             </button>
             {can("products.create") ? (
-              <Link to="/seller/products/create" className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-slate-950">
+              <Link to="/vendor/products/create" className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-slate-950">
                 New Product
               </Link>
             ) : null}
@@ -105,6 +123,7 @@ export function VendorProductsPage() {
             stock: product.stock,
             status: product.status,
             approval: product.rejectionReason || "Awaiting admin review",
+            rawName: product.name,
           }))}
           columns={[
             { key: "name", label: "Product" },
@@ -117,10 +136,24 @@ export function VendorProductsPage() {
               key: "actions",
               label: "Actions",
               render: (row) => (
-                can("products.update") ? (
-                  <Link to={`/seller/products/${row.id}/edit`} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
-                    Edit
-                  </Link>
+                can("products.update") || can("products.delete") ? (
+                  <div className="flex flex-wrap gap-2">
+                    {can("products.update") ? (
+                      <Link to={`/vendor/products/${row.id}/edit`} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+                        Edit
+                      </Link>
+                    ) : null}
+                    {can("products.delete") ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(row.id, row.rawName)}
+                        disabled={deletingId === row.id}
+                        className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300"
+                      >
+                        {deletingId === row.id ? "Deleting..." : "Delete"}
+                      </button>
+                    ) : null}
+                  </div>
                 ) : (
                   <span className="text-xs text-slate-400">No actions</span>
                 )

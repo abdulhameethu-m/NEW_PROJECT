@@ -32,7 +32,6 @@ const productModuleRoutes = require("./routes/product-module.routes");
 const exportRoutes = require("./routes/export.routes");
 const vendorModuleRoutes = require("./routes/vendorModule.routes");
 const contentRoutes = require("./routes/content.routes");
-const filterRoutes = require("./routes/filter.routes");
 const staffRoutes = require("./modules/staff/routes");
 
 function createLimiter({
@@ -138,7 +137,6 @@ function createApp() {
   app.use("/api/export", exportRoutes);
   app.use("/api/modules", vendorModuleRoutes);
   app.use("/api/content", contentRoutes);
-  app.use("/api/filters", filterRoutes);
   app.use("/api/staff", staffRoutes);
 
   app.use(notFound);

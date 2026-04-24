@@ -83,19 +83,15 @@ const updateModuleVendorAccess = asyncHandler(async (req, res) => {
 
 /**
  * PATCH /api/modules/:key
- * Update vendor module feature flags and CRUD permissions
+ * Update vendor module feature flags
  */
 const updateVendorModuleSettings = asyncHandler(async (req, res) => {
   const { key } = req.params;
-  const { enabled, vendorEnabled, vendorPermissions } = req.body;
+  const { enabled, vendorEnabled } = req.body;
 
-  if (
-    enabled === undefined &&
-    vendorEnabled === undefined &&
-    vendorPermissions === undefined
-  ) {
+  if (enabled === undefined && vendorEnabled === undefined) {
     throw new AppError(
-      "At least one of enabled, vendorEnabled, or vendorPermissions is required",
+      "At least one of enabled or vendorEnabled is required",
       400,
       "INVALID_INPUT"
     );
@@ -109,25 +105,9 @@ const updateVendorModuleSettings = asyncHandler(async (req, res) => {
     throw new AppError("vendorEnabled must be a boolean", 400, "INVALID_INPUT");
   }
 
-  if (vendorPermissions !== undefined) {
-    if (typeof vendorPermissions !== "object" || Array.isArray(vendorPermissions) || vendorPermissions === null) {
-      throw new AppError("vendorPermissions must be an object", 400, "INVALID_INPUT");
-    }
-
-    const allowedActions = ["create", "read", "update", "delete"];
-    for (const [action, value] of Object.entries(vendorPermissions)) {
-      if (!allowedActions.includes(action)) {
-        throw new AppError(`Invalid vendor permission '${action}'`, 400, "INVALID_INPUT");
-      }
-      if (typeof value !== "boolean") {
-        throw new AppError(`vendorPermissions.${action} must be a boolean`, 400, "INVALID_INPUT");
-      }
-    }
-  }
-
   const module = await vendorModuleService.updateVendorModuleSettings(
     key,
-    { enabled, vendorEnabled, vendorPermissions },
+    { enabled, vendorEnabled },
     {
       _id: req.user.sub,
       ipAddress: req.ip,

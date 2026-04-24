@@ -4,7 +4,6 @@ import { ChevronDown } from "lucide-react";
 import { BackButton } from "../components/BackButton";
 import { useCategories } from "../hooks/useCategories";
 import { getSubcategoriesByCategory } from "../services/subcategoryService";
-import { getFilters } from "../services/filterService";
 import * as productService from "../services/productService";
 import { formatCurrency } from "../utils/formatCurrency";
 
@@ -106,20 +105,22 @@ export function ProductsPage() {
   }, [categoryId]);
 
   useEffect(() => {
-    if (!categoryId) {
-      setFilterDefs([]);
-      return;
-    }
-
     let alive = true;
     (async () => {
       try {
-        const response = await getFilters({
-          categoryId,
-          subCategoryId: subCategoryId || undefined,
+        const response = await productService.getPublicProductFilters({
+          ...(category && { category }),
+          ...(categoryId && { categoryId }),
+          ...(subCategoryId && { subCategoryId }),
+          ...(search && { search }),
+          ...(minPrice && { minPrice: Number(minPrice) }),
+          ...(maxPrice && { maxPrice: Number(maxPrice) }),
+          ...dynamicParams,
         });
         if (!alive) return;
-        setFilterDefs(Array.isArray(response?.data) ? response.data : []);
+        setFilterDefs(Array.isArray(response?.data?.filters) ? response.data.filters : []);
+        const nextFacetMap = Object.fromEntries((response?.data?.facets || []).map((facet) => [facet.key, facet]));
+        setFacetMap((prev) => ({ ...prev, ...nextFacetMap }));
       } catch {
         if (alive) setFilterDefs([]);
       }
@@ -128,7 +129,7 @@ export function ProductsPage() {
     return () => {
       alive = false;
     };
-  }, [categoryId, subCategoryId]);
+  }, [category, categoryId, subCategoryId, search, minPrice, maxPrice, dynamicParams]);
 
   useEffect(() => {
     let alive = true;
@@ -525,6 +526,16 @@ function FilterSidebar({
   onFilterChange,
 }) {
   const [localSearch, setLocalSearch] = useState(search);
+  const groupedFilterDefs = useMemo(() => {
+    return filterDefs
+      .filter((def) => !["price", "rating"].includes(def.key))
+      .reduce((acc, def) => {
+        const group = def.group || "General";
+        if (!acc[group]) acc[group] = [];
+        acc[group].push(def);
+        return acc;
+      }, {});
+  }, [filterDefs]);
 
   useEffect(() => {
     setLocalSearch(search);
@@ -597,9 +608,12 @@ function FilterSidebar({
         formatSuffix=""
       />
 
-      {filterDefs
-        .filter((def) => !["price", "rating"].includes(def.key))
-        .map((def) => {
+      {Object.entries(groupedFilterDefs).map(([groupName, defs]) => (
+        <div key={groupName} className="space-y-3">
+          <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            {groupName}
+          </div>
+          {defs.map((def) => {
           const facet = facetMap[def.key];
           if (def.type === "range") {
             const { minKey, maxKey } = toRangeKeys(def.key);
@@ -618,7 +632,7 @@ function FilterSidebar({
             );
           }
 
-          if (def.type === "checkbox") {
+            if (def.type === "checkbox") {
             const selected = getCheckboxValues(searchParams, def.key);
             return (
               <details key={def.key} open className="rounded-2xl border border-slate-200 px-3 py-3 dark:border-slate-800">
@@ -641,7 +655,7 @@ function FilterSidebar({
                         />
                         {option.value}
                       </span>
-                      <span className="text-xs text-slate-400">{option.count}</span>
+                      <span className={`text-xs ${option.count === 0 ? "text-slate-300" : "text-slate-400"}`}>{option.count}</span>
                     </label>
                   ))}
                 </div>
@@ -680,7 +694,9 @@ function FilterSidebar({
               </div>
             </details>
           );
-        })}
+          })}
+        </div>
+      ))}
 
       <div>
         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">Sort By</label>

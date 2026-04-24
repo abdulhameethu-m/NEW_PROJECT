@@ -23,9 +23,7 @@ export const useVendorModules = () => {
       enabledGlobally,
       enabledForVendors,
       disabledForVendors,
-      readableForVendors: moduleList.filter(
-        (module) => module.enabled && module.vendorEnabled && module.vendorPermissions?.read
-      ).length,
+      readableForVendors: enabledForVendors,
     };
   }, []);
 
@@ -113,7 +111,11 @@ export const useVendorModules = () => {
       );
       setModules((prev) =>
         {
-          const nextModules = prev.map((m) => (m.key === moduleKey ? { ...m, enabled } : m));
+          const nextModules = prev.map((m) =>
+            m.key === moduleKey
+              ? { ...m, enabled, vendorEnabled: enabled ? m.vendorEnabled : false }
+              : m
+          );
           setStats(buildStats(nextModules));
           return nextModules;
         }
@@ -226,36 +228,26 @@ export const useAccessibleVendorModules = () => {
       fetchAccessibleModules({ silent: true });
     }, 10000);
 
-    return () => clearInterval(intervalId);
+    const handleWindowFocus = () => {
+      fetchAccessibleModules({ silent: true });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchAccessibleModules({ silent: true });
+      }
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [fetchAccessibleModules]);
 
   return { modules, loading, error, refreshModules: fetchAccessibleModules };
 };
 
-export const useVendorPermissionMap = () => {
-  const [permissions, setPermissions] = useState({});
-  const [loading, setLoading] = useState(false);
-
-  const checkPermissions = useCallback(async (requestedPermissions) => {
-    try {
-      setLoading(true);
-      const data = await vendorModuleService.checkModulePermissions(requestedPermissions);
-      setPermissions(data);
-      return data;
-    } catch (err) {
-      console.error("Error checking module permissions:", err);
-      return {};
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const can = useCallback((permission) => permissions[permission] === true, [permissions]);
-
-  return {
-    permissions,
-    loading,
-    checkPermissions,
-    can,
-  };
-};

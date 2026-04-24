@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { ProductEditor } from "../components/ProductEditor";
-import { createProduct, getProductById, updateProduct } from "../services/adminService";
+import { createProduct, generateAdminProductNumber, getProductById, updateProduct } from "../services/adminService";
 
 export function AdminProductEdit() {
   const { id } = useParams();
@@ -15,6 +15,7 @@ export function AdminProductEdit() {
       backTo="/admin/products"
       listPath="/admin/products"
       fetchProduct={getProductById}
+      generateProductNumber={generateAdminProductNumber}
       createProduct={createProduct}
       updateProduct={updateProduct}
     />

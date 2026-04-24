@@ -24,6 +24,7 @@ function normalizeAttributePayload(payload = {}) {
     order: Number.isFinite(Number(payload.order)) ? Number(payload.order) : 0,
     template: String(payload.template || "").trim(),
     isVariant: Boolean(payload.isVariant),
+    useInFilters: Boolean(payload.useInFilters),
     variantConfig: {
       displayType: payload.variantConfig?.displayType || "button",
       affectsImage: Boolean(payload.variantConfig?.affectsImage),

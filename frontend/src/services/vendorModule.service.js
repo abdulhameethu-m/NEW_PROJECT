@@ -19,11 +19,6 @@ const vendorModuleService = {
     return response.data.data;
   },
 
-  checkModulePermissions: async (permissions) => {
-    const response = await api.post("/api/modules/vendor/check", { permissions });
-    return response.data.data;
-  },
-
   // Admin: Get specific module
   getModuleByKey: async (key) => {
     const response = await api.get(`/api/modules/${key}`);

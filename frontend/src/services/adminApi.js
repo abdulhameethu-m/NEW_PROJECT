@@ -108,6 +108,11 @@ export async function getProductById(id) {
   return data;
 }
 
+export async function generateAdminProductNumber(params = {}) {
+  const { data } = await adminHttp.get("/api/admin/products/generate-number", { params });
+  return data;
+}
+
 export async function createProduct(productData) {
   const { data } = await adminHttp.post("/api/admin/products", productData);
   return data;
@@ -148,8 +153,23 @@ export async function listPayouts(params = {}) {
   return data;
 }
 
+export async function listReviews(params = {}) {
+  const { data } = await adminHttp.get("/api/admin/reviews", { params });
+  return data;
+}
+
+export async function deleteReview(id) {
+  const { data } = await adminHttp.delete(`/api/admin/reviews/${id}`);
+  return data;
+}
+
 export async function updateOrderStatus(id, status) {
   const { data } = await adminHttp.patch(`/api/admin/orders/${id}/status`, { status });
+  return data;
+}
+
+export async function cancelOrder(id) {
+  const { data } = await adminHttp.patch(`/api/admin/orders/${id}/cancel`);
   return data;
 }
 

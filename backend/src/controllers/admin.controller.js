@@ -140,6 +140,13 @@ const listPayouts = asyncHandler(async (req, res) => {
   return ok(res, result, "Payouts loaded");
 });
 
+const listReviews = asyncHandler(async (req, res) => {
+  const reviews = await adminService.listReviews({
+    search: req.query.search,
+  });
+  return ok(res, reviews, "Reviews loaded");
+});
+
 const getOrderById = asyncHandler(async (req, res) => {
   const order = await adminService.getOrderById(req.params.id);
   return ok(res, order, "Order loaded");
@@ -179,6 +186,22 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
   return ok(res, order, "Order updated");
 });
 
+const cancelOrder = asyncHandler(async (req, res) => {
+  const order = await adminService.updateOrderStatus(req.params.id, "Cancelled", req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, order, "Order cancelled");
+});
+
+const deleteReview = asyncHandler(async (req, res) => {
+  const result = await adminService.deleteReview(req.params.id, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, result, "Review deleted");
+});
+
 const dailyRevenue = asyncHandler(async (req, res) => {
   const days = Number(req.query.days || 7);
   if (days < 1 || days > 90) {
@@ -204,10 +227,13 @@ module.exports = {
   rejectVendor,
   removeVendor,
   listOrders,
+  cancelOrder,
   listPayouts,
+  listReviews,
   getOrderById,
   createOrder,
   updateOrder,
   deleteOrder,
+  deleteReview,
   updateOrderStatus,
 };

@@ -8,6 +8,7 @@ const createProduct = asyncHandler(async (req, res) => ok(res, await vendorDashb
 const updateProduct = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateProduct(req.user.sub, req.params.id, req.body), "Product updated"));
 const deleteProduct = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.deleteProduct(req.user.sub, req.params.id), "Product deleted"));
 const listOrders = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.listOrders(req.user.sub, req.query), "Vendor orders retrieved"));
+const getOrderById = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getOrderById(req.user.sub, req.params.id), "Vendor order retrieved"));
 const updateOrderStatus = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateOrderStatus(req.user.sub, req.params.id, req.body.status), "Order status updated"));
 const getInventory = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getInventory(req.user.sub, req.query), "Inventory retrieved"));
 const updateInventory = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateInventory(req.user.sub, req.params.id, req.body), "Inventory updated"));
@@ -37,6 +38,7 @@ module.exports = {
   updateProduct,
   deleteProduct,
   listOrders,
+  getOrderById,
   updateOrderStatus,
   getInventory,
   updateInventory,

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { listOrders, updateOrderStatus } from "../services/adminApi";
+import { useEffect, useMemo, useState } from "react";
+import { cancelOrder, listOrders, updateOrderStatus } from "../services/adminApi";
 import { useStaffPermission } from "../hooks/useStaffAuth";
 
 function normalizeError(error) {
@@ -7,6 +7,25 @@ function normalizeError(error) {
 }
 
 const ORDER_STATUSES = ["Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Returned"];
+const ORDER_FLOW = ["Placed", "Packed", "Shipped", "Out for Delivery", "Delivered"];
+
+function getAllowedStatusOptions(currentStatus) {
+  const normalizedCurrentStatus = currentStatus === "Pending" ? "Placed" : currentStatus;
+
+  if (normalizedCurrentStatus === "Cancelled") return ["Cancelled"];
+  if (normalizedCurrentStatus === "Returned") return ["Returned"];
+
+  const currentIndex = ORDER_FLOW.indexOf(normalizedCurrentStatus);
+  if (currentIndex === -1) return ORDER_STATUSES.filter((status) => status !== "Cancelled");
+
+  const forwardStatuses = ORDER_FLOW.slice(currentIndex);
+
+  if (normalizedCurrentStatus === "Delivered") {
+    return [...forwardStatuses, "Returned"];
+  }
+
+  return [...forwardStatuses, "Cancelled"];
+}
 
 export function StaffOrdersPage() {
   const { hasPermission } = useStaffPermission();
@@ -16,6 +35,8 @@ export function StaffOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
+  const canUpdateOrders = hasPermission("orders.update");
+  const canCancelOrders = hasPermission("orders.cancel");
 
   useEffect(() => {
     let active = true;
@@ -45,12 +66,35 @@ export function StaffOrdersPage() {
     };
   }, [searchTerm, statusFilter]);
 
+  const updatableStatuses = useMemo(() => {
+    return orders.reduce((map, order) => {
+      map[order._id] = getAllowedStatusOptions(order.status);
+      return map;
+    }, {});
+  }, [orders]);
+
   async function handleStatusChange(orderId, nextStatus) {
     setBusyId(orderId);
     setError("");
     try {
       const response = await updateOrderStatus(orderId, nextStatus);
       setOrders((current) => current.map((order) => (order._id === orderId ? response.data : order)));
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function handleCancel(order) {
+    if (order.status === "Cancelled") return;
+    if (!window.confirm(`Cancel order ${order.orderNumber || order._id}?`)) return;
+
+    setBusyId(order._id);
+    setError("");
+    try {
+      const response = await cancelOrder(order._id);
+      setOrders((current) => current.map((item) => (item._id === order._id ? response.data : item)));
     } catch (err) {
       setError(normalizeError(err));
     } finally {
@@ -124,15 +168,15 @@ export function StaffOrdersPage() {
                   <div className="font-semibold text-slate-950">${Number(order.totalAmount || 0).toFixed(2)}</div>
                   <div className="mt-1 text-xs text-slate-500">{order.paymentStatus || "Pending payment"}</div>
                 </div>
-                <div>
-                  {hasPermission("orders.update") ? (
+                <div className="space-y-2">
+                  {canUpdateOrders ? (
                     <select
-                      value={order.status}
-                      disabled={busyId === order._id}
+                      value={order.status === "Cancelled" ? "Cancelled" : order.status}
+                      disabled={busyId === order._id || order.status === "Cancelled"}
                       onChange={(event) => handleStatusChange(order._id, event.target.value)}
                       className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                     >
-                      {ORDER_STATUSES.map((status) => (
+                      {(updatableStatuses[order._id] || [order.status]).map((status) => (
                         <option key={status} value={status}>
                           {status}
                         </option>
@@ -143,6 +187,17 @@ export function StaffOrdersPage() {
                       {order.status}
                     </span>
                   )}
+
+                  {canCancelOrders ? (
+                    <button
+                      type="button"
+                      disabled={busyId === order._id || order.status === "Cancelled" || order.status === "Delivered"}
+                      onClick={() => handleCancel(order)}
+                      className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {order.status === "Cancelled" ? "Cancelled" : "Cancel Order"}
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ))}

@@ -10,9 +10,8 @@ export const LEGACY_ROLE_PERMISSIONS = {
     "orders.read",
     "orders.update",
     "products.read",
-    "filters.read",
   ],
-  finance_admin: ["analytics.read", "orders.read", "users.read", "products.read", "filters.read"],
+  finance_admin: ["analytics.read", "orders.read", "users.read", "products.read"],
 };
 
 export function hasStaffPermission(permissions, permission) {

@@ -2,6 +2,7 @@ import { useParams } from "react-router-dom";
 import { useAuthStore } from "../context/authStore";
 import { ProductEditor } from "../components/ProductEditor";
 import * as productService from "../services/productService";
+import * as vendorDashboardService from "../services/vendorDashboardService";
 
 export function ProductFormPage() {
   const { productId } = useParams();
@@ -15,11 +16,11 @@ export function ProductFormPage() {
       title={productId ? "Edit Product" : "Create Product"}
       createLabel="Create Product"
       updateLabel="Update Product"
-      backTo={isAdmin ? "/admin/products" : "/seller/products"}
-      listPath={isAdmin ? "/admin/products" : "/seller/products"}
+      backTo={isAdmin ? "/admin/products" : "/vendor/products"}
+      listPath={isAdmin ? "/admin/products" : "/vendor/products"}
       fetchProduct={productService.getProductById}
-      createProduct={productService.createProduct}
-      updateProduct={productService.updateProduct}
+      createProduct={isAdmin ? productService.createProduct : vendorDashboardService.createVendorProduct}
+      updateProduct={isAdmin ? productService.updateProduct : vendorDashboardService.updateVendorProduct}
     />
   );
 }

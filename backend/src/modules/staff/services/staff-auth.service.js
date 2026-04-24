@@ -11,6 +11,7 @@ const { StaffSession } = require("../models/StaffSession");
 const { StaffLoginHistory } = require("../models/StaffLoginHistory");
 const { StaffPasswordResetToken } = require("../models/StaffPasswordResetToken");
 const { normalizeStaff } = require("./staff.service");
+const vendorModuleService = require("../../../services/vendorModule.service");
 
 function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -41,6 +42,7 @@ async function buildStaffAuthPayload(staff) {
 
 async function createSessionTokens(staff, meta = {}) {
   const { role, permissions } = await buildStaffAuthPayload(staff);
+  const enabledModules = await vendorModuleService.getGlobalModuleEnabledMap();
 
   const session = await StaffSession.create({
     staffId: staff._id,
@@ -77,6 +79,7 @@ async function createSessionTokens(staff, meta = {}) {
       ...normalizeStaff({ ...staff.toObject(), roleId: role }),
       roleId: role?._id,
       permissions,
+      enabledModules,
       authType: "staff",
     },
   };
@@ -140,6 +143,7 @@ async function refreshSession(refreshToken, meta = {}) {
   }
 
   const permissions = staff.roleId?.permissions || {};
+  const enabledModules = await vendorModuleService.getGlobalModuleEnabledMap();
   const rotatedRefreshToken = signStaffRefreshToken({
     staff,
     sessionId: session._id,
@@ -168,6 +172,7 @@ async function refreshSession(refreshToken, meta = {}) {
       ...normalizeStaff({ ...staff.toObject(), roleId: staff.roleId }),
       roleId: staff.roleId?._id,
       permissions,
+      enabledModules,
       authType: "staff",
     },
   };
@@ -192,6 +197,7 @@ async function me(staffId) {
   if (staff.status !== "active") throw new AppError("Staff account suspended", 403, "ACCOUNT_SUSPENDED");
 
   const permissions = staff.roleId?.permissions || {};
+  const enabledModules = await vendorModuleService.getGlobalModuleEnabledMap();
   
   // DEBUG: Log permission sync
   console.log(`[PERMISSION_SYNC] Staff ${staff._id} fetched permissions from role ${staff.roleId?._id}`);
@@ -201,6 +207,7 @@ async function me(staffId) {
     ...normalizeStaff(staff),
     roleId: staff.roleId?._id,
     permissions,
+    enabledModules,
     authType: "staff",
     syncedAt: new Date().toISOString(),
   };

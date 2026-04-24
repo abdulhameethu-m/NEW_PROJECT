@@ -35,6 +35,24 @@ function endOfToday() {
 }
 
 class VendorDashboardService {
+  async resolveOwnedProductIds(vendorId, productIds = []) {
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      return [];
+    }
+
+    const normalizedIds = [...new Set(productIds.map((id) => String(id)).filter(Boolean))];
+    const products = await Product.find({
+      _id: { $in: normalizedIds },
+      sellerId: vendorId,
+    }).select("_id").lean();
+
+    if (products.length !== normalizedIds.length) {
+      throw new AppError("Offers can include only this vendor's products", 400, "INVALID_PRODUCT_SCOPE");
+    }
+
+    return products.map((product) => product._id);
+  }
+
   async getVendorContext(userId) {
     const vendor = await vendorRepo.findByUserId(userId);
     if (!vendor) {
@@ -169,6 +187,20 @@ class VendorDashboardService {
       startDate: query.startDate,
       endDate: query.endDate,
     });
+  }
+
+  async getOrderById(userId, orderId) {
+    const vendor = await this.getVendorContext(userId);
+    const order = await Order.findOne({ _id: orderId, sellerId: vendor._id })
+      .populate("userId", "name email phone")
+      .populate("items.productId", "name")
+      .lean();
+
+    if (!order) {
+      throw new AppError("Order not found", 404, "NOT_FOUND");
+    }
+
+    return order;
   }
 
   async updateOrderStatus(userId, orderId, status) {
@@ -380,7 +412,7 @@ class VendorDashboardService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select("orderNumber status deliveryPartner trackingId trackingUrl deliveryStatus createdAt shippingAddress"),
+        .select("orderNumber status deliveryPartner trackingId trackingUrl deliveryStatus createdAt shippingAddress courierAssignedByRole courierAssignedAt"),
       Order.countDocuments(filter),
     ]);
 
@@ -402,10 +434,19 @@ class VendorDashboardService {
       throw new AppError("Order not found", 404, "NOT_FOUND");
     }
 
+    if (order.courierAssignedByRole === "ADMIN") {
+      throw new AppError("Courier assignment was locked by admin", 403, "COURIER_LOCKED");
+    }
+
     if (payload.deliveryPartner) order.deliveryPartner = payload.deliveryPartner;
     if (payload.trackingId) order.trackingId = payload.trackingId;
     if (payload.trackingUrl) order.trackingUrl = payload.trackingUrl;
     if (payload.deliveryStatus) order.deliveryStatus = payload.deliveryStatus;
+    if (payload.deliveryPartner || payload.trackingId || payload.trackingUrl) {
+      order.courierAssignedByRole = "VENDOR";
+      order.courierAssignedById = vendor._id;
+      order.courierAssignedAt = new Date();
+    }
     await order.save();
     return order;
   }
@@ -584,7 +625,7 @@ class VendorDashboardService {
 
     const [offers, total] = await Promise.all([
       Offer.find(filter)
-        .populate("productIds", "name")
+        .populate({ path: "productIds", select: "name", match: { sellerId: vendor._id } })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -604,6 +645,7 @@ class VendorDashboardService {
 
   async createOffer(userId, payload) {
     const vendor = await this.getVendorContext(userId);
+    const productIds = await this.resolveOwnedProductIds(vendor._id, payload.productIds || []);
     return await Offer.create({
       vendorId: vendor._id,
       title: payload.title,
@@ -613,7 +655,7 @@ class VendorDashboardService {
       value: payload.value,
       minOrderValue: payload.minOrderValue,
       usageLimit: payload.usageLimit,
-      productIds: payload.productIds || [],
+      productIds,
       isActive: payload.isActive !== false,
       startsAt: payload.startsAt,
       endsAt: payload.endsAt,
@@ -622,9 +664,15 @@ class VendorDashboardService {
 
   async updateOffer(userId, offerId, payload) {
     const vendor = await this.getVendorContext(userId);
+    const updatePayload = { ...payload };
+
+    if (payload.productIds !== undefined) {
+      updatePayload.productIds = await this.resolveOwnedProductIds(vendor._id, payload.productIds);
+    }
+
     const offer = await Offer.findOneAndUpdate(
       { _id: offerId, vendorId: vendor._id },
-      { $set: payload },
+      { $set: updatePayload },
       { new: true, runValidators: true }
     );
     if (!offer) {

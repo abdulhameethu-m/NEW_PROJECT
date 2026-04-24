@@ -1,15 +1,19 @@
+import { useParams } from "react-router-dom";
 import { ProductEditor } from "../components/ProductEditor";
 import { createProduct, generateAdminProductNumber, getProductById, updateProduct } from "../services/adminService";
 
-export function AdminProductCreate() {
+export function StaffProductEdit() {
+  const { id } = useParams();
+
   return (
     <ProductEditor
       mode="admin"
-      title="Create Product"
+      productId={id}
+      title="Edit Product"
       createLabel="Create Product"
-      updateLabel="Update Product"
-      backTo="/admin/products"
-      listPath="/admin/products"
+      updateLabel="Save Changes"
+      backTo="/staff/products"
+      listPath="/staff/products"
       fetchProduct={getProductById}
       generateProductNumber={generateAdminProductNumber}
       createProduct={createProduct}

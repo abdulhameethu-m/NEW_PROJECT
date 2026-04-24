@@ -76,9 +76,26 @@ export function StaffDashboardLayout({ children }) {
       syncSession();
     }, PERMISSION_SYNC_INTERVAL);
 
+    const handleWindowFocus = () => {
+      console.log("[DASHBOARD_LAYOUT] Focus sync triggered");
+      syncSession();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        console.log("[DASHBOARD_LAYOUT] Visibility sync triggered");
+        syncSession();
+      }
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       active = false;
       if (syncInterval) clearInterval(syncInterval);
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [logout, setAuth, token]);
 
@@ -140,6 +157,7 @@ export function StaffDashboardLayout({ children }) {
     <div className="flex min-h-screen overflow-hidden bg-slate-100">
       <StaffSidebar
         permissions={user?.permissions || {}}
+        enabledModules={user?.enabledModules || {}}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((current) => !current)}
       />

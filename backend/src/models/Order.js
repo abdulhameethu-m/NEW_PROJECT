@@ -94,6 +94,14 @@ const orderSchema = new mongoose.Schema(
     trackingId: { type: String, trim: true },
     trackingUrl: { type: String, trim: true },
     trackingAssignedAt: { type: Date },
+    courierAssignedByRole: {
+      type: String,
+      enum: ["ADMIN", "VENDOR"],
+    },
+    courierAssignedById: {
+      type: mongoose.Schema.Types.ObjectId,
+    },
+    courierAssignedAt: { type: Date },
     whatsappSent: { type: Boolean, default: false, index: true },
     deliveryStatus: {
       type: String,

@@ -15,6 +15,7 @@ const initialForm = {
   type: "text",
   required: false,
   isVariant: false,
+  useInFilters: false,
   variantDisplayType: "button",
   variantAffectsImage: false,
   options: "",
@@ -112,6 +113,7 @@ export function AdminAttributesPage() {
         type: form.type,
         required: form.required,
         isVariant: form.isVariant,
+        useInFilters: form.useInFilters,
         variantConfig: {
           displayType: form.variantDisplayType,
           affectsImage: form.variantAffectsImage,
@@ -154,6 +156,7 @@ export function AdminAttributesPage() {
       type: item.type || "text",
       required: Boolean(item.required),
       isVariant: Boolean(item.isVariant),
+      useInFilters: Boolean(item.useInFilters),
       variantDisplayType: item.variantConfig?.displayType || "button",
       variantAffectsImage: Boolean(item.variantConfig?.affectsImage),
       options: (item.options || []).join(", "),
@@ -243,6 +246,7 @@ export function AdminAttributesPage() {
                             </div>
                             <div className="text-xs text-slate-500 dark:text-slate-400">
                               {item.type} • {item.isVariant ? `Variant / ${item.variantConfig?.displayType || "button"}` : "Standard field"} •{" "}
+                              {item.useInFilters ? "Filter systems enabled" : "Filter systems disabled"} •{" "}
                               {item.appliesTo?.categoryId?.name || "Category"} / {item.appliesTo?.subCategoryId?.name || "All subcategories"}
                             </div>
                           </div>
@@ -293,6 +297,16 @@ export function AdminAttributesPage() {
             <input type="checkbox" checked={form.isVariant} onChange={(e) => setForm((p) => ({ ...p, isVariant: e.target.checked }))} />
             Use as variant type
           </label>
+          <div className="rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
+            <div className="text-sm font-semibold text-slate-900 dark:text-white">Filter systems</div>
+            <label className="mt-2 flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.useInFilters} onChange={(e) => setForm((p) => ({ ...p, useInFilters: e.target.checked }))} />
+              Enable this field in dynamic storefront filters
+            </label>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              Only attributes with this flag enabled will appear as storefront filters for the selected scope.
+            </p>
+          </div>
           {form.isVariant ? (
             <>
               <select className="rounded-xl border px-3 py-2 text-sm" value={form.variantDisplayType} onChange={(e) => setForm((p) => ({ ...p, variantDisplayType: e.target.value }))}>

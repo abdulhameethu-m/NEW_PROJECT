@@ -23,6 +23,16 @@ function requireVendorModule(moduleKey) {
       const hasAccess = await vendorModuleService.canVendorPerformAction(moduleKey, "read", req.user);
 
       if (!hasAccess) {
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[VENDOR_MODULE_MIDDLEWARE_DENY]", {
+            moduleKey,
+            action: "read",
+            userId: req.user?.sub || null,
+            role: req.user?.role || null,
+            permissions: req.user?.permissions || null,
+          });
+        }
+
         return next(
           new AppError(
             `Module '${moduleKey}' is not accessible to vendors. Contact admin for access.`,
@@ -47,15 +57,26 @@ function requireVendorPermission(permission) {
       return next();
     }
 
-    const [moduleKey, action] = String(permission || "").split(".");
-    if (!moduleKey || !action) {
+    const [moduleKey] = String(permission || "").split(".");
+    if (!moduleKey) {
       return next(new AppError("Invalid vendor permission format", 500, "INVALID_VENDOR_PERMISSION"));
     }
 
     try {
-      const allowed = await vendorModuleService.canVendorPerformAction(moduleKey, action, req.user);
+      const allowed = await vendorModuleService.canVendorAccessModule(moduleKey, req.user);
 
       if (!allowed) {
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[VENDOR_PERMISSION_MIDDLEWARE_DENY]", {
+            moduleKey,
+            action: "module_access",
+            permission,
+            userId: req.user?.sub || null,
+            role: req.user?.role || null,
+            permissions: req.user?.permissions || null,
+          });
+        }
+
         return next(
           new AppError(
             `Access denied for permission '${permission}'. Contact admin for access.`,
@@ -65,7 +86,7 @@ function requireVendorPermission(permission) {
         );
       }
 
-      req.module = { key: moduleKey, action };
+      req.module = { key: moduleKey, action: "module_access" };
       return next();
     } catch (error) {
       return next(error);

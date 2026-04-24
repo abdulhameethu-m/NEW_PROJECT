@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Search, Sparkles, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import * as productService from "../services/productService";
 import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
@@ -65,12 +65,8 @@ export function SearchBar({ className = "" }) {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => searchQuery.trim().length > 0 && setShowResults(true)}
-          className="w-full rounded-full border border-slate-200/80 bg-white/95 py-3.5 pl-11 pr-24 text-sm text-slate-900 shadow-[0_14px_40px_-28px_rgba(15,23,42,0.5)] outline-none transition duration-300 placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-100 dark:border-white/10 dark:bg-slate-900/80 dark:text-white dark:focus:border-indigo-400/30 dark:focus:ring-indigo-500/10 sm:pr-32"
+          className="w-full rounded-full border border-slate-200/80 bg-white/95 py-3.5 pl-11 pr-12 text-sm text-slate-900 shadow-[0_14px_40px_-28px_rgba(15,23,42,0.5)] outline-none transition duration-300 placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-100 dark:border-white/10 dark:bg-slate-900/80 dark:text-white dark:focus:border-indigo-400/30 dark:focus:ring-indigo-500/10"
         />
-        <span className="pointer-events-none absolute right-12 top-1/2 hidden -translate-y-1/2 rounded-full border border-slate-200 bg-white/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 backdrop-blur sm:inline-flex dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-500">
-          <Sparkles className="mr-1 h-3 w-3" />
-          AI find
-        </span>
         {searchQuery && (
           <button
             type="button"

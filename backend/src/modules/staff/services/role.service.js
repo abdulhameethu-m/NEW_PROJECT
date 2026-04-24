@@ -1,5 +1,6 @@
 const { AppError } = require("../../../utils/AppError");
 const { Role } = require("../models/Role");
+const { Staff } = require("../models/Staff");
 const {
   STAFF_PERMISSION_CATALOG,
   createEmptyPermissions,
@@ -21,10 +22,9 @@ const PREDEFINED_ROLES = [
     name: "Support",
     description: "Customer support focused permissions.",
     permissions: normalizePermissions({
-      users: { read: true, update: true },
+      users: { read: true },
       orders: { read: true, update: true },
       products: { read: true },
-      filters: { read: true },
       reviews: { read: true, delete: true },
       analytics: { read: true },
     }),
@@ -45,7 +45,6 @@ const PREDEFINED_ROLES = [
     permissions: normalizePermissions({
       orders: { read: true, update: true, cancel: true },
       products: { read: true, create: true, update: true, delete: true },
-      filters: { read: true, create: true, update: true },
       analytics: { read: true },
       settings: { update: true },
     }),
@@ -53,13 +52,20 @@ const PREDEFINED_ROLES = [
 ];
 
 async function ensurePredefinedStaffRoles() {
-  for (const role of PREDEFINED_ROLES) {
-    await Role.findOneAndUpdate(
-      { name: role.name },
-      { ...role, isSystem: true },
-      { upsert: true }
-    );
-  }
+  await Role.bulkWrite(
+    PREDEFINED_ROLES.map((role) => ({
+      updateOne: {
+        filter: { name: role.name },
+        update: {
+          $setOnInsert: {
+            ...role,
+            isSystem: true,
+          },
+        },
+        upsert: true,
+      },
+    }))
+  );
 }
 
 async function listRoles() {
@@ -89,6 +95,9 @@ async function updateRole(roleId, payload) {
   if (!role) throw new AppError("Role not found", 404, "NOT_FOUND");
 
   if (payload.name && payload.name.trim() !== role.name) {
+    if (role.isSystem) {
+      throw new AppError("System role names cannot be changed", 400, "INVALID_OPERATION");
+    }
     const exists = await Role.findOne({ name: payload.name.trim(), _id: { $ne: roleId } });
     if (exists) throw new AppError("Role name already exists", 409, "ROLE_EXISTS");
     role.name = payload.name.trim();
@@ -118,6 +127,10 @@ async function deleteRole(roleId) {
   if (!role) throw new AppError("Role not found", 404, "NOT_FOUND");
   if (role.isSystem) {
     throw new AppError("System roles cannot be deleted", 400, "INVALID_OPERATION");
+  }
+  const assignedStaff = await Staff.exists({ roleId });
+  if (assignedStaff) {
+    throw new AppError("Role is assigned to staff accounts and cannot be deleted", 400, "ROLE_IN_USE");
   }
   await role.deleteOne();
   return { _id: roleId };

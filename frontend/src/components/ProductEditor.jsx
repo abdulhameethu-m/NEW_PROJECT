@@ -5,7 +5,6 @@ import { DynamicAttributeField } from "./DynamicAttributeField";
 import { useCategories } from "../hooks/useCategories";
 import { getSubcategoriesByCategory } from "../services/subcategoryService";
 import { getAttributes } from "../services/attributeService";
-import { getFilters } from "../services/filterService";
 import { getProductModules } from "../services/productModuleService";
 import * as productService from "../services/productService";
 import {
@@ -107,6 +106,7 @@ export function ProductEditor({
   backTo,
   listPath,
   fetchProduct,
+  generateProductNumber = productService.generateProductNumber,
   createProduct,
   updateProduct,
 }) {
@@ -139,7 +139,7 @@ export function ProductEditor({
     [sortedAttributeDefs]
   );
   const productFilterDefs = useMemo(
-    () => sortDefinitions((filterDefinitions || []).filter((item) => !["price", "rating"].includes(item.key))),
+    () => sortDefinitions((filterDefinitions || []).filter((item) => !item.isVariant)),
     [filterDefinitions]
   );
 
@@ -301,47 +301,24 @@ export function ProductEditor({
   }, [formData.categoryId, formData.subCategoryId, loadedVariantSnapshot, productModules]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function loadFilters() {
-      if (!formData.categoryId) {
-        setFilterDefinitions([]);
-        return;
+    const defs = sortedAttributeDefs.filter((item) => item.useInFilters);
+    setFilterDefinitions(defs);
+    setFormData((prev) => {
+      const nextAttributes = { ...(prev.attributes || {}) };
+      for (const def of defs) {
+        if (nextAttributes[def.key] !== undefined) continue;
+        nextAttributes[def.key] = def.type === "multi-select" ? [] : "";
       }
-
-      try {
-        const res = await getFilters({
-          categoryId: formData.categoryId,
-          subCategoryId: formData.subCategoryId || undefined,
-        });
-        const defs = Array.isArray(res?.data) ? res.data : [];
-        if (cancelled) return;
-        setFilterDefinitions(defs);
-        setFormData((prev) => {
-          const nextAttributes = { ...(prev.attributes || {}) };
-          for (const def of defs) {
-            if (["price", "rating"].includes(def.key)) continue;
-            if (nextAttributes[def.key] !== undefined) continue;
-            nextAttributes[def.key] = def.type === "checkbox" ? [] : "";
-          }
-          return { ...prev, attributes: nextAttributes };
-        });
-      } catch {
-        if (!cancelled) setFilterDefinitions([]);
-      }
-    }
-
-    loadFilters();
-    return () => {
-      cancelled = true;
-    };
-  }, [formData.categoryId, formData.subCategoryId]);
+      return { ...prev, attributes: nextAttributes };
+    });
+  }, [sortedAttributeDefs]);
 
   useEffect(() => {
     let cancelled = false;
     async function loadProductNumber() {
       if (isEditing || !formData.categoryId || !formData.subCategoryId) return;
       try {
-        const res = await productService.generateProductNumber({
+        const res = await generateProductNumber({
           categoryId: formData.categoryId,
           subCategoryId: formData.subCategoryId,
         });
@@ -363,7 +340,7 @@ export function ProductEditor({
     return () => {
       cancelled = true;
     };
-  }, [formData.categoryId, formData.subCategoryId, isEditing]);
+  }, [formData.categoryId, formData.subCategoryId, generateProductNumber, isEditing]);
 
   useEffect(() => {
     if (!variantDefs.length) return;

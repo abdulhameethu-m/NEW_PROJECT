@@ -40,16 +40,6 @@ export const STAFF_MODULES = [
     order: 3,
   },
   {
-    key: "filters",
-    name: "Filters",
-    description: "Manage storefront filter definitions and category mappings",
-    icon: "SlidersHorizontal",
-    route: "/staff/filters",
-    permission: "filters.read",
-    section: "management",
-    order: 4,
-  },
-  {
     key: "reviews",
     name: "Reviews",
     description: "Manage product reviews and customer ratings",
@@ -57,7 +47,7 @@ export const STAFF_MODULES = [
     route: "/staff/reviews",
     permission: "reviews.read",
     section: "management",
-    order: 5,
+    order: 4,
   },
   {
     key: "payments",
@@ -67,7 +57,7 @@ export const STAFF_MODULES = [
     route: "/staff/payments",
     permission: "payments.read",
     section: "finance",
-    order: 6,
+    order: 5,
   },
   {
     key: "payouts",
@@ -77,7 +67,7 @@ export const STAFF_MODULES = [
     route: "/staff/payouts",
     permission: "payouts.read",
     section: "finance",
-    order: 7,
+    order: 6,
   },
   {
     key: "analytics",
@@ -87,7 +77,7 @@ export const STAFF_MODULES = [
     route: "/staff/analytics",
     permission: "analytics.read",
     section: "finance",
-    order: 8,
+    order: 7,
   },
   {
     key: "settings",
@@ -97,7 +87,7 @@ export const STAFF_MODULES = [
     route: "/staff/settings",
     permission: "settings.update",
     section: "admin",
-    order: 9,
+    order: 8,
   },
   {
     key: "roles",
@@ -107,7 +97,7 @@ export const STAFF_MODULES = [
     route: "/staff/roles",
     permission: "roles.read",
     section: "admin",
-    order: 10,
+    order: 9,
   },
   {
     key: "staff",
@@ -117,7 +107,7 @@ export const STAFF_MODULES = [
     route: "/staff/staff",
     permission: "staff.read",
     section: "admin",
-    order: 11,
+    order: 10,
   },
 ];
 
@@ -128,20 +118,22 @@ export const SIDEBAR_SECTIONS = {
   admin: "Administration",
 };
 
-export function getAccessibleModules(permissions) {
+export function getAccessibleModules(permissions, enabledModules = {}) {
   if (!permissions) return [STAFF_MODULES[0]];
 
   return STAFF_MODULES.filter((module) => {
     if (!module.permission) return true;
+    if (enabledModules?.[module.key] === false) return false;
     const [moduleName, action] = module.permission.split(".");
     return permissions?.[moduleName]?.[action] === true;
   }).sort((left, right) => left.order - right.order);
 }
 
-export function canAccessModule(permissions, moduleId) {
+export function canAccessModule(permissions, moduleId, enabledModules = {}) {
   const module = STAFF_MODULES.find((item) => item.key === moduleId);
   if (!module) return false;
   if (!module.permission) return true;
+  if (enabledModules?.[module.key] === false) return false;
 
   const [moduleName, action] = module.permission.split(".");
   return permissions?.[moduleName]?.[action] === true;
@@ -158,8 +150,8 @@ export function getModuleActions(permissions, moduleName) {
   return Object.keys(permissions[moduleName]).filter((action) => permissions[moduleName][action]);
 }
 
-export function getDefaultStaffRoute(permissions) {
-  return getAccessibleModules(permissions)[0]?.route || "/staff/dashboard";
+export function getDefaultStaffRoute(permissions, enabledModules = {}) {
+  return getAccessibleModules(permissions, enabledModules)[0]?.route || "/staff/dashboard";
 }
 
 export function getStaffModuleByRoute(pathname) {

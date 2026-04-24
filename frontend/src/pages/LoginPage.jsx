@@ -87,7 +87,7 @@ export function LoginPage() {
     if (["admin", "super_admin", "support_admin", "finance_admin"].includes(role)) {
       return nav("/dashboard/admin", { replace: true });
     }
-    if (role === "user") return nav("/user/dashboard", { replace: true });
+    if (role === "user") return nav("/", { replace: true });
 
     try {
       const vendorResponse = await vendorService.getVendorMe();

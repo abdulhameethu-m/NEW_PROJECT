@@ -9,7 +9,7 @@ export function StaffUnauthorizedPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useStaffAuthStore((s) => s.user);
-  const nextRoute = getDefaultStaffRoute(user?.permissions);
+  const nextRoute = getDefaultStaffRoute(user?.permissions, user?.enabledModules || {});
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4">

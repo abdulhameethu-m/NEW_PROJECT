@@ -11,7 +11,6 @@ import {
   CreditCard,
   BarChart3,
   Package2,
-  SlidersHorizontal,
   RotateCcw,
   Star,
   ShoppingCart,
@@ -25,17 +24,9 @@ const MODULE_ICONS = {
   payments: CreditCard,
   analytics: BarChart3,
   inventory: Package2,
-  filters: SlidersHorizontal,
   returns: RotateCcw,
   reviews: Star,
 };
-
-const ACTION_COLUMNS = [
-  { key: "create", label: "Create" },
-  { key: "read", label: "Read" },
-  { key: "update", label: "Update" },
-  { key: "delete", label: "Delete" },
-];
 
 function Toggle({ checked, disabled, loading, onClick, color = "bg-blue-500" }) {
   return (
@@ -118,7 +109,7 @@ export default function AdminVendorAccessPage() {
         <div className="mb-8">
           <h1 className="mb-2 text-3xl font-bold text-gray-900">Vendor Module Access Control</h1>
           <p className="text-gray-600">
-            Manage global feature flags, vendor availability, and CRUD actions for each vendor-facing module.
+            Manage global feature flags and vendor availability for each vendor-facing module.
           </p>
         </div>
 
@@ -218,18 +209,11 @@ export default function AdminVendorAccessPage() {
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Module</th>
                     <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Global</th>
                     <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Vendor</th>
-                    {ACTION_COLUMNS.map((action) => (
-                      <th key={action.key} className="px-4 py-4 text-center text-sm font-semibold text-gray-900">
-                        {action.label}
-                      </th>
-                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {modules.map((module) => {
                     const IconComponent = MODULE_ICONS[module.key] || Package;
-                    const vendorPermissions = module.vendorPermissions || {};
-                    const moduleActive = module.enabled && module.vendorEnabled;
 
                     return (
                       <tr key={module.key} className="hover:bg-gray-50">
@@ -272,35 +256,6 @@ export default function AdminVendorAccessPage() {
                             color="bg-blue-500"
                           />
                         </td>
-                        {ACTION_COLUMNS.map((action) => {
-                          const actionDisabled = !moduleActive;
-                          const controlKey = `${module.key}:${action.key}`;
-
-                          return (
-                            <td key={action.key} className="px-4 py-4 text-center">
-                              <label className={`inline-flex items-center justify-center ${actionDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
-                                <input
-                                  type="checkbox"
-                                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                  checked={Boolean(vendorPermissions[action.key])}
-                                  disabled={actionDisabled || pendingControl === controlKey}
-                                  onChange={() =>
-                                    handleModuleUpdate(
-                                      module.key,
-                                      {
-                                        vendorPermissions: {
-                                          ...vendorPermissions,
-                                          [action.key]: !vendorPermissions[action.key],
-                                        },
-                                      },
-                                      action.key
-                                    )
-                                  }
-                                />
-                              </label>
-                            </td>
-                          );
-                        })}
                       </tr>
                     );
                   })}

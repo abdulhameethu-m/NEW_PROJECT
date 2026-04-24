@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { AdminLayout } from "./components/AdminLayout";
 import { VendorLayout } from "./components/VendorLayout";
@@ -37,14 +37,12 @@ import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
 import { AdminSubcategoriesPage } from "./pages/AdminSubcategoriesPage";
 import { AdminAttributesPage } from "./pages/AdminAttributesPage";
-import { AdminFiltersPage } from "./pages/AdminFiltersPage";
 import { AdminProductModulesPage } from "./pages/AdminProductModulesPage";
 import { AdminContentPage } from "./pages/AdminContentPage";
 import AdminVendorAccessPage from "./pages/AdminVendorAccessPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminRolesPage } from "./pages/AdminRolesPage";
 import { AdminStaffPage } from "./pages/AdminStaffPage";
-import { SellerProductsPage } from "./pages/SellerProductsPage";
 import { ProductFormPage } from "./pages/ProductFormPage";
 import { ProductDetailsPage } from "./pages/ProductDetailsPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -65,12 +63,12 @@ import { VendorInventoryPage } from "./pages/VendorInventoryPage";
 import { VendorAnalyticsPage } from "./pages/VendorAnalyticsPage";
 import { VendorPayoutsPage } from "./pages/VendorPayoutsPage";
 import { VendorDeliveryPage } from "./pages/VendorDeliveryPage";
+import { VendorOrderDetailsPage } from "./pages/VendorOrderDetailsPage";
 import { VendorNotificationsPage } from "./pages/VendorNotificationsPage";
 import { VendorReviewsPage } from "./pages/VendorReviewsPage";
 import { VendorReturnsPage } from "./pages/VendorReturnsPage";
 import { VendorOffersPage } from "./pages/VendorOffersPage";
 import { VendorContentPage } from "./pages/VendorContentPage";
-import { VendorFiltersPage } from "./pages/VendorFiltersPage";
 import { VendorSupportPage } from "./pages/VendorSupportPage";
 import { VendorSettingsPage } from "./pages/VendorSettingsPage";
 import { TermsAndConditionsPage } from "./pages/TermsAndConditionsPage";
@@ -81,6 +79,8 @@ import { StaffDashboardPage } from "./pages/StaffDashboardPage";
 import { StaffUsersPage } from "./pages/StaffUsersPage";
 import { StaffOrdersPage } from "./pages/StaffOrdersPage";
 import { StaffProductsPage } from "./pages/StaffProductsPage";
+import { StaffProductCreate } from "./pages/StaffProductCreate";
+import { StaffProductEdit } from "./pages/StaffProductEdit";
 import { StaffPayoutsPage } from "./pages/StaffPayoutsPage";
 import { StaffPaymentsPage } from "./pages/StaffPaymentsPage";
 import { StaffReviewsPage } from "./pages/StaffReviewsPage";
@@ -89,6 +89,11 @@ import { StaffSettingsPage } from "./pages/StaffSettingsPage";
 import { StaffRolesPage } from "./pages/StaffRolesPage";
 import { StaffStaffPage } from "./pages/StaffStaffPage";
 import { StaffUnauthorizedPage } from "./pages/StaffUnauthorizedPage";
+
+function LegacySellerProductEditRedirect() {
+  const { productId } = useParams();
+  return <Navigate to={`/vendor/products/${productId}/edit`} replace />;
+}
 
 export default function App() {
   return (
@@ -107,12 +112,12 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardRedirect />} />
-          <Route path="/profile" element={<ProfilePage />} />
 
           <Route element={<RoleGate roles={["user"]} />}>
             <Route element={<UserAccountLayout />}>
               <Route path="/user/dashboard" element={<UserDashboardPage />} />
               <Route path="/dashboard/user" element={<UserDashboardPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
               <Route path="/wishlist" element={<WishlistPage />} />
@@ -131,19 +136,21 @@ export default function App() {
             <Route path="/vendor/onboarding" element={<VendorOnboardingPage />} />
             <Route path="/vendor/status" element={<VendorStatusPage />} />
             <Route path="/dashboard/vendor" element={<VendorDashboardPage />} />
-            <Route path="/seller/products" element={<VendorModuleProvider><VendorModuleRoute moduleKey="products" action="read"><SellerProductsPage /></VendorModuleRoute></VendorModuleProvider>} />
-            <Route path="/seller/products/create" element={<VendorModuleProvider><VendorModuleRoute moduleKey="products" action="create"><ProductFormPage /></VendorModuleRoute></VendorModuleProvider>} />
-            <Route path="/seller/products/:productId/edit" element={<VendorModuleProvider><VendorModuleRoute moduleKey="products" action="update"><ProductFormPage /></VendorModuleRoute></VendorModuleProvider>} />
+            <Route path="/seller/products" element={<Navigate to="/vendor/products" replace />} />
+            <Route path="/seller/products/create" element={<Navigate to="/vendor/products/create" replace />} />
+            <Route path="/seller/products/:productId/edit" element={<LegacySellerProductEditRedirect />} />
             <Route path="/vendor" element={<VendorLayout />}>
               <Route index element={<Navigate to="/vendor/dashboard" replace />} />
               <Route path="dashboard" element={<VendorOverviewPage />} />
               <Route path="products" element={<VendorModuleRoute moduleKey="products"><VendorProductsPage /></VendorModuleRoute>} />
+              <Route path="products/create" element={<VendorModuleRoute moduleKey="products" action="create"><ProductFormPage /></VendorModuleRoute>} />
+              <Route path="products/:productId/edit" element={<VendorModuleRoute moduleKey="products" action="update"><ProductFormPage /></VendorModuleRoute>} />
               <Route path="orders" element={<VendorModuleRoute moduleKey="orders"><VendorOrdersPage /></VendorModuleRoute>} />
               <Route path="inventory" element={<VendorModuleRoute moduleKey="inventory"><VendorInventoryPage /></VendorModuleRoute>} />
-              <Route path="filters" element={<VendorModuleRoute moduleKey="filters"><VendorFiltersPage /></VendorModuleRoute>} />
               <Route path="analytics" element={<VendorModuleRoute moduleKey="analytics"><VendorAnalyticsPage /></VendorModuleRoute>} />
               <Route path="payouts" element={<VendorModuleRoute moduleKey="payments"><VendorPayoutsPage /></VendorModuleRoute>} />
               <Route path="delivery" element={<VendorModuleRoute moduleKey="delivery"><VendorDeliveryPage /></VendorModuleRoute>} />
+              <Route path="delivery/:id/edit" element={<VendorModuleRoute moduleKey="delivery"><VendorOrderDetailsPage /></VendorModuleRoute>} />
               <Route path="notifications" element={<VendorNotificationsPage />} />
               <Route path="reviews" element={<VendorModuleRoute moduleKey="reviews"><VendorReviewsPage /></VendorModuleRoute>} />
               <Route path="returns" element={<VendorModuleRoute moduleKey="returns"><VendorReturnsPage /></VendorModuleRoute>} />
@@ -167,7 +174,6 @@ export default function App() {
               <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="subcategories" element={<AdminSubcategoriesPage />} />
               <Route path="attributes" element={<AdminAttributesPage />} />
-              <Route path="filters" element={<AdminFiltersPage />} />
               <Route path="product-modules" element={<AdminProductModulesPage />} />
               <Route path="content" element={<AdminContentPage />} />
               <Route path="vendor-access" element={<AdminVendorAccessPage />} />
@@ -201,8 +207,11 @@ export default function App() {
             <Route element={<StaffPermissionRoute permission="products.read" />}>
               <Route path="products" element={<StaffProductsPage />} />
             </Route>
-            <Route element={<StaffPermissionRoute permission="filters.read" />}>
-              <Route path="filters" element={<AdminFiltersPage />} />
+            <Route element={<StaffPermissionRoute permission="products.create" />}>
+              <Route path="products/create" element={<StaffProductCreate />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="products.update" />}>
+              <Route path="products/:id/edit" element={<StaffProductEdit />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="reviews.read" />}>
               <Route path="reviews" element={<StaffReviewsPage />} />

@@ -4,6 +4,7 @@ const { verifyAccessToken, verifyStaffAccessToken } = require("../utils/jwt");
 const { Staff } = require("../modules/staff/models/Staff");
 const { StaffSession } = require("../modules/staff/models/StaffSession");
 const { hasStaffPermission } = require("../modules/staff/permissions");
+const vendorModuleService = require("../services/vendorModule.service");
 
 function getTokenFromReq(req) {
   const header = req.headers.authorization || "";
@@ -76,27 +77,33 @@ async function adminWorkspaceAuthRequired(req, res, next) {
 function requireWorkspacePermission(permission, options = {}) {
   const legacyPermission = options.legacyPermission || permission;
 
-  return (req, res, next) => {
-    if (!req.user || !req.authContext) {
-      return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
-    }
+  return async (req, res, next) => {
+    try {
+      if (!req.user || !req.authContext) {
+        return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
+      }
 
-    if (req.authContext.type === "legacy_admin") {
-      // For legacy admins, allow if they have the role or are super admin
-      if (ADMIN_ROLES.includes(req.user.role)) {
+      if (req.authContext.type === "legacy_admin") {
+        if (!hasPermission(req.user.role, legacyPermission)) {
+          return next(new AppError("Forbidden", 403, "FORBIDDEN"));
+        }
         return next();
       }
-      if (!hasPermission(req.user.role, legacyPermission)) {
-        return next(new AppError("Forbidden", 403, "FORBIDDEN"));
+
+      if (!hasStaffPermission(req.user.permissions, permission)) {
+        return next(new AppError("Access denied", 403, "FORBIDDEN"));
       }
+
+      const [moduleName] = String(permission || "").split(".");
+      const isGloballyEnabled = await vendorModuleService.isModuleGloballyEnabled(moduleName);
+      if (!isGloballyEnabled) {
+        return next(new AppError("Module is disabled globally", 403, "MODULE_DISABLED"));
+      }
+
       return next();
+    } catch (error) {
+      return next(error);
     }
-
-    if (!hasStaffPermission(req.user.permissions, permission)) {
-      return next(new AppError("Access denied", 403, "FORBIDDEN"));
-    }
-
-    return next();
   };
 }
 

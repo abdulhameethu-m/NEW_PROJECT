@@ -7,6 +7,10 @@ export function StaffPermissionRoute({ permission }) {
   const location = useLocation();
 
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+  const [moduleName] = String(permission || "").split(".");
+  if (user?.enabledModules?.[moduleName] === false) {
+    return <Navigate to="/staff/unauthorized" state={{ from: location }} replace />;
+  }
   if (!hasStaffPermission(user.permissions, permission)) {
     return <Navigate to="/staff/unauthorized" state={{ from: location }} replace />;
   }

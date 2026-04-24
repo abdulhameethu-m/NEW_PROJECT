@@ -6,6 +6,8 @@ const productRepo = require("../repositories/product.repository");
 const orderRepo = require("../repositories/order.repository");
 const { ORDER_STATUS, PAYMENT_STATUS } = require("../models/Order");
 const { Payout } = require("../models/Payout");
+const { Review } = require("../models/Review");
+const { Product } = require("../models/Product");
 const auditService = require("./audit.service");
 const productService = require("./product.service");
 const { queueWhatsAppMessage } = require("./whatsapp.service");
@@ -516,6 +518,15 @@ async function updateOrder(orderId, patch, actor, meta) {
     if (deliveryDetails.trackingId !== undefined) updateData.trackingId = deliveryDetails.trackingId?.trim() || undefined;
     if (deliveryDetails.partner !== undefined) updateData.deliveryPartner = deliveryDetails.partner?.trim() || undefined;
     if (deliveryDetails.trackingUrl !== undefined) updateData.trackingUrl = deliveryDetails.trackingUrl?.trim() || undefined;
+    if (
+      deliveryDetails.trackingId !== undefined ||
+      deliveryDetails.partner !== undefined ||
+      deliveryDetails.trackingUrl !== undefined
+    ) {
+      updateData.courierAssignedByRole = "ADMIN";
+      updateData.courierAssignedById = actor?.sub || actor?._id;
+      updateData.courierAssignedAt = new Date();
+    }
   }
 
   const nextTrackingId = updateData.trackingId !== undefined ? updateData.trackingId : oldOrder.trackingId;
@@ -641,6 +652,8 @@ async function updateOrderStatus(orderId, status, actor, meta) {
   const order = await orderRepo.findById(orderId);
   if (!order) throw new AppError("Order not found", 404, "NOT_FOUND");
 
+  assertValidOrderFlow(order.status, status);
+
   const updated = await orderRepo.updateStatus(orderId, status);
   await auditService.log({
     actor,
@@ -681,6 +694,72 @@ async function listPayouts({ status, startDate, endDate } = {}) {
   return { overview, payouts };
 }
 
+async function recomputeProductRatings(productId) {
+  const reviews = await Review.find({ productId }).select("rating").lean();
+  const totalReviews = reviews.length;
+  const breakdown = { five: 0, four: 0, three: 0, two: 0, one: 0 };
+
+  for (const review of reviews) {
+    const value = Number(review.rating);
+    if (value === 5) breakdown.five += 1;
+    if (value === 4) breakdown.four += 1;
+    if (value === 3) breakdown.three += 1;
+    if (value === 2) breakdown.two += 1;
+    if (value === 1) breakdown.one += 1;
+  }
+
+  const averageRating =
+    totalReviews === 0
+      ? 0
+      : Number((reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / totalReviews).toFixed(1));
+
+  await Product.findByIdAndUpdate(productId, {
+    $set: {
+      "ratings.averageRating": averageRating,
+      "ratings.totalReviews": totalReviews,
+      "ratings.ratingBreakdown": breakdown,
+    },
+  });
+}
+
+async function listReviews({ search } = {}) {
+  const query = {};
+
+  const reviews = await Review.find(query)
+    .populate("productId", "name")
+    .populate("userId", "name")
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();
+
+  const normalizedSearch = String(search || "").trim().toLowerCase();
+  if (!normalizedSearch) return reviews;
+
+  return reviews.filter((review) =>
+    [review.productId?.name, review.userId?.name, review.title, review.comment]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(normalizedSearch))
+  );
+}
+
+async function deleteReview(reviewId, actor, meta) {
+  const review = await Review.findByIdAndDelete(reviewId).lean();
+  if (!review) throw new AppError("Review not found", 404, "NOT_FOUND");
+
+  await recomputeProductRatings(review.productId);
+  await auditService.log({
+    actor,
+    action: "admin.review.deleted",
+    entityType: "Review",
+    entityId: reviewId,
+    metadata: { productId: review.productId, userId: review.userId },
+    ipAddress: meta?.ipAddress,
+    userAgent: meta?.userAgent,
+  });
+
+  return { _id: reviewId };
+}
+
 module.exports = {
   getDashboardOverview,
   getAnalytics,
@@ -703,4 +782,6 @@ module.exports = {
   softDeleteOrder,
   updateOrderStatus,
   listPayouts,
+  listReviews,
+  deleteReview,
 };

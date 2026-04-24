@@ -103,6 +103,11 @@ export function AdminRolesPage() {
     });
   }
 
+  const editingRole = useMemo(
+    () => roles.find((role) => role._id === editingId) || null,
+    [editingId, roles]
+  );
+
   function resetForm() {
     setEditingId("");
     setForm({
@@ -229,8 +234,14 @@ export function AdminRolesPage() {
               onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
               className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-3"
               placeholder="Support Staff"
+              disabled={Boolean(editingRole?.isSystem)}
               required
             />
+            {editingRole?.isSystem ? (
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                System role names are locked. You can still update description and permissions.
+              </div>
+            ) : null}
           </label>
 
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">

@@ -247,6 +247,7 @@ function ProductShowcaseSection({ title, subtitle, items, loading, viewAllHref }
 function ManagedPromoSection({ promos = [] }) {
   const prefersReducedMotion = useReducedMotion();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [completedPromoVideos, setCompletedPromoVideos] = useState([]);
   const promoGroups = useMemo(() => {
     const items = Array.isArray(promos) ? promos.filter(Boolean) : [];
     const groups = [];
@@ -257,22 +258,37 @@ function ManagedPromoSection({ promos = [] }) {
   }, [promos]);
 
   const activeGroup = promoGroups[currentIndex] || [];
+  const activeVideoIds = useMemo(
+    () => activeGroup.filter((promo) => promo?.mediaType === "video" && promo?._id).map((promo) => promo._id),
+    [activeGroup]
+  );
 
   useEffect(() => {
     setCurrentIndex(0);
   }, [promoGroups.length]);
 
   useEffect(() => {
+    setCompletedPromoVideos([]);
+  }, [currentIndex]);
+
+  useEffect(() => {
     if (prefersReducedMotion || promoGroups.length <= 1) {
       return undefined;
     }
 
-    const intervalId = window.setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % promoGroups.length);
-    }, 6000);
+    if (activeVideoIds.length > 0) {
+      if (completedPromoVideos.length === activeVideoIds.length) {
+        setCurrentIndex((prev) => (prev + 1) % promoGroups.length);
+      }
+      return undefined;
+    }
 
-    return () => window.clearInterval(intervalId);
-  }, [prefersReducedMotion, promoGroups.length]);
+    const timeoutId = window.setTimeout(() => {
+      setCurrentIndex((prev) => (prev + 1) % promoGroups.length);
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeVideoIds.length, completedPromoVideos.length, prefersReducedMotion, promoGroups.length]);
 
   if (promoGroups.length === 0) {
     return null;
@@ -305,6 +321,14 @@ function ManagedPromoSection({ promos = [] }) {
                 trackClick(promo._id).catch(() => {});
                 window.location.assign(promo.ctaUrl);
               }}
+              onVideoEnded={
+                promo.mediaType === "video"
+                  ? () =>
+                      setCompletedPromoVideos((prev) =>
+                        prev.includes(promo._id) ? prev : [...prev, promo._id]
+                      )
+                  : undefined
+              }
             />
           ))}
         </Motion.div>
@@ -353,12 +377,16 @@ function BottomPromoSection({ featuredProducts, collection, onExploreCollection 
       return undefined;
     }
 
-    const intervalId = window.setInterval(() => {
-      setCurrentCollectionIndex((prev) => (prev + 1) % collections.length);
-    }, 6500);
+    if (activeCollection?.mediaType === "video") {
+      return undefined;
+    }
 
-    return () => window.clearInterval(intervalId);
-  }, [collections.length, prefersReducedMotion]);
+    const timeoutId = window.setTimeout(() => {
+      setCurrentCollectionIndex((prev) => (prev + 1) % collections.length);
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeCollection?.mediaType, collections.length, prefersReducedMotion]);
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
@@ -380,8 +408,12 @@ function BottomPromoSection({ featuredProducts, collection, onExploreCollection 
                 src={activeCollection.image}
                 autoPlay
                 muted
-                loop
                 playsInline
+                onEnded={() => {
+                  if (collections.length > 1) {
+                    setCurrentCollectionIndex((prev) => (prev + 1) % collections.length);
+                  }
+                }}
                 className="h-full min-h-[22rem] w-full object-cover transition duration-700 group-hover:scale-105"
               />
             ) : (
@@ -396,13 +428,10 @@ function BottomPromoSection({ featuredProducts, collection, onExploreCollection 
         </AnimatePresence>
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/55 to-transparent" />
         <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8">
-          <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-orange-200/90 backdrop-blur">
-            Collection spotlight
-          </span>
-          <h3 className="mt-4 max-w-xl text-3xl font-semibold tracking-[-0.04em] text-white">
+          <h3 className="max-w-xl translate-y-6 text-3xl font-semibold tracking-[-0.04em] text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
             {activeCollection?.title || "Discover elevated collections with layered storytelling and hover-revealed depth."}
           </h3>
-          <p className="mt-4 max-w-lg translate-y-4 text-sm leading-7 text-white/72 opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+          <p className="mt-4 max-w-lg translate-y-6 text-sm leading-7 text-white opacity-0 transition-all duration-300 delay-75 group-hover:translate-y-0 group-hover:opacity-100">
             {activeCollection?.description || "This lower banner is designed to stay compact by default and expand emotionally on hover with richer context and stronger CTA contrast."}
           </p>
           <div className="mt-6">
@@ -415,7 +444,7 @@ function BottomPromoSection({ featuredProducts, collection, onExploreCollection 
                 }
                 onExploreCollection();
               }}
-              className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+              className="translate-y-6 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 opacity-0 transition-all duration-300 delay-100 group-hover:translate-y-0 group-hover:opacity-100 hover:bg-slate-100"
             >
               {activeCollection?.ctaText || "Explore the collection"}
             </RippleButton>
@@ -440,33 +469,36 @@ function BottomPromoSection({ featuredProducts, collection, onExploreCollection 
           <Motion.article
             key={product._id}
             whileHover={{ y: -6 }}
-            className="overflow-hidden rounded-[1.75rem] border border-white/60 bg-white/72 shadow-[0_28px_90px_-50px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72"
+            className="group overflow-hidden rounded-[1.75rem] border border-white/60 bg-white/72 shadow-[0_28px_90px_-50px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72"
           >
             <div className="grid h-full gap-0 sm:grid-cols-[132px_minmax(0,1fr)]">
-              <div className="relative overflow-hidden">
+              <div className="relative overflow-hidden bg-gradient-to-br from-slate-100 via-white to-slate-50 dark:from-slate-900 dark:via-slate-850 dark:to-slate-800">
                 <img
                   src={resolveApiAssetUrl(product?.images?.[0]?.url || "")}
                   alt={product.name}
-                  className="h-full min-h-[9rem] w-full object-cover transition duration-700 hover:scale-110"
+                  className="h-full min-h-[9rem] w-full object-contain p-2 transition duration-500 group-hover:scale-105"
                   loading="lazy"
                 />
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/15 via-transparent to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
               </div>
               <div className="flex flex-col justify-between p-5">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-500">
                     Hover to discover
                   </p>
-                  <h4 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
+                  <h4 className="mt-2 line-clamp-2 text-lg font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
                     {product.name}
                   </h4>
-                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                    Premium card poster treatment with supportive copy revealed below the image zone.
-                  </p>
+                  <div className="mt-3 overflow-hidden">
+                    <p className="max-h-0 translate-y-3 text-sm leading-6 text-slate-600 opacity-0 transition-all duration-300 group-hover:max-h-24 group-hover:translate-y-0 group-hover:opacity-100 dark:text-slate-300">
+                      {product.shortDescription || product.description || "Premium card poster treatment with supportive copy revealed below the image zone."}
+                    </p>
+                  </div>
                 </div>
-                <div className="mt-4">
+                <div className="mt-4 overflow-hidden">
                   <Link
                     to={`/product/${product._id}`}
-                    className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-400/30 dark:hover:text-indigo-300"
+                    className="inline-flex translate-y-4 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 hover:border-indigo-200 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-400/30 dark:hover:text-indigo-300"
                   >
                     View product
                   </Link>

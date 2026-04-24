@@ -16,10 +16,10 @@ export function VendorModuleProvider({ children }) {
   const canAccessAction = useMemo(
     () => (moduleKey, action = "read") => {
       const module = moduleMap[moduleKey];
-      if (!module || !module.vendorPermissions) {
+      if (!module) {
         return false;
       }
-      return module.enabled && module.vendorEnabled && module.vendorPermissions[action] === true;
+      return module.enabled && module.vendorEnabled;
     },
     [moduleMap]
   );

@@ -24,6 +24,12 @@ const router = express.Router();
 router.get("/public", productController.getPublicProducts);
 
 /**
+ * GET /products/filters
+ * Get dynamic storefront filters for a category/subcategory
+ */
+router.get("/filters", productController.getProductFilters);
+
+/**
  * GET /products/generate-number
  * Preview next product number for category + subcategory
  */

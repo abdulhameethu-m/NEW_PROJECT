@@ -30,6 +30,11 @@ export async function getVendorOrders(params) {
   return data;
 }
 
+export async function getVendorOrderById(id) {
+  const { data } = await api.get(`/api/vendor/orders/${id}`);
+  return data;
+}
+
 export async function updateVendorOrderStatus(id, payload) {
   const { data } = await api.patch(`/api/vendor/orders/${id}/status`, payload);
   return data;

@@ -12,6 +12,7 @@ export {
   removeSeller as removeVendor,
   listProducts,
   getProductById,
+  generateAdminProductNumber,
   createProduct,
   updateProduct,
   deleteProduct,

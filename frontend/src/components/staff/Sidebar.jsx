@@ -16,7 +16,7 @@ const ICON_MAP = {
   UserCheck: UserCheckIcon,
 };
 
-export function StaffSidebar({ permissions, isOpen, onToggle }) {
+export function StaffSidebar({ permissions, enabledModules = {}, isOpen, onToggle }) {
   const location = useLocation();
   const [expandedSections, setExpandedSections] = useState({
     main: true,
@@ -24,7 +24,10 @@ export function StaffSidebar({ permissions, isOpen, onToggle }) {
     finance: true,
   });
 
-  const accessibleModules = useMemo(() => getAccessibleModules(permissions), [permissions]);
+  const accessibleModules = useMemo(
+    () => getAccessibleModules(permissions, enabledModules),
+    [enabledModules, permissions]
+  );
   const visibleModules = useMemo(
     () => accessibleModules.filter((module) => module.key !== "dashboard"),
     [accessibleModules]

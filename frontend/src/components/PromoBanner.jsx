@@ -4,13 +4,13 @@ import { ArrowRight } from "lucide-react";
 export function PromoBanner({
   title,
   description,
-  eyebrow,
   image,
   mediaType = "image",
   ctaText = "Explore",
   href = "/shop",
   align = "left",
   onClick,
+  onVideoEnded,
 }) {
   const handleClick = () => {
     if (typeof onClick === "function") {
@@ -34,8 +34,8 @@ export function PromoBanner({
           src={image}
           autoPlay
           muted
-          loop
           playsInline
+          onEnded={onVideoEnded}
           className="h-72 w-full object-cover transition duration-700 group-hover:scale-110 sm:h-80"
         />
       ) : (
@@ -50,19 +50,16 @@ export function PromoBanner({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.22),transparent_26%)]" />
 
       <div className={`absolute inset-0 flex flex-col justify-end p-6 sm:p-8 ${align === "right" ? "items-end text-right" : ""}`}>
-        <span className="inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-orange-200/90 backdrop-blur">
-          {eyebrow}
-        </span>
-        <h3 className="mt-4 max-w-lg text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+        <h3 className="max-w-lg translate-y-6 text-2xl font-semibold tracking-[-0.03em] text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 sm:text-3xl">
           {title}
         </h3>
-        <p className="mt-3 max-w-md translate-y-5 text-sm leading-7 text-white/70 opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+        <p className="mt-3 max-w-md translate-y-6 text-sm leading-7 text-white/70 opacity-0 transition-all duration-300 delay-75 group-hover:translate-y-0 group-hover:opacity-100">
           {description}
         </p>
         <button
           type="button"
           onClick={handleClick}
-          className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+          className="mt-5 inline-flex translate-y-6 items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-900 opacity-0 transition-all duration-300 delay-100 group-hover:translate-y-0 group-hover:opacity-100 hover:bg-slate-100"
         >
           {ctaText}
           <ArrowRight className="h-4 w-4" />

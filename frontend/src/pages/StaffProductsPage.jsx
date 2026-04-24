@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { deleteProduct, getProductStats, listProducts } from "../services/adminApi";
 import { useStaffPermission } from "../hooks/useStaffAuth";
 
@@ -14,6 +15,9 @@ export function StaffProductsPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
+  const canCreateProducts = hasPermission("products.create");
+  const canUpdateProducts = hasPermission("products.update");
+  const canDeleteProducts = hasPermission("products.delete");
 
   useEffect(() => {
     let active = true;
@@ -66,8 +70,19 @@ export function StaffProductsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Products</h1>
           <p className="mt-1 text-slate-600">Catalog operations and moderation visibility based on product permissions.</p>
         </div>
-        <div className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
-          {products.length} product{products.length === 1 ? "" : "s"}
+        <div className="flex items-center gap-3">
+          {canCreateProducts ? (
+            <Link
+              to="/staff/products/create"
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Create Product
+            </Link>
+          ) : null}
+          <div className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+            {products.length} product{products.length === 1 ? "" : "s"}
+          </div>
         </div>
       </div>
 
@@ -121,7 +136,16 @@ export function StaffProductsPage() {
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
                     {product.status}
                   </span>
-                  {hasPermission("products.delete") ? (
+                  {canUpdateProducts ? (
+                    <Link
+                      to={`/staff/products/${product._id}/edit`}
+                      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <EditIcon className="h-3.5 w-3.5" />
+                      Edit
+                    </Link>
+                  ) : null}
+                  {canDeleteProducts ? (
                     <button
                       type="button"
                       disabled={busyId === product._id}
@@ -178,6 +202,24 @@ function TrashIcon({ className = "h-4 w-4" }) {
       <path d="M19 6l-1 14H6L5 6" />
       <path d="M10 10v6" />
       <path d="M14 10v6" />
+    </IconBase>
+  );
+}
+
+function PlusIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </IconBase>
+  );
+}
+
+function EditIcon({ className = "h-4 w-4" }) {
+  return (
+    <IconBase className={className}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </IconBase>
   );
 }
