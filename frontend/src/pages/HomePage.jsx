@@ -1,16 +1,60 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BannerCarousel } from "../components/BannerCarousel";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Headphones,
+  LockKeyhole,
+  ShieldCheck,
+  Truck,
+} from "lucide-react";
+import { AnimatePresence, motion as Motion, useReducedMotion } from "framer-motion";
 import { CategoryCarousel } from "../components/CategoryCarousel";
+import { HomepageContentCMS } from "../components/HomepageContentCMS";
+import { ProductCard } from "../components/ProductCard";
+import { PromoBanner } from "../components/PromoBanner";
+import { MotionItem, MotionStagger, AnimatedSection } from "../components/home/AnimatedSection";
+import { RippleButton } from "../components/home/RippleButton";
 import { useCategories } from "../hooks/useCategories";
 import * as productService from "../services/productService";
-import { formatCurrency } from "../utils/formatCurrency";
+import { trackClick } from "../services/contentService";
+import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import { usePresentedCategories } from "../utils/categoryPresentation.jsx";
+
+const trustItems = [
+  {
+    icon: Truck,
+    title: "Fast & secure delivery",
+    detail: "Priority fulfillment, protected packaging, and reliable tracking from checkout to doorstep.",
+  },
+  {
+    icon: Headphones,
+    title: "Dedicated support",
+    detail: "Human-first support for product questions, order help, and post-purchase confidence.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Verified sellers",
+    detail: "Curated vendors and transparent storefront quality standards across every category.",
+  },
+  {
+    icon: LockKeyhole,
+    title: "Secure payment",
+    detail: "Protected transactions and a frictionless checkout experience tuned for trust.",
+  },
+];
 
 export function HomePage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [homepageContent, setHomepageContent] = useState({
+    hero: [],
+    promo: [],
+    collection: [],
+  });
   const [popularPicks, setPopularPicks] = useState([]);
   const [trending, setTrending] = useState([]);
   const [recommended, setRecommended] = useState([]);
@@ -23,6 +67,7 @@ export function HomePage() {
     async function load() {
       setLoading(true);
       setError("");
+
       try {
         const [popularRes, trendingRes, recommendedRes] = await Promise.all([
           productService.getPublicProducts({ limit: 8, sortBy: "analytics.views", sortOrder: "desc" }),
@@ -31,6 +76,7 @@ export function HomePage() {
         ]);
 
         if (cancelled) return;
+
         setPopularPicks(popularRes?.data?.products || []);
         setTrending(trendingRes?.data?.products || []);
         setRecommended(recommendedRes?.data?.products || []);
@@ -39,191 +85,504 @@ export function HomePage() {
           setError(e?.response?.data?.message || "Failed to load storefront");
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     load();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const spotlightProducts = useMemo(
+    () =>
+      [...popularPicks, ...trending, ...recommended]
+        .filter(Boolean)
+        .filter((product, index, items) => index === items.findIndex((candidate) => candidate?._id === product?._id))
+        .slice(0, 6),
+    [popularPicks, trending, recommended]
+  );
+
   return (
-    <div className="space-y-3 sm:space-y-4 lg:space-y-6">
-      <div className="-mx-3 sm:mx-0">
+    <div className="space-y-8 lg:space-y-10">
+      {/* DYNAMIC HOMEPAGE CONTENT CMS */}
+      <HomepageContentCMS
+        showPromo={false}
+        showCollection={false}
+        onContentLoaded={setHomepageContent}
+      />
+
+      <AnimatedSection className="relative" y={24}>
+        <TrustSection />
+      </AnimatedSection>
+
+      <AnimatedSection y={30}>
         <CategoryCarousel
-          title="Top Categories"
+          title="Curated categories"
           categories={presentedCategories}
           loading={categoriesLoading}
           onSelect={(cat) => navigate(`/shop?category=${encodeURIComponent(cat.name)}`)}
         />
-      </div>
+      </AnimatedSection>
 
-      <BannerCarousel />
+      <AnimatedSection x={-24}>
+        <ManagedPromoSection promos={homepageContent.promo} />
+      </AnimatedSection>
 
       {error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200 sm:px-4 sm:py-3 sm:text-sm">
+        <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">
           {error}
         </div>
       ) : null}
 
-      <ProductSection
-        title="Popular Picks"
-        subtitle="Most viewed products right now"
+      <ProductShowcaseSection
+        title="Popular picks"
+        subtitle="Most viewed products with elevated merchandising, subtle depth, and quick actions."
         items={popularPicks}
         loading={loading}
         viewAllHref="/shop?sortBy=analytics.views&sortOrder=desc"
       />
 
-      <ProductSection
-        title="Trending"
-        subtitle="Fresh arrivals and fast movers"
+      <ProductShowcaseSection
+        title="Trending now"
+        subtitle="Fresh arrivals and fast movers surfaced with premium visual hierarchy and motion."
         items={trending}
         loading={loading}
         viewAllHref="/shop?sortBy=createdAt&sortOrder=desc"
       />
 
-      <ProductSection
-        title="Recommended"
-        subtitle="Top rated picks"
+      <ProductShowcaseSection
+        title="Top rated"
+        subtitle="Highly loved products presented in a responsive, high-conversion product experience."
         items={recommended}
         loading={loading}
         viewAllHref="/shop?sortBy=ratings.averageRating&sortOrder=desc"
       />
 
-      <div className="grid grid-cols-1 gap-2 xs:grid-cols-2 sm:gap-3 lg:grid-cols-4 lg:gap-4">
-        <TrustBadge title="Fast Delivery" detail="Quick shipping to your doorstep" icon="🚚" />
-        <TrustBadge title="Secure Payment" detail="Safe and encrypted transactions" icon="🔒" />
-        <TrustBadge title="Easy Returns" detail="Hassle-free return policy" icon="↩" />
-        <TrustBadge title="24/7 Support" detail="Always here to help you" icon="💬" />
+      <AnimatedSection x={20}>
+        <BottomPromoSection
+          featuredProducts={spotlightProducts}
+          collection={homepageContent.collection || []}
+          onExploreCollection={() => navigate("/shop")}
+        />
+      </AnimatedSection>
+    </div>
+  );
+}
+
+function TrustSection() {
+  return (
+    <MotionStagger className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" once>
+      {trustItems.map((item) => {
+        const Icon = item.icon;
+        return (
+          <MotionItem key={item.title}>
+            <Motion.div
+              whileHover={{ scale: 1.02, y: -4 }}
+              className="rounded-[1.75rem] border border-white/60 bg-white/72 p-5 shadow-[0_28px_90px_-50px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/20">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">
+                    {item.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    {item.detail}
+                  </p>
+                </div>
+              </div>
+            </Motion.div>
+          </MotionItem>
+        );
+      })}
+    </MotionStagger>
+  );
+}
+
+function ProductShowcaseSection({ title, subtitle, items, loading, viewAllHref }) {
+  return (
+    <AnimatedSection y={30}>
+      <section className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/72 p-5 shadow-[0_35px_120px_-55px_rgba(15,23,42,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 sm:p-6 lg:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-500">Product discovery</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white lg:text-3xl">
+              {title}
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300 lg:text-base">
+              {subtitle}
+            </p>
+          </div>
+          <Link
+            to={viewAllHref}
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-indigo-400/30 dark:hover:text-indigo-300"
+          >
+            View all
+          </Link>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {loading
+            ? Array.from({ length: 8 }).map((_, index) => <ProductCardSkeleton key={index} />)
+            : items?.length
+              ? items.map((product) => <ProductCard key={product._id} product={product} />)
+              : (
+                <div className="col-span-full rounded-[1.5rem] border border-dashed border-slate-300 px-6 py-12 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  No products to show yet.
+                </div>
+              )}
+        </div>
+      </section>
+    </AnimatedSection>
+  );
+}
+
+function ManagedPromoSection({ promos = [] }) {
+  const prefersReducedMotion = useReducedMotion();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const promoGroups = useMemo(() => {
+    const items = Array.isArray(promos) ? promos.filter(Boolean) : [];
+    const groups = [];
+    for (let index = 0; index < items.length; index += 2) {
+      groups.push(items.slice(index, index + 2));
+    }
+    return groups;
+  }, [promos]);
+
+  const activeGroup = promoGroups[currentIndex] || [];
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [promoGroups.length]);
+
+  useEffect(() => {
+    if (prefersReducedMotion || promoGroups.length <= 1) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % promoGroups.length);
+    }, 6000);
+
+    return () => window.clearInterval(intervalId);
+  }, [prefersReducedMotion, promoGroups.length]);
+
+  if (promoGroups.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="relative">
+      <AnimatePresence mode="wait">
+        <Motion.div
+          key={`promo-group-${currentIndex}`}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={prefersReducedMotion ? undefined : { opacity: 0, y: -18 }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="grid gap-5 lg:grid-cols-2"
+        >
+          {activeGroup.map((promo, index) => (
+            <PromoBanner
+              key={promo._id}
+              eyebrow={index === 0 ? "Admin feature" : "Vendor spotlight"}
+              title={promo.title}
+              description={promo.description}
+              image={promo.image}
+              mediaType={promo.mediaType}
+              href={promo.ctaUrl || "/shop"}
+              ctaText={promo.ctaText || "Explore"}
+              align={index % 2 === 0 ? "left" : "right"}
+              onClick={() => {
+                if (!promo?.ctaUrl) return;
+                trackClick(promo._id).catch(() => {});
+                window.location.assign(promo.ctaUrl);
+              }}
+            />
+          ))}
+        </Motion.div>
+      </AnimatePresence>
+
+      {promoGroups.length > 1 ? (
+        <>
+          <div className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
+            <SliderControls
+              currentIndex={currentIndex}
+              itemCount={promoGroups.length}
+              onPrevious={() => setCurrentIndex((prev) => (prev - 1 + promoGroups.length) % promoGroups.length)}
+              onNext={() => setCurrentIndex((prev) => (prev + 1) % promoGroups.length)}
+              onSelect={setCurrentIndex}
+              compact
+              orientation="vertical"
+            />
+          </div>
+          <div className="mt-4 lg:hidden">
+            <SliderControls
+              currentIndex={currentIndex}
+              itemCount={promoGroups.length}
+              onPrevious={() => setCurrentIndex((prev) => (prev - 1 + promoGroups.length) % promoGroups.length)}
+              onNext={() => setCurrentIndex((prev) => (prev + 1) % promoGroups.length)}
+              onSelect={setCurrentIndex}
+            />
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function BottomPromoSection({ featuredProducts, collection, onExploreCollection }) {
+  const prefersReducedMotion = useReducedMotion();
+  const collections = Array.isArray(collection) ? collection.filter(Boolean) : collection ? [collection] : [];
+  const [currentCollectionIndex, setCurrentCollectionIndex] = useState(0);
+  const activeCollection = collections[currentCollectionIndex] || null;
+
+  useEffect(() => {
+    setCurrentCollectionIndex(0);
+  }, [collections.length]);
+
+  useEffect(() => {
+    if (prefersReducedMotion || collections.length <= 1) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setCurrentCollectionIndex((prev) => (prev + 1) % collections.length);
+    }, 6500);
+
+    return () => window.clearInterval(intervalId);
+  }, [collections.length, prefersReducedMotion]);
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+      <Motion.div
+        whileHover={{ y: -6 }}
+        className="group relative w-full max-w-[1100px] h-[650px] overflow-hidden rounded-[2.5rem] border border-white/60 bg-white shadow-[0_40px_140px_-60px_rgba(15,23,42,0.25)] flex"
+      >
+        <AnimatePresence mode="wait">
+          <Motion.div
+            key={activeCollection?._id || "collection-fallback"}
+            initial={prefersReducedMotion ? false : { opacity: 0, scale: 1.03 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.985 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0"
+          >
+            {activeCollection?.mediaType === "video" ? (
+              <video
+                src={activeCollection.image}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="h-full min-h-[22rem] w-full object-cover transition duration-700 group-hover:scale-105"
+              />
+            ) : (
+              <img
+                src={activeCollection?.image || "https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=1600&q=80"}
+                alt={activeCollection?.title || "Promotional collection"}
+                className="h-full min-h-[22rem] w-full object-cover transition duration-700 group-hover:scale-105"
+                loading="lazy"
+              />
+            )}
+          </Motion.div>
+        </AnimatePresence>
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/55 to-transparent" />
+        <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8">
+          <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-orange-200/90 backdrop-blur">
+            Collection spotlight
+          </span>
+          <h3 className="mt-4 max-w-xl text-3xl font-semibold tracking-[-0.04em] text-white">
+            {activeCollection?.title || "Discover elevated collections with layered storytelling and hover-revealed depth."}
+          </h3>
+          <p className="mt-4 max-w-lg translate-y-4 text-sm leading-7 text-white/72 opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+            {activeCollection?.description || "This lower banner is designed to stay compact by default and expand emotionally on hover with richer context and stronger CTA contrast."}
+          </p>
+          <div className="mt-6">
+            <RippleButton
+              onClick={() => {
+                if (activeCollection?.ctaUrl) {
+                  trackClick(activeCollection._id).catch(() => {});
+                  window.location.assign(activeCollection.ctaUrl);
+                  return;
+                }
+                onExploreCollection();
+              }}
+              className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+            >
+              {activeCollection?.ctaText || "Explore the collection"}
+            </RippleButton>
+          </div>
+        </div>
+        {collections.length > 1 ? (
+          <div className="absolute right-5 top-5 z-[2]">
+            <SliderControls
+              currentIndex={currentCollectionIndex}
+              itemCount={collections.length}
+              onPrevious={() => setCurrentCollectionIndex((prev) => (prev - 1 + collections.length) % collections.length)}
+              onNext={() => setCurrentCollectionIndex((prev) => (prev + 1) % collections.length)}
+              onSelect={setCurrentCollectionIndex}
+              compact
+            />
+          </div>
+        ) : null}
+      </Motion.div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+        {featuredProducts.slice(0, 3).map((product) => (
+          <Motion.article
+            key={product._id}
+            whileHover={{ y: -6 }}
+            className="overflow-hidden rounded-[1.75rem] border border-white/60 bg-white/72 shadow-[0_28px_90px_-50px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72"
+          >
+            <div className="grid h-full gap-0 sm:grid-cols-[132px_minmax(0,1fr)]">
+              <div className="relative overflow-hidden">
+                <img
+                  src={resolveApiAssetUrl(product?.images?.[0]?.url || "")}
+                  alt={product.name}
+                  className="h-full min-h-[9rem] w-full object-cover transition duration-700 hover:scale-110"
+                  loading="lazy"
+                />
+              </div>
+              <div className="flex flex-col justify-between p-5">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-500">
+                    Hover to discover
+                  </p>
+                  <h4 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
+                    {product.name}
+                  </h4>
+                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    Premium card poster treatment with supportive copy revealed below the image zone.
+                  </p>
+                </div>
+                <div className="mt-4">
+                  <Link
+                    to={`/product/${product._id}`}
+                    className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-400/30 dark:hover:text-indigo-300"
+                  >
+                    View product
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </Motion.article>
+        ))}
       </div>
     </div>
   );
 }
 
-function ProductSection({ title, subtitle, items, loading, viewAllHref }) {
+function SliderControls({
+  currentIndex,
+  itemCount,
+  onPrevious,
+  onNext,
+  onSelect,
+  compact = false,
+  orientation = "horizontal",
+}) {
+  const isVertical = orientation === "vertical";
+
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:rounded-3xl lg:p-6 sm:p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white sm:text-lg">{title}</h2>
-          <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300 sm:text-sm">{subtitle}</p>
-        </div>
-        <Link
-          to={viewAllHref}
-          className="inline-flex flex-shrink-0 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 sm:text-sm"
+    <div className={`flex gap-3 ${compact ? "rounded-[2rem] border border-white/15 bg-black/20 px-3 py-3 backdrop-blur" : ""} ${isVertical ? "flex-col items-center" : "items-center justify-between"}`}>
+      <div className={`flex ${isVertical ? "flex-col items-center gap-2" : "items-center gap-2"}`}>
+        <button
+          type="button"
+          onClick={onPrevious}
+          aria-label={isVertical ? "Previous promo banners" : "Previous slide"}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/15 active:scale-95"
         >
-          View all
-        </Link>
+          {isVertical ? <ChevronUp className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          aria-label={isVertical ? "Next promo banners" : "Next slide"}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/15 active:scale-95"
+        >
+          {isVertical ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:gap-4">
-        {loading ? (
-          Array.from({ length: 8 }).map((_, index) => <ProductCardSkeleton key={index} />)
-        ) : items?.length ? (
-          items.map((product) => <ProductCard key={product._id} product={product} />)
-        ) : (
-          <div className="col-span-full rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-300">
-            No products to show yet.
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function ProductCard({ product }) {
-  const img = product?.images?.[0]?.url || "";
-  const discountPercent = product?.discountPrice ? Math.round(((product.price - product.discountPrice) / product.price) * 100) : 0;
-
-  return (
-    <Link
-      to={`/product/${product._id}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-950 lg:rounded-2xl"
-    >
-      <div className="relative aspect-[4/3] bg-slate-100 dark:bg-slate-800">
-        {img ? (
-          <img
-            src={img}
-            alt={product.name}
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-            loading="lazy"
-            onError={(event) => {
-              event.currentTarget.src = "https://via.placeholder.com/600x450?text=Product";
-            }}
+      <div className={`flex ${isVertical ? "flex-col items-center gap-2" : "items-center gap-2"}`}>
+        {Array.from({ length: itemCount }).map((_, index) => (
+          <button
+            key={index}
+            type="button"
+            aria-label={`Go to slide ${index + 1}`}
+            onClick={() => onSelect(index)}
+            className={`rounded-full transition-all duration-300 ${
+              isVertical
+                ? index === currentIndex
+                  ? "h-8 w-2.5 bg-white"
+                  : "h-2.5 w-2.5 bg-white/45 hover:bg-white/70"
+                : index === currentIndex
+                  ? "h-2.5 w-8 bg-white"
+                  : "h-2.5 w-2.5 bg-white/45 hover:bg-white/70"
+            }`}
           />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-slate-500 dark:text-slate-400">
-            No image
-          </div>
-        )}
-
-        {discountPercent > 0 ? (
-          <div className="absolute left-2 top-2 rounded-lg bg-rose-600 px-2 py-1 text-[10px] font-bold text-white sm:text-[11px]">
-            {discountPercent}% OFF
-          </div>
-        ) : null}
+        ))}
       </div>
-
-      <div className="flex flex-1 flex-col p-2 sm:p-3">
-        <div className="line-clamp-2 text-xs font-medium text-slate-900 group-hover:text-blue-700 dark:text-slate-100 dark:group-hover:text-blue-400 sm:text-sm">
-          {product.name}
-        </div>
-        <div className="mt-0.5 line-clamp-1 text-[11px] text-slate-500 dark:text-slate-400 sm:text-xs">{product.category}</div>
-
-        <div className="mt-auto flex items-end justify-between gap-2 pt-2">
-          <div className="min-w-0">
-            {product.discountPrice ? (
-              <div className="flex items-baseline gap-1 sm:gap-2">
-                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 sm:text-sm">
-                  {formatCurrency(product.discountPrice)}
-                </div>
-                <div className="truncate text-[10px] text-slate-500 line-through dark:text-slate-400 sm:text-xs">
-                  {formatCurrency(product.price)}
-                </div>
-              </div>
-            ) : (
-              <div className="text-xs font-bold text-slate-900 dark:text-slate-100 sm:text-sm">{formatCurrency(product.price)}</div>
-            )}
-          </div>
-
-          {product?.ratings?.averageRating > 0 ? (
-            <div className="flex-shrink-0 whitespace-nowrap rounded-md bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white sm:px-2 sm:text-[11px]">
-              ★ {Number(product.ratings.averageRating).toFixed(1)}
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </Link>
+    </div>
   );
 }
 
 function ProductCardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
-      <div className="aspect-[4/3] animate-pulse bg-slate-200 dark:bg-slate-800" />
-      <div className="space-y-2 p-3">
-        <div className="h-4 w-5/6 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
-        <div className="h-3 w-2/3 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
-        <div className="h-4 w-1/2 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+    <div className="overflow-hidden rounded-[1.75rem] border border-white/60 bg-white/75 shadow-[0_28px_90px_-50px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/10 dark:bg-slate-900/75">
+      <div className="aspect-[0.9] animate-pulse bg-slate-200 dark:bg-slate-800" />
+      <div className="space-y-3 p-4">
+        <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
+        <div className="h-5 w-5/6 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
+        <div className="h-4 w-2/3 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
+        <div className="h-11 w-full animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
       </div>
     </div>
   );
 }
 
-function TrustBadge({ icon, title, detail }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:rounded-3xl lg:p-6 sm:p-4">
-      <div className="flex items-start gap-2 sm:gap-3">
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xl dark:bg-slate-800 sm:h-11 sm:w-11 sm:text-2xl">
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <div className="text-xs font-semibold text-slate-900 dark:text-white sm:text-sm">{title}</div>
-          <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-600 dark:text-slate-300 sm:text-xs">{detail}</div>
-        </div>
-      </div>
-    </div>
-  );
+function buildHeroSlides(products, categories) {
+  const categoryNames = categories.slice(0, 3).map((category) => category.name).join(" • ");
+  const defaults = [
+    {
+      id: "premium-home",
+      eyebrow: "Premium storefront",
+      title: "A polished shopping experience shaped for speed, motion, and trust.",
+      description:
+        "Curated discovery, responsive merchandising, and a premium visual system inspired by the best modern commerce brands.",
+      accent: categoryNames || "Trending collections",
+      image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1600&q=80",
+      gradient: "from-indigo-950/90 via-indigo-900/55 to-fuchsia-500/30",
+    },
+  ];
+
+  if (!products?.length) {
+    return defaults;
+  }
+
+  return products.slice(0, 3).map((product, index) => ({
+    id: product._id,
+    eyebrow: index === 0 ? "Featured drop" : index === 1 ? "Fresh arrival" : "Top rated",
+    title: product.name,
+    description:
+      "Designed for immersive discovery with cinematic imagery, premium spacing, and clean conversion-first hierarchy.",
+    accent: product.category || "Curated collection",
+    image:
+      resolveApiAssetUrl(product?.images?.[0]?.url) ||
+      "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1600&q=80",
+    gradient:
+      index === 0
+        ? "from-indigo-950/90 via-indigo-900/55 to-fuchsia-500/30"
+        : index === 1
+          ? "from-slate-950/90 via-slate-900/55 to-orange-500/25"
+          : "from-violet-950/90 via-violet-900/55 to-pink-500/30",
+  }));
 }

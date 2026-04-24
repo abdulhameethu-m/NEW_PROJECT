@@ -31,6 +31,8 @@ const attributeRoutes = require("./routes/attribute.routes");
 const productModuleRoutes = require("./routes/product-module.routes");
 const exportRoutes = require("./routes/export.routes");
 const vendorModuleRoutes = require("./routes/vendorModule.routes");
+const contentRoutes = require("./routes/content.routes");
+const filterRoutes = require("./routes/filter.routes");
 const staffRoutes = require("./modules/staff/routes");
 
 function createLimiter({
@@ -91,8 +93,8 @@ function createApp() {
       req.path.startsWith("/api/staff/auth"),
   });
 
-  app.use(express.json({ limit: "1mb" }));
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: "25mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "25mb" }));
   app.use(cookieParser());
 
   // Local upload fallback (Cloudinary preferred)
@@ -135,6 +137,8 @@ function createApp() {
   app.use("/api/product-modules", productModuleRoutes);
   app.use("/api/export", exportRoutes);
   app.use("/api/modules", vendorModuleRoutes);
+  app.use("/api/content", contentRoutes);
+  app.use("/api/filters", filterRoutes);
   app.use("/api/staff", staffRoutes);
 
   app.use(notFound);

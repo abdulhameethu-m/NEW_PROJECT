@@ -33,6 +33,10 @@ const pageMeta = {
     title: "Product Modules",
     subtitle: "Control dynamic product tabs and additional info sections from admin.",
   },
+  "/admin/content": {
+    title: "Homepage Content",
+    subtitle: "Create and manage dynamic banners, promo cards, and collection content for the homepage.",
+  },
   "/admin/vendor-access": {
     title: "Vendor Module Access",
     subtitle: "Control which modules are accessible to vendors globally.",

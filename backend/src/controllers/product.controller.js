@@ -3,6 +3,26 @@ const { asyncHandler } = require("../utils/asyncHandler");
 const productService = require("../services/product.service");
 const productRepo = require("../repositories/product.repository");
 
+function pickDynamicQueryFilters(query = {}) {
+  const reserved = new Set([
+    "page",
+    "limit",
+    "category",
+    "categoryId",
+    "subCategoryId",
+    "search",
+    "minPrice",
+    "maxPrice",
+    "sortBy",
+    "sortOrder",
+    "status",
+  ]);
+
+  return Object.fromEntries(
+    Object.entries(query).filter(([key]) => !reserved.has(key))
+  );
+}
+
 /**
  * CREATE PRODUCT
  * POST /products
@@ -47,11 +67,14 @@ const getProducts = asyncHandler(async (req, res) => {
     page: parseInt(req.query.page) || 1,
     limit: parseInt(req.query.limit) || 20,
     category: req.query.category,
+    categoryId: req.query.categoryId,
+    subCategoryId: req.query.subCategoryId,
     search: req.query.search,
     minPrice: req.query.minPrice ? parseFloat(req.query.minPrice) : undefined,
     maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice) : undefined,
     sortBy: req.query.sortBy || "createdAt",
     sortOrder: req.query.sortOrder === "asc" ? 1 : -1,
+    rawQuery: pickDynamicQueryFilters(req.query),
   };
 
   // Enforce visibility rules based on role
@@ -88,11 +111,14 @@ const getPublicProducts = asyncHandler(async (req, res) => {
     page: parseInt(req.query.page) || 1,
     limit: parseInt(req.query.limit) || 20,
     category: req.query.category,
+    categoryId: req.query.categoryId,
+    subCategoryId: req.query.subCategoryId,
     search: req.query.search,
     minPrice: req.query.minPrice ? parseFloat(req.query.minPrice) : undefined,
     maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice) : undefined,
     sortBy: req.query.sortBy || "createdAt",
     sortOrder: req.query.sortOrder === "asc" ? 1 : -1,
+    rawQuery: pickDynamicQueryFilters(req.query),
   };
 
   const result = await productService.getPublicProducts(filters);

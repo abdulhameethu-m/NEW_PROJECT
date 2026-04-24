@@ -123,10 +123,15 @@ class VendorModuleService {
     }
   }
 
+  async ensureModulesInitialized() {
+    await this.initializeModules();
+  }
+
   /**
    * Get all vendor modules
    */
   async getAllModules() {
+    await this.ensureModulesInitialized();
     return await VendorModule.find().sort({ order: 1 });
   }
 
@@ -134,6 +139,7 @@ class VendorModuleService {
    * Get modules accessible to vendors (enabled both globally and for vendors)
    */
   async getVendorAccessibleModules(user) {
+    await this.ensureModulesInitialized();
     const modules = await VendorModule.find({
       enabled: true,
       vendorEnabled: true,
@@ -146,6 +152,7 @@ class VendorModuleService {
    * Get a specific module by key
    */
   async getModuleByKey(key) {
+    await this.ensureModulesInitialized();
     const module = await VendorModule.findOne({ key });
     if (!module) {
       throw new AppError(`Module '${key}' not found`, 404, "MODULE_NOT_FOUND");
@@ -290,6 +297,7 @@ class VendorModuleService {
    * ✅ Uses cache for performance (30s TTL)
    */
   async canVendorAccessModule(moduleKey, user) {
+    await this.ensureModulesInitialized();
     const normalizedPermissionFingerprint = JSON.stringify(user?.permissions || null);
     const cacheKey = `module:${moduleKey}:${normalizedPermissionFingerprint}`;
 
@@ -312,6 +320,7 @@ class VendorModuleService {
   }
 
   async canVendorPerformAction(moduleKey, action, user) {
+    await this.ensureModulesInitialized();
     const normalizedPermissionFingerprint = JSON.stringify(user?.permissions || null);
     const cacheKey = `module-action:${moduleKey}:${action}:${normalizedPermissionFingerprint}`;
     const cached = this._getFromCache(cacheKey);
@@ -329,6 +338,7 @@ class VendorModuleService {
    * Batch check multiple modules
    */
   async canVendorAccessModules(moduleKeys, user) {
+    await this.ensureModulesInitialized();
     const modules = await VendorModule.find({ key: { $in: moduleKeys } });
 
     const result = {};
@@ -341,6 +351,7 @@ class VendorModuleService {
   }
 
   async canVendorPerformActions(requestedPermissions, user) {
+    await this.ensureModulesInitialized();
     const results = {};
     const moduleKeys = [...new Set(requestedPermissions.map((permission) => permission.split(".")[0]))];
     const modules = await VendorModule.find({ key: { $in: moduleKeys } });
@@ -358,6 +369,7 @@ class VendorModuleService {
    * Get module stats for admin dashboard
    */
   async getModuleStats() {
+    await this.ensureModulesInitialized();
     const totalModules = await VendorModule.countDocuments();
     const enabledGlobally = await VendorModule.countDocuments({ enabled: true });
     const enabledForVendors = await VendorModule.countDocuments({ enabled: true, vendorEnabled: true });

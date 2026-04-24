@@ -33,3 +33,8 @@ export async function logoutAll() {
   const { data } = await api.post("/api/auth/logout-all");
   return data;
 }
+
+export async function updateThemePreference(theme) {
+  const { data } = await api.patch("/api/auth/preferences/theme", { theme });
+  return data;
+}

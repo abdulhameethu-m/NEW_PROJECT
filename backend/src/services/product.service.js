@@ -14,6 +14,10 @@ const {
   validateAndNormalizeModulesData,
   flattenModulesDataToAttributes,
 } = require("./attribute.service");
+const {
+  validateAndNormalizeFilterAttributes,
+  normalizeFilterQuery,
+} = require("./filter.service");
 
 function normalizeImage(image = {}) {
   return {
@@ -170,6 +174,11 @@ async function prepareDynamicProductData({
     subCategoryId,
     modulesData: normalizedModulesData,
   });
+  const normalizedFilterAttributes = await validateAndNormalizeFilterAttributes({
+    categoryId,
+    subCategoryId,
+    attributes,
+  });
   const normalizedImages = (Array.isArray(images) ? images : []).map(normalizeImage).filter((item) => item.url);
   const variantState = await normalizeProductVariants({
     categoryId,
@@ -180,7 +189,10 @@ async function prepareDynamicProductData({
 
   return {
     normalizedModulesData,
-    normalizedAttributes,
+    normalizedAttributes: {
+      ...normalizedAttributes,
+      ...normalizedFilterAttributes,
+    },
     normalizedImages,
     variantState,
   };
@@ -429,7 +441,17 @@ class ProductService {
    * Get public products (only approved and active)
    */
   async getPublicProducts(filters) {
-    return await productRepo.getPublicProducts(filters);
+    const { filterDefs, attributeFilters } = await normalizeFilterQuery({
+      categoryId: filters.categoryId,
+      subCategoryId: filters.subCategoryId,
+      query: filters.rawQuery || {},
+    });
+
+    return await productRepo.getPublicProducts({
+      ...filters,
+      attributeFilters,
+      filterDefs,
+    });
   }
 
   /**

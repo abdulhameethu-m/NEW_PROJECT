@@ -37,7 +37,9 @@ import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
 import { AdminSubcategoriesPage } from "./pages/AdminSubcategoriesPage";
 import { AdminAttributesPage } from "./pages/AdminAttributesPage";
+import { AdminFiltersPage } from "./pages/AdminFiltersPage";
 import { AdminProductModulesPage } from "./pages/AdminProductModulesPage";
+import { AdminContentPage } from "./pages/AdminContentPage";
 import AdminVendorAccessPage from "./pages/AdminVendorAccessPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminRolesPage } from "./pages/AdminRolesPage";
@@ -67,6 +69,8 @@ import { VendorNotificationsPage } from "./pages/VendorNotificationsPage";
 import { VendorReviewsPage } from "./pages/VendorReviewsPage";
 import { VendorReturnsPage } from "./pages/VendorReturnsPage";
 import { VendorOffersPage } from "./pages/VendorOffersPage";
+import { VendorContentPage } from "./pages/VendorContentPage";
+import { VendorFiltersPage } from "./pages/VendorFiltersPage";
 import { VendorSupportPage } from "./pages/VendorSupportPage";
 import { VendorSettingsPage } from "./pages/VendorSettingsPage";
 import { TermsAndConditionsPage } from "./pages/TermsAndConditionsPage";
@@ -136,6 +140,7 @@ export default function App() {
               <Route path="products" element={<VendorModuleRoute moduleKey="products"><VendorProductsPage /></VendorModuleRoute>} />
               <Route path="orders" element={<VendorModuleRoute moduleKey="orders"><VendorOrdersPage /></VendorModuleRoute>} />
               <Route path="inventory" element={<VendorModuleRoute moduleKey="inventory"><VendorInventoryPage /></VendorModuleRoute>} />
+              <Route path="filters" element={<VendorModuleRoute moduleKey="filters"><VendorFiltersPage /></VendorModuleRoute>} />
               <Route path="analytics" element={<VendorModuleRoute moduleKey="analytics"><VendorAnalyticsPage /></VendorModuleRoute>} />
               <Route path="payouts" element={<VendorModuleRoute moduleKey="payments"><VendorPayoutsPage /></VendorModuleRoute>} />
               <Route path="delivery" element={<VendorModuleRoute moduleKey="delivery"><VendorDeliveryPage /></VendorModuleRoute>} />
@@ -143,6 +148,7 @@ export default function App() {
               <Route path="reviews" element={<VendorModuleRoute moduleKey="reviews"><VendorReviewsPage /></VendorModuleRoute>} />
               <Route path="returns" element={<VendorModuleRoute moduleKey="returns"><VendorReturnsPage /></VendorModuleRoute>} />
               <Route path="offers" element={<VendorOffersPage />} />
+              <Route path="content" element={<VendorModuleRoute moduleKey="homepage_content"><VendorContentPage /></VendorModuleRoute>} />
               <Route path="support" element={<VendorSupportPage />} />
               <Route path="settings" element={<VendorSettingsPage />} />
             </Route>
@@ -161,7 +167,9 @@ export default function App() {
               <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="subcategories" element={<AdminSubcategoriesPage />} />
               <Route path="attributes" element={<AdminAttributesPage />} />
+              <Route path="filters" element={<AdminFiltersPage />} />
               <Route path="product-modules" element={<AdminProductModulesPage />} />
+              <Route path="content" element={<AdminContentPage />} />
               <Route path="vendor-access" element={<AdminVendorAccessPage />} />
               <Route path="products/create" element={<AdminProductCreate />} />
               <Route path="products/:id/edit" element={<AdminProductEdit />} />
@@ -192,6 +200,9 @@ export default function App() {
             </Route>
             <Route element={<StaffPermissionRoute permission="products.read" />}>
               <Route path="products" element={<StaffProductsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="filters.read" />}>
+              <Route path="filters" element={<AdminFiltersPage />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="reviews.read" />}>
               <Route path="reviews" element={<StaffReviewsPage />} />

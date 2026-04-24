@@ -28,6 +28,11 @@ const userSchema = new mongoose.Schema(
     status: { type: String, enum: USER_STATUS, default: "active", index: true },
     avatarUrl: { type: String, trim: true },
     preferences: {
+      theme: {
+        type: String,
+        enum: ["light", "dark"],
+        default: "light",
+      },
       notificationPreferences: {
         orderUpdates: { type: Boolean, default: true },
         deliveryAlerts: { type: Boolean, default: true },

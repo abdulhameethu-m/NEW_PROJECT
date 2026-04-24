@@ -5,6 +5,7 @@ const STAFF_PERMISSION_CATALOG = Object.freeze({
   payments: ["read", "refund"],
   payouts: ["read", "process"],
   reviews: ["read", "delete"],
+  filters: ["read", "create", "update", "delete"],
   analytics: ["read"],
   settings: ["update"],
   roles: ["read", "create", "update", "delete"],

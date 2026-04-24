@@ -57,6 +57,12 @@ export const useAuthStore = create((set, get) => ({
     }
     resetDarkModePreference();
   },
+
+  setUser: (user) => {
+    const nextState = { ...get(), user: user || null, isAuthenticated: Boolean(get().token) };
+    set(nextState);
+    save(nextState);
+  },
   
   getToken: () => get().token,
 }));

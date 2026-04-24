@@ -35,6 +35,7 @@ function normalizeUser(user) {
     status: user.status,
     avatarUrl: user.avatarUrl || null,
     preferences: user.preferences || {
+      theme: "light",
       notificationPreferences: {
         orderUpdates: true,
         deliveryAlerts: true,

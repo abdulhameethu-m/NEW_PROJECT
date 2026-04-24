@@ -5,6 +5,7 @@ import { DynamicAttributeField } from "./DynamicAttributeField";
 import { useCategories } from "../hooks/useCategories";
 import { getSubcategoriesByCategory } from "../services/subcategoryService";
 import { getAttributes } from "../services/attributeService";
+import { getFilters } from "../services/filterService";
 import { getProductModules } from "../services/productModuleService";
 import * as productService from "../services/productService";
 import {
@@ -122,6 +123,7 @@ export function ProductEditor({
   const [subcategories, setSubcategories] = useState([]);
   const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
   const [attributeGroups, setAttributeGroups] = useState({});
+  const [filterDefinitions, setFilterDefinitions] = useState([]);
   const [productModules, setProductModules] = useState([]);
   const [variantRows, setVariantRows] = useState([]);
   const [variantSelections, setVariantSelections] = useState({});
@@ -135,6 +137,10 @@ export function ProductEditor({
   const variantDefs = useMemo(
     () => sortedAttributeDefs.filter((item) => item.isVariant),
     [sortedAttributeDefs]
+  );
+  const productFilterDefs = useMemo(
+    () => sortDefinitions((filterDefinitions || []).filter((item) => !["price", "rating"].includes(item.key))),
+    [filterDefinitions]
   );
 
   useEffect(() => {
@@ -293,6 +299,42 @@ export function ProductEditor({
       cancelled = true;
     };
   }, [formData.categoryId, formData.subCategoryId, loadedVariantSnapshot, productModules]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFilters() {
+      if (!formData.categoryId) {
+        setFilterDefinitions([]);
+        return;
+      }
+
+      try {
+        const res = await getFilters({
+          categoryId: formData.categoryId,
+          subCategoryId: formData.subCategoryId || undefined,
+        });
+        const defs = Array.isArray(res?.data) ? res.data : [];
+        if (cancelled) return;
+        setFilterDefinitions(defs);
+        setFormData((prev) => {
+          const nextAttributes = { ...(prev.attributes || {}) };
+          for (const def of defs) {
+            if (["price", "rating"].includes(def.key)) continue;
+            if (nextAttributes[def.key] !== undefined) continue;
+            nextAttributes[def.key] = def.type === "checkbox" ? [] : "";
+          }
+          return { ...prev, attributes: nextAttributes };
+        });
+      } catch {
+        if (!cancelled) setFilterDefinitions([]);
+      }
+    }
+
+    loadFilters();
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.categoryId, formData.subCategoryId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -481,6 +523,16 @@ export function ProductEditor({
         SKU: formData.productNumber.toUpperCase(),
         productNumber: formData.productNumber.toUpperCase(),
         modulesData: formData.modulesData || {},
+        attributes: Object.fromEntries(
+          Object.entries(formData.attributes || {}).filter(([, value]) =>
+            !(
+              value === undefined ||
+              value === null ||
+              value === "" ||
+              (Array.isArray(value) && value.length === 0)
+            )
+          )
+        ),
         variants: normalizedVariantRows,
         lowStockThreshold: Number(formData.lowStockThreshold || 10),
         images: formData.images,
@@ -662,6 +714,37 @@ export function ProductEditor({
                   </div>
                 );
               })}
+            </div>
+          </section>
+        ) : null}
+
+        {productFilterDefs.length ? (
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Filter-ready attributes</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              These fields feed the storefront filter sidebar for this category and subcategory.
+            </p>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {productFilterDefs.map((filterDef) => (
+                <div key={filterDef._id || filterDef.key}>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    {filterDef.name}
+                  </label>
+                  <DynamicAttributeField
+                    attribute={filterDef}
+                    value={formData.attributes?.[filterDef.key]}
+                    onChange={(key, value) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        attributes: {
+                          ...(prev.attributes || {}),
+                          [key]: filterDef.type === "range" && value !== "" ? Number(value) : value,
+                        },
+                      }))
+                    }
+                  />
+                </div>
+              ))}
             </div>
           </section>
         ) : null}

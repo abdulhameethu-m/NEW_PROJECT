@@ -24,6 +24,7 @@ const PREDEFINED_ROLES = [
       users: { read: true, update: true },
       orders: { read: true, update: true },
       products: { read: true },
+      filters: { read: true },
       reviews: { read: true, delete: true },
       analytics: { read: true },
     }),
@@ -44,6 +45,7 @@ const PREDEFINED_ROLES = [
     permissions: normalizePermissions({
       orders: { read: true, update: true, cancel: true },
       products: { read: true, create: true, update: true, delete: true },
+      filters: { read: true, create: true, update: true },
       analytics: { read: true },
       settings: { update: true },
     }),

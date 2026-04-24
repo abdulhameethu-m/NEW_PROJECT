@@ -20,6 +20,7 @@ function normalizeUser(user) {
     status: user.status,
     avatarUrl: user.avatarUrl || null,
     preferences: user.preferences || {
+      theme: "light",
       notificationPreferences: {
         orderUpdates: true,
         deliveryAlerts: true,
@@ -221,6 +222,31 @@ async function me(userId) {
   return normalizeUser(user);
 }
 
+async function updateThemePreference(userId, theme, meta = {}) {
+  if (!["light", "dark"].includes(theme)) {
+    throw new AppError("Theme must be 'light' or 'dark'", 400, "VALIDATION_ERROR");
+  }
+
+  const user = await userRepo.findById(userId);
+  if (!user) throw new AppError("User not found", 404, "NOT_FOUND");
+
+  const updated = await userRepo.updateById(userId, {
+    "preferences.theme": theme,
+  });
+
+  await auditService.log({
+    actor: { _id: user._id, role: user.role },
+    action: "auth.theme.updated",
+    entityType: "User",
+    entityId: user._id,
+    metadata: { theme },
+    ipAddress: meta.ipAddress,
+    userAgent: meta.userAgent,
+  });
+
+  return normalizeUser(updated);
+}
+
 module.exports = {
   register,
   login,
@@ -228,4 +254,5 @@ module.exports = {
   logout,
   logoutAll,
   me,
+  updateThemePreference,
 };

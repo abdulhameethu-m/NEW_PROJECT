@@ -27,8 +27,10 @@ const {
 const categoryController = require("../controllers/category.controller");
 const subcategoryController = require("../controllers/subcategory.controller");
 const attributeController = require("../controllers/attribute.controller");
+const filterController = require("../controllers/filter.controller");
 const productModuleController = require("../controllers/product-module.controller");
 const { createAttributeSchema, updateAttributeSchema } = require("../utils/validators/attribute.validation");
+const { createFilterSchema, updateFilterSchema } = require("../utils/validators/filter.validation");
 const {
   createProductModuleSchema,
   updateProductModuleSchema,
@@ -138,6 +140,25 @@ router.put(
   attributeController.updateAttribute
 );
 router.delete("/attributes/:id", requireLegacyAdminPermission("categories:update"), attributeController.deleteAttribute);
+
+router.get("/filters", requireWorkspacePermission("filters.read", { legacyPermission: "filters:read" }), filterController.getAdminFilters);
+router.post(
+  "/filters",
+  requireWorkspacePermission("filters.create", { legacyPermission: "filters:create" }),
+  validate(createFilterSchema),
+  filterController.createFilter
+);
+router.put(
+  "/filters/:id",
+  requireWorkspacePermission("filters.update", { legacyPermission: "filters:update" }),
+  validate(updateFilterSchema),
+  filterController.updateFilter
+);
+router.delete(
+  "/filters/:id",
+  requireWorkspacePermission("filters.delete", { legacyPermission: "filters:delete" }),
+  filterController.deleteFilter
+);
 
 router.get("/product-modules", requireLegacyAdminPermission("categories:read"), productModuleController.getAdminProductModules);
 router.post(

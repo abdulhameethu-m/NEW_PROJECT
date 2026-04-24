@@ -40,6 +40,16 @@ export const STAFF_MODULES = [
     order: 3,
   },
   {
+    key: "filters",
+    name: "Filters",
+    description: "Manage storefront filter definitions and category mappings",
+    icon: "SlidersHorizontal",
+    route: "/staff/filters",
+    permission: "filters.read",
+    section: "management",
+    order: 4,
+  },
+  {
     key: "reviews",
     name: "Reviews",
     description: "Manage product reviews and customer ratings",
@@ -47,7 +57,7 @@ export const STAFF_MODULES = [
     route: "/staff/reviews",
     permission: "reviews.read",
     section: "management",
-    order: 4,
+    order: 5,
   },
   {
     key: "payments",
@@ -57,7 +67,7 @@ export const STAFF_MODULES = [
     route: "/staff/payments",
     permission: "payments.read",
     section: "finance",
-    order: 5,
+    order: 6,
   },
   {
     key: "payouts",
@@ -67,7 +77,7 @@ export const STAFF_MODULES = [
     route: "/staff/payouts",
     permission: "payouts.read",
     section: "finance",
-    order: 6,
+    order: 7,
   },
   {
     key: "analytics",
@@ -77,7 +87,7 @@ export const STAFF_MODULES = [
     route: "/staff/analytics",
     permission: "analytics.read",
     section: "finance",
-    order: 7,
+    order: 8,
   },
   {
     key: "settings",
@@ -87,7 +97,7 @@ export const STAFF_MODULES = [
     route: "/staff/settings",
     permission: "settings.update",
     section: "admin",
-    order: 8,
+    order: 9,
   },
   {
     key: "roles",
@@ -97,7 +107,7 @@ export const STAFF_MODULES = [
     route: "/staff/roles",
     permission: "roles.read",
     section: "admin",
-    order: 9,
+    order: 10,
   },
   {
     key: "staff",
@@ -107,7 +117,7 @@ export const STAFF_MODULES = [
     route: "/staff/staff",
     permission: "staff.read",
     section: "admin",
-    order: 10,
+    order: 11,
   },
 ];
 

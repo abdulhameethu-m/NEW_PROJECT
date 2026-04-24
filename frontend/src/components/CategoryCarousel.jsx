@@ -1,133 +1,85 @@
-import { useEffect, useRef, useState } from "react";
+import { memo } from "react";
+import { ArrowRight } from "lucide-react";
+import { MotionItem, MotionStagger } from "./home/AnimatedSection";
 
-export function CategoryCarousel({
+function CategoryCarouselComponent({
   categories: categoriesProp,
   onSelect,
   title = "Categories",
   loading = false,
 }) {
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
-  const scrollContainerRef = useRef(null);
   const categories = Array.isArray(categoriesProp) ? categoriesProp.filter(Boolean) : [];
 
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
-    }
-  };
-
-  const scroll = (direction) => {
-    if (scrollContainerRef.current) {
-      const scrollAmount = Math.max(240, Math.floor(scrollContainerRef.current.clientWidth * 0.75));
-      scrollContainerRef.current.scrollBy({
-        left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth",
-      });
-    }
-  };
-
-  useEffect(() => {
-    const raf = window.requestAnimationFrame(handleScroll);
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.addEventListener("scroll", handleScroll);
-      window.addEventListener("resize", handleScroll);
-      return () => {
-        window.cancelAnimationFrame(raf);
-        container.removeEventListener("scroll", handleScroll);
-        window.removeEventListener("resize", handleScroll);
-      };
-    }
-  }, [categories.length, loading]);
-
-  const onKeyDown = (event) => {
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      scroll("left");
-    }
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      scroll("right");
-    }
-  };
-
   return (
-    <div className="relative rounded-2xl border border-slate-200 bg-white py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:py-4">
-      <div className="flex items-center justify-between px-3 sm:px-4">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h2>
+    <section className="relative overflow-hidden rounded-[2rem] border border-slate-200/70 bg-gradient-to-br from-gray-50 via-white to-slate-100 p-5 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.22)] sm:p-6 lg:p-8 dark:border-white/10 dark:from-slate-900/90 dark:via-slate-900/80 dark:to-slate-800/80">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(165,180,252,0.22),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(221,214,254,0.32),transparent_34%)]" />
+
+      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-500/90">
+            Curated discovery
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-gray-900 dark:text-white lg:text-3xl">
+            {title}
+          </h2>
+          <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+            Browse thoughtfully grouped categories with a calmer visual system, stronger hierarchy, and refined micro-interactions.
+          </p>
+        </div>
+
+        {!loading && categories.length > 0 ? (
+          <div className="inline-flex items-center gap-2 self-start rounded-full border border-slate-200/80 bg-white/70 px-4 py-2 text-sm font-medium text-slate-500 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-300">
+            {categories.length} categories
+          </div>
+        ) : null}
       </div>
 
-      {canScrollLeft && !loading ? (
-        <button
-          onClick={() => scroll("left")}
-          type="button"
-          aria-label="Scroll categories left"
-          className="absolute left-2 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white/95 p-2 shadow-lg transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800/95 dark:hover:bg-slate-700 sm:inline-flex"
-        >
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-            <path d="M12.7 15.7a1 1 0 0 1-1.4 0l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 1 1 1.4 1.4L8.41 10l4.29 4.3a1 1 0 0 1 0 1.4Z" />
-          </svg>
-        </button>
-      ) : null}
-
-      <div
-        ref={scrollContainerRef}
-        className="scrollbar-hide mt-3 flex gap-3 overflow-x-auto px-3 pb-1 scroll-smooth snap-x snap-mandatory sm:gap-4 sm:px-4"
-        onKeyDown={onKeyDown}
-        tabIndex={0}
-        role="region"
-        aria-label="Category carousel"
+      <MotionStagger
+        once
+        stagger={0.06}
+        className="relative mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 lg:gap-5 xl:grid-cols-6"
       >
         {loading
           ? Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={index}
-                className="snap-start flex h-[96px] w-[86px] shrink-0 animate-pulse rounded-xl bg-slate-100 sm:w-[96px] dark:bg-slate-800"
+                className="h-[162px] animate-pulse rounded-2xl border border-slate-200/80 bg-white/70 p-5 shadow-md dark:border-white/10 dark:bg-slate-900/60"
               />
             ))
-          : categories.map((category) => {
-              const Icon = category.IconComponent;
-
-              return (
+          : categories.map((category) => (
+              <MotionItem key={category.id}>
                 <button
-                  key={category.id}
                   type="button"
                   onClick={() => onSelect?.(category)}
-                  className={`snap-start flex h-[96px] w-[86px] shrink-0 translate-y-0 flex-col items-center justify-center gap-2 rounded-xl bg-gradient-to-br px-2.5 py-3 text-white shadow-md transition duration-200 hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-[96px] sm:px-3 ${category.color}`}
+                  className="group relative flex h-full min-h-[162px] w-full cursor-pointer flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/60 p-5 text-center shadow-md backdrop-blur-md transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl active:scale-95 dark:border-white/10 dark:bg-slate-900/60"
                 >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/18">
-                    <CategoryIcon Icon={Icon} />
+                  <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-br opacity-90 ${category.color}`} />
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.72),transparent_44%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_38%)]" />
+
+                  <span className={`relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br shadow-sm transition-all duration-300 ease-in-out group-hover:scale-110 ${category.iconBg}`}>
+                    <CategoryIcon Icon={category.IconComponent} />
                   </span>
-                  <span className="line-clamp-2 text-center text-[11px] font-medium leading-4 sm:text-xs">
-                    {category.name}
-                  </span>
+
+                  <div className="relative space-y-2">
+                    <h3 className="text-sm font-semibold text-gray-800 dark:text-slate-100">
+                      {category.name}
+                    </h3>
+                    <div className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition-all duration-300 group-hover:text-indigo-600 dark:text-slate-400 dark:group-hover:text-indigo-300">
+                      Explore
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+                    </div>
+                  </div>
                 </button>
-              );
-            })}
+              </MotionItem>
+            ))}
 
         {!loading && categories.length === 0 ? (
-          <div className="flex min-h-[96px] w-full items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+          <div className="col-span-full flex min-h-[162px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400">
             No categories available
           </div>
         ) : null}
-      </div>
-
-      {canScrollRight && !loading ? (
-        <button
-          onClick={() => scroll("right")}
-          type="button"
-          aria-label="Scroll categories right"
-          className="absolute right-2 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white/95 p-2 shadow-lg transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800/95 dark:hover:bg-slate-700 sm:inline-flex"
-        >
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-            <path d="M7.3 4.3a1 1 0 0 1 1.4 0l5 5a1 1 0 0 1 0 1.4l-5 5a1 1 0 1 1-1.4-1.4L11.59 10 7.3 5.7a1 1 0 0 1 0-1.4Z" />
-          </svg>
-        </button>
-      ) : null}
-    </div>
+      </MotionStagger>
+    </section>
   );
 }
 
@@ -136,14 +88,16 @@ function CategoryIcon({ Icon }) {
     return null;
   }
 
-  const sample = <Icon className="h-5 w-5" />;
+  const sample = <Icon className="h-5 w-5 text-indigo-700 dark:text-indigo-200" />;
   if (sample?.type === "span") {
-    return sample;
+    return <span className="text-lg leading-none">{sample}</span>;
   }
 
   return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6 text-indigo-700 dark:text-indigo-200" aria-hidden="true">
       {sample}
     </svg>
   );
 }
+
+export const CategoryCarousel = memo(CategoryCarouselComponent);

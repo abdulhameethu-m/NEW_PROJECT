@@ -78,7 +78,7 @@ const vendorModuleSchema = new mongoose.Schema(
     metadata: {
       category: {
         type: String,
-        enum: ["operations", "sales", "finance", "analytics"],
+        enum: ["operations", "sales", "finance", "analytics", "marketing"],
         default: "operations",
       },
       beta: {

@@ -52,6 +52,10 @@ const pageMeta = {
     title: "Discounts & Offers",
     subtitle: "Launch time-bound promotions and vendor-specific campaigns.",
   },
+  "/vendor/content": {
+    title: "Homepage Content",
+    subtitle: "Create promotional banners and content to showcase on the homepage.",
+  },
   "/vendor/support": {
     title: "Support",
     subtitle: "Open tickets with your operations team and keep a message history.",

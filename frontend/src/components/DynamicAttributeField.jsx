@@ -55,6 +55,53 @@ export function DynamicAttributeField({ attribute, value, onChange }) {
     );
   }
 
+  if (attribute.type === "checkbox") {
+    const selected = Array.isArray(value) ? value : [];
+    return (
+      <div className="mt-2 flex flex-wrap gap-2">
+        {(attribute.options || []).map((option) => {
+          const checked = selected.includes(option);
+          return (
+            <label
+              key={option}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={(event) =>
+                  onChange(
+                    attribute.key,
+                    event.target.checked
+                      ? [...selected, option]
+                      : selected.filter((item) => item !== option)
+                  )
+                }
+              />
+              {option}
+            </label>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (attribute.type === "range") {
+    return (
+      <input
+        type="number"
+        min={attribute.rangeConfig?.min}
+        max={attribute.rangeConfig?.max}
+        step={attribute.rangeConfig?.step || 1}
+        value={value ?? ""}
+        onChange={(event) => onChange(attribute.key, event.target.value)}
+        className={commonClass}
+        required={attribute.required}
+        placeholder={attribute.placeholder || attribute.name}
+      />
+    );
+  }
+
   if (attribute.type === "boolean") {
     return (
       <select

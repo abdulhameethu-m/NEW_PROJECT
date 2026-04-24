@@ -25,5 +25,6 @@ router.post("/refresh", authController.refresh);
 router.post("/logout", authOptional, authController.logout);
 router.post("/logout-all", authRequired, authController.logoutAll);
 router.get("/me", authRequired, authController.me);
+router.patch("/preferences/theme", authRequired, authController.updateThemePreference);
 
 module.exports = router;

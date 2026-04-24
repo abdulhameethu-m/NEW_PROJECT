@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useAuthStore } from "../context/authStore";
+import { updateThemePreference as persistThemePreference } from "../services/authService";
 
 const DARK_MODE_KEY = "darkMode";
 
@@ -11,47 +13,86 @@ export function resetDarkModePreference() {
   document.documentElement.classList.remove("dark");
 }
 
-/**
- * useDarkMode Hook
- * 
- * Manages dark mode state across the entire app
- * - Loads preference from localStorage on init
- * - Applies/removes dark class from document
- * - Syncs across browser tabs
- * 
- * @returns {[boolean, (value: boolean) => void]} - [isDarkMode, setDarkMode]
- */
-export function useDarkMode() {
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Load from localStorage on init
+function getStoredTheme() {
+  try {
     const saved = localStorage.getItem(DARK_MODE_KEY);
-    if (saved !== null) return saved === "true";
-    
-    // Check system preference
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (saved !== null) {
+      return saved === "true" ? "dark" : "light";
+    }
+  } catch {
+    // ignore
+  }
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+export function useDarkMode() {
+  const user = useAuthStore((state) => state.user);
+  const setUser = useAuthStore((state) => state.setUser);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const accountTheme = useAuthStore.getState().user?.preferences?.theme;
+    return (accountTheme || getStoredTheme()) === "dark";
   });
 
-  // Sync dark mode with DOM and localStorage
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+    if (user?.preferences?.theme) {
+      setIsDarkMode(user.preferences.theme === "dark");
+      return;
     }
-    localStorage.setItem(DARK_MODE_KEY, isDarkMode ? "true" : "false");
-  }, [isDarkMode]);
 
-  // Listen for storage changes in other tabs
+    setIsDarkMode(getStoredTheme() === "dark");
+  }, [user?._id, user?.preferences?.theme]);
+
   useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === DARK_MODE_KEY) {
-        setIsDarkMode(e.newValue === "true");
+    document.documentElement.classList.toggle("dark", isDarkMode);
+
+    if (!user?._id) {
+      try {
+        localStorage.setItem(DARK_MODE_KEY, isDarkMode ? "true" : "false");
+      } catch {
+        // ignore
+      }
+    }
+  }, [isDarkMode, user?._id]);
+
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key === DARK_MODE_KEY && !user?._id) {
+        setIsDarkMode(event.newValue === "true");
       }
     };
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  }, [user?._id]);
 
-  return [isDarkMode, setIsDarkMode];
+  const setDarkMode = (value) => {
+    const nextValue = typeof value === "function" ? value(isDarkMode) : Boolean(value);
+    const nextTheme = nextValue ? "dark" : "light";
+
+    setIsDarkMode(nextValue);
+
+    if (!user?._id) {
+      try {
+        localStorage.setItem(DARK_MODE_KEY, nextValue ? "true" : "false");
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    setUser({
+      ...user,
+      preferences: {
+        ...(user.preferences || {}),
+        theme: nextTheme,
+      },
+    });
+
+    persistThemePreference(nextTheme).catch(() => {
+      setIsDarkMode((user.preferences?.theme || "light") === "dark");
+    });
+  };
+
+  return [isDarkMode, setDarkMode];
 }

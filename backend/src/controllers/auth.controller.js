@@ -52,4 +52,12 @@ const me = asyncHandler(async (req, res) => {
   return ok(res, user, "OK");
 });
 
-module.exports = { register, login, refresh, logout, logoutAll, me };
+const updateThemePreference = asyncHandler(async (req, res) => {
+  const user = await authService.updateThemePreference(req.user.sub, req.body?.theme, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, user, "Theme updated");
+});
+
+module.exports = { register, login, refresh, logout, logoutAll, me, updateThemePreference };

@@ -11,6 +11,7 @@ import {
   CreditCard,
   BarChart3,
   Package2,
+  SlidersHorizontal,
   RotateCcw,
   Star,
   ShoppingCart,
@@ -24,6 +25,7 @@ const MODULE_ICONS = {
   payments: CreditCard,
   analytics: BarChart3,
   inventory: Package2,
+  filters: SlidersHorizontal,
   returns: RotateCcw,
   reviews: Star,
 };

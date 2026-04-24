@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import {
+  Heart,
+  MapPin,
+  MoonStar,
+  ShoppingCart,
+  SunMedium,
+  UserRound,
+} from "lucide-react";
 import { useAuthStore } from "../context/authStore";
 import { UserMenu } from "./UserMenu";
 import { Footer } from "./Footer";
@@ -10,7 +18,7 @@ import * as cartService from "../services/cartService";
 
 export function Layout() {
   const user = useAuthStore((s) => s.user);
-  const [isDarkMode] = useDarkMode();
+  const [isDarkMode, setIsDarkMode] = useDarkMode();
   const location = useLocation();
   const [cartCount, setCartCount] = useState(0);
   const isAdminRoute =
@@ -19,14 +27,11 @@ export function Layout() {
   const isVendorWorkspace = location.pathname.startsWith("/vendor/");
   const isStaffWorkspace = location.pathname.startsWith("/staff/");
   const showShopActions = user?.role === "user";
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [isDarkMode]);
+  const navItems = [
+    { label: "Home", href: "/" },
+    { label: "Shop", href: "/shop" },
+    { label: "Track order", href: showShopActions ? "/orders" : "/dashboard" },
+  ];
 
   useEffect(() => {
     let cancelled = false;
@@ -67,50 +72,93 @@ export function Layout() {
   }, [location.pathname, showShopActions]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-white text-slate-900 transition-colors dark:bg-slate-950 dark:text-white">
+    <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.16),_transparent_34%),linear-gradient(to_bottom,_#ffffff,_#f8fafc_32%,_#eef2ff_100%)] text-slate-900 transition-colors dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_30%),linear-gradient(to_bottom,_#020617,_#020617_28%,_#0f172a_100%)] dark:text-white">
       {!isAdminRoute && !isVendorWorkspace && !isStaffWorkspace ? (
-        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
-          <div className="mx-auto w-full max-w-7xl px-3 py-2 sm:px-4 sm:py-3">
-            {/* Mobile Header: Logo + User Menu */}
-            <div className="flex flex-col gap-3 md:gap-4">
-              <div className="flex items-center justify-between gap-2">
-                <Link to="/" className="block truncate text-base font-bold tracking-tight text-slate-950 dark:text-white sm:text-lg flex-shrink-0">
+        <header className="sticky top-0 z-30 border-b border-white/50 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60">
+          <div className="mx-auto w-full max-w-[88rem] px-3 py-3 sm:px-4 lg:px-8">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap">
+                <Link
+                  to="/"
+                  className="inline-flex min-w-fit items-center gap-3 rounded-full border border-white/60 bg-white/75 px-4 py-2.5 text-base font-semibold tracking-[-0.03em] text-slate-950 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-slate-900/70 dark:text-white"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 via-violet-500 to-orange-400 text-sm font-bold text-white">
+                    U
+                  </span>
                   UChooseMe
                 </Link>
 
-                <div className="flex flex-shrink-0 items-center gap-2 ml-auto">
-                  {showShopActions ? (
-                    <>
+                <div className="order-3 w-full lg:order-none lg:flex-1">
+                  <div className="group mx-auto w-full max-w-3xl transition-all duration-300 focus-within:max-w-[52rem]">
+                    <SearchBar />
+                  </div>
+                </div>
+
+                <nav className="hidden items-center gap-1 rounded-full border border-white/60 bg-white/70 p-1 backdrop-blur dark:border-white/10 dark:bg-slate-900/65 lg:flex">
+                  {navItems.map((item) => {
+                    const isActive =
+                      location.pathname === item.href ||
+                      (item.href !== "/" && location.pathname.startsWith(item.href));
+
+                    return (
                       <Link
-                        to="/shop"
-                        className="inline-flex rounded-lg border border-slate-200 px-2 py-2 sm:px-3 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                        key={item.href}
+                        to={item.href}
+                        className={`group relative rounded-full px-4 py-2 text-sm font-medium transition ${
+                          isActive
+                            ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+                            : "text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white"
+                        }`}
                       >
-                        Shop
+                        {item.label}
+                        {!isActive ? (
+                          <span className="absolute inset-x-4 bottom-1 h-px origin-left scale-x-0 bg-current transition duration-300 group-hover:scale-x-100" />
+                        ) : null}
                       </Link>
-                      <Link
-                        to="/cart"
-                        className="relative inline-flex items-center rounded-lg border border-slate-200 px-2 py-2 sm:px-3 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                        aria-label={`Cart with ${cartCount} items`}
-                      >
-                        <span>Cart</span>
-                        <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[color:var(--commerce-accent)] px-1.5 text-[10px] font-semibold text-white">
-                          {cartCount}
-                        </span>
-                      </Link>
-                    </>
-                  ) : null}
+                    );
+                  })}
+                </nav>
+
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsDarkMode(!isDarkMode)}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/75 text-slate-600 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur transition hover:text-slate-950 active:scale-95 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:text-white"
+                    aria-label={isDarkMode ? "Enable light mode" : "Enable dark mode"}
+                  >
+                    {isDarkMode ? <SunMedium className="h-4.5 w-4.5" /> : <MoonStar className="h-4.5 w-4.5" />}
+                  </button>
+
+                  <div className="hidden xl:block xl:w-[280px]">
+                    <div className="rounded-full border border-white/60 bg-white/75 p-1 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-slate-900/70">
+                      <LocationSelector />
+                    </div>
+                  </div>
+
                   {user ? (
-                    <UserMenu />
+                    <>
+                      {showShopActions ? (
+                        <>
+                          <HeaderIconLink to="/wishlist" label="Wishlist" badge={null}>
+                            <Heart className="h-4.5 w-4.5" />
+                          </HeaderIconLink>
+                          <HeaderIconLink to="/cart" label="Cart" badge={cartCount}>
+                            <ShoppingCart className="h-4.5 w-4.5" />
+                          </HeaderIconLink>
+                        </>
+                      ) : null}
+                      <UserMenu />
+                    </>
                   ) : (
                     <>
                       <Link
-                        className="hidden text-xs sm:text-sm text-slate-700 hover:underline dark:text-slate-200 sm:inline"
+                        className="hidden rounded-full px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white/60 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900/70 dark:hover:text-white sm:inline-flex"
                         to="/login"
                       >
                         Login
                       </Link>
                       <Link
-                        className="inline-flex rounded-lg bg-blue-600 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium text-white hover:bg-blue-700"
+                        className="inline-flex rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_16px_40px_-20px_rgba(129,140,248,0.9)] transition hover:shadow-[0_24px_60px_-20px_rgba(129,140,248,0.95)] active:scale-95"
                         to="/role"
                       >
                         Start
@@ -120,25 +168,61 @@ export function Layout() {
                 </div>
               </div>
 
-              {/* Search Bar - Full width on mobile */}
-              <div className="w-full">
-                <SearchBar />
-              </div>
-
-              {/* Location Selector - Full width on mobile, constrained on desktop */}
-              <div className="w-full md:max-w-xs lg:max-w-sm">
-                <LocationSelector />
+              <div className="flex items-center justify-between gap-3 xl:hidden">
+                <div className="min-w-0 flex-1 rounded-full border border-white/60 bg-white/75 p-1 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-slate-900/70">
+                  <LocationSelector />
+                </div>
+                {user ? (
+                  <Link
+                    to={showShopActions ? "/wishlist" : "/profile"}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/75 text-slate-600 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur transition hover:text-slate-950 active:scale-95 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:text-white"
+                    aria-label={showShopActions ? "Saved items" : "Profile"}
+                  >
+                    {showShopActions ? <Heart className="h-4.5 w-4.5" /> : <UserRound className="h-4.5 w-4.5" />}
+                  </Link>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/75 text-slate-600 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur transition hover:text-slate-950 active:scale-95 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:text-white"
+                    aria-label="Login"
+                  >
+                    <MapPin className="h-4.5 w-4.5" />
+                  </Link>
+                )}
               </div>
             </div>
           </div>
         </header>
       ) : null}
 
-      <main className={isAdminRoute || isVendorWorkspace || isStaffWorkspace ? "flex-1" : "mx-auto w-full max-w-6xl flex-1 px-3 py-4 sm:px-4 sm:py-6 lg:py-8"}>
+      <main
+        className={
+          isAdminRoute || isVendorWorkspace || isStaffWorkspace
+            ? "flex-1"
+            : "mx-auto w-full max-w-[88rem] flex-1 px-3 py-5 sm:px-4 sm:py-7 lg:px-8 lg:py-10"
+        }
+      >
         <Outlet />
       </main>
 
       {!isAdminRoute && !isVendorWorkspace && !isStaffWorkspace ? <Footer /> : null}
     </div>
+  );
+}
+
+function HeaderIconLink({ to, label, badge, children }) {
+  return (
+    <Link
+      to={to}
+      aria-label={label}
+      className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/75 text-slate-600 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur transition hover:-translate-y-0.5 hover:text-slate-950 active:scale-95 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:text-white"
+    >
+      {children}
+      {badge ? (
+        <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-1 text-[10px] font-semibold text-white">
+          {badge}
+        </span>
+      ) : null}
+    </Link>
   );
 }

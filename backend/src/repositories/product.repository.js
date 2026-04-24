@@ -5,6 +5,164 @@ function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function getAttributePath(key) {
+  return `attributes.${key}`;
+}
+
+function buildProductQuery({
+  category,
+  categoryId,
+  subCategoryId,
+  status,
+  isActive,
+  sellerId,
+  creatorType,
+  search,
+  minPrice,
+  maxPrice,
+  attributeFilters = {},
+  startDate,
+  endDate,
+} = {}) {
+  const query = {};
+
+  if (category) query.category = category;
+  if (categoryId) query.categoryId = categoryId;
+  if (subCategoryId) query.subCategoryId = subCategoryId;
+  if (status) query.status = status;
+  if (isActive !== undefined) query.isActive = isActive;
+  if (sellerId) query.sellerId = sellerId;
+  if (creatorType) query.creatorType = creatorType;
+
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    query.price = {};
+    if (minPrice !== undefined) query.price.$gte = minPrice;
+    if (maxPrice !== undefined) query.price.$lte = maxPrice;
+  }
+
+  if (search) {
+    query.name = { $regex: escapeRegex(search.trim()), $options: "i" };
+  }
+
+  for (const [key, rawValue] of Object.entries(attributeFilters || {})) {
+    const path = key === "price" ? "price" : key === "rating" ? "ratings.averageRating" : getAttributePath(key);
+    if (Array.isArray(rawValue) && rawValue.length) {
+      query[path] = { $in: rawValue };
+      continue;
+    }
+
+    if (rawValue && typeof rawValue === "object" && (rawValue.min !== undefined || rawValue.max !== undefined)) {
+      query[path] = {};
+      if (rawValue.min !== undefined) query[path].$gte = rawValue.min;
+      if (rawValue.max !== undefined) query[path].$lte = rawValue.max;
+      continue;
+    }
+
+    if (rawValue !== undefined && rawValue !== null && rawValue !== "") {
+      query[path] = rawValue;
+    }
+  }
+
+  applyDateRange(query, normalizeDateRange({ startDate, endDate }));
+  return query;
+}
+
+function omitAttributeFilter(attributeFilters = {}, filterKey = "") {
+  return Object.fromEntries(Object.entries(attributeFilters).filter(([key]) => key !== filterKey));
+}
+
+async function buildFacetPayload(filterDefs = [], baseFilters = {}) {
+  if (!Array.isArray(filterDefs) || filterDefs.length === 0) {
+    return [];
+  }
+
+  return await Promise.all(filterDefs.map(async (filterDef) => {
+    const scopedQuery = buildProductQuery({
+      ...baseFilters,
+      attributeFilters: omitAttributeFilter(baseFilters.attributeFilters, filterDef.key),
+    });
+
+    if (filterDef.type === "range") {
+      const targetPath = filterDef.key === "price" ? "$price" : `$${getAttributePath(filterDef.key)}`;
+      const [rangeStats] = await Product.aggregate([
+        { $match: scopedQuery },
+        {
+          $group: {
+            _id: null,
+            min: { $min: targetPath },
+            max: { $max: targetPath },
+          },
+        },
+      ]);
+
+      return {
+        key: filterDef.key,
+        type: filterDef.type,
+        min: Number.isFinite(rangeStats?.min) ? rangeStats.min : filterDef.rangeConfig?.min ?? 0,
+        max: Number.isFinite(rangeStats?.max) ? rangeStats.max : filterDef.rangeConfig?.max ?? 0,
+        step: filterDef.rangeConfig?.step ?? 1,
+        unit: filterDef.unit || "",
+      };
+    }
+
+    const [countBuckets] = await Product.aggregate([
+      { $match: scopedQuery },
+      {
+        $project: {
+          rawValue: `$${getAttributePath(filterDef.key)}`,
+        },
+      },
+      {
+        $project: {
+          values: {
+            $cond: [
+              { $isArray: "$rawValue" },
+              "$rawValue",
+              {
+                $cond: [
+                  {
+                    $or: [{ $eq: ["$rawValue", null] }, { $eq: ["$rawValue", ""] }],
+                  },
+                  [],
+                  ["$rawValue"],
+                ],
+              },
+            ],
+          },
+        },
+      },
+      { $unwind: "$values" },
+      {
+        $group: {
+          _id: "$values",
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          options: {
+            $push: {
+              value: "$_id",
+              count: "$count",
+            },
+          },
+        },
+      },
+    ]);
+
+    const optionCountMap = new Map((countBuckets?.options || []).map((item) => [String(item.value), Number(item.count || 0)]));
+    return {
+      key: filterDef.key,
+      type: filterDef.type,
+      options: (filterDef.options || []).map((option) => ({
+        value: option,
+        count: optionCountMap.get(String(option)) || 0,
+      })),
+    };
+  }));
+}
+
 class ProductRepository {
   // Create a new product
   async create(productData) {
@@ -35,6 +193,8 @@ class ProductRepository {
     page = 1,
     limit = 20,
     category,
+    categoryId,
+    subCategoryId,
     status,
     isActive,
     sellerId,
@@ -44,34 +204,31 @@ class ProductRepository {
     sortOrder = -1,
     minPrice,
     maxPrice,
+    attributeFilters = {},
+    filterDefs = [],
     startDate,
     endDate,
   } = {}) {
-    const query = {};
-
-    if (category) query.category = category;
-    if (status) query.status = status;
-    if (isActive !== undefined) query.isActive = isActive;
-    if (sellerId) query.sellerId = sellerId;
-    if (creatorType) query.creatorType = creatorType;
-
-    // Price range filter
-    if (minPrice !== undefined || maxPrice !== undefined) {
-      query.price = {};
-      if (minPrice !== undefined) query.price.$gte = minPrice;
-      if (maxPrice !== undefined) query.price.$lte = maxPrice;
-    }
-
-    if (search) {
-      query.name = { $regex: escapeRegex(search.trim()), $options: "i" };
-    }
-
-    applyDateRange(query, normalizeDateRange({ startDate, endDate }));
+    const query = buildProductQuery({
+      category,
+      categoryId,
+      subCategoryId,
+      status,
+      isActive,
+      sellerId,
+      creatorType,
+      search,
+      minPrice,
+      maxPrice,
+      attributeFilters,
+      startDate,
+      endDate,
+    });
 
     const skip = (page - 1) * limit;
     const sortObj = { [sortBy]: sortOrder };
 
-    const [products, total] = await Promise.all([
+    const [products, total, facets] = await Promise.all([
       Product.find(query)
         .populate("sellerId", "companyName location")
         .populate("createdBy", "name email")
@@ -79,10 +236,26 @@ class ProductRepository {
         .skip(skip)
         .limit(limit),
       Product.countDocuments(query),
+      buildFacetPayload(filterDefs, {
+        category,
+        categoryId,
+        subCategoryId,
+        status,
+        isActive,
+        sellerId,
+        creatorType,
+        search,
+        minPrice,
+        maxPrice,
+        attributeFilters,
+        startDate,
+        endDate,
+      }),
     ]);
 
     return {
       products,
+      facets,
       pagination: {
         total,
         page,
@@ -97,16 +270,22 @@ class ProductRepository {
     page = 1,
     limit = 20,
     category,
+    categoryId,
+    subCategoryId,
     search,
     sortBy = "createdAt",
     sortOrder = -1,
     minPrice,
     maxPrice,
+    attributeFilters = {},
+    filterDefs = [],
   } = {}) {
     return this.list({
       page,
       limit,
       category,
+      categoryId,
+      subCategoryId,
       status: "APPROVED",
       isActive: true,
       search,
@@ -114,6 +293,8 @@ class ProductRepository {
       sortOrder,
       minPrice,
       maxPrice,
+      attributeFilters,
+      filterDefs,
     });
   }
 

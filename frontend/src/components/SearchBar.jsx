@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { Search, Sparkles, X } from "lucide-react";
 import * as productService from "../services/productService";
 import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
 
-export function SearchBar() {
+export function SearchBar({ className = "" }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -53,22 +54,23 @@ export function SearchBar() {
   }, []);
 
   return (
-    <div className="relative w-full" ref={searchRef}>
+    <div ref={searchRef} className={`group relative mx-auto w-full max-w-4xl ${className}`.trim()}>
       <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true">
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <circle cx="9" cy="9" r="5.5" />
-            <path strokeLinecap="round" d="m14 14 3.5 3.5" />
-          </svg>
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition group-focus-within:text-indigo-500" aria-hidden="true">
+          <Search className="h-4 w-4" />
         </span>
         <input
           type="text"
-          placeholder="Search products by first letter or name..."
+          placeholder="Search for curated essentials, trending drops, and more"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => searchQuery.trim().length > 0 && setShowResults(true)}
-          className="w-full rounded-xl border border-slate-300 bg-white py-2 sm:py-2.5 pl-9 pr-10 text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          className="w-full rounded-full border border-slate-200/80 bg-white/95 py-3.5 pl-11 pr-24 text-sm text-slate-900 shadow-[0_14px_40px_-28px_rgba(15,23,42,0.5)] outline-none transition duration-300 placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-100 dark:border-white/10 dark:bg-slate-900/80 dark:text-white dark:focus:border-indigo-400/30 dark:focus:ring-indigo-500/10 sm:pr-32"
         />
+        <span className="pointer-events-none absolute right-12 top-1/2 hidden -translate-y-1/2 rounded-full border border-slate-200 bg-white/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 backdrop-blur sm:inline-flex dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-500">
+          <Sparkles className="mr-1 h-3 w-3" />
+          AI find
+        </span>
         {searchQuery && (
           <button
             type="button"
@@ -77,32 +79,30 @@ export function SearchBar() {
               setResults([]);
               setShowResults(false);
             }}
-            className="absolute right-2 top-1/2 inline-flex h-7 w-7 sm:h-8 sm:w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 flex-shrink-0"
+            className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
           >
-            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-              <path strokeLinecap="round" d="M5 5l10 10M15 5 5 15" />
-            </svg>
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
       {showResults && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-2 max-h-80 sm:max-h-96 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
+        <div className="absolute left-0 right-0 top-full z-50 mt-3 max-h-[28rem] overflow-y-auto rounded-[1.75rem] border border-slate-200/80 bg-white/95 p-2 shadow-[0_35px_100px_-45px_rgba(15,23,42,0.5)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
           {loading && (
-            <div className="p-3 sm:p-4 text-center text-xs sm:text-sm text-slate-500">
+            <div className="p-4 text-center text-sm text-slate-500">
               Searching...
             </div>
           )}
 
           {!loading && results.length === 0 && searchQuery.trim().length > 0 && (
-            <div className="p-3 sm:p-4 text-center text-xs sm:text-sm text-slate-500">
+            <div className="p-4 text-center text-sm text-slate-500">
               No products found
             </div>
           )}
 
           {!loading && results.length > 0 && (
             <>
-              <div className="divide-y divide-slate-200 dark:divide-slate-700">
+              <div className="divide-y divide-slate-100 dark:divide-white/5">
                 {results.map((product) => (
                   <Link
                     key={product._id}
@@ -112,9 +112,9 @@ export function SearchBar() {
                       setResults([]);
                       setShowResults(false);
                     }}
-                    className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 transition hover:bg-slate-50 dark:hover:bg-slate-700 min-h-12"
+                    className="flex min-h-14 items-center gap-3 rounded-2xl p-3 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
-                    <div className="h-12 w-12 flex-none overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="h-14 w-14 flex-none overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
                       {product.images?.[0]?.url ? (
                         <img
                           src={resolveApiAssetUrl(product.images[0].url)}
@@ -124,11 +124,11 @@ export function SearchBar() {
                         />
                       ) : null}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="truncate text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
                         {product.name}
                       </h4>
-                      <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         {formatCurrency(product.price)}
                       </p>
                     </div>
@@ -143,7 +143,7 @@ export function SearchBar() {
                   setResults([]);
                   setShowResults(false);
                 }}
-                className="block border-t border-slate-200 p-3 sm:p-4 text-center text-xs sm:text-sm font-semibold text-blue-600 hover:bg-slate-50 dark:border-slate-700 dark:text-blue-400 dark:hover:bg-slate-700"
+                className="mt-2 block rounded-2xl bg-slate-950 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
               >
                 View all results
               </Link>

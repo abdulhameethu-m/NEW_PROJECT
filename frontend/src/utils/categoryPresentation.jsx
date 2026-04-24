@@ -2,14 +2,25 @@
 import { useMemo } from "react";
 
 const categoryColorClasses = [
-  "from-blue-500 to-cyan-500",
-  "from-violet-500 to-purple-500",
-  "from-emerald-500 to-teal-500",
-  "from-amber-500 to-orange-500",
-  "from-pink-500 to-rose-500",
-  "from-indigo-500 to-blue-600",
-  "from-fuchsia-500 to-pink-500",
-  "from-lime-500 to-green-500",
+  "from-indigo-100 via-indigo-50 to-white",
+  "from-purple-100 via-fuchsia-50 to-white",
+  "from-slate-100 via-gray-50 to-white",
+  "from-violet-100 via-purple-50 to-white",
+  "from-stone-100 via-zinc-50 to-white",
+  "from-blue-100 via-indigo-50 to-white",
+  "from-neutral-100 via-gray-50 to-white",
+  "from-lavender-100 via-violet-50 to-white",
+];
+
+const categoryIconBgClasses = [
+  "from-indigo-100 to-purple-100",
+  "from-slate-100 to-slate-200",
+  "from-violet-100 to-fuchsia-100",
+  "from-blue-100 to-indigo-100",
+  "from-gray-100 to-zinc-100",
+  "from-purple-100 to-violet-100",
+  "from-stone-100 to-neutral-100",
+  "from-indigo-50 to-purple-100",
 ];
 
 function IconDevice() {
@@ -56,10 +67,11 @@ function getHashIndex(value, size) {
 }
 
 export function getCategoryColor(category) {
-  if (category?.color?.trim()) {
-    return category.color.trim();
-  }
   return categoryColorClasses[getHashIndex(category?.slug || category?.name, categoryColorClasses.length)];
+}
+
+export function getCategoryIconBackground(category) {
+  return categoryIconBgClasses[getHashIndex(category?.slug || category?.name, categoryIconBgClasses.length)];
 }
 
 export function getCategoryIconComponent(category) {
@@ -79,6 +91,7 @@ export function usePresentedCategories(categories) {
         ...category,
         id: category._id || category.id || category.slug || category.name,
         color: getCategoryColor(category),
+        iconBg: getCategoryIconBackground(category),
         IconComponent: getCategoryIconComponent(category),
       })),
     [categories]

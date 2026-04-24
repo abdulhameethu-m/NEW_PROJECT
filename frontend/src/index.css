@@ -1,6 +1,12 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
 
 html,
 body {
@@ -8,17 +14,47 @@ body {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900;
+  font-family: "Manrope", sans-serif;
+  @apply bg-slate-50 text-slate-900 antialiased;
 }
 
 :root {
   --commerce-accent: #0f766e;
   --commerce-accent-soft: rgba(15, 118, 110, 0.08);
   --commerce-accent-warm: #fbbf24;
+  --surface-glow: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(236, 72, 153, 0.08));
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+}
+
+::selection {
+  background: rgba(99, 102, 241, 0.22);
+  color: inherit;
 }
 
 #root {
   min-height: 100%;
+}
+
+.animate-ripple {
+  animation: ripple 0.65s ease-out forwards;
+}
+
+@keyframes ripple {
+  from {
+    transform: scale(0);
+    opacity: 0.7;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
 }
 
 .app-date-range-picker {

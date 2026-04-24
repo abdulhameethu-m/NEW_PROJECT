@@ -155,6 +155,44 @@ const VENDOR_MODULE_CONFIG = {
       },
     },
   },
+
+  homepage_content: {
+    key: "homepage_content",
+    name: "Homepage Content",
+    description: "Create and manage homepage banners and promotional content",
+    icon: "Image",
+    category: "marketing",
+    requiredPermission: "homepage_content:read",
+    default: {
+      enabled: true,
+      vendorEnabled: true,
+      vendorPermissions: {
+        create: true,
+        read: true,
+        update: true,
+        delete: true,
+      },
+    },
+  },
+
+  filters: {
+    key: "filters",
+    name: "Filters",
+    description: "View dynamic product filters and category-based filter mappings",
+    icon: "SlidersHorizontal",
+    category: "operations",
+    requiredPermission: "filters:read",
+    default: {
+      enabled: true,
+      vendorEnabled: true,
+      vendorPermissions: {
+        create: false,
+        read: true,
+        update: false,
+        delete: false,
+      },
+    },
+  },
 };
 
 /**

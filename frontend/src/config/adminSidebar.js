@@ -3,6 +3,7 @@ import {
   Boxes,
   FileSearch,
   FolderTree,
+  SlidersHorizontal,
   Settings,
   ShieldCheck,
   ShoppingBag,
@@ -102,6 +103,12 @@ export const ADMIN_SIDEBAR_CONFIG = [
         permission: "categories.read",
         icon: Boxes,
         legacyOnly: true,
+      },
+      {
+        name: "Filters",
+        path: "/admin/filters",
+        permission: "filters.read",
+        icon: SlidersHorizontal,
       },
       {
         name: "Vendor Access",

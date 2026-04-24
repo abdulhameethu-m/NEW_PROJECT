@@ -9,6 +9,9 @@ function errorHandler(err, req, res, next) {
   if (err && err.message === "UNSUPPORTED_FILE_TYPE") {
     err = new AppError("Unsupported file type", 400, "FILE_TYPE");
   }
+  if (err && (err.type === "entity.too.large" || err.status === 413)) {
+    err = new AppError("Uploaded media is too large", 413, "PAYLOAD_TOO_LARGE");
+  }
 
   const isAppError = err instanceof AppError;
   const statusCode = isAppError ? err.statusCode : 500;

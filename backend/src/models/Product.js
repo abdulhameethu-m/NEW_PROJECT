@@ -303,6 +303,7 @@ productSchema.index({ createdBy: 1, status: 1 });
 productSchema.index({ isActive: 1, status: 1, "ratings.averageRating": -1 });
 productSchema.index({ createdAt: -1 });
 productSchema.index({ status: 1, isActive: 1, createdAt: -1 });
+productSchema.index({ "attributes.$**": 1 });
 
 module.exports = {
   Product: mongoose.model("Product", productSchema),

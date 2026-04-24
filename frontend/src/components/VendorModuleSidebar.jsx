@@ -6,6 +6,7 @@ import {
   CreditCard,
   BarChart3,
   Package2,
+  SlidersHorizontal,
   RotateCcw,
   Star,
   Loader,
@@ -20,6 +21,7 @@ const MODULE_ROUTES = {
   payments: "/vendor/payments",
   analytics: "/vendor/analytics",
   inventory: "/vendor/inventory",
+  filters: "/vendor/filters",
   returns: "/vendor/returns",
   reviews: "/vendor/reviews",
 };
@@ -31,6 +33,7 @@ const MODULE_ICONS = {
   payments: CreditCard,
   analytics: BarChart3,
   inventory: Package2,
+  filters: SlidersHorizontal,
   returns: RotateCcw,
   reviews: Star,
 };
