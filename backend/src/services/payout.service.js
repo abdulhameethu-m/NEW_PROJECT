@@ -20,6 +20,39 @@ function addDays(date, days) {
   return next;
 }
 
+function normalizeRazorpayPayoutError(error, fallbackMessage) {
+  if (error instanceof AppError) return error;
+
+  const gatewayMessage =
+    error?.error?.description ||
+    error?.description ||
+    error?.error?.message ||
+    error?.message ||
+    fallbackMessage;
+
+  const gatewayCode =
+    error?.error?.code ||
+    error?.statusCode ||
+    "RAZORPAY_PAYOUT_REQUEST_FAILED";
+
+  const details = {
+    source: "razorpay",
+    code: gatewayCode,
+  };
+
+  if (error?.error?.reason) details.reason = error.error.reason;
+  if (error?.error?.field) details.field = error.error.field;
+  if (error?.error?.step) details.step = error.error.step;
+  if (error?.error?.metadata) details.metadata = error.error.metadata;
+
+  const statusCode =
+    error?.statusCode && Number.isInteger(error.statusCode)
+      ? error.statusCode
+      : 502;
+
+  return new AppError(gatewayMessage, statusCode, "RAZORPAY_PAYOUT_REQUEST_FAILED", details);
+}
+
 class PayoutService {
   async createConnectedAccount(sellerId) {
     const vendor = await vendorRepo.findById(sellerId);
@@ -34,29 +67,44 @@ class PayoutService {
     const email = vendor.supportEmail || vendor.userId?.email;
 
     if (!holderName || !accountNumber || !ifsc || !contactNumber || !email) {
-      throw new AppError("Vendor payout banking details are incomplete", 400, "INCOMPLETE_VENDOR_BANKING");
+      throw new AppError("Vendor payout banking details are incomplete", 400, "INCOMPLETE_VENDOR_BANKING", {
+        missing: {
+          holderName: !holderName,
+          accountNumber: !accountNumber,
+          ifsc: !ifsc,
+          contactNumber: !contactNumber,
+          email: !email,
+        },
+      });
     }
 
     const razorpay = getRazorpayClient();
-    const contact = vendor.razorpayContactId
-      ? { id: vendor.razorpayContactId }
-      : await razorpay.contacts.create({
-          name: holderName,
-          email,
-          contact: contactNumber,
-          type: "vendor",
-          reference_id: String(vendor._id),
-        });
+    let contact;
+    let fundAccount;
 
-    const fundAccount = await razorpay.fundAccount.create({
-      contact_id: contact.id,
-      account_type: "bank_account",
-      bank_account: {
-        name: holderName,
-        ifsc,
-        account_number: accountNumber,
-      },
-    });
+    try {
+      contact = vendor.razorpayContactId
+        ? { id: vendor.razorpayContactId }
+        : await razorpay.contacts.create({
+            name: holderName,
+            email,
+            contact: contactNumber,
+            type: "vendor",
+            reference_id: String(vendor._id),
+          });
+
+      fundAccount = await razorpay.fundAccount.create({
+        contact_id: contact.id,
+        account_type: "bank_account",
+        bank_account: {
+          name: holderName,
+          ifsc,
+          account_number: accountNumber,
+        },
+      });
+    } catch (error) {
+      throw normalizeRazorpayPayoutError(error, "Failed to create Razorpay payout contact or fund account");
+    }
 
     await vendorRepo.updateById(sellerId, {
       razorpayContactId: contact.id,
@@ -124,7 +172,15 @@ class PayoutService {
 
     const payout = payouts[0];
     if (!["PENDING", "QUEUED"].includes(payout.status)) {
-      throw new AppError("Payout is not ready to process", 400, "INVALID_OPERATION");
+      throw new AppError("Payout is not ready to process", 400, "INVALID_OPERATION", {
+        currentStatus: payout.status,
+        scheduledFor: payout.scheduledFor,
+        processedAt: payout.processedAt,
+      });
+    }
+
+    if (!process.env.RAZORPAY_PAYOUT_SOURCE_ACCOUNT) {
+      throw new AppError("Razorpay payout source account is missing", 500, "PAYOUT_SOURCE_ACCOUNT_MISSING");
     }
 
     const fundAccountId = await this.createConnectedAccount(payout.sellerId._id || payout.sellerId);
@@ -152,14 +208,15 @@ class PayoutService {
         },
       });
     } catch (error) {
+      const normalizedError = normalizeRazorpayPayoutError(error, "Failed to process Razorpay payout");
       await payoutRepo.updateById(payout._id, {
         $set: {
           status: "FAILED",
-          failureReason: error.message,
+          failureReason: normalizedError.message,
           notes: "Payout processing failed.",
         },
       });
-      throw error;
+      throw normalizedError;
     }
   }
 }
