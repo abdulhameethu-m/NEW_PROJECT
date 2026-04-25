@@ -30,6 +30,39 @@ function safeEqual(left, right) {
   return crypto.timingSafeEqual(a, b);
 }
 
+function normalizeRazorpayError(error, fallbackMessage) {
+  if (error instanceof AppError) return error;
+
+  const gatewayMessage =
+    error?.error?.description ||
+    error?.description ||
+    error?.error?.message ||
+    error?.message ||
+    fallbackMessage;
+
+  const gatewayCode =
+    error?.error?.code ||
+    error?.statusCode ||
+    "RAZORPAY_REQUEST_FAILED";
+
+  const details = {
+    source: "razorpay",
+    code: gatewayCode,
+  };
+
+  if (error?.error?.reason) details.reason = error.error.reason;
+  if (error?.error?.field) details.field = error.error.field;
+  if (error?.error?.step) details.step = error.error.step;
+  if (error?.error?.metadata) details.metadata = error.error.metadata;
+
+  const statusCode =
+    error?.statusCode && Number.isInteger(error.statusCode)
+      ? error.statusCode
+      : 502;
+
+  return new AppError(gatewayMessage, statusCode, "RAZORPAY_REQUEST_FAILED", details);
+}
+
 class PaymentService {
   async createRazorpayOrder({ userId, cartId, shippingAddress }) {
     const summary = await checkoutService.prepare(userId);
@@ -41,16 +74,22 @@ class PaymentService {
     const currency = summary.currency || "INR";
     const receipt = buildReceipt(userId);
     const razorpay = getRazorpayClient();
-    const order = await razorpay.orders.create({
-      amount,
-      currency,
-      receipt,
-      payment_capture: 1,
-      notes: {
-        userId: String(userId),
-        cartId: String(cartId || "current"),
-      },
-    });
+    let order;
+
+    try {
+      order = await razorpay.orders.create({
+        amount,
+        currency,
+        receipt,
+        payment_capture: 1,
+        notes: {
+          userId: String(userId),
+          cartId: String(cartId || "current"),
+        },
+      });
+    } catch (error) {
+      throw normalizeRazorpayError(error, "Failed to create Razorpay order");
+    }
 
     const paymentRecord = await paymentRepo.create({
       userId,
@@ -280,13 +319,17 @@ class PaymentService {
     if (resolvedPayment.method === "ONLINE" && resolvedPayment.razorpayPaymentId) {
       gateway = "RAZORPAY";
       const razorpay = getRazorpayClient();
-      refundResponse = await razorpay.payments.refund(resolvedPayment.razorpayPaymentId, {
-        amount: Math.round(refundAmount * 100),
-        notes: {
-          reason: String(reason || "Refund requested"),
-          orderId: String(resolvedOrder._id),
-        },
-      });
+      try {
+        refundResponse = await razorpay.payments.refund(resolvedPayment.razorpayPaymentId, {
+          amount: Math.round(refundAmount * 100),
+          notes: {
+            reason: String(reason || "Refund requested"),
+            orderId: String(resolvedOrder._id),
+          },
+        });
+      } catch (error) {
+        throw normalizeRazorpayError(error, "Failed to create Razorpay refund");
+      }
     } else {
       refundResponse = {
         id: `manual_refund_${Date.now()}`,

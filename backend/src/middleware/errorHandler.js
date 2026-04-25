@@ -27,6 +27,14 @@ function errorHandler(err, req, res, next) {
   };
 
   if (isAppError && err.details) payload.details = err.details;
+  if (process.env.NODE_ENV !== "production") {
+    payload.code = err.code || (isAppError ? err.code : "INTERNAL_ERROR");
+    if (!isAppError) {
+      payload.debug = {
+        message: err.message,
+      };
+    }
+  }
 
   logger.error("Request error", {
     path: req.path,
