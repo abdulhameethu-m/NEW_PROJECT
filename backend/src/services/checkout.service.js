@@ -1,9 +1,11 @@
+const crypto = require("crypto");
 const mongoose = require("mongoose");
 const { AppError } = require("../utils/AppError");
 const cartRepo = require("../repositories/cart.repository");
 const productRepo = require("../repositories/product.repository");
 const orderRepo = require("../repositories/order.repository");
 const payoutRepo = require("../repositories/payout.repository");
+const paymentRepo = require("../repositories/payment.repository");
 const vendorRepo = require("../repositories/vendor.repository");
 const { getCommissionPercentage } = require("./finance-config.service");
 
@@ -29,11 +31,19 @@ function resolveVariant(product, variantId = "") {
 function groupBySeller(items = []) {
   const map = new Map();
   for (const it of items) {
-    const key = String(it.sellerId); // Use as map key only
-    if (!map.has(key)) map.set(key, { sellerId: it.sellerId, items: [] }); // Store original ObjectId
+    const key = String(it.sellerId);
+    if (!map.has(key)) map.set(key, { sellerId: it.sellerId, items: [] });
     map.get(key).items.push(it);
   }
   return map;
+}
+
+function generateOrderNumber() {
+  return `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+}
+
+function generateOrderGroupId() {
+  return `grp_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 }
 
 async function resolveSellerIdForProduct(product) {
@@ -58,7 +68,6 @@ class CheckoutService {
       throw new AppError("Cart is empty", 400, "EMPTY_CART");
     }
 
-    // Validate & refresh prices
     const validated = [];
     for (const item of cart.items) {
       asObjectId(item.productId, "productId");
@@ -95,7 +104,7 @@ class CheckoutService {
     }
 
     const bySeller = groupBySeller(validated);
-    const sellers = Array.from(bySeller.entries()).map(([key, sellerData]) => {
+    const sellers = Array.from(bySeller.values()).map((sellerData) => {
       const items = sellerData.items;
       const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
       return { sellerId: sellerData.sellerId, items, subtotal };
@@ -116,8 +125,19 @@ class CheckoutService {
     };
   }
 
-  async createOrder(userId, { shippingAddress, paymentMethod = "ONLINE" }) {
-    // Validate required fields
+  async createOrder(
+    userId,
+    {
+      shippingAddress,
+      paymentMethod = "ONLINE",
+      paymentRecordId = null,
+      orderGroupId = null,
+      paymentStatus,
+      razorpayOrderId = "",
+      razorpayPaymentId = "",
+      fraudFlags = [],
+    } = {}
+  ) {
     if (!shippingAddress) {
       throw new AppError("Shipping address is required", 400, "MISSING_ADDRESS");
     }
@@ -131,7 +151,6 @@ class CheckoutService {
       throw new AppError("Cart is empty", 400, "EMPTY_CART");
     }
 
-    // Validate & refresh prices
     const validated = [];
     for (const item of cart.items) {
       const product = await productRepo.findById(item.productId);
@@ -167,13 +186,12 @@ class CheckoutService {
 
     const bySeller = groupBySeller(validated);
     const orderPayloads = [];
-    const payouts = [];
     const commissionPercentage = await getCommissionPercentage();
+    const resolvedGroupId = orderGroupId || generateOrderGroupId();
+    const resolvedPaymentStatus = paymentStatus || (paymentMethod === "ONLINE" ? "Paid" : "Pending");
 
-    for (const [sellerId, sellerData] of bySeller) {
+    for (const sellerData of bySeller.values()) {
       const items = sellerData.items;
-      const originalSellerId = sellerData.sellerId;
-      // Clean items to only include fields for Order schema
       const cleanedItems = items.map((it) => ({
         productId: it.productId,
         name: it.name,
@@ -187,18 +205,16 @@ class CheckoutService {
       }));
 
       const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
-      const shippingFee = 0; // Calculate per seller or global
+      const shippingFee = 0;
       const taxAmount = 0;
       const totalAmount = subtotal + shippingFee + taxAmount;
       const commission = Number(((totalAmount * commissionPercentage) / 100).toFixed(2));
       const sellerAmount = Number((totalAmount - commission).toFixed(2));
 
-      const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-
-      const orderData = {
-        orderNumber,
+      orderPayloads.push({
+        orderNumber: generateOrderNumber(),
         userId: new mongoose.Types.ObjectId(userId),
-        sellerId: originalSellerId, // Use original ObjectId
+        sellerId: sellerData.sellerId,
         items: cleanedItems,
         subtotal,
         shippingFee,
@@ -209,41 +225,76 @@ class CheckoutService {
         vendorEarning: sellerAmount,
         currency: "INR",
         status: "Placed",
-        paymentStatus: "Pending", // For both COD and online until verified
+        paymentStatus: resolvedPaymentStatus,
         paymentMethod,
         shippingAddress,
+        paymentRecordId: paymentRecordId || undefined,
+        orderGroupId: resolvedGroupId,
+        razorpayOrderId: razorpayOrderId || undefined,
+        razorpayPaymentId: razorpayPaymentId || undefined,
+        paymentCapturedAt: resolvedPaymentStatus === "Paid" ? new Date() : undefined,
+        fraudFlags,
         timeline: [{ status: "Placed", note: "Order placed" }],
-      };
-
-      orderPayloads.push(orderData);
+      });
     }
 
-    // Create all orders at once
     const orders = await orderRepo.createMany(orderPayloads);
 
-    // Create payout records
-    for (let i = 0; i < orders.length; i++) {
-      const order = orders[i];
-      const orderPayload = orderPayloads[i];
-      const commission = orderPayload.platformCommissionAmount;
-      const sellerAmount = orderPayload.vendorEarning;
+    let payment = null;
+    if (paymentRecordId) {
+      payment = await paymentRepo.updateById(paymentRecordId, {
+        $set: {
+          orderIds: orders.map((order) => order._id),
+          orderGroupId: resolvedGroupId,
+          shippingAddress,
+          status: resolvedPaymentStatus === "Paid" ? "PAID" : "PENDING",
+          razorpayOrderId: razorpayOrderId || undefined,
+          razorpayPaymentId: razorpayPaymentId || undefined,
+          paidAt: resolvedPaymentStatus === "Paid" ? new Date() : undefined,
+        },
+      });
+    } else if (paymentMethod === "COD") {
+      const totalAmount = orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+      payment = await paymentRepo.create({
+        userId,
+        orderIds: orders.map((order) => order._id),
+        orderGroupId: resolvedGroupId,
+        amount: totalAmount,
+        currency: "INR",
+        method: "COD",
+        status: "PENDING",
+        shippingAddress,
+        amountBreakdown: {
+          subtotal: totalAmount,
+          shippingFee: 0,
+          taxAmount: 0,
+          totalAmount,
+        },
+      });
 
+      for (const order of orders) {
+        await orderRepo.updateById(order._id, { paymentRecordId: payment._id, orderGroupId: resolvedGroupId });
+      }
+    }
+
+    const payouts = [];
+    for (const order of orders) {
       const payout = await payoutRepo.create({
         sellerId: order.sellerId,
         orderId: order._id,
-        amount: sellerAmount,
-        commission,
-        status: "PENDING",
+        amount: order.totalAmount,
+        commission: order.platformCommissionAmount,
+        netAmount: order.vendorEarning,
+        status: "ON_HOLD",
+        notes: "Awaiting delivery confirmation and payout eligibility window.",
       });
       payouts.push(payout);
     }
 
-    // Clear cart
     await cartRepo.clear(userId);
 
-    return { orders, payouts };
+    return { orders, payouts, payment, orderGroupId: resolvedGroupId };
   }
 }
 
 module.exports = new CheckoutService();
-

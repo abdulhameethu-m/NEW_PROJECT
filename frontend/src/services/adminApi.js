@@ -153,6 +153,16 @@ export async function listPayouts(params = {}) {
   return data;
 }
 
+export async function processPayout(orderId) {
+  const { data } = await adminHttp.post("/api/payouts/process", { orderId });
+  return data;
+}
+
+export async function queueEligiblePayouts() {
+  const { data } = await adminHttp.post("/api/payouts/queue");
+  return data;
+}
+
 export async function listReviews(params = {}) {
   const { data } = await adminHttp.get("/api/admin/reviews", { params });
   return data;

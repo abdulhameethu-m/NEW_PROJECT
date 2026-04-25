@@ -3,10 +3,11 @@ const { asyncHandler } = require("../utils/asyncHandler");
 const paymentService = require("../services/payment.service");
 
 const createRazorpayOrder = asyncHandler(async (req, res) => {
-  const { cartId } = req.body;
+  const { cartId, shippingAddress } = req.body;
   const result = await paymentService.createRazorpayOrder({
     userId: req.user.sub,
     cartId,
+    shippingAddress,
   });
   return ok(res, result, "Razorpay order created");
 });
@@ -23,5 +24,45 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   return ok(res, result, "Payment verified and orders created");
 });
 
-module.exports = { createRazorpayOrder, verifyRazorpayPayment };
+const refundPayment = asyncHandler(async (req, res) => {
+  const result = await paymentService.processRefund({
+    orderId: req.body.orderId,
+    paymentId: req.body.paymentId,
+    amount: req.body.amount,
+    reason: req.body.reason,
+    notes: req.body.notes,
+    actorRole: req.user.role,
+  });
+  return ok(res, result, "Refund initiated");
+});
+
+const listPayments = asyncHandler(async (req, res) => {
+  const result = await paymentService.listPayments(req.query);
+  return ok(res, result, "Payments loaded");
+});
+
+const getPaymentDetails = asyncHandler(async (req, res) => {
+  const result = await paymentService.getPaymentDetails(req.params.id);
+  return ok(res, result, "Payment details loaded");
+});
+
+const listRefunds = asyncHandler(async (req, res) => {
+  const result = await paymentService.listRefunds(req.query);
+  return ok(res, result, "Refunds loaded");
+});
+
+const reviewRefund = asyncHandler(async (req, res) => {
+  const result = await paymentService.updateRefundStatus(req.params.id, req.body || {});
+  return ok(res, result, "Refund updated");
+});
+
+module.exports = {
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+  refundPayment,
+  listPayments,
+  getPaymentDetails,
+  listRefunds,
+  reviewRefund,
+};
 

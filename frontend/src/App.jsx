@@ -62,6 +62,7 @@ import { VendorOrdersPage } from "./pages/VendorOrdersPage";
 import { VendorInventoryPage } from "./pages/VendorInventoryPage";
 import { VendorAnalyticsPage } from "./pages/VendorAnalyticsPage";
 import { VendorPayoutsPage } from "./pages/VendorPayoutsPage";
+import { VendorEarningsPage } from "./pages/VendorEarningsPage";
 import { VendorDeliveryPage } from "./pages/VendorDeliveryPage";
 import { VendorOrderDetailsPage } from "./pages/VendorOrderDetailsPage";
 import { VendorNotificationsPage } from "./pages/VendorNotificationsPage";
@@ -83,6 +84,11 @@ import { StaffProductCreate } from "./pages/StaffProductCreate";
 import { StaffProductEdit } from "./pages/StaffProductEdit";
 import { StaffPayoutsPage } from "./pages/StaffPayoutsPage";
 import { StaffPaymentsPage } from "./pages/StaffPaymentsPage";
+import { AdminPaymentsPage } from "./pages/AdminPaymentsPage";
+import { AdminRefundsPage } from "./pages/AdminRefundsPage";
+import { AdminPayoutsPage } from "./pages/AdminPayoutsPage";
+import { AdminPaymentDetailsPage } from "./pages/AdminPaymentDetailsPage";
+import { OrderSuccessPage } from "./pages/OrderSuccessPage";
 import { StaffReviewsPage } from "./pages/StaffReviewsPage";
 import { StaffAnalyticsPage } from "./pages/StaffAnalyticsPage";
 import { StaffSettingsPage } from "./pages/StaffSettingsPage";
@@ -129,7 +135,8 @@ export default function App() {
             </Route>
             <Route path="/shop" element={<ProductsPage />} />
             <Route path="/cart" element={<CartPage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/checkout/success" element={<OrderSuccessPage />} />
           </Route>
 
           <Route element={<RoleGate roles={["vendor"]} />}>
@@ -148,6 +155,7 @@ export default function App() {
               <Route path="orders" element={<VendorModuleRoute moduleKey="orders"><VendorOrdersPage /></VendorModuleRoute>} />
               <Route path="inventory" element={<VendorModuleRoute moduleKey="inventory"><VendorInventoryPage /></VendorModuleRoute>} />
               <Route path="analytics" element={<VendorModuleRoute moduleKey="analytics"><VendorAnalyticsPage /></VendorModuleRoute>} />
+              <Route path="earnings" element={<VendorModuleRoute moduleKey="payments"><VendorEarningsPage /></VendorModuleRoute>} />
               <Route path="payouts" element={<VendorModuleRoute moduleKey="payments"><VendorPayoutsPage /></VendorModuleRoute>} />
               <Route path="delivery" element={<VendorModuleRoute moduleKey="delivery"><VendorDeliveryPage /></VendorModuleRoute>} />
               <Route path="delivery/:id/edit" element={<VendorModuleRoute moduleKey="delivery"><VendorOrderDetailsPage /></VendorModuleRoute>} />
@@ -180,6 +188,10 @@ export default function App() {
               <Route path="products/create" element={<AdminProductCreate />} />
               <Route path="products/:id/edit" element={<AdminProductEdit />} />
               <Route path="orders" element={<AdminOrdersPage />} />
+              <Route path="payments" element={<AdminPaymentsPage />} />
+              <Route path="refunds" element={<AdminRefundsPage />} />
+              <Route path="payouts" element={<AdminPayoutsPage />} />
+              <Route path="payment-details/:paymentId" element={<AdminPaymentDetailsPage />} />
               <Route path="orders/create" element={<AdminOrderCreatePage />} />
               <Route path="orders/:id" element={<AdminOrderDetailsPage />} />
               <Route path="analytics" element={<AdminAnalyticsPage />} />

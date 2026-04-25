@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 // NOTE: Keep existing statuses for backward-compatibility with current UI and stored data.
 // Admin APIs accept normalized uppercase statuses and map to these stored values.
 const ORDER_STATUS = ["Pending", "Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Returned", "Cancelled"];
-const PAYMENT_STATUS = ["Pending", "Paid", "Failed", "Refunded"];
+const PAYMENT_STATUS = ["Pending", "Paid", "Failed", "Refunded", "Partially Refunded"];
 
 const ORDER_STATUS_NORMALIZED = ["PLACED", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"];
 const PAYMENT_STATUS_NORMALIZED = ["PENDING", "PAID", "FAILED"];
@@ -89,6 +89,24 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: ["ONLINE", "COD"],
       default: "ONLINE",
+    },
+    paymentRecordId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
+      index: true,
+    },
+    orderGroupId: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+    razorpayOrderId: { type: String, trim: true, index: true },
+    razorpayPaymentId: { type: String, trim: true, index: true },
+    paymentCapturedAt: { type: Date },
+    payoutEligibleAt: { type: Date, index: true },
+    fraudFlags: {
+      type: [String],
+      default: [],
     },
     deliveryPartner: { type: String, default: "Shiprocket" },
     trackingId: { type: String, trim: true },

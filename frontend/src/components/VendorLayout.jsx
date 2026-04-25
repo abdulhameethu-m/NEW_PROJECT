@@ -32,6 +32,10 @@ const pageMeta = {
     title: "Payouts",
     subtitle: "Review earnings, pending transfers, and payout history.",
   },
+  "/vendor/earnings": {
+    title: "Earnings",
+    subtitle: "Track total earnings, pending payouts, and order payment health.",
+  },
   "/vendor/delivery": {
     title: "Delivery",
     subtitle: "Assign courier details and maintain shipment visibility.",

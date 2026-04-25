@@ -38,7 +38,10 @@ const vendorSchema = new mongoose.Schema(
       accountNumber: { type: String, trim: true, maxlength: 40 },
       IFSC: { type: String, trim: true, maxlength: 20 },
       holderName: { type: String, trim: true, maxlength: 160 },
+      accountType: { type: String, trim: true, maxlength: 30 },
     },
+    razorpayContactId: { type: String, trim: true, maxlength: 80 },
+    razorpayFundAccountId: { type: String, trim: true, maxlength: 80 },
 
     // Step 4
     shopName: { type: String, trim: true, maxlength: 160 },

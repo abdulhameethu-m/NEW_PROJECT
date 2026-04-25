@@ -14,4 +14,9 @@ const processPayout = asyncHandler(async (req, res) => {
   return ok(res, result, "Payout processed");
 });
 
-module.exports = { createAccount, processPayout };
+const queueEligiblePayouts = asyncHandler(async (req, res) => {
+  const result = await payoutService.queueEligiblePayouts();
+  return ok(res, result, "Eligible payouts queued");
+});
+
+module.exports = { createAccount, processPayout, queueEligiblePayouts };

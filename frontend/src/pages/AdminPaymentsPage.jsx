@@ -2,17 +2,13 @@ import { useEffect, useState } from "react";
 import { FilterBar } from "../components/FilterBar";
 import { PaymentTable } from "../components/PaymentTable";
 import { RefundModal } from "../components/RefundModal";
-import { useStaffPermission, useRequirePermission } from "../hooks/useStaffAuth";
 import * as paymentService from "../services/paymentService";
 
 function normalizeError(error) {
   return error?.response?.data?.message || error?.message || "Request failed";
 }
 
-export function StaffPaymentsPage() {
-  useRequirePermission("payments.read");
-  const { hasPermission } = useStaffPermission();
-  const canRefund = hasPermission("payments.refund");
+export function AdminPaymentsPage() {
   const [filters, setFilters] = useState({ search: "", status: "", method: "" });
   const [payments, setPayments] = useState([]);
   const [overview, setOverview] = useState(null);
@@ -63,13 +59,13 @@ export function StaffPaymentsPage() {
     <div className="space-y-6">
       <section>
         <h1 className="text-2xl font-semibold text-slate-950">Payments</h1>
-        <p className="mt-1 text-sm text-slate-600">Monitor payment verification, order linkage, and refund actions.</p>
+        <p className="mt-1 text-sm text-slate-600">Track captured payments, failed attempts, verification state, and refund controls.</p>
       </section>
 
       <FilterBar>
         <input
           type="text"
-          placeholder="Search by Razorpay id or receipt"
+          placeholder="Search by gateway id or receipt"
           value={filters.search}
           onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
           className="min-w-[240px] rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
@@ -122,7 +118,7 @@ export function StaffPaymentsPage() {
           ))}
         </div>
       ) : (
-        <PaymentTable rows={payments} onRefund={canRefund ? setRefundTarget : null} detailsBasePath="/admin/payment-details" />
+        <PaymentTable rows={payments} onRefund={setRefundTarget} detailsBasePath="/admin/payment-details" />
       )}
 
       <RefundModal

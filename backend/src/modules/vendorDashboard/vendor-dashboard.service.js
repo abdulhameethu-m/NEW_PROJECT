@@ -12,6 +12,8 @@ const { ReturnRequest, RETURN_REQUEST_STATUS } = require("../../models/ReturnReq
 const { Offer } = require("../../models/Offer");
 const { SupportTicket } = require("../../models/SupportTicket");
 const { normalizeDateRange, applyDateRange } = require("../../utils/dateRange");
+const payoutService = require("../../services/payout.service");
+const paymentService = require("../../services/payment.service");
 
 const VENDOR_ORDER_FLOW = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 
@@ -241,6 +243,10 @@ class VendorDashboardService {
       await updated.save();
     }
 
+    if (status === "Delivered") {
+      await payoutService.markOrderDelivered(updated._id);
+    }
+
     await this.createNotification(vendor._id, {
       type: "ORDER",
       title: "Order status updated",
@@ -391,6 +397,7 @@ class VendorDashboardService {
 
     return {
       overview: {
+        totalEarnings: (earnings.pending || 0) + (earnings.paid || 0),
         pendingAmount: earnings.pending || 0,
         paidAmount: earnings.paid || 0,
         failedAmount: earnings.failed || 0,
@@ -613,6 +620,17 @@ class VendorDashboardService {
     request.refundAmount = payload.refundAmount ?? request.refundAmount;
     request.resolvedAt = new Date();
     await request.save();
+
+    if (payload.status === "REFUNDED") {
+      await paymentService.processRefund({
+        orderId: request.orderId,
+        amount: request.refundAmount || request.orderId?.totalAmount || 0,
+        reason: payload.resolutionNote || request.reason,
+        actorRole: "vendor",
+        notes: "Refund initiated from vendor return workflow.",
+      });
+    }
+
     return request;
   }
 

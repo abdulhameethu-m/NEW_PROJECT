@@ -63,6 +63,15 @@ export const ADMIN_SECTION_ITEMS = [
     ],
   },
   {
+    section: "Finance",
+    key: "finance",
+    items: [
+      { name: "Payments", path: "/admin/payments", permission: "payments.read", icon: CreditCard },
+      { name: "Refunds", path: "/admin/refunds", permission: "payments.read", icon: RotateCcw },
+      { name: "Payouts", path: "/admin/payouts", permission: "payouts.read", icon: Wallet },
+    ],
+  },
+  {
     section: "Workspace",
     key: "workspace",
     items: [
@@ -85,7 +94,7 @@ export const VENDOR_DYNAMIC_MODULE_META = {
   homepage_content: { section: "Marketing", path: "/vendor/content", icon: Image },
   inventory: { section: "Management", path: "/vendor/inventory", icon: Package2 },
   orders: { section: "Management", path: "/vendor/orders", icon: ShoppingCart },
-  payments: { section: "Finance", path: "/vendor/payouts", icon: CreditCard },
+  payments: { section: "Finance", path: "/vendor/earnings", icon: CreditCard },
   products: { section: "Management", path: "/vendor/products", icon: Package },
   returns: { section: "Management", path: "/vendor/returns", icon: RotateCcw },
   reviews: { section: "Growth", path: "/vendor/reviews", icon: Star },

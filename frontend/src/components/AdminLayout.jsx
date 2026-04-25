@@ -29,6 +29,22 @@ const pageMeta = {
     title: "Orders",
     subtitle: "Track fulfillment progress and update order statuses.",
   },
+  "/admin/payments": {
+    title: "Payments",
+    subtitle: "Review captured payments, verification state, and gateway records.",
+  },
+  "/admin/refunds": {
+    title: "Refunds",
+    subtitle: "Approve, reject, and reconcile refund operations.",
+  },
+  "/admin/payouts": {
+    title: "Payouts",
+    subtitle: "Manage vendor settlements, payout queues, and transfer outcomes.",
+  },
+  "/admin/payment-details": {
+    title: "Payment Details",
+    subtitle: "Inspect signature verification, linked orders, and webhook history.",
+  },
   "/admin/product-modules": {
     title: "Product Modules",
     subtitle: "Control dynamic product tabs and additional info sections from admin.",
@@ -102,6 +118,9 @@ export function AdminLayout() {
         title: "Seller Details",
         subtitle: "Inspect onboarding details and decision history.",
       };
+    }
+    if (location.pathname.startsWith("/admin/payment-details/")) {
+      return pageMeta["/admin/payment-details"];
     }
     return pageMeta[location.pathname] || pageMeta["/admin/dashboard"];
   }, [location.pathname]);

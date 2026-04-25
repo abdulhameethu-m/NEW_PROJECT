@@ -27,6 +27,29 @@ function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
 }
 
+function ensureRazorpay() {
+  if (typeof window !== "undefined" && typeof window.Razorpay === "function") {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-razorpay-sdk="true"]');
+    if (existing) {
+      existing.addEventListener("load", resolve, { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load Razorpay checkout.")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.dataset.razorpaySdk = "true";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Razorpay checkout."));
+    document.body.appendChild(script);
+  });
+}
+
 export function CheckoutPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -150,13 +173,20 @@ export function CheckoutPage() {
     setError("");
     try {
       if (paymentMethod === "COD") {
-        await checkoutService.createOrder({ shippingAddress, paymentMethod: "COD" });
-        navigate("/orders", { replace: true, state: { justPlaced: true } });
+        const response = await checkoutService.createOrder({ shippingAddress, paymentMethod: "COD" });
+        navigate("/checkout/success", {
+          replace: true,
+          state: {
+            orders: response?.data?.orders || [],
+            payment: response?.data?.payment || null,
+          },
+        });
         return;
       }
 
-      const orderRes = await paymentService.createRazorpayOrder({ cartId: "current" });
+      const orderRes = await paymentService.createRazorpayOrder({ cartId: "current", shippingAddress });
       const razorpayData = orderRes?.data || {};
+      await ensureRazorpay();
 
       if (typeof window === "undefined" || typeof window.Razorpay !== "function") {
         throw new Error("Razorpay checkout is not available.");
@@ -177,13 +207,19 @@ export function CheckoutPage() {
           color: "#0f766e",
         },
         handler: async (response) => {
-          await paymentService.verifyRazorpayPayment({
+          const verified = await paymentService.verifyRazorpayPayment({
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
             shippingAddress,
           });
-          navigate("/orders", { replace: true, state: { justPlaced: true } });
+          navigate("/checkout/success", {
+            replace: true,
+            state: {
+              orders: verified?.data?.orders || [],
+              payment: verified?.data?.payment || null,
+            },
+          });
         },
       };
 

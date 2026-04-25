@@ -13,6 +13,7 @@ const productService = require("./product.service");
 const { queueWhatsAppMessage } = require("./whatsapp.service");
 const { logger } = require("../utils/logger");
 const { getCommissionPercentage } = require("./finance-config.service");
+const payoutService = require("./payout.service");
 
 async function getDashboardOverview() {
   const [totalUsers, totalSellers, totalOrders, revenue, pendingProducts, pendingSellers] = await Promise.all([
@@ -544,6 +545,9 @@ async function updateOrder(orderId, patch, actor, meta) {
   }
 
   const updated = await orderRepo.updateById(orderId, updateData);
+  if (updated?.status === "Delivered") {
+    await payoutService.markOrderDelivered(updated._id);
+  }
 
   const shouldSendWhatsApp = Boolean(
     isFirstTrackingAssignment &&
@@ -655,6 +659,9 @@ async function updateOrderStatus(orderId, status, actor, meta) {
   assertValidOrderFlow(order.status, status);
 
   const updated = await orderRepo.updateStatus(orderId, status);
+  if (status === "Delivered") {
+    await payoutService.markOrderDelivered(updated._id);
+  }
   await auditService.log({
     actor,
     action: "admin.order.status_updated",
@@ -683,7 +690,7 @@ async function listPayouts({ status, startDate, endDate } = {}) {
     (summary, payout) => {
       const amount = Number(payout.amount || 0);
       summary.totalAmount += amount;
-      if (payout.status === "PENDING") summary.pendingAmount += amount;
+      if (["PENDING", "QUEUED", "ON_HOLD"].includes(payout.status)) summary.pendingAmount += amount;
       if (payout.status === "PAID") summary.paidAmount += amount;
       if (payout.status === "FAILED") summary.failedAmount += amount;
       return summary;

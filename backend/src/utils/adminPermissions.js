@@ -13,6 +13,7 @@ const ALL_PERMISSIONS = [
   "vendors:delete",
   "orders:read",
   "orders:update",
+  "orders:cancel",
   "products:read",
   "products:create",
   "products:update",
@@ -31,6 +32,11 @@ const ALL_PERMISSIONS = [
   "staff:update",
   "staff:delete",
   "audit:read",
+  "payments:read",
+  "payments:refund",
+  "payouts:read",
+  "payouts:process",
+  "settings:update",
 ];
 
 const ROLE_PERMISSIONS = {
@@ -46,7 +52,13 @@ const ROLE_PERMISSIONS = {
     "vendors:reject",
     "orders:read",
     "orders:update",
+    "orders:cancel",
     "products:read",
+    "payments:read",
+    "payments:refund",
+    "payouts:read",
+    "payouts:process",
+    "settings:update",
     "categories:read",
     "roles:read",
     "staff:read",
@@ -63,6 +75,10 @@ const ROLE_PERMISSIONS = {
     "categories:read",
     "roles:read",
     "staff:read",
+    "payments:read",
+    "payments:refund",
+    "payouts:read",
+    "payouts:process",
   ],
 };
 
