@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
 const VENDOR_STATUS = ["draft", "pending", "approved", "rejected"];
+const SHIPPING_MODE = ["SELF", "PLATFORM"];
 
 const vendorSchema = new mongoose.Schema(
   {
@@ -64,6 +65,20 @@ const vendorSchema = new mongoose.Schema(
       pushOrders: { type: Boolean, default: true },
       pushSystem: { type: Boolean, default: true },
     },
+    shippingSettings: {
+      allowedShippingModes: {
+        type: [{ type: String, enum: SHIPPING_MODE }],
+        default: ["SELF", "PLATFORM"],
+      },
+      defaultShippingMode: {
+        type: String,
+        enum: SHIPPING_MODE,
+        default: "SELF",
+      },
+      preferredPickupLocation: { type: String, trim: true, maxlength: 120, default: "Primary" },
+      platformShippingEnabledAt: { type: Date },
+      selfShippingEnabledAt: { type: Date },
+    },
     shopImages: [
       {
         url: { type: String, required: true },
@@ -85,4 +100,5 @@ const vendorSchema = new mongoose.Schema(
 module.exports = {
   Vendor: mongoose.model("Vendor", vendorSchema),
   VENDOR_STATUS,
+  SHIPPING_MODE,
 };

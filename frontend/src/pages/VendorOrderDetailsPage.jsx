@@ -20,6 +20,7 @@ export function VendorOrderDetailsPage() {
   const [trackingId, setTrackingId] = useState("");
   const [partner, setPartner] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
+  const [courierName, setCourierName] = useState("");
   const [fieldError, setFieldError] = useState("");
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export function VendorOrderDetailsPage() {
         setTrackingId(nextOrder?.trackingId || "");
         setPartner(nextOrder?.deliveryPartner || "");
         setTrackingUrl(nextOrder?.trackingUrl || "");
+        setCourierName(nextOrder?.courierName || "");
       })
       .catch((err) => {
         if (!cancelled) setError(normalizeError(err));
@@ -83,6 +85,7 @@ export function VendorOrderDetailsPage() {
     setTrackingId(updated?.trackingId || "");
     setPartner(updated?.deliveryPartner || "");
     setTrackingUrl(updated?.trackingUrl || "");
+    setCourierName(updated?.courierName || "");
   }
 
   async function saveChanges(statusOverride) {
@@ -113,7 +116,43 @@ export function VendorOrderDetailsPage() {
   }
 
   async function markAsShipped() {
-    await saveChanges("Shipped");
+    if ((order?.shippingMode || "SELF") === "PLATFORM") {
+      setError("Platform shipping orders must be moved through pickup request.");
+      return;
+    }
+    if (!trackingId.trim() || !courierName.trim()) {
+      setFieldError("Tracking ID and courier name are required for self shipping.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await vendorDashboardService.markVendorOrderShipped(id, {
+        shippingMode: "SELF",
+        trackingId,
+        courierName,
+      });
+      await refreshOrder();
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function requestPickup() {
+    setSaving(true);
+    setError("");
+    try {
+      await vendorDashboardService.requestVendorOrderPickup(id, {
+        shippingMode: "PLATFORM",
+      });
+      await refreshOrder();
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -142,11 +181,19 @@ export function VendorOrderDetailsPage() {
           </button>
           <button
             type="button"
-            disabled={!canSave || !hasTrackingFields}
+            disabled={!canSave || (order?.shippingMode || "SELF") !== "SELF"}
             onClick={markAsShipped}
             className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
-            Mark as Shipped
+            Self Ship
+          </button>
+          <button
+            type="button"
+            disabled={!canSave || (order?.shippingMode || "SELF") !== "PLATFORM" || !["NOT_REQUESTED", "FAILED"].includes(order?.pickupStatus || "NOT_REQUESTED")}
+            onClick={requestPickup}
+            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Request Pickup
           </button>
         </div>
       </div>
@@ -211,11 +258,11 @@ export function VendorOrderDetailsPage() {
         <section className="grid gap-4">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="text-sm font-semibold text-slate-950 dark:text-white">Customer</div>
-            <div className="mt-3 grid gap-1 text-sm text-slate-600 dark:text-slate-300">
-              <div className="font-semibold text-slate-950 dark:text-white">{user?.name || "Unknown"}</div>
-              <div>{user?.email || "No email"}</div>
-              <div>{user?.phone || ""}</div>
-            </div>
+              <div className="mt-3 grid gap-1 text-sm text-slate-600 dark:text-slate-300">
+                <div className="font-semibold text-slate-950 dark:text-white">{user?.name || "Unknown"}</div>
+                <div>{user?.email || "No email"}</div>
+                <div>{user?.phone || ""}</div>
+              </div>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -235,6 +282,21 @@ export function VendorOrderDetailsPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="text-sm font-semibold text-slate-950 dark:text-white">Update</div>
             <div className="mt-4 grid gap-3">
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Shipping mode</div>
+                  <div className="mt-1 font-semibold text-slate-950 dark:text-white">{order?.shippingMode || "SELF"}</div>
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Shipping status</div>
+                  <div className="mt-1 font-semibold text-slate-950 dark:text-white">{order?.shippingStatus || "NOT_SHIPPED"}</div>
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Pickup status</div>
+                  <div className="mt-1 font-semibold text-slate-950 dark:text-white">{order?.pickupStatus || "NOT_REQUESTED"}</div>
+                </div>
+              </div>
+
               <label className="grid gap-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Status</span>
                 <select
@@ -251,11 +313,11 @@ export function VendorOrderDetailsPage() {
               </label>
 
               <label className="grid gap-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Delivery partner</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Courier name</span>
                 <input
-                  value={partner}
-                  disabled
-                  readOnly
+                  value={courierName}
+                  onChange={(e) => setCourierName(e.target.value)}
+                  disabled={(order?.shippingMode || "SELF") !== "SELF"}
                   className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 />
               </label>
@@ -264,6 +326,16 @@ export function VendorOrderDetailsPage() {
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Tracking ID</span>
                 <input
                   value={trackingId}
+                  onChange={(e) => setTrackingId(e.target.value)}
+                  disabled={(order?.shippingMode || "SELF") !== "SELF"}
+                  className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Logistics partner</span>
+                <input
+                  value={partner}
                   disabled
                   readOnly
                   className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
@@ -281,9 +353,9 @@ export function VendorOrderDetailsPage() {
               </label>
 
               <div className="rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-                {order?.courierAssignedByRole === "ADMIN"
-                  ? `Courier assignment is locked because admin assigned it${order?.courierAssignedAt ? ` on ${new Date(order.courierAssignedAt).toLocaleString()}` : ""}.`
-                  : "Courier, tracking ID, and tracking URL are read-only for vendors."}
+                {(order?.shippingMode || "SELF") === "PLATFORM"
+                  ? "Platform shipping orders use pickup request and logistics webhooks for tracking updates."
+                  : "Self shipping requires the vendor to enter a real courier name and tracking ID before moving the order to shipped."}
               </div>
             </div>
           </div>

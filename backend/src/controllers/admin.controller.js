@@ -168,6 +168,19 @@ const updateOrder = asyncHandler(async (req, res) => {
   return ok(res, order, "Order updated");
 });
 
+const getShippingModes = asyncHandler(async (req, res) => {
+  const config = await adminService.getShippingModes(req.user);
+  return ok(res, config, "Shipping modes loaded");
+});
+
+const saveShippingModes = asyncHandler(async (req, res) => {
+  const config = await adminService.saveShippingModes(req.body, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, config, "Shipping modes updated");
+});
+
 const deleteOrder = asyncHandler(async (req, res) => {
   const order = await adminService.softDeleteOrder(req.params.id, req.user, {
     ipAddress: req.ip,
@@ -233,6 +246,8 @@ module.exports = {
   getOrderById,
   createOrder,
   updateOrder,
+  getShippingModes,
+  saveShippingModes,
   deleteOrder,
   deleteReview,
   updateOrderStatus,

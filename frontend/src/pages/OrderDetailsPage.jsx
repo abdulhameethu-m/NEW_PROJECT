@@ -97,7 +97,11 @@ export function OrderDetailsPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Delivery tracking</h2>
             <div className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+              <div>Shipping mode: {tracking?.shippingMode || order.shippingMode || "SELF"}</div>
+              <div className="mt-1">Shipping status: {tracking?.shippingStatus || order.shippingStatus || "NOT_SHIPPED"}</div>
+              <div className="mt-1">Pickup status: {tracking?.pickupStatus || order.pickupStatus || "NOT_REQUESTED"}</div>
               <div>Partner: {tracking?.deliveryPartner || "Pending assignment"}</div>
+              <div className="mt-1">Courier: {tracking?.courierName || order.courierName || "Pending assignment"}</div>
               <div className="mt-1">Tracking ID: {tracking?.trackingId || "Not assigned yet"}</div>
               {tracking?.trackingUrl ? (
                 <a href={tracking.trackingUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-blue-600 hover:underline">

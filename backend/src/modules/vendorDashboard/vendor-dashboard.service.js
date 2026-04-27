@@ -14,6 +14,13 @@ const { SupportTicket } = require("../../models/SupportTicket");
 const { normalizeDateRange, applyDateRange } = require("../../utils/dateRange");
 const payoutService = require("../../services/payout.service");
 const paymentService = require("../../services/payment.service");
+const deliveryService = require("../../services/delivery.service");
+const {
+  assertVendorCanUseShippingMode,
+  buildVendorShippingSettingsPayload,
+  normalizeShippingMode,
+  resolveVendorShippingModes,
+} = require("../../services/shipping.service");
 
 const VENDOR_ORDER_FLOW = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 
@@ -184,6 +191,9 @@ class VendorDashboardService {
       page,
       limit,
       status: query.status,
+      shippingMode: query.shippingMode,
+      shippingStatus: query.shippingStatus,
+      pickupStatus: query.pickupStatus,
       sortBy: query.sortBy || "createdAt",
       sortOrder: query.sortOrder === "asc" ? 1 : -1,
       startDate: query.startDate,
@@ -230,7 +240,10 @@ class VendorDashboardService {
       throw new AppError(`Cannot change order from ${order.status} to ${status}`, 400, "INVALID_STATUS_TRANSITION");
     }
 
-    const updated = await orderRepo.updateStatus(orderId, status);
+    const shippingUpdate = {};
+    if (status === "Shipped") shippingUpdate.shippingStatus = "SHIPPED";
+    if (status === "Delivered") shippingUpdate.shippingStatus = "DELIVERED";
+    const updated = await orderRepo.updateById(orderId, { status, ...shippingUpdate });
     const deliveryStatus =
       status === "Shipped"
         ? "SHIPPED"
@@ -256,6 +269,56 @@ class VendorDashboardService {
     });
 
     return updated;
+  }
+
+  async markOrderSelfShipped(userId, orderId, payload = {}) {
+    const vendor = await this.getVendorContext(userId);
+    const order = await Order.findOne({ _id: orderId, sellerId: vendor._id });
+    if (!order) {
+      throw new AppError("Order not found", 404, "NOT_FOUND");
+    }
+
+    const { mode } = await assertVendorCanUseShippingMode(vendor, payload.shippingMode || order.shippingMode);
+    if (mode !== "SELF") {
+      throw new AppError("Self shipping is not enabled for this vendor", 400, "SHIPPING_MODE_DISABLED");
+    }
+    if (!["Placed", "Packed"].includes(order.status)) {
+      throw new AppError("Order cannot be marked as self shipped at this stage", 400, "INVALID_STATUS_TRANSITION");
+    }
+
+    const update = deliveryService.buildSelfShippingUpdate(payload);
+    update.courierAssignedByRole = "VENDOR";
+    update.courierAssignedById = vendor._id;
+    update.timeline = undefined;
+
+    return await orderRepo.updateById(orderId, update);
+  }
+
+  async requestOrderPickup(userId, orderId, payload = {}) {
+    const vendor = await this.getVendorContext(userId);
+    const order = await Order.findOne({ _id: orderId, sellerId: vendor._id })
+      .populate("userId", "name email phone");
+    if (!order) {
+      throw new AppError("Order not found", 404, "NOT_FOUND");
+    }
+
+    const { mode } = await assertVendorCanUseShippingMode(vendor, payload.shippingMode || order.shippingMode);
+    if (mode !== "PLATFORM") {
+      throw new AppError("Platform shipping is not enabled for this vendor", 400, "SHIPPING_MODE_DISABLED");
+    }
+    if (order.pickupStatus && !["NOT_REQUESTED", "FAILED"].includes(order.pickupStatus)) {
+      throw new AppError("Pickup has already been requested for this order", 400, "PICKUP_ALREADY_REQUESTED");
+    }
+    if (!["Placed", "Packed"].includes(order.status)) {
+      throw new AppError("Pickup can only be requested for packed orders", 400, "INVALID_STATUS_TRANSITION");
+    }
+
+    const shipment = await deliveryService.createShipment(order, vendor);
+    const update = deliveryService.buildPlatformShippingUpdate(order, shipment);
+    update.courierAssignedByRole = "VENDOR";
+    update.courierAssignedById = vendor._id;
+
+    return await orderRepo.updateById(orderId, update);
   }
 
   async getInventory(userId, query) {
@@ -413,13 +476,15 @@ class VendorDashboardService {
     const skip = (page - 1) * limit;
     const filter = { sellerId: vendor._id };
     if (query.deliveryStatus) filter.deliveryStatus = query.deliveryStatus;
+    if (query.shippingMode) filter.shippingMode = query.shippingMode;
+    if (query.pickupStatus) filter.pickupStatus = query.pickupStatus;
 
     const [shipments, total] = await Promise.all([
       Order.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select("orderNumber status deliveryPartner trackingId trackingUrl deliveryStatus createdAt shippingAddress courierAssignedByRole courierAssignedAt"),
+        .select("orderNumber status shippingMode shippingStatus pickupStatus courierName deliveryPartner trackingId trackingUrl deliveryStatus createdAt shippingAddress courierAssignedByRole courierAssignedAt"),
       Order.countDocuments(filter),
     ]);
 
@@ -448,8 +513,11 @@ class VendorDashboardService {
     if (payload.deliveryPartner) order.deliveryPartner = payload.deliveryPartner;
     if (payload.trackingId) order.trackingId = payload.trackingId;
     if (payload.trackingUrl) order.trackingUrl = payload.trackingUrl;
+    if (payload.courierName) order.courierName = payload.courierName;
     if (payload.deliveryStatus) order.deliveryStatus = payload.deliveryStatus;
-    if (payload.deliveryPartner || payload.trackingId || payload.trackingUrl) {
+    if (payload.shippingStatus) order.shippingStatus = payload.shippingStatus;
+    if (payload.pickupStatus) order.pickupStatus = payload.pickupStatus;
+    if (payload.deliveryPartner || payload.trackingId || payload.trackingUrl || payload.courierName) {
       order.courierAssignedByRole = "VENDOR";
       order.courierAssignedById = vendor._id;
       order.courierAssignedAt = new Date();
@@ -459,11 +527,23 @@ class VendorDashboardService {
   }
 
   async getSettings(userId) {
-    return await this.getVendorContext(userId);
+    const vendor = await this.getVendorContext(userId);
+    const shippingModes = await resolveVendorShippingModes(vendor);
+    return {
+      ...vendor.toObject(),
+      shippingSettings: {
+        allowedShippingModes: shippingModes.requestedModes,
+        effectiveShippingModes: shippingModes.effectiveModes,
+        defaultShippingMode: shippingModes.defaultShippingMode,
+        preferredPickupLocation: vendor.shippingSettings?.preferredPickupLocation || "Primary",
+      },
+      adminShippingModes: shippingModes.adminConfig,
+    };
   }
 
   async updateSettings(userId, payload) {
     const vendor = await this.getVendorContext(userId);
+    const vendorShippingModes = await resolveVendorShippingModes(vendor);
     const updatable = {
       companyName: payload.companyName,
       shopName: payload.shopName,
@@ -481,8 +561,38 @@ class VendorDashboardService {
       notificationPreferences: payload.notificationPreferences,
     };
 
+    if (payload.shippingSettings) {
+      updatable.shippingSettings = {
+        ...(vendor.shippingSettings?.toObject?.() || vendor.shippingSettings || {}),
+        ...buildVendorShippingSettingsPayload(payload.shippingSettings, vendorShippingModes),
+      };
+    }
+
     Object.keys(updatable).forEach((key) => updatable[key] === undefined && delete updatable[key]);
     return await vendorRepo.updateById(vendor._id, updatable);
+  }
+
+  async getShippingSettings(userId) {
+    const vendor = await this.getVendorContext(userId);
+    const shippingModes = await resolveVendorShippingModes(vendor);
+    return {
+      vendorId: vendor._id,
+      allowedShippingModes: shippingModes.requestedModes,
+      effectiveShippingModes: shippingModes.effectiveModes,
+      defaultShippingMode: shippingModes.defaultShippingMode,
+      preferredPickupLocation: vendor.shippingSettings?.preferredPickupLocation || "Primary",
+      adminShippingModes: shippingModes.adminConfig,
+    };
+  }
+
+  async updateShippingSettings(userId, payload) {
+    const vendor = await this.getVendorContext(userId);
+    const shippingModes = await resolveVendorShippingModes(vendor);
+    const shippingSettings = {
+      ...(vendor.shippingSettings?.toObject?.() || vendor.shippingSettings || {}),
+      ...buildVendorShippingSettingsPayload(payload, shippingModes),
+    };
+    return await vendorRepo.updateById(vendor._id, { shippingSettings });
   }
 
   async getNotifications(userId, query) {

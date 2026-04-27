@@ -195,6 +195,16 @@ const initializeDefaults = asyncHandler(async (req, res) => {
       category: "email",
       type: "boolean",
     },
+    {
+      key: "shipping_modes",
+      value: {
+        selfShipping: true,
+        platformShipping: true,
+      },
+      description: "Controls which shipping modes vendors can access",
+      category: "shipping",
+      type: "object",
+    },
   ];
 
   const created = [];

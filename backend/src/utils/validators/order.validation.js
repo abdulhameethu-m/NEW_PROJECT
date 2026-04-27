@@ -19,8 +19,11 @@ const orderItemSchema = Joi.object({
 const deliveryDetailsSchema = Joi.object({
   trackingId: Joi.string().trim().max(120).allow("", null),
   partner: Joi.string().trim().max(120).allow("", null),
+  courierName: Joi.string().trim().max(120).allow("", null),
   trackingUrl: Joi.string().trim().uri({ scheme: ["http", "https"] }).max(500).allow("", null),
 });
+
+const shippingModeSchema = Joi.string().valid("SELF", "PLATFORM");
 
 const createAdminOrderSchema = Joi.object({
   userId: Joi.string().required(),
@@ -45,6 +48,7 @@ const createAdminOrderSchema = Joi.object({
       "Returned"
     )
     .default("PLACED"),
+  shippingMode: shippingModeSchema,
   address: addressSchema,
   deliveryDetails: deliveryDetailsSchema,
 }).required();
@@ -66,6 +70,7 @@ const updateAdminOrderSchema = Joi.object({
     "Cancelled",
     "Returned"
   ),
+  shippingMode: shippingModeSchema,
   deliveryDetails: deliveryDetailsSchema,
 }).min(1);
 

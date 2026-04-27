@@ -34,7 +34,11 @@ export function VendorDeliveryPage() {
         rows={(data?.shipments || []).map((shipment) => ({
           id: shipment._id,
           orderNumber: shipment.orderNumber,
+          shippingMode: shipment.shippingMode || "SELF",
+          shippingStatus: shipment.shippingStatus || "NOT_SHIPPED",
+          pickupStatus: shipment.pickupStatus || "NOT_REQUESTED",
           deliveryPartner: shipment.deliveryPartner || "Unassigned",
+          courierName: shipment.courierName || "Pending",
           trackingId: shipment.trackingId || "Not assigned",
           deliveryStatus: shipment.deliveryStatus,
           destination: [shipment.shippingAddress?.city, shipment.shippingAddress?.state].filter(Boolean).join(", ") || "Address pending",
@@ -45,10 +49,12 @@ export function VendorDeliveryPage() {
         }))}
         columns={[
           { key: "orderNumber", label: "Order" },
+          { key: "shippingMode", label: "Mode", render: (row) => <StatusBadge value={row.shippingMode} /> },
           { key: "deliveryPartner", label: "Courier" },
           { key: "trackingId", label: "Tracking" },
+          { key: "pickupStatus", label: "Pickup", render: (row) => <StatusBadge value={row.pickupStatus} /> },
           { key: "destination", label: "Destination" },
-          { key: "deliveryStatus", label: "Delivery Status", render: (row) => <StatusBadge value={row.deliveryStatus} /> },
+          { key: "deliveryStatus", label: "Delivery Status", render: (row) => <StatusBadge value={row.shippingStatus || row.deliveryStatus} /> },
           {
             key: "actions",
             label: "Update",

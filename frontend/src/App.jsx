@@ -43,6 +43,7 @@ import AdminVendorAccessPage from "./pages/AdminVendorAccessPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminRolesPage } from "./pages/AdminRolesPage";
 import { AdminStaffPage } from "./pages/AdminStaffPage";
+import { AdminShippingModesPage } from "./pages/AdminShippingModesPage";
 import { ProductFormPage } from "./pages/ProductFormPage";
 import { ProductDetailsPage } from "./pages/ProductDetailsPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -185,6 +186,7 @@ export default function App() {
               <Route path="product-modules" element={<AdminProductModulesPage />} />
               <Route path="content" element={<AdminContentPage />} />
               <Route path="vendor-access" element={<AdminVendorAccessPage />} />
+              <Route path="vendor-access/shipping" element={<AdminShippingModesPage />} />
               <Route path="products/create" element={<AdminProductCreate />} />
               <Route path="products/:id/edit" element={<AdminProductEdit />} />
               <Route path="orders" element={<AdminOrdersPage />} />

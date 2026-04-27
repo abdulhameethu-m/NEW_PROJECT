@@ -73,6 +73,8 @@ router.put("/vendor/:id/reject", requireLegacyAdminPermission("vendors:reject"),
 router.delete("/vendor/:id", requireLegacyAdminPermission("vendors:delete"), adminController.removeVendor);
 
 router.get("/orders", requireWorkspacePermission("orders.read"), adminController.listOrders);
+router.get("/shipping/modes", requireWorkspacePermission("settings.update"), adminController.getShippingModes);
+router.patch("/shipping/modes", requireWorkspacePermission("settings.update"), express.json(), adminController.saveShippingModes);
 router.patch("/orders/:id/status", requireWorkspacePermission("orders.update"), express.json(), adminController.updateOrderStatus);
 router.patch("/orders/:id/cancel", requireWorkspacePermission("orders.cancel"), adminController.cancelOrder);
 router.get("/orders/:id", requireWorkspacePermission("orders.read"), adminController.getOrderById);

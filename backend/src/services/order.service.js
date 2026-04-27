@@ -6,6 +6,7 @@ const productRepo = require("../repositories/product.repository");
 const vendorRepo = require("../repositories/vendor.repository");
 const productService = require("./product.service");
 const { ORDER_STATUS, PAYMENT_STATUS } = require("../models/Order");
+const { resolveVendorShippingModes } = require("./shipping.service");
 
 function asObjectId(id, fieldName) {
   if (!mongoose.isValidObjectId(id)) throw new AppError(`Invalid ${fieldName}`, 400, "VALIDATION_ERROR");
@@ -120,6 +121,15 @@ class OrderService {
     const now = new Date();
 
     const orderPayloads = Array.from(bySeller.entries()).map(([sellerId, items]) => {
+      const sellerItems = { sellerId, items };
+      return sellerItems;
+    });
+
+    const preparedPayloads = [];
+    for (const sellerGroup of orderPayloads) {
+      const vendor = await vendorRepo.findById(sellerGroup.sellerId);
+      const vendorShipping = await resolveVendorShippingModes(vendor);
+      const items = sellerGroup.items;
       const orderItems = items.map((it) => ({
         productId: it.productId,
         name: it.product.name,
@@ -136,11 +146,10 @@ class OrderService {
       }));
 
       const subtotal = orderItems.reduce((sum, it) => sum + it.price * it.quantity, 0);
-
-      return {
+      preparedPayloads.push({
         orderNumber: generateOrderNumber(),
         userId,
-        sellerId,
+        sellerId: sellerGroup.sellerId,
         items: orderItems,
         subtotal,
         shippingFee: 0,
@@ -149,12 +158,15 @@ class OrderService {
         currency: currency || cart.currency || "INR",
         status: "Pending",
         paymentStatus: "Pending",
+        shippingMode: vendorShipping.defaultShippingMode,
+        shippingStatus: "NOT_SHIPPED",
+        pickupStatus: "NOT_REQUESTED",
         shippingAddress: normalizeAddress(address),
         timeline: [{ status: "Pending", note: "Order placed", changedAt: now }],
-      };
-    });
+      });
+    }
 
-    const created = await orderRepo.createMany(orderPayloads);
+    const created = await orderRepo.createMany(preparedPayloads);
 
     // Clear cart after successful order writes.
     await cartRepo.clear(userId);

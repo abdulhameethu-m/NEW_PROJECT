@@ -8,6 +8,7 @@ const payoutRepo = require("../repositories/payout.repository");
 const paymentRepo = require("../repositories/payment.repository");
 const vendorRepo = require("../repositories/vendor.repository");
 const { getCommissionPercentage } = require("./finance-config.service");
+const { resolveVendorShippingModes } = require("./shipping.service");
 
 function asObjectId(id, fieldName) {
   if (!mongoose.isValidObjectId(id)) throw new AppError(`Invalid ${fieldName}`, 400, "VALIDATION_ERROR");
@@ -191,6 +192,8 @@ class CheckoutService {
     const resolvedPaymentStatus = paymentStatus || (paymentMethod === "ONLINE" ? "Paid" : "Pending");
 
     for (const sellerData of bySeller.values()) {
+      const vendor = await vendorRepo.findById(sellerData.sellerId);
+      const vendorShipping = await resolveVendorShippingModes(vendor);
       const items = sellerData.items;
       const cleanedItems = items.map((it) => ({
         productId: it.productId,
@@ -234,6 +237,9 @@ class CheckoutService {
         razorpayPaymentId: razorpayPaymentId || undefined,
         paymentCapturedAt: resolvedPaymentStatus === "Paid" ? new Date() : undefined,
         fraudFlags,
+        shippingMode: vendorShipping.defaultShippingMode,
+        shippingStatus: "NOT_SHIPPED",
+        pickupStatus: "NOT_REQUESTED",
         timeline: [{ status: "Placed", note: "Order placed" }],
       });
     }

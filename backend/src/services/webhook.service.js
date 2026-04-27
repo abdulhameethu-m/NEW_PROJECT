@@ -5,6 +5,7 @@ const refundRepo = require("../repositories/refund.repository");
 const webhookEventRepo = require("../repositories/webhook-event.repository");
 const orderRepo = require("../repositories/order.repository");
 const payoutService = require("./payout.service");
+const { applyShippingLifecycle } = require("./shipping.service");
 
 function buildEventId(provider, eventType, rawBody) {
   return `${provider}:${eventType}:${crypto.createHash("sha1").update(String(rawBody || "")).digest("hex")}`;
@@ -129,23 +130,57 @@ class WebhookService {
     });
 
     try {
-      const { awb, current_status } = data;
-      const order = await orderRepo.findByTrackingId(awb);
+      const awb = data?.awb || data?.awb_code || data?.tracking_number || "";
+      const shipmentId = data?.shipment_id ? String(data.shipment_id) : "";
+      const currentStatus = String(data?.current_status || data?.status || "").trim();
+      const order = shipmentId ? await orderRepo.findByShipmentId(shipmentId) : await orderRepo.findByTrackingId(awb);
       if (order) {
-        let status = null;
-        if (current_status === "Delivered") {
-          status = "Delivered";
-        } else if (current_status === "Out for Delivery") {
-          status = "Out for Delivery";
-        } else if (current_status === "Shipped") {
-          status = "Shipped";
+        let nextShippingStatus = order.shippingStatus;
+        let nextPickupStatus = order.pickupStatus;
+
+        if (["AWB assigned", "Pickup scheduled", "Pickup generated"].includes(currentStatus)) {
+          nextShippingStatus = "READY_FOR_PICKUP";
+          nextPickupStatus = "SCHEDULED";
+        } else if (["Pickup complete", "Picked Up"].includes(currentStatus)) {
+          nextShippingStatus = "IN_TRANSIT";
+          nextPickupStatus = "COMPLETED";
+        } else if (["Shipped", "In Transit"].includes(currentStatus)) {
+          nextShippingStatus = "IN_TRANSIT";
+        } else if (currentStatus === "Out for Delivery") {
+          nextShippingStatus = "IN_TRANSIT";
+        } else if (currentStatus === "Delivered") {
+          nextShippingStatus = "DELIVERED";
+          nextPickupStatus = order.pickupStatus === "NOT_REQUESTED" ? "COMPLETED" : order.pickupStatus;
         }
 
-        if (status) {
-          const updatedOrder = await orderRepo.updateStatus(order._id, status);
-          if (status === "Delivered") {
-            await payoutService.markOrderDelivered(updatedOrder._id);
-          }
+        const lifecycle = applyShippingLifecycle({
+          orderStatus: order.status,
+          shippingMode: order.shippingMode || "PLATFORM",
+          shippingStatus: nextShippingStatus,
+          pickupStatus: nextPickupStatus,
+        });
+
+        const updatedOrder = await orderRepo.updateById(order._id, {
+          status: lifecycle.status,
+          shippingMode: lifecycle.shippingMode,
+          shippingStatus: lifecycle.shippingStatus,
+          pickupStatus: lifecycle.pickupStatus,
+          trackingId: awb || order.trackingId,
+          shipmentId: shipmentId || order.shipmentId,
+          courierName: data?.courier_name || order.courierName,
+          deliveryPartner: "SHIPROCKET",
+          deliveryStatus:
+            lifecycle.shippingStatus === "DELIVERED"
+              ? "DELIVERED"
+              : lifecycle.shippingStatus === "IN_TRANSIT"
+                ? "SHIPPED"
+                : order.deliveryStatus,
+          ...(lifecycle.pickupStatus === "SCHEDULED" ? { pickupScheduledAt: new Date() } : {}),
+          ...(lifecycle.pickupStatus === "COMPLETED" ? { pickupCompletedAt: new Date() } : {}),
+        });
+
+        if (updatedOrder?.status === "Delivered") {
+          await payoutService.markOrderDelivered(updatedOrder._id);
         }
       }
 

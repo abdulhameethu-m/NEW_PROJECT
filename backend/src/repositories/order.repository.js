@@ -21,11 +21,18 @@ class OrderRepository {
     return await Order.findOne({ trackingId });
   }
 
+  async findByShipmentId(shipmentId) {
+    return await Order.findOne({ shipmentId });
+  }
+
   async list({
     page = 1,
     limit = 20,
     status,
     paymentStatus,
+    shippingMode,
+    shippingStatus,
+    pickupStatus,
     search,
     isActive,
     includeInactive = false,
@@ -38,6 +45,9 @@ class OrderRepository {
 
     if (status) query.status = status;
     if (paymentStatus) query.paymentStatus = paymentStatus;
+    if (shippingMode) query.shippingMode = shippingMode;
+    if (shippingStatus) query.shippingStatus = shippingStatus;
+    if (pickupStatus) query.pickupStatus = pickupStatus;
     if (typeof isActive === "boolean") {
       query.isActive = isActive;
     } else if (!includeInactive) {
@@ -135,6 +145,9 @@ class OrderRepository {
     page = 1,
     limit = 20,
     status,
+    shippingMode,
+    shippingStatus,
+    pickupStatus,
     sortBy = "createdAt",
     sortOrder = -1,
     startDate,
@@ -142,6 +155,9 @@ class OrderRepository {
   } = {}) {
     const query = { userId, isActive: true };
     if (status) query.status = status;
+    if (shippingMode) query.shippingMode = shippingMode;
+    if (shippingStatus) query.shippingStatus = shippingStatus;
+    if (pickupStatus) query.pickupStatus = pickupStatus;
     applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
     const skip = (page - 1) * limit;
@@ -175,6 +191,9 @@ class OrderRepository {
     page = 1,
     limit = 20,
     status,
+    shippingMode,
+    shippingStatus,
+    pickupStatus,
     sortBy = "createdAt",
     sortOrder = -1,
     startDate,
@@ -182,6 +201,9 @@ class OrderRepository {
   } = {}) {
     const query = { sellerId, isActive: true };
     if (status) query.status = status;
+    if (shippingMode) query.shippingMode = shippingMode;
+    if (shippingStatus) query.shippingStatus = shippingStatus;
+    if (pickupStatus) query.pickupStatus = pickupStatus;
     applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
     const skip = (page - 1) * limit;

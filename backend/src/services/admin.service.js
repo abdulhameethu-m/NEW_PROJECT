@@ -14,6 +14,8 @@ const { queueWhatsAppMessage } = require("./whatsapp.service");
 const { logger } = require("../utils/logger");
 const { getCommissionPercentage } = require("./finance-config.service");
 const payoutService = require("./payout.service");
+const { getShippingModesConfig, updateShippingModesConfig } = require("./shipping-config.service");
+const { normalizeShippingMode } = require("./shipping.service");
 
 async function getDashboardOverview() {
   const [totalUsers, totalSellers, totalOrders, revenue, pendingProducts, pendingSellers] = await Promise.all([
@@ -371,7 +373,7 @@ async function getOrderById(orderId) {
 }
 
 async function createOrder(payload, actor, meta) {
-  const { userId, items, paymentMethod, paymentStatus, orderStatus, address, deliveryDetails } = payload || {};
+  const { userId, items, paymentMethod, paymentStatus, orderStatus, shippingMode, address, deliveryDetails } = payload || {};
   if (!userId) throw new AppError("userId is required", 400, "VALIDATION_ERROR");
   if (!Array.isArray(items) || items.length === 0) throw new AppError("items are required", 400, "VALIDATION_ERROR");
 
@@ -476,8 +478,12 @@ async function createOrder(payload, actor, meta) {
       status: storedStatus,
       paymentStatus: storedPaymentStatus,
       paymentMethod,
+      shippingMode: normalizeShippingMode(shippingMode, "SELF"),
+      shippingStatus: deliveryDetails?.trackingId ? "SHIPPED" : "NOT_SHIPPED",
+      pickupStatus: "NOT_REQUESTED",
       shippingAddress: address,
       deliveryPartner: deliveryDetails?.partner,
+      courierName: deliveryDetails?.courierName,
       trackingId: deliveryDetails?.trackingId,
       trackingUrl: deliveryDetails?.trackingUrl,
       timeline: [{ status: storedStatus, note: "Order created by admin" }],
@@ -504,6 +510,7 @@ async function updateOrder(orderId, patch, actor, meta) {
 
   const nextStatus = patch?.orderStatus ? toStoredOrderStatus(patch.orderStatus) : null;
   const deliveryDetails = patch?.deliveryDetails;
+  const nextShippingMode = patch?.shippingMode ? normalizeShippingMode(patch.shippingMode, oldOrder.shippingMode || "SELF") : null;
 
   if (nextStatus && !ORDER_STATUS.includes(nextStatus)) {
     throw new AppError("Invalid order status", 400, "VALIDATION_ERROR");
@@ -515,13 +522,16 @@ async function updateOrder(orderId, patch, actor, meta) {
 
   const updateData = {};
   if (nextStatus) updateData.status = nextStatus;
+  if (nextShippingMode) updateData.shippingMode = nextShippingMode;
   if (deliveryDetails) {
     if (deliveryDetails.trackingId !== undefined) updateData.trackingId = deliveryDetails.trackingId?.trim() || undefined;
     if (deliveryDetails.partner !== undefined) updateData.deliveryPartner = deliveryDetails.partner?.trim() || undefined;
+    if (deliveryDetails.courierName !== undefined) updateData.courierName = deliveryDetails.courierName?.trim() || undefined;
     if (deliveryDetails.trackingUrl !== undefined) updateData.trackingUrl = deliveryDetails.trackingUrl?.trim() || undefined;
     if (
       deliveryDetails.trackingId !== undefined ||
       deliveryDetails.partner !== undefined ||
+      deliveryDetails.courierName !== undefined ||
       deliveryDetails.trackingUrl !== undefined
     ) {
       updateData.courierAssignedByRole = "ADMIN";
@@ -539,6 +549,7 @@ async function updateOrder(orderId, patch, actor, meta) {
   if (isFirstTrackingAssignment) {
     updateData.trackingAssignedAt = new Date();
     updateData.deliveryStatus = "SHIPPED";
+    updateData.shippingStatus = nextShippingMode === "PLATFORM" ? "IN_TRANSIT" : "SHIPPED";
     if (!nextStatus && !["Shipped", "Out for Delivery", "Delivered", "Returned", "Cancelled"].includes(oldOrder.status)) {
       updateData.status = "Shipped";
     }
@@ -620,6 +631,7 @@ async function updateOrder(orderId, patch, actor, meta) {
     entityId: updated._id,
     metadata: {
       ...(nextStatus ? { status: nextStatus } : {}),
+      ...(nextShippingMode ? { shippingMode: nextShippingMode } : {}),
       ...(deliveryDetails ? { deliveryDetails } : {}),
       ...(shouldSendWhatsApp ? { whatsappTriggered: true } : {}),
     },
@@ -627,6 +639,25 @@ async function updateOrder(orderId, patch, actor, meta) {
     userAgent: meta?.userAgent,
   });
   return shouldSendWhatsApp ? { ...updated.toObject(), whatsappSent: true } : updated;
+}
+
+async function getShippingModes(actor) {
+  void actor;
+  return await getShippingModesConfig();
+}
+
+async function saveShippingModes(payload, actor, meta) {
+  const config = await updateShippingModesConfig(payload || {}, actor?.sub || actor?._id);
+  await auditService.log({
+    actor,
+    action: "admin.shipping.modes_updated",
+    entityType: "PlatformConfig",
+    entityId: config.key,
+    metadata: config.value,
+    ipAddress: meta?.ipAddress,
+    userAgent: meta?.userAgent,
+  });
+  return config;
 }
 
 function resolveShipmentPhone(order) {
@@ -658,7 +689,11 @@ async function updateOrderStatus(orderId, status, actor, meta) {
 
   assertValidOrderFlow(order.status, status);
 
-  const updated = await orderRepo.updateStatus(orderId, status);
+  const shippingUpdate = {};
+  if (status === "Shipped") shippingUpdate.shippingStatus = "SHIPPED";
+  if (status === "Out for Delivery") shippingUpdate.shippingStatus = "IN_TRANSIT";
+  if (status === "Delivered") shippingUpdate.shippingStatus = "DELIVERED";
+  const updated = await orderRepo.updateById(orderId, { status, ...shippingUpdate });
   if (status === "Delivered") {
     await payoutService.markOrderDelivered(updated._id);
   }
@@ -786,6 +821,8 @@ module.exports = {
   getOrderById,
   createOrder,
   updateOrder,
+  getShippingModes,
+  saveShippingModes,
   softDeleteOrder,
   updateOrderStatus,
   listPayouts,

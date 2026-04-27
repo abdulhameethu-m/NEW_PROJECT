@@ -50,6 +50,8 @@ router.route("/products/:id")
 router.get("/orders", requireVendorModule("orders"), vendorDashboardController.listOrders);
 router.get("/orders/:id", requireVendorModule("orders"), vendorDashboardController.getOrderById);
 router.patch("/orders/:id/status", requireVendorPermission("orders.update"), vendorDashboardController.updateOrderStatus);
+router.post("/orders/:id/ship", requireVendorPermission("orders.update"), vendorDashboardController.markOrderSelfShipped);
+router.post("/orders/:id/request-pickup", requireVendorPermission("orders.update"), vendorDashboardController.requestOrderPickup);
 
 // 🔥 INVENTORY MODULE - Protected by vendorModuleAccess
 router.get("/inventory", requireVendorModule("inventory"), vendorDashboardController.getInventory);
@@ -65,6 +67,8 @@ router.get("/payouts", requireVendorModule("payments"), vendorDashboardControlle
 router.get("/delivery", requireVendorModule("delivery"), vendorDashboardController.getDelivery);
 router.patch("/delivery/:id", requireVendorPermission("delivery.update"), vendorDashboardController.updateDelivery);
 
+router.get("/settings/shipping", vendorDashboardController.getShippingSettings);
+router.patch("/settings/shipping", vendorDashboardController.updateShippingSettings);
 router.route("/settings").get(vendorDashboardController.getSettings).patch(vendorDashboardController.updateSettings);
 
 // 🔥 NOTIFICATIONS - All modules can have notifications

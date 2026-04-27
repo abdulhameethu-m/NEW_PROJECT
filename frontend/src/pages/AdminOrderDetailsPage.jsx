@@ -22,8 +22,10 @@ export function AdminOrderDetailsPage() {
   const [error, setError] = useState("");
 
   const [status, setStatus] = useState("Placed");
+  const [shippingMode, setShippingMode] = useState("SELF");
   const [trackingId, setTrackingId] = useState("");
   const [partner, setPartner] = useState("");
+  const [courierName, setCourierName] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
   const [fieldError, setFieldError] = useState("");
 
@@ -37,8 +39,10 @@ export function AdminOrderDetailsPage() {
         if (cancelled) return;
         setOrder(o);
         setStatus(o?.status || "Placed");
+        setShippingMode(o?.shippingMode || "SELF");
         setTrackingId(o?.trackingId || "");
         setPartner(o?.deliveryPartner || "");
+        setCourierName(o?.courierName || "");
         setTrackingUrl(o?.trackingUrl || "");
       })
       .catch((err) => {
@@ -90,13 +94,16 @@ export function AdminOrderDetailsPage() {
     try {
       const res = await updateOrder(id, {
         orderStatus: nextStatus,
-        deliveryDetails: { trackingId, partner, trackingUrl },
+        shippingMode,
+        deliveryDetails: { trackingId, partner, courierName, trackingUrl },
       });
       const updated = res?.data ?? res;
       setOrder(updated);
       setStatus(updated?.status || "Placed");
+      setShippingMode(updated?.shippingMode || "SELF");
       setTrackingId(updated?.trackingId || "");
       setPartner(updated?.deliveryPartner || "");
+      setCourierName(updated?.courierName || "");
       setTrackingUrl(updated?.trackingUrl || "");
     } catch (err) {
       setError(normalizeError(err));
@@ -268,10 +275,31 @@ export function AdminOrderDetailsPage() {
               </label>
 
               <label className="grid gap-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Shipping mode</span>
+                <select
+                  value={shippingMode}
+                  onChange={(e) => setShippingMode(e.target.value)}
+                  className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                >
+                  <option value="SELF">SELF</option>
+                  <option value="PLATFORM">PLATFORM</option>
+                </select>
+              </label>
+
+              <label className="grid gap-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Delivery partner</span>
                 <input
                   value={partner}
                   onChange={(e) => setPartner(e.target.value)}
+                  className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Courier name</span>
+                <input
+                  value={courierName}
+                  onChange={(e) => setCourierName(e.target.value)}
                   className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 />
               </label>

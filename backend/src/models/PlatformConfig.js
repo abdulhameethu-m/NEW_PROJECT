@@ -19,7 +19,7 @@ const platformConfigSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["commission", "feature", "payment", "security", "email", "general"],
+      enum: ["commission", "feature", "payment", "security", "email", "shipping", "general"],
       default: "general",
       index: true,
     },

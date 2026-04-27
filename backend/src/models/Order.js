@@ -4,6 +4,9 @@ const mongoose = require("mongoose");
 // Admin APIs accept normalized uppercase statuses and map to these stored values.
 const ORDER_STATUS = ["Pending", "Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Returned", "Cancelled"];
 const PAYMENT_STATUS = ["Pending", "Paid", "Failed", "Refunded", "Partially Refunded"];
+const SHIPPING_MODE = ["SELF", "PLATFORM"];
+const SHIPPING_STATUS = ["NOT_SHIPPED", "READY_FOR_PICKUP", "SHIPPED", "IN_TRANSIT", "DELIVERED"];
+const PICKUP_STATUS = ["NOT_REQUESTED", "REQUESTED", "SCHEDULED", "COMPLETED", "FAILED"];
 
 const ORDER_STATUS_NORMALIZED = ["PLACED", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"];
 const PAYMENT_STATUS_NORMALIZED = ["PENDING", "PAID", "FAILED"];
@@ -109,9 +112,37 @@ const orderSchema = new mongoose.Schema(
       default: [],
     },
     deliveryPartner: { type: String, default: "Shiprocket" },
+    shippingMode: {
+      type: String,
+      enum: SHIPPING_MODE,
+      default: "SELF",
+      index: true,
+    },
+    shippingStatus: {
+      type: String,
+      enum: SHIPPING_STATUS,
+      default: "NOT_SHIPPED",
+      index: true,
+    },
     trackingId: { type: String, trim: true },
     trackingUrl: { type: String, trim: true },
+    courierName: { type: String, trim: true },
     trackingAssignedAt: { type: Date },
+    shipmentId: { type: String, trim: true, index: true },
+    pickupRequestedAt: { type: Date },
+    pickupScheduledAt: { type: Date },
+    pickupCompletedAt: { type: Date },
+    pickupStatus: {
+      type: String,
+      enum: PICKUP_STATUS,
+      default: "NOT_REQUESTED",
+      index: true,
+    },
+    logisticsProvider: { type: String, trim: true, default: "SHIPROCKET" },
+    logisticsMetadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     courierAssignedByRole: {
       type: String,
       enum: ["ADMIN", "VENDOR"],
@@ -153,11 +184,15 @@ const orderSchema = new mongoose.Schema(
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ isActive: 1, createdAt: -1 });
+orderSchema.index({ sellerId: 1, shippingMode: 1, shippingStatus: 1, createdAt: -1 });
 
 module.exports = {
   Order: mongoose.model("Order", orderSchema),
   ORDER_STATUS,
   PAYMENT_STATUS,
+  SHIPPING_MODE,
+  SHIPPING_STATUS,
+  PICKUP_STATUS,
   ORDER_STATUS_NORMALIZED,
   PAYMENT_STATUS_NORMALIZED,
 };

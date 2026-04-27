@@ -176,6 +176,7 @@ export function AdminOrdersPage() {
             { key: "id", label: "Order" },
             { key: "user", label: "User" },
             { key: "amount", label: "Amount", align: "right" },
+            { key: "shipping", label: "Shipping" },
             { key: "pay", label: "Payment" },
             { key: "status", label: "Status" },
             { key: "date", label: "Date" },
@@ -194,6 +195,15 @@ export function AdminOrdersPage() {
               </td>
               <td className="px-4 py-3 text-right">
                 <div className="text-sm font-semibold text-slate-950 dark:text-white">{formatCurrency(order.totalAmount || 0)}</div>
+              </td>
+              <td className="px-4 py-3">
+                <div className="text-sm font-semibold text-slate-950 dark:text-white">{order.shippingMode || "SELF"}</div>
+                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {order.shippingStatus || "NOT_SHIPPED"} {order.pickupStatus ? `· ${order.pickupStatus}` : ""}
+                </div>
+                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {order.courierName || order.deliveryPartner || "Courier pending"}
+                </div>
               </td>
               <td className="px-4 py-3">
                 <StatusBadge value={order.paymentStatus} />

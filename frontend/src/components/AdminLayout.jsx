@@ -57,6 +57,10 @@ const pageMeta = {
     title: "Vendor Module Access",
     subtitle: "Control which modules are accessible to vendors globally.",
   },
+  "/admin/vendor-access/shipping": {
+    title: "Shipping Access",
+    subtitle: "Control which shipping modes vendors can use across the marketplace.",
+  },
   "/admin/analytics": {
     title: "Analytics",
     subtitle: "Review revenue, top products, and sales momentum.",

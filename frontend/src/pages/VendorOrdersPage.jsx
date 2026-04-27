@@ -74,6 +74,9 @@ export function VendorOrdersPage() {
           customer: order.userId?.name || "Customer",
           amount: formatCurrency(order.totalAmount),
           status: order.status,
+          shippingMode: order.shippingMode || "SELF",
+          shippingStatus: order.shippingStatus || "NOT_SHIPPED",
+          pickupStatus: order.pickupStatus || "NOT_REQUESTED",
           paymentStatus: order.paymentStatus,
           placedAt: new Date(order.createdAt).toLocaleString(),
         }))}
@@ -82,6 +85,8 @@ export function VendorOrdersPage() {
           { key: "customer", label: "Customer" },
           { key: "amount", label: "Amount" },
           { key: "status", label: "Status", render: (row) => <StatusBadge value={row.status} /> },
+          { key: "shippingMode", label: "Mode", render: (row) => <StatusBadge value={row.shippingMode} /> },
+          { key: "shippingStatus", label: "Shipping", render: (row) => <StatusBadge value={row.shippingStatus} /> },
           { key: "paymentStatus", label: "Payment", render: (row) => <StatusBadge value={row.paymentStatus} /> },
           { key: "placedAt", label: "Created" },
           {

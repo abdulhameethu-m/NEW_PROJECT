@@ -10,6 +10,8 @@ const deleteProduct = asyncHandler(async (req, res) => ok(res, await vendorDashb
 const listOrders = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.listOrders(req.user.sub, req.query), "Vendor orders retrieved"));
 const getOrderById = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getOrderById(req.user.sub, req.params.id), "Vendor order retrieved"));
 const updateOrderStatus = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateOrderStatus(req.user.sub, req.params.id, req.body.status), "Order status updated"));
+const markOrderSelfShipped = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.markOrderSelfShipped(req.user.sub, req.params.id, req.body), "Order marked as shipped"));
+const requestOrderPickup = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.requestOrderPickup(req.user.sub, req.params.id, req.body), "Pickup requested"));
 const getInventory = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getInventory(req.user.sub, req.query), "Inventory retrieved"));
 const updateInventory = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateInventory(req.user.sub, req.params.id, req.body), "Inventory updated"));
 const getAnalytics = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getAnalytics(req.user.sub, req.query), "Analytics retrieved"));
@@ -18,6 +20,8 @@ const getDelivery = asyncHandler(async (req, res) => ok(res, await vendorDashboa
 const updateDelivery = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateDelivery(req.user.sub, req.params.id, req.body), "Delivery updated"));
 const getSettings = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getSettings(req.user.sub), "Vendor settings retrieved"));
 const updateSettings = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateSettings(req.user.sub, req.body), "Vendor settings updated"));
+const getShippingSettings = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getShippingSettings(req.user.sub), "Vendor shipping settings retrieved"));
+const updateShippingSettings = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateShippingSettings(req.user.sub, req.body), "Vendor shipping settings updated"));
 const getNotifications = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getNotifications(req.user.sub, req.query), "Notifications retrieved"));
 const markNotificationRead = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.markNotificationRead(req.user.sub, req.params.id), "Notification updated"));
 const getReviews = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getReviews(req.user.sub, req.query), "Reviews retrieved"));
@@ -40,6 +44,8 @@ module.exports = {
   listOrders,
   getOrderById,
   updateOrderStatus,
+  markOrderSelfShipped,
+  requestOrderPickup,
   getInventory,
   updateInventory,
   getAnalytics,
@@ -48,6 +54,8 @@ module.exports = {
   updateDelivery,
   getSettings,
   updateSettings,
+  getShippingSettings,
+  updateShippingSettings,
   getNotifications,
   markNotificationRead,
   getReviews,

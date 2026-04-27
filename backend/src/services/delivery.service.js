@@ -1,71 +1,104 @@
-const axios = require("axios");
 const { AppError } = require("../utils/AppError");
 const orderRepo = require("../repositories/order.repository");
+const vendorRepo = require("../repositories/vendor.repository");
+const logisticsService = require("./logistics.service");
+const {
+  applyShippingLifecycle,
+  validateCourierName,
+  validateTrackingId,
+} = require("./shipping.service");
+
+function buildShiprocketPayload(order, vendor) {
+  return {
+    order_id: order.orderNumber,
+    order_date: order.createdAt.toISOString(),
+    pickup_location: vendor?.shippingSettings?.preferredPickupLocation || "Primary",
+    comment: "Marketplace order shipment",
+    billing_customer_name: order.shippingAddress.fullName,
+    billing_last_name: "",
+    billing_address: order.shippingAddress.line1,
+    billing_address_2: order.shippingAddress.line2 || "",
+    billing_city: order.shippingAddress.city,
+    billing_pincode: order.shippingAddress.postalCode,
+    billing_state: order.shippingAddress.state,
+    billing_country: order.shippingAddress.country,
+    billing_email: order.userId?.email || vendor?.supportEmail || "support@example.com",
+    billing_phone: order.shippingAddress.phone,
+    shipping_is_billing: true,
+    order_items: (order.items || []).map((item) => ({
+      name: item.name,
+      sku: item.variantSku || String(item.productId),
+      units: item.quantity,
+      selling_price: item.price,
+    })),
+    payment_method: order.paymentMethod === "COD" ? "COD" : "Prepaid",
+    sub_total: order.subtotal,
+    length: 10,
+    breadth: 10,
+    height: 10,
+    weight: 1,
+  };
+}
 
 class DeliveryService {
-  async createShipment(orderId) {
-    const order = await orderRepo.findById(orderId);
-    if (!order) throw new AppError("Order not found", 404, "NOT_FOUND");
+  async createShipment(order, vendor) {
+    let resolvedOrder = order;
+    let resolvedVendor = vendor;
+    if (typeof order === "string") {
+      resolvedOrder = await orderRepo.findById(order);
+      if (!resolvedOrder) throw new AppError("Order not found", 404, "NOT_FOUND");
+      resolvedVendor = resolvedOrder.sellerId ? await vendorRepo.findById(resolvedOrder.sellerId._id || resolvedOrder.sellerId) : null;
+    }
+    if (!resolvedOrder) throw new AppError("Order not found", 404, "NOT_FOUND");
+    const payload = buildShiprocketPayload(resolvedOrder, resolvedVendor);
+    return await logisticsService.createPlatformShipment(payload);
+  }
 
-    const apiKey = process.env.SHIPROCKET_API_KEY;
-    const secret = process.env.SHIPROCKET_SECRET;
-    if (!apiKey || !secret) throw new AppError("Shiprocket not configured", 500, "SHIPROCKET_NOT_CONFIGURED");
-
-    // Get token
-    const tokenResponse = await axios.post("https://apiv2.shiprocket.in/v1/external/auth/login", {
-      email: "your-email@example.com", // Replace with actual
-      password: "your-password",
-    });
-    const token = tokenResponse.data.token;
-
-    // Create shipment
-    const shipmentData = {
-      order_id: order.orderNumber,
-      order_date: order.createdAt.toISOString(),
-      pickup_location: "Primary",
-      channel_id: "", // Set channel
-      comment: "Order shipment",
-      billing_customer_name: order.shippingAddress.fullName,
-      billing_last_name: "",
-      billing_address: order.shippingAddress.line1,
-      billing_address_2: order.shippingAddress.line2,
-      billing_city: order.shippingAddress.city,
-      billing_pincode: order.shippingAddress.postalCode,
-      billing_state: order.shippingAddress.state,
-      billing_country: order.shippingAddress.country,
-      billing_email: "customer@example.com", // From user
-      billing_phone: order.shippingAddress.phone,
-      shipping_is_billing: true,
-      order_items: order.items.map(item => ({
-        name: item.name,
-        sku: item.productId.toString(),
-        units: item.quantity,
-        selling_price: item.price,
-      })),
-      payment_method: order.paymentMethod === "COD" ? "COD" : "Prepaid",
-      sub_total: order.subtotal,
-      length: 10, // Placeholder
-      breadth: 10,
-      height: 10,
-      weight: 1,
-    };
-
-    const response = await axios.post("https://apiv2.shiprocket.in/v1/external/orders/create/adhoc", shipmentData, {
-      headers: { Authorization: `Bearer ${token}` },
+  buildSelfShippingUpdate({ trackingId, courierName }) {
+    const nextTrackingId = validateTrackingId(trackingId);
+    const nextCourierName = validateCourierName(courierName);
+    const lifecycle = applyShippingLifecycle({
+      orderStatus: "Packed",
+      shippingMode: "SELF",
+      shippingStatus: "SHIPPED",
+      pickupStatus: "NOT_REQUESTED",
     });
 
-    const shipment = response.data.shipment_id;
-    const trackingId = response.data.awb_code;
-    const trackingUrl = `https://shiprocket.in/tracking/${trackingId}`;
-
-    // Update order
-    await orderRepo.update(orderId, {
-      trackingId,
-      trackingUrl,
+    return {
+      trackingId: nextTrackingId,
+      courierName: nextCourierName,
+      deliveryPartner: nextCourierName,
+      trackingUrl: "",
+      ...lifecycle,
       deliveryStatus: "SHIPPED",
+      courierAssignedAt: new Date(),
+    };
+  }
+
+  buildPlatformShippingUpdate(order, shipment) {
+    const lifecycle = applyShippingLifecycle({
+      orderStatus: order.status,
+      shippingMode: "PLATFORM",
+      shippingStatus: shipment.trackingId ? "IN_TRANSIT" : "READY_FOR_PICKUP",
+      pickupStatus: shipment.pickupStatus === "REQUESTED" ? "REQUESTED" : "SCHEDULED",
     });
 
-    return { shipmentId: shipment, trackingId, trackingUrl };
+    return {
+      shipmentId: shipment.shipmentId,
+      trackingId: shipment.trackingId || order.trackingId,
+      trackingUrl: shipment.trackingUrl || order.trackingUrl,
+      courierName: shipment.courierName || order.courierName,
+      deliveryPartner: shipment.provider,
+      logisticsProvider: shipment.provider,
+      logisticsMetadata: shipment.raw,
+      pickupStatus: lifecycle.pickupStatus,
+      pickupRequestedAt: new Date(),
+      shippingMode: "PLATFORM",
+      shippingStatus: lifecycle.shippingStatus,
+      status: lifecycle.status,
+      deliveryStatus: shipment.trackingId ? "SHIPPED" : order.deliveryStatus,
+      courierAssignedAt: new Date(),
+    };
   }
 }
 

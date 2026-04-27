@@ -40,6 +40,16 @@ export async function updateVendorOrderStatus(id, payload) {
   return data;
 }
 
+export async function markVendorOrderShipped(id, payload) {
+  const { data } = await api.post(`/api/vendor/orders/${id}/ship`, payload);
+  return data;
+}
+
+export async function requestVendorOrderPickup(id, payload = {}) {
+  const { data } = await api.post(`/api/vendor/orders/${id}/request-pickup`, payload);
+  return data;
+}
+
 export async function getVendorInventory(params) {
   const { data } = await api.get("/api/vendor/inventory", { params });
   return data;
@@ -77,6 +87,16 @@ export async function getVendorSettings() {
 
 export async function updateVendorSettings(payload) {
   const { data } = await api.patch("/api/vendor/settings", payload);
+  return data;
+}
+
+export async function getVendorShippingSettings() {
+  const { data } = await api.get("/api/vendor/settings/shipping");
+  return data;
+}
+
+export async function updateVendorShippingSettings(payload) {
+  const { data } = await api.patch("/api/vendor/settings/shipping", payload);
   return data;
 }
 

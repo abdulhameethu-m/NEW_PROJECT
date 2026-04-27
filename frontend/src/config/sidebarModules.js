@@ -60,6 +60,7 @@ export const ADMIN_SECTION_ITEMS = [
       { name: "Product Modules", path: "/admin/product-modules", permission: "categories.read", icon: Boxes, legacyOnly: true },
       { name: "Homepage Content", path: "/admin/content", permission: "dashboard.read", icon: Image, legacyOnly: true },
       { name: "Vendor Access", path: "/admin/vendor-access", permission: "dashboard.read", icon: ShieldCheck, legacyOnly: true },
+      { name: "Shipping Access", path: "/admin/vendor-access/shipping", permission: "settings.update", icon: Truck, legacyOnly: true },
     ],
   },
   {

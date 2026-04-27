@@ -148,6 +148,16 @@ export async function listOrders(params = {}) {
   return data;
 }
 
+export async function getShippingModes() {
+  const { data } = await adminHttp.get("/api/admin/shipping/modes");
+  return data;
+}
+
+export async function updateShippingModes(payload) {
+  const { data } = await adminHttp.patch("/api/admin/shipping/modes", payload);
+  return data;
+}
+
 export async function listPayouts(params = {}) {
   const { data } = await adminHttp.get("/api/admin/payouts", { params });
   return data;
