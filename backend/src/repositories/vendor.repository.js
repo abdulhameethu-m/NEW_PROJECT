@@ -1,4 +1,5 @@
 const { Vendor } = require("../models/Vendor");
+require("../models/User");
 const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
 
 async function findByUserId(userId) {
@@ -43,6 +44,10 @@ async function countVendors(query = {}) {
   return await Vendor.countDocuments(query);
 }
 
+async function listAll() {
+  return await Vendor.find().exec();
+}
+
 module.exports = {
   findByUserId,
   upsertByUserId,
@@ -51,4 +56,5 @@ module.exports = {
   updateById,
   deleteById,
   countVendors,
+  listAll,
 };

@@ -109,7 +109,7 @@ router.patch(
   validate([
     body("shippingStatus")
       .optional()
-      .isIn(["NOT_SHIPPED", "READY_FOR_PICKUP", "SHIPPED", "IN_TRANSIT", "DELIVERED"])
+      .isIn(["NOT_SHIPPED", "READY_FOR_PICKUP", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"])
       .withMessage("Invalid shipping status"),
     body("pickupStatus")
       .optional()

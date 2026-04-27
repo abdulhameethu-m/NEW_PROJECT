@@ -10,7 +10,11 @@ const razorpayWebhook = asyncHandler(async (req, res) => {
 });
 
 const shiprocketWebhook = asyncHandler(async (req, res) => {
-  const result = await webhookService.handleShiprocketWebhook(req.body);
+  const signature = req.headers["x-shiprocket-signature"] || req.headers["x-logistics-signature"];
+  const result = await webhookService.handleShiprocketWebhook(req.body, {
+    rawBody: req.rawBody || JSON.stringify(req.body || {}),
+    signature,
+  });
   return ok(res, result);
 });
 

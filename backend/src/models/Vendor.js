@@ -3,6 +3,23 @@ const mongoose = require("mongoose");
 const VENDOR_STATUS = ["draft", "pending", "approved", "rejected"];
 const SHIPPING_MODE = ["SELF", "PLATFORM"];
 
+const pickupLocationSchema = new mongoose.Schema(
+  {
+    name: { type: String, trim: true, maxlength: 120 },
+    phone: { type: String, trim: true, maxlength: 30 },
+    addressLine1: { type: String, trim: true, maxlength: 240 },
+    addressLine2: { type: String, trim: true, maxlength: 240, default: "" },
+    city: { type: String, trim: true, maxlength: 120 },
+    state: { type: String, trim: true, maxlength: 120 },
+    pincode: { type: String, trim: true, maxlength: 20 },
+    country: { type: String, trim: true, maxlength: 80, default: "India" },
+    latitude: { type: Number, min: -90, max: 90 },
+    longitude: { type: Number, min: -180, max: 180 },
+    isDefault: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
 const vendorSchema = new mongoose.Schema(
   {
     userId: {
@@ -64,6 +81,14 @@ const vendorSchema = new mongoose.Schema(
       emailPayouts: { type: Boolean, default: true },
       pushOrders: { type: Boolean, default: true },
       pushSystem: { type: Boolean, default: true },
+    },
+    pickupAddress: {
+      type: pickupLocationSchema,
+      default: null,
+    },
+    pickupLocations: {
+      type: [pickupLocationSchema],
+      default: [],
     },
     shippingSettings: {
       allowedShippingModes: {

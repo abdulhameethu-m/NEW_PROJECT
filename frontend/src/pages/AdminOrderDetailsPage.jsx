@@ -9,6 +9,29 @@ function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
 }
 
+function getSellerPickupWarning(order) {
+  const pickupAddress =
+    order?.sellerId?.pickupLocations?.find?.((location) => location?.isDefault) ||
+    order?.sellerId?.pickupLocations?.[0] ||
+    order?.sellerId?.pickupAddress ||
+    null;
+
+  const missing = [];
+  if (!pickupAddress?.name) missing.push("name");
+  if (!pickupAddress?.phone) missing.push("phone");
+  if (!pickupAddress?.addressLine1) missing.push("address");
+  if (!pickupAddress?.city) missing.push("city");
+  if (!pickupAddress?.state) missing.push("state");
+  if (!pickupAddress?.pincode) missing.push("pincode");
+  if (!pickupAddress?.country) missing.push("country");
+
+  return {
+    pickupAddress,
+    missing,
+    isComplete: missing.length === 0,
+  };
+}
+
 const STATUS_OPTIONS = ["Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Returned"];
 
 export function AdminOrderDetailsPage() {
@@ -60,6 +83,7 @@ export function AdminOrderDetailsPage() {
   const items = order?.items || [];
   const user = order?.userId;
   const address = order?.shippingAddress;
+  const pickupWarning = getSellerPickupWarning(order);
 
   const canSave = useMemo(() => !!order && !saving && !loading, [order, saving, loading]);
   const hasTrackingFields = Boolean(trackingId.trim() && trackingUrl.trim());
@@ -187,6 +211,12 @@ export function AdminOrderDetailsPage() {
         </div>
       ) : null}
 
+      {order?.shippingMode === "PLATFORM" && !order?.pickupAddressSnapshot?.addressLine1 && !pickupWarning.isComplete ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          Vendor pickup location is incomplete for platform shipping. Missing: {pickupWarning.missing.join(", ")}.
+        </div>
+      ) : null}
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -253,6 +283,24 @@ export function AdminOrderDetailsPage() {
                 {address?.city}, {address?.state} {address?.postalCode}
               </div>
               <div>{address?.country}</div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">Pickup address</div>
+            <div className="mt-3 grid gap-1 text-sm text-slate-600 dark:text-slate-300">
+              <div className="font-semibold text-slate-950 dark:text-white">
+                {order?.pickupAddressSnapshot?.name || "Not captured yet"}
+              </div>
+              <div>{order?.pickupAddressSnapshot?.phone || "No pickup phone"}</div>
+              <div>{order?.pickupAddressSnapshot?.addressLine1 || "No pickup address"}</div>
+              {order?.pickupAddressSnapshot?.addressLine2 ? <div>{order.pickupAddressSnapshot.addressLine2}</div> : null}
+              <div>
+                {[order?.pickupAddressSnapshot?.city, order?.pickupAddressSnapshot?.state, order?.pickupAddressSnapshot?.pincode]
+                  .filter(Boolean)
+                  .join(", ") || "Pickup city/state/pincode not available"}
+              </div>
+              <div>{order?.pickupAddressSnapshot?.country || ""}</div>
             </div>
           </div>
 

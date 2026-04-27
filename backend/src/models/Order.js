@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const ORDER_STATUS = ["Pending", "Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Returned", "Cancelled"];
 const PAYMENT_STATUS = ["Pending", "Paid", "Failed", "Refunded", "Partially Refunded"];
 const SHIPPING_MODE = ["SELF", "PLATFORM"];
-const SHIPPING_STATUS = ["NOT_SHIPPED", "READY_FOR_PICKUP", "SHIPPED", "IN_TRANSIT", "DELIVERED"];
+const SHIPPING_STATUS = ["NOT_SHIPPED", "READY_FOR_PICKUP", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"];
 const PICKUP_STATUS = ["NOT_REQUESTED", "REQUESTED", "SCHEDULED", "COMPLETED", "FAILED"];
 
 const ORDER_STATUS_NORMALIZED = ["PLACED", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"];
@@ -139,6 +139,18 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
     logisticsProvider: { type: String, trim: true, default: "SHIPROCKET" },
+    pickupAddressSnapshot: {
+      name: { type: String, trim: true },
+      phone: { type: String, trim: true },
+      addressLine1: { type: String, trim: true },
+      addressLine2: { type: String, trim: true },
+      city: { type: String, trim: true },
+      state: { type: String, trim: true },
+      pincode: { type: String, trim: true },
+      country: { type: String, trim: true },
+      latitude: { type: Number },
+      longitude: { type: Number },
+    },
     logisticsMetadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

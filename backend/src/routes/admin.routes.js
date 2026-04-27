@@ -8,6 +8,7 @@ const adminController = require("../controllers/admin.controller");
 const revenueController = require("../controllers/revenue.controller");
 const productController = require("../controllers/product.controller");
 const { validate } = require("../middleware/validate");
+const { body } = require("express-validator");
 const {
   createProductSchema,
   updateProductSchema,
@@ -74,7 +75,16 @@ router.delete("/vendor/:id", requireLegacyAdminPermission("vendors:delete"), adm
 
 router.get("/orders", requireWorkspacePermission("orders.read"), adminController.listOrders);
 router.get("/shipping/modes", requireWorkspacePermission("settings.update"), adminController.getShippingModes);
-router.patch("/shipping/modes", requireWorkspacePermission("settings.update"), express.json(), adminController.saveShippingModes);
+router.patch(
+  "/shipping/modes",
+  requireWorkspacePermission("settings.update"),
+  express.json(),
+  validate([
+    body("selfShipping").isBoolean().withMessage("selfShipping must be boolean"),
+    body("platformShipping").isBoolean().withMessage("platformShipping must be boolean"),
+  ]),
+  adminController.saveShippingModes
+);
 router.patch("/orders/:id/status", requireWorkspacePermission("orders.update"), express.json(), adminController.updateOrderStatus);
 router.patch("/orders/:id/cancel", requireWorkspacePermission("orders.cancel"), adminController.cancelOrder);
 router.get("/orders/:id", requireWorkspacePermission("orders.read"), adminController.getOrderById);

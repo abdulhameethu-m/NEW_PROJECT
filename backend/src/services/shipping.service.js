@@ -1,7 +1,11 @@
 const { AppError } = require("../utils/AppError");
 const { SHIPPING_MODE } = require("../models/Vendor");
 const { ORDER_STATUS, SHIPPING_STATUS, PICKUP_STATUS } = require("../models/Order");
-const { resolveEnabledShippingModes, getShippingModesConfig } = require("./shipping-config.service");
+const {
+  resolveEnabledShippingModes,
+  getShippingModesConfig,
+  updateShippingModesConfig,
+} = require("./shipping-config.service");
 
 const TRACKING_ID_PATTERN = /^[A-Z0-9][A-Z0-9\-_/.]{5,39}$/i;
 
@@ -82,6 +86,10 @@ function applyShippingLifecycle({ orderStatus, shippingMode, shippingStatus, pic
   }
 
   if (shippingStatus === "IN_TRANSIT" && !["Out for Delivery", "Delivered"].includes(next.status)) {
+    next.status = "Out for Delivery";
+  }
+
+  if (shippingStatus === "OUT_FOR_DELIVERY") {
     next.status = "Out for Delivery";
   }
 
@@ -266,8 +274,9 @@ async function processShiprocketWebhook(event) {
     ready_to_ship: "READY_FOR_PICKUP",
     in_transit: "IN_TRANSIT",
     shipped: "SHIPPED",
+    out_for_delivery: "OUT_FOR_DELIVERY",
     delivered: "DELIVERED",
-    failed: "NOT_SHIPPED",
+    failed: "FAILED",
     rto_in_transit: "IN_TRANSIT",
     rto_delivered: "DELIVERED",
   };
@@ -285,6 +294,8 @@ async function processShiprocketWebhook(event) {
     } else if (newShippingStatus === "SHIPPED") {
       order.pickupStatus = "COMPLETED";
       order.pickupCompletedAt = new Date();
+    } else if (newShippingStatus === "FAILED") {
+      order.pickupStatus = "FAILED";
     } else if (newShippingStatus === "DELIVERED") {
       order.pickupStatus = "COMPLETED";
       order.deliveredAt = new Date();
@@ -312,48 +323,6 @@ async function processShiprocketWebhook(event) {
   }
 
   return order;
-}
-
-/**
- * Get shipping modes configuration from PlatformConfig
- */
-async function getShippingModesConfig() {
-  const PlatformConfig = require("../models/PlatformConfig");
-
-  let config = await PlatformConfig.findOne({ key: "shipping_modes" });
-
-  if (!config) {
-    // Create default config if not exists
-    config = await PlatformConfig.create({
-      key: "shipping_modes",
-      value: {
-        selfShipping: true,
-        platformShipping: true,
-      },
-      category: "shipping",
-      type: "object",
-      description: "Platform shipping modes configuration",
-    });
-  }
-
-  return config;
-}
-
-/**
- * Update shipping modes configuration
- */
-async function updateShippingModesConfig({ selfShipping, platformShipping, updatedBy }) {
-  const PlatformConfig = require("../models/PlatformConfig");
-
-  const config = await getShippingModesConfig();
-  config.value = {
-    selfShipping: Boolean(selfShipping),
-    platformShipping: Boolean(platformShipping),
-  };
-  config.updatedBy = updatedBy;
-
-  await config.save();
-  return config;
 }
 
 module.exports = {

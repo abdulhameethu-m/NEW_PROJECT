@@ -24,6 +24,61 @@ const {
 
 const VENDOR_ORDER_FLOW = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 
+function normalizePickupLocationEntry(location = {}, { fallbackDefault = false } = {}) {
+  const latitude = Number(location.latitude);
+  const longitude = Number(location.longitude);
+  const normalized = {
+    name: String(location.name || "").trim(),
+    phone: String(location.phone || "").trim(),
+    addressLine1: String(location.addressLine1 || "").trim(),
+    addressLine2: String(location.addressLine2 || "").trim(),
+    city: String(location.city || "").trim(),
+    state: String(location.state || "").trim(),
+    pincode: String(location.pincode || "").trim(),
+    country: String(location.country || "India").trim() || "India",
+    latitude: Number.isFinite(latitude) ? latitude : undefined,
+    longitude: Number.isFinite(longitude) ? longitude : undefined,
+    isDefault: location.isDefault === true || fallbackDefault,
+  };
+
+  const hasAnyValue = ["name", "phone", "addressLine1", "addressLine2", "city", "state", "pincode", "country"]
+    .some((field) => Boolean(normalized[field]))
+    || Number.isFinite(normalized.latitude)
+    || Number.isFinite(normalized.longitude);
+
+  return hasAnyValue ? normalized : null;
+}
+
+function normalizePickupLocationPayload(payload = {}, vendor = null) {
+  const rawLocations = Array.isArray(payload.pickupLocations)
+    ? payload.pickupLocations
+    : (vendor?.pickupLocations?.toObject?.() || vendor?.pickupLocations || []);
+
+  let pickupLocations = rawLocations
+    .map((location, index) => normalizePickupLocationEntry(location, { fallbackDefault: index === 0 && rawLocations.length === 1 }))
+    .filter(Boolean);
+
+  const payloadPickupAddress = payload.pickupAddress !== undefined ? payload.pickupAddress : vendor?.pickupAddress;
+  const normalizedPickupAddress = normalizePickupLocationEntry(payloadPickupAddress || {}, {
+    fallbackDefault: pickupLocations.length === 0,
+  });
+
+  if (normalizedPickupAddress && pickupLocations.length === 0) {
+    pickupLocations = [{ ...normalizedPickupAddress, isDefault: true }];
+  }
+
+  if (pickupLocations.length > 0 && !pickupLocations.some((location) => location.isDefault)) {
+    pickupLocations[0].isDefault = true;
+  }
+
+  const defaultPickupLocation = pickupLocations.find((location) => location.isDefault) || pickupLocations[0] || normalizedPickupAddress || null;
+
+  return {
+    pickupAddress: defaultPickupLocation,
+    pickupLocations,
+  };
+}
+
 function normalizePagination(query = {}) {
   return {
     page: Math.max(Number(query.page) || 1, 1),
@@ -529,8 +584,11 @@ class VendorDashboardService {
   async getSettings(userId) {
     const vendor = await this.getVendorContext(userId);
     const shippingModes = await resolveVendorShippingModes(vendor);
+    const pickupSettings = normalizePickupLocationPayload({}, vendor);
     return {
       ...vendor.toObject(),
+      pickupAddress: pickupSettings.pickupAddress,
+      pickupLocations: pickupSettings.pickupLocations,
       shippingSettings: {
         allowedShippingModes: shippingModes.requestedModes,
         effectiveShippingModes: shippingModes.effectiveModes,
@@ -544,6 +602,7 @@ class VendorDashboardService {
   async updateSettings(userId, payload) {
     const vendor = await this.getVendorContext(userId);
     const vendorShippingModes = await resolveVendorShippingModes(vendor);
+    const pickupSettings = normalizePickupLocationPayload(payload, vendor);
     const updatable = {
       companyName: payload.companyName,
       shopName: payload.shopName,
@@ -558,6 +617,8 @@ class VendorDashboardService {
       lowStockThreshold: payload.lowStockThreshold,
       bankDetails: payload.bankDetails,
       address: payload.address,
+      pickupAddress: pickupSettings.pickupAddress,
+      pickupLocations: pickupSettings.pickupLocations,
       notificationPreferences: payload.notificationPreferences,
     };
 
@@ -569,14 +630,18 @@ class VendorDashboardService {
     }
 
     Object.keys(updatable).forEach((key) => updatable[key] === undefined && delete updatable[key]);
-    return await vendorRepo.updateById(vendor._id, updatable);
+    await vendorRepo.updateById(vendor._id, updatable);
+    return await this.getSettings(userId);
   }
 
   async getShippingSettings(userId) {
     const vendor = await this.getVendorContext(userId);
     const shippingModes = await resolveVendorShippingModes(vendor);
+    const pickupSettings = normalizePickupLocationPayload({}, vendor);
     return {
       vendorId: vendor._id,
+      pickupAddress: pickupSettings.pickupAddress,
+      pickupLocations: pickupSettings.pickupLocations,
       allowedShippingModes: shippingModes.requestedModes,
       effectiveShippingModes: shippingModes.effectiveModes,
       defaultShippingMode: shippingModes.defaultShippingMode,
@@ -592,7 +657,8 @@ class VendorDashboardService {
       ...(vendor.shippingSettings?.toObject?.() || vendor.shippingSettings || {}),
       ...buildVendorShippingSettingsPayload(payload, shippingModes),
     };
-    return await vendorRepo.updateById(vendor._id, { shippingSettings });
+    await vendorRepo.updateById(vendor._id, { shippingSettings });
+    return await this.getShippingSettings(userId);
   }
 
   async getNotifications(userId, query) {

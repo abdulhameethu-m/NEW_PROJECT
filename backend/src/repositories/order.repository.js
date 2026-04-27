@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const { Order } = require("../models/Order");
 const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
 
+const SELLER_POPULATE_FIELDS = "companyName shopName supportPhone pickupAddress pickupLocations";
+
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -79,7 +81,7 @@ class OrderRepository {
     const [orders, total] = await Promise.all([
       Order.find(query)
         .populate("userId", "name email phone")
-        .populate("sellerId", "companyName")
+        .populate("sellerId", SELLER_POPULATE_FIELDS)
         .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
         .populate("items.productId", "name slug")
         .sort(sort)
@@ -116,7 +118,7 @@ class OrderRepository {
   async findById(id) {
     return await Order.findById(id)
       .populate("userId", "name email phone")
-      .populate("sellerId", "companyName")
+      .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
       .populate("items.productId", "name slug")
       .exec();
@@ -124,7 +126,7 @@ class OrderRepository {
 
   async findByIdForUser(id, userId) {
     return await Order.findOne({ _id: id, userId, isActive: true })
-      .populate("sellerId", "companyName")
+      .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
       .populate("items.productId", "name slug images")
       .exec();
@@ -133,7 +135,7 @@ class OrderRepository {
   async findByGroupId(orderGroupId) {
     return await Order.find({ orderGroupId })
       .populate("userId", "name email phone")
-      .populate("sellerId", "companyName")
+      .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
       .populate("items.productId", "name slug images")
       .sort({ createdAt: -1 })
@@ -165,7 +167,7 @@ class OrderRepository {
 
     const [orders, total] = await Promise.all([
       Order.find(query)
-        .populate("sellerId", "companyName")
+        .populate("sellerId", SELLER_POPULATE_FIELDS)
         .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
         .populate("items.productId", "name slug images")
         .sort(sort)
@@ -268,7 +270,7 @@ class OrderRepository {
 
     return await Order.findByIdAndUpdate(id, update, { new: true })
       .populate("userId", "name email phone")
-      .populate("sellerId", "companyName")
+      .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
       .populate("items.productId", "name slug")
       .exec();
@@ -340,7 +342,7 @@ class OrderRepository {
 
     return await Order.findByIdAndUpdate(id, update, { new: true, runValidators: true })
       .populate("userId", "name email phone")
-      .populate("sellerId", "companyName")
+      .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
       .populate("items.productId", "name slug")
       .exec();
@@ -353,7 +355,7 @@ class OrderRepository {
       { new: true }
     )
       .populate("userId", "name email phone")
-      .populate("sellerId", "companyName")
+      .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
       .populate("items.productId", "name slug")
       .exec();
@@ -376,7 +378,7 @@ class OrderRepository {
     };
     return await Order.findByIdAndUpdate(id, update, { new: true })
       .populate("userId", "name email phone")
-      .populate("sellerId", "companyName")
+      .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
       .populate("items.productId", "name slug")
       .exec();

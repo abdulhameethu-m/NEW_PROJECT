@@ -66,7 +66,7 @@ const submitSelfShipping = asyncHandler(async (req, res) => {
 /**
  * Request platform pickup for an order
  * PATCH /api/vendor/orders/:orderId/shipping/platform
- * Body: { /* shipping address data */ }
+ * Body: { shippingMode, etc }
  */
 const requestPlatformShipping = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
@@ -168,7 +168,7 @@ const saveShippingModesConfig = asyncHandler(async (req, res) => {
   const updated = await shippingService.updateShippingModesConfig({
     selfShipping,
     platformShipping,
-    updatedBy: req.user._id,
+    updatedBy: req.user?._id || req.user?.sub,
   });
 
   return ok(res, updated, "Shipping modes configuration updated");
@@ -220,7 +220,7 @@ const updateOrderShippingStatus = asyncHandler(async (req, res) => {
     throw new AppError("Order not found", 404, "NOT_FOUND");
   }
 
-  if (shippingStatus && !["NOT_SHIPPED", "READY_FOR_PICKUP", "SHIPPED", "IN_TRANSIT", "DELIVERED"].includes(shippingStatus)) {
+  if (shippingStatus && !["NOT_SHIPPED", "READY_FOR_PICKUP", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"].includes(shippingStatus)) {
     throw new AppError("Invalid shipping status", 400, "VALIDATION_ERROR");
   }
 

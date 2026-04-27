@@ -8,6 +8,29 @@ function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
 }
 
+function getPickupLocationReadiness(shippingSettings = {}) {
+  const pickupLocation =
+    shippingSettings?.pickupLocations?.find?.((location) => location?.isDefault) ||
+    shippingSettings?.pickupLocations?.[0] ||
+    shippingSettings?.pickupAddress ||
+    null;
+
+  const missing = [];
+  if (!pickupLocation?.name) missing.push("name");
+  if (!pickupLocation?.phone) missing.push("phone");
+  if (!pickupLocation?.addressLine1) missing.push("address");
+  if (!pickupLocation?.city) missing.push("city");
+  if (!pickupLocation?.state) missing.push("state");
+  if (!pickupLocation?.pincode) missing.push("pincode");
+  if (!pickupLocation?.country) missing.push("country");
+
+  return {
+    pickupLocation,
+    missing,
+    isComplete: missing.length === 0,
+  };
+}
+
 const STATUS_OPTIONS = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 
 export function VendorOrderDetailsPage() {
@@ -15,6 +38,8 @@ export function VendorOrderDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [order, setOrder] = useState(null);
+  const [availableModes, setAvailableModes] = useState(["SELF"]);
+  const [selectedMode, setSelectedMode] = useState("SELF");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Placed");
   const [trackingId, setTrackingId] = useState("");
@@ -22,23 +47,33 @@ export function VendorOrderDetailsPage() {
   const [trackingUrl, setTrackingUrl] = useState("");
   const [courierName, setCourierName] = useState("");
   const [fieldError, setFieldError] = useState("");
+  const [pickupReadiness, setPickupReadiness] = useState({ pickupLocation: null, missing: [], isComplete: false });
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError("");
 
-    vendorDashboardService
-      .getVendorOrderById(id)
-      .then((res) => {
-        const nextOrder = res?.data ?? res;
+    Promise.all([
+      vendorDashboardService.getVendorOrderById(id),
+      vendorDashboardService.getVendorShippingSettings().catch(() => null),
+    ])
+      .then(([orderRes, shippingRes]) => {
+        const nextOrder = orderRes?.data ?? orderRes;
+        const shippingSettings = shippingRes?.data ?? shippingRes;
+        const effectiveModes = shippingSettings?.effectiveShippingModes;
+        const nextAvailableModes = Array.isArray(effectiveModes) && effectiveModes.length ? effectiveModes : ["SELF"];
+        const initialMode = nextAvailableModes.includes(nextOrder?.shippingMode) ? nextOrder.shippingMode : (shippingSettings?.defaultShippingMode || nextAvailableModes[0] || "SELF");
         if (cancelled) return;
         setOrder(nextOrder);
+        setAvailableModes(nextAvailableModes);
+        setSelectedMode(initialMode);
         setStatus(nextOrder?.status || "Placed");
         setTrackingId(nextOrder?.trackingId || "");
         setPartner(nextOrder?.deliveryPartner || "");
         setTrackingUrl(nextOrder?.trackingUrl || "");
         setCourierName(nextOrder?.courierName || "");
+        setPickupReadiness(getPickupLocationReadiness(shippingSettings));
       })
       .catch((err) => {
         if (!cancelled) setError(normalizeError(err));
@@ -56,13 +91,11 @@ export function VendorOrderDetailsPage() {
   const user = order?.userId;
   const address = order?.shippingAddress;
   const canSave = useMemo(() => !!order && !saving && !loading, [order, saving, loading]);
-  const hasTrackingFields = Boolean(trackingId.trim() && trackingUrl.trim());
+  const hasBothModes = availableModes.includes("SELF") && availableModes.includes("PLATFORM");
+  const selectedModeIsSelf = selectedMode === "SELF";
+  const selectedModeIsPlatform = selectedMode === "PLATFORM";
 
   function validateTrackingFields() {
-    if ((trackingId.trim() && !trackingUrl.trim()) || (!trackingId.trim() && trackingUrl.trim())) {
-      return "Tracking ID and Tracking URL must be added together.";
-    }
-
     if (trackingUrl.trim()) {
       try {
         const parsed = new URL(trackingUrl.trim());
@@ -81,6 +114,11 @@ export function VendorOrderDetailsPage() {
     const refreshed = await vendorDashboardService.getVendorOrderById(id);
     const updated = refreshed?.data ?? refreshed;
     setOrder(updated);
+    setSelectedMode((current) => {
+      if (availableModes.includes(current)) return current;
+      if (availableModes.includes(updated?.shippingMode)) return updated.shippingMode;
+      return availableModes[0] || "SELF";
+    });
     setStatus(updated?.status || "Placed");
     setTrackingId(updated?.trackingId || "");
     setPartner(updated?.deliveryPartner || "");
@@ -116,8 +154,12 @@ export function VendorOrderDetailsPage() {
   }
 
   async function markAsShipped() {
-    if ((order?.shippingMode || "SELF") === "PLATFORM") {
-      setError("Platform shipping orders must be moved through pickup request.");
+    if (!availableModes.includes("SELF")) {
+      setError("Self shipping is not enabled by admin for your account.");
+      return;
+    }
+    if (!selectedModeIsSelf) {
+      setError("Select Self Shipping to submit your courier and tracking details.");
       return;
     }
     if (!trackingId.trim() || !courierName.trim()) {
@@ -128,7 +170,7 @@ export function VendorOrderDetailsPage() {
     setError("");
     try {
       await vendorDashboardService.markVendorOrderShipped(id, {
-        shippingMode: "SELF",
+        shippingMode: selectedMode,
         trackingId,
         courierName,
       });
@@ -141,11 +183,23 @@ export function VendorOrderDetailsPage() {
   }
 
   async function requestPickup() {
+    if (!availableModes.includes("PLATFORM")) {
+      setError("Platform shipping is not enabled by admin for your account.");
+      return;
+    }
+    if (!pickupReadiness.isComplete) {
+      setError(`Complete your default pickup location before requesting pickup. Missing: ${pickupReadiness.missing.join(", ")}.`);
+      return;
+    }
+    if (!selectedModeIsPlatform) {
+      setError("Select Platform Shipping to request pickup.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
       await vendorDashboardService.requestVendorOrderPickup(id, {
-        shippingMode: "PLATFORM",
+        shippingMode: selectedMode,
       });
       await refreshOrder();
     } catch (err) {
@@ -181,7 +235,7 @@ export function VendorOrderDetailsPage() {
           </button>
           <button
             type="button"
-            disabled={!canSave || (order?.shippingMode || "SELF") !== "SELF"}
+            disabled={!canSave || !selectedModeIsSelf || !availableModes.includes("SELF")}
             onClick={markAsShipped}
             className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
@@ -189,7 +243,7 @@ export function VendorOrderDetailsPage() {
           </button>
           <button
             type="button"
-            disabled={!canSave || (order?.shippingMode || "SELF") !== "PLATFORM" || !["NOT_REQUESTED", "FAILED"].includes(order?.pickupStatus || "NOT_REQUESTED")}
+            disabled={!canSave || !selectedModeIsPlatform || !availableModes.includes("PLATFORM") || !pickupReadiness.isComplete || !["NOT_REQUESTED", "FAILED"].includes(order?.pickupStatus || "NOT_REQUESTED")}
             onClick={requestPickup}
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
@@ -282,6 +336,67 @@ export function VendorOrderDetailsPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="text-sm font-semibold text-slate-950 dark:text-white">Update</div>
             <div className="mt-4 grid gap-3">
+              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Vendor shipping options</div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {[
+                    {
+                      id: "SELF",
+                      title: "Self Shipping",
+                      description: "Vendor enters courier name and tracking ID.",
+                    },
+                    {
+                      id: "PLATFORM",
+                      title: "Platform Shipping",
+                      description: "Vendor requests pickup and platform logistics takes over.",
+                    },
+                  ]
+                    .filter((mode) => availableModes.includes(mode.id))
+                    .map((mode) => (
+                      <label
+                        key={mode.id}
+                        className={`cursor-pointer rounded-2xl border px-4 py-3 transition ${
+                          selectedMode === mode.id
+                            ? "border-slate-900 bg-slate-50 dark:border-white dark:bg-slate-950"
+                            : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="radio"
+                            name="vendorShippingMode"
+                            value={mode.id}
+                            checked={selectedMode === mode.id}
+                            onChange={() => setSelectedMode(mode.id)}
+                            disabled={saving || loading}
+                            className="mt-1"
+                          />
+                          <div>
+                            <div className="font-semibold text-slate-950 dark:text-white">{mode.title}</div>
+                            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{mode.description}</div>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                </div>
+                <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                  {hasBothModes
+                    ? "Admin enabled both modes, so you can choose either self shipping or platform pickup for this order."
+                    : availableModes.includes("SELF")
+                      ? "Admin enabled only self shipping, so you can ship this order yourself."
+                      : "Admin enabled only platform shipping, so you can request pickup for this order."}
+                </div>
+              </div>
+
+              {availableModes.includes("PLATFORM") && !pickupReadiness.isComplete ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Platform pickup is blocked until your default pickup location is complete. Missing: {pickupReadiness.missing.join(", ")}.{" "}
+                  <Link to="/vendor/settings" className="font-semibold underline">
+                    Update pickup settings
+                  </Link>
+                </div>
+              ) : null}
+
               <div className="grid gap-2 sm:grid-cols-3">
                 <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
                   <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Shipping mode</div>
@@ -317,7 +432,7 @@ export function VendorOrderDetailsPage() {
                 <input
                   value={courierName}
                   onChange={(e) => setCourierName(e.target.value)}
-                  disabled={(order?.shippingMode || "SELF") !== "SELF"}
+                  disabled={!selectedModeIsSelf}
                   className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 />
               </label>
@@ -327,7 +442,7 @@ export function VendorOrderDetailsPage() {
                 <input
                   value={trackingId}
                   onChange={(e) => setTrackingId(e.target.value)}
-                  disabled={(order?.shippingMode || "SELF") !== "SELF"}
+                  disabled={!selectedModeIsSelf}
                   className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 />
               </label>
@@ -353,8 +468,8 @@ export function VendorOrderDetailsPage() {
               </label>
 
               <div className="rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-                {(order?.shippingMode || "SELF") === "PLATFORM"
-                  ? "Platform shipping orders use pickup request and logistics webhooks for tracking updates."
+                {selectedModeIsPlatform
+                  ? "Platform shipping lets you request pickup. Tracking updates are then handled by logistics integration."
                   : "Self shipping requires the vendor to enter a real courier name and tracking ID before moving the order to shipped."}
               </div>
             </div>

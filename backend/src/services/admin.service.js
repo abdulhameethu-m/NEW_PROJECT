@@ -17,6 +17,13 @@ const payoutService = require("./payout.service");
 const { getShippingModesConfig, updateShippingModesConfig } = require("./shipping-config.service");
 const { normalizeShippingMode } = require("./shipping.service");
 
+function resolveGlobalShippingModes(configValue = {}) {
+  const modes = [];
+  if (configValue.selfShipping) modes.push("SELF");
+  if (configValue.platformShipping) modes.push("PLATFORM");
+  return modes.length ? modes : ["SELF"];
+}
+
 async function getDashboardOverview() {
   const [totalUsers, totalSellers, totalOrders, revenue, pendingProducts, pendingSellers] = await Promise.all([
     userRepo.countUsers({ role: "user" }),
@@ -648,6 +655,32 @@ async function getShippingModes(actor) {
 
 async function saveShippingModes(payload, actor, meta) {
   const config = await updateShippingModesConfig(payload || {}, actor?.sub || actor?._id);
+  const enabledModes = resolveGlobalShippingModes(config.value);
+  const vendors = await vendorRepo.listAll();
+
+  await Promise.all(
+    vendors.map(async (vendor) => {
+      const currentSettings = vendor.shippingSettings?.toObject?.() || vendor.shippingSettings || {};
+      const nextDefaultMode = enabledModes.includes(currentSettings.defaultShippingMode)
+        ? currentSettings.defaultShippingMode
+        : enabledModes[0];
+
+      vendor.shippingSettings = {
+        ...currentSettings,
+        allowedShippingModes: enabledModes,
+        defaultShippingMode: nextDefaultMode,
+        selfShippingEnabledAt: enabledModes.includes("SELF")
+          ? currentSettings.selfShippingEnabledAt || new Date()
+          : null,
+        platformShippingEnabledAt: enabledModes.includes("PLATFORM")
+          ? currentSettings.platformShippingEnabledAt || new Date()
+          : null,
+      };
+
+      await vendor.save();
+    })
+  );
+
   await auditService.log({
     actor,
     action: "admin.shipping.modes_updated",
@@ -691,7 +724,7 @@ async function updateOrderStatus(orderId, status, actor, meta) {
 
   const shippingUpdate = {};
   if (status === "Shipped") shippingUpdate.shippingStatus = "SHIPPED";
-  if (status === "Out for Delivery") shippingUpdate.shippingStatus = "IN_TRANSIT";
+  if (status === "Out for Delivery") shippingUpdate.shippingStatus = "OUT_FOR_DELIVERY";
   if (status === "Delivered") shippingUpdate.shippingStatus = "DELIVERED";
   const updated = await orderRepo.updateById(orderId, { status, ...shippingUpdate });
   if (status === "Delivered") {

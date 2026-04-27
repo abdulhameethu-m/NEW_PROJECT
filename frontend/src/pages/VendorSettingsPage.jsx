@@ -1,6 +1,65 @@
 import { useEffect, useState } from "react";
 import { VendorSection } from "../components/VendorPanel";
+import { LocationPickerMap } from "../components/LocationPickerMap";
 import * as vendorDashboardService from "../services/vendorDashboardService";
+import { getCurrentLocationAddress, reverseGeocodeCoordinates } from "../services/locationService";
+
+function createEmptyPickupLocation(isDefault = false) {
+  return {
+    name: "",
+    phone: "",
+    addressLine1: "",
+    addressLine2: "",
+    city: "",
+    state: "",
+    pincode: "",
+    country: "India",
+    latitude: "",
+    longitude: "",
+    isDefault,
+  };
+}
+
+function derivePickupLocations(vendor = {}) {
+  const locations = Array.isArray(vendor.pickupLocations) && vendor.pickupLocations.length
+    ? vendor.pickupLocations
+    : (vendor.pickupAddress ? [{ ...vendor.pickupAddress, isDefault: true }] : []);
+
+  if (!locations.length) {
+    return [createEmptyPickupLocation(true)];
+  }
+
+  if (!locations.some((location) => location?.isDefault)) {
+    return locations.map((location, index) => ({ ...location, isDefault: index === 0 }));
+  }
+
+  return locations;
+}
+
+function summarizePickupLocation(location = {}) {
+  const missing = [];
+  if (!String(location.name || "").trim()) missing.push("name");
+  if (!String(location.phone || "").trim()) missing.push("phone");
+  if (!String(location.addressLine1 || "").trim()) missing.push("address");
+  if (!String(location.city || "").trim()) missing.push("city");
+  if (!String(location.state || "").trim()) missing.push("state");
+  if (!String(location.pincode || "").trim()) missing.push("pincode");
+  if (!String(location.country || "").trim()) missing.push("country");
+  return missing;
+}
+
+function hasPinnedCoordinates(location = {}) {
+  return Number.isFinite(Number(location.latitude)) && Number.isFinite(Number(location.longitude));
+}
+
+function getPickupLocationMapCoordinates(location = {}) {
+  const latitude = Number(location.latitude);
+  const longitude = Number(location.longitude);
+  return {
+    lat: Number.isFinite(latitude) ? latitude : 13.0827,
+    lng: Number.isFinite(longitude) ? longitude : 80.2707,
+  };
+}
 
 const defaultForm = {
   companyName: "",
@@ -26,6 +85,19 @@ const defaultForm = {
     pushOrders: true,
     pushSystem: true,
   },
+  pickupAddress: {
+    name: "",
+    phone: "",
+    addressLine1: "",
+    addressLine2: "",
+    city: "",
+    state: "",
+    pincode: "",
+    country: "India",
+    latitude: "",
+    longitude: "",
+  },
+  pickupLocations: [createEmptyPickupLocation(true)],
   shippingSettings: {
     allowedShippingModes: ["SELF", "PLATFORM"],
     effectiveShippingModes: ["SELF", "PLATFORM"],
@@ -39,24 +111,37 @@ const defaultForm = {
 };
 
 export function VendorSettingsPage() {
+  const mapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const [form, setForm] = useState(defaultForm);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [mapEditorIndex, setMapEditorIndex] = useState(0);
+  const [mapLoadingIndex, setMapLoadingIndex] = useState(-1);
+  const [deviceLocationIndex, setDeviceLocationIndex] = useState(-1);
 
   useEffect(() => {
     vendorDashboardService
       .getVendorSettings()
       .then((response) => {
         const vendor = response.data;
+        const pickupLocations = derivePickupLocations(vendor);
+        const defaultPickupAddress = pickupLocations.find((location) => location.isDefault) || pickupLocations[0] || defaultForm.pickupAddress;
+        const defaultIndex = Math.max(
+          pickupLocations.findIndex((location) => location.isDefault),
+          0
+        );
         setForm({
           ...defaultForm,
           ...vendor,
+          pickupAddress: defaultPickupAddress,
+          pickupLocations,
           bankDetails: { ...defaultForm.bankDetails, ...(vendor.bankDetails || {}) },
           notificationPreferences: {
             ...defaultForm.notificationPreferences,
             ...(vendor.notificationPreferences || {}),
           },
         });
+        setMapEditorIndex(defaultIndex);
       })
       .catch((err) => setError(err?.response?.data?.message || "Failed to load settings."));
   }, []);
@@ -65,10 +150,120 @@ export function VendorSettingsPage() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function setPickupLocations(value) {
+    setForm((current) => ({
+      ...current,
+      pickupLocations: typeof value === "function" ? value(current.pickupLocations || []) : value,
+    }));
+  }
+
+  function updatePickupLocation(index, patch) {
+    setPickupLocations((current) =>
+      (current || []).map((entry, entryIndex) => {
+        if (entryIndex !== index) return entry;
+        return typeof patch === "function" ? patch(entry) : { ...entry, ...patch };
+      })
+    );
+  }
+
+  async function reverseGeocodeWithGoogle({ lat, lng }) {
+    if (typeof window === "undefined" || !window.google?.maps?.Geocoder) {
+      return null;
+    }
+
+    const geocoder = new window.google.maps.Geocoder();
+    const result = await geocoder.geocode({ location: { lat, lng } });
+    const first = Array.isArray(result?.results) ? result.results[0] : null;
+    if (!first) return null;
+
+    const byType = (type) =>
+      first.address_components?.find((component) => component.types?.includes(type))?.long_name || "";
+
+    return {
+      address: {
+        addressLine1: [byType("street_number"), byType("route"), byType("sublocality_level_1")].filter(Boolean).join(", "),
+        city: byType("locality") || byType("administrative_area_level_2"),
+        state: byType("administrative_area_level_1"),
+        pincode: byType("postal_code"),
+        country: byType("country") || "India",
+        latitude: lat,
+        longitude: lng,
+      },
+    };
+  }
+
+  function applyResolvedPickupLocation(index, location) {
+    updatePickupLocation(index, (current) => ({
+      ...current,
+      addressLine1: location?.address?.addressLine1 || location?.address?.addressLine || current.addressLine1,
+      city: location?.address?.city || current.city,
+      state: location?.address?.state || current.state,
+      pincode: location?.address?.pincode || current.pincode,
+      country: location?.address?.country || current.country || "India",
+      latitude: location?.address?.latitude,
+      longitude: location?.address?.longitude,
+    }));
+  }
+
+  async function handlePickupMapLocationChange(index, { lat, lng }) {
+    setMapLoadingIndex(index);
+    try {
+      const location =
+        (mapsKey ? await reverseGeocodeWithGoogle({ lat, lng }) : null) ||
+        (await reverseGeocodeCoordinates({ latitude: lat, longitude: lng }));
+      applyResolvedPickupLocation(index, location);
+    } catch (err) {
+      setError(err?.message === "reverse_geocode_failed" ? "Unable to resolve that pin to an address right now." : "Unable to update pickup location from the map.");
+    } finally {
+      setMapLoadingIndex(-1);
+    }
+  }
+
+  async function handleUseCurrentPickupLocation(index) {
+    setDeviceLocationIndex(index);
+    try {
+      const location = await getCurrentLocationAddress();
+      applyResolvedPickupLocation(index, location);
+      setMapEditorIndex(index);
+      setError("");
+    } catch {
+      setError("Unable to detect your current location. Please allow location access or place the pin manually.");
+    } finally {
+      setDeviceLocationIndex(-1);
+    }
+  }
+
   async function save() {
     try {
-      await vendorDashboardService.updateVendorSettings(form);
-      await vendorDashboardService.updateVendorShippingSettings(form.shippingSettings);
+      const normalizedLocations = (form.pickupLocations || []).filter((location) =>
+        Object.values(location || {}).some((value) => value === true || String(value || "").trim())
+      );
+      const safeLocations = normalizedLocations.length ? normalizedLocations : [createEmptyPickupLocation(true)];
+      const defaultPickupAddress = safeLocations.find((location) => location.isDefault) || safeLocations[0];
+      const response = await vendorDashboardService.updateVendorSettings({
+        ...form,
+        pickupLocations: safeLocations,
+        pickupAddress: defaultPickupAddress,
+      });
+      const vendor = response?.data ?? response;
+      const pickupLocations = derivePickupLocations(vendor);
+      const nextPickupAddress = pickupLocations.find((location) => location.isDefault) || pickupLocations[0] || defaultForm.pickupAddress;
+      const defaultIndex = Math.max(
+        pickupLocations.findIndex((location) => location.isDefault),
+        0
+      );
+      setForm({
+        ...defaultForm,
+        ...vendor,
+        pickupAddress: nextPickupAddress,
+        pickupLocations,
+        bankDetails: { ...defaultForm.bankDetails, ...(vendor.bankDetails || {}) },
+        notificationPreferences: {
+          ...defaultForm.notificationPreferences,
+          ...(vendor.notificationPreferences || {}),
+        },
+      });
+      setMapEditorIndex(defaultIndex);
       setMessage("Settings updated successfully.");
       setError("");
     } catch (err) {
@@ -78,6 +273,16 @@ export function VendorSettingsPage() {
 
   return (
     <div className="grid gap-6">
+      {(() => {
+        const defaultPickupLocation = (form.pickupLocations || []).find((location) => location.isDefault) || form.pickupLocations?.[0] || form.pickupAddress;
+        const missingFields = summarizePickupLocation(defaultPickupLocation);
+        if (!missingFields.length) return null;
+        return (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Default pickup location is incomplete. Missing: {missingFields.join(", ")}.
+          </div>
+        );
+      })()}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
 
@@ -193,6 +398,172 @@ export function VendorSettingsPage() {
             <div className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
               Orders default to your selected mode, and each order is still enforced against the current admin-enabled marketplace modes.
             </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          {(form.pickupLocations || []).map((location, index) => {
+            const missing = summarizePickupLocation(location);
+            return (
+              <div key={`pickup-location-${index}`} className="md:col-span-2 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-slate-950 dark:text-white">
+                      Pickup Location {index + 1} {location.isDefault ? "(Default)" : ""}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {missing.length ? `Missing: ${missing.join(", ")}` : "Ready for platform pickup requests"}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPickupLocations((current) =>
+                          (current || []).map((entry, entryIndex) => ({
+                            ...entry,
+                            isDefault: entryIndex === index,
+                          }))
+                        )
+                      }
+                      className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                    >
+                      Set Default
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMapEditorIndex((current) => (current === index ? -1 : index))}
+                      className="rounded-xl border border-sky-300 px-3 py-2 text-xs font-medium text-sky-700"
+                    >
+                      {mapEditorIndex === index ? "Hide Map" : "Open Map"}
+                    </button>
+                    {(form.pickupLocations || []).length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const remaining = (form.pickupLocations || []).filter((_, entryIndex) => entryIndex !== index);
+                          const normalized = remaining.some((entry) => entry.isDefault)
+                            ? remaining
+                            : remaining.map((entry, entryIndex) => ({ ...entry, isDefault: entryIndex === 0 }));
+                          setPickupLocations(normalized);
+                          setMapEditorIndex((current) => {
+                            if (current === index) return normalized.length ? Math.min(index, normalized.length - 1) : -1;
+                            if (current > index) return current - 1;
+                            return current;
+                          });
+                        }}
+                        className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-medium text-rose-700"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <input
+                    value={location.name || ""}
+                    onChange={(e) => updatePickupLocation(index, { name: e.target.value })}
+                    placeholder="Pickup contact / warehouse name"
+                    className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
+                  />
+                  <input
+                    value={location.phone || ""}
+                    onChange={(e) => updatePickupLocation(index, { phone: e.target.value })}
+                    placeholder="Pickup phone"
+                    className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
+                  />
+                  <input
+                    value={location.addressLine1 || ""}
+                    onChange={(e) => updatePickupLocation(index, { addressLine1: e.target.value })}
+                    placeholder="Pickup address line 1"
+                    className="md:col-span-2 rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
+                  />
+                  <input
+                    value={location.addressLine2 || ""}
+                    onChange={(e) => updatePickupLocation(index, { addressLine2: e.target.value })}
+                    placeholder="Pickup address line 2"
+                    className="md:col-span-2 rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
+                  />
+                  <input
+                    value={location.city || ""}
+                    onChange={(e) => updatePickupLocation(index, { city: e.target.value })}
+                    placeholder="Pickup city"
+                    className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
+                  />
+                  <input
+                    value={location.state || ""}
+                    onChange={(e) => updatePickupLocation(index, { state: e.target.value })}
+                    placeholder="Pickup state"
+                    className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
+                  />
+                  <input
+                    value={location.pincode || ""}
+                    onChange={(e) => updatePickupLocation(index, { pincode: e.target.value })}
+                    placeholder="Pickup pincode"
+                    className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
+                  />
+                  <input
+                    value={location.country || "India"}
+                    onChange={(e) => updatePickupLocation(index, { country: e.target.value })}
+                    placeholder="Pickup country"
+                    className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
+                  />
+                  <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-950 dark:text-white">Exact Pickup Pin</div>
+                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          {hasPinnedCoordinates(location)
+                            ? `Pinned at ${Number(location.latitude).toFixed(6)}, ${Number(location.longitude).toFixed(6)}`
+                            : "No exact map pin selected yet. Add one for faster pickup routing."}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleUseCurrentPickupLocation(index)}
+                        disabled={deviceLocationIndex === index}
+                        className="rounded-xl border border-sky-300 px-3 py-2 text-xs font-medium text-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {deviceLocationIndex === index ? "Detecting..." : "Use Current Location"}
+                      </button>
+                    </div>
+                    {mapLoadingIndex === index ? (
+                      <div className="mt-3 text-xs font-medium text-sky-700">Resolving the pinned location...</div>
+                    ) : null}
+                    {mapEditorIndex === index ? (
+                      <div className="mt-4">
+                        {mapsKey ? (
+                          <LocationPickerMap
+                            apiKey={mapsKey}
+                            lat={getPickupLocationMapCoordinates(location).lat}
+                            lng={getPickupLocationMapCoordinates(location).lng}
+                            onChange={(coords) => handlePickupMapLocationChange(index, coords)}
+                          />
+                        ) : (
+                          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                            Add <code className="font-mono">VITE_GOOGLE_MAPS_API_KEY</code> in <code className="font-mono">frontend/.env</code> to enable the draggable pickup pin.
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div className="md:col-span-2">
+            <button
+              type="button"
+              onClick={() => {
+                const nextLocations = [...(form.pickupLocations || []), createEmptyPickupLocation(false)];
+                setPickupLocations(nextLocations);
+                setMapEditorIndex(nextLocations.length - 1);
+              }}
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200"
+            >
+              Add Pickup Location
+            </button>
           </div>
         </div>
       </VendorSection>

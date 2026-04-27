@@ -24,7 +24,8 @@ const auditLogSchema = new mongoose.Schema(
       index: true,
     },
     entityId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: String,
+      trim: true,
       index: true,
     },
     status: {

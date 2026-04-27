@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { AppError } = require("../utils/AppError");
+const crypto = require("crypto");
 
 class LogisticsService {
   constructor() {
@@ -18,7 +19,11 @@ class LogisticsService {
 
   async getShiprocketToken() {
     if (!this.isConfigured()) {
-      throw new AppError("Platform shipping is not configured", 500, "LOGISTICS_NOT_CONFIGURED");
+      throw new AppError(
+        "Platform shipping is not configured. Add SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD in backend/.env.",
+        503,
+        "LOGISTICS_NOT_CONFIGURED"
+      );
     }
 
     const now = Date.now();
@@ -41,17 +46,33 @@ class LogisticsService {
     return token;
   }
 
-  async createPlatformShipment(payload) {
+  verifyWebhookSignature(rawBody, signature) {
+    const secret = process.env.SHIPROCKET_WEBHOOK_SECRET;
+    if (!secret) return true;
+    if (!signature) {
+      throw new AppError("Missing logistics webhook signature", 400, "INVALID_SIGNATURE");
+    }
+
+    const expected = crypto.createHmac("sha256", secret).update(String(rawBody || "")).digest("hex");
+    if (expected !== signature) {
+      throw new AppError("Invalid logistics webhook signature", 400, "INVALID_SIGNATURE");
+    }
+
+    return true;
+  }
+
+  async createPlatformShipment(requestPayload) {
     if (this.providerName !== "SHIPROCKET") {
-      throw new AppError("Unsupported logistics provider", 500, "LOGISTICS_PROVIDER_UNSUPPORTED");
+      throw new AppError("Unsupported logistics provider", 503, "LOGISTICS_PROVIDER_UNSUPPORTED");
     }
 
     const token = await this.getShiprocketToken();
     const headers = { Authorization: `Bearer ${token}` };
+    const providerPayload = requestPayload?.providerPayload || requestPayload || {};
 
     const createOrderResponse = await axios.post(
       "https://apiv2.shiprocket.in/v1/external/orders/create/adhoc",
-      payload,
+      providerPayload,
       { headers }
     );
 
@@ -85,6 +106,7 @@ class LogisticsService {
       trackingUrl: orderData?.tracking_url || "",
       pickupStatus: pickupResponseData?.pickup_status || "REQUESTED",
       raw: {
+        request: requestPayload,
         createOrder: orderData,
         pickup: pickupResponseData,
       },

@@ -1,9 +1,26 @@
+const mongoose = require("mongoose");
+const { AppError } = require("../utils/AppError");
 const PlatformConfig = require("../models/PlatformConfig");
 
 const DEFAULT_SHIPPING_MODES = {
   selfShipping: true,
   platformShipping: true,
 };
+
+function normalizeShippingModes(value = {}) {
+  return {
+    selfShipping: value?.selfShipping !== false,
+    platformShipping: value?.platformShipping !== false,
+  };
+}
+
+function normalizeUpdatedBy(updatedBy) {
+  if (!updatedBy) return undefined;
+  if (mongoose.Types.ObjectId.isValid(String(updatedBy))) {
+    return new mongoose.Types.ObjectId(String(updatedBy));
+  }
+  return undefined;
+}
 
 async function ensureShippingModesConfig(updatedBy = null) {
   let config = await PlatformConfig.findOne({ key: "shipping_modes" });
@@ -14,17 +31,10 @@ async function ensureShippingModesConfig(updatedBy = null) {
       description: "Controls which shipping modes vendors can use.",
       category: "shipping",
       type: "object",
-      updatedBy: updatedBy || undefined,
+      updatedBy: normalizeUpdatedBy(updatedBy),
     });
   }
   return config;
-}
-
-function normalizeShippingModes(value = {}) {
-  return {
-    selfShipping: value?.selfShipping !== false,
-    platformShipping: value?.platformShipping !== false,
-  };
 }
 
 async function getShippingModesConfig() {
@@ -39,10 +49,18 @@ async function getShippingModesConfig() {
 }
 
 async function updateShippingModesConfig({ selfShipping, platformShipping }, updatedBy) {
+  if (typeof selfShipping !== "boolean" || typeof platformShipping !== "boolean") {
+    throw new AppError("Both selfShipping and platformShipping must be boolean", 400, "VALIDATION_ERROR");
+  }
+
+  if (!selfShipping && !platformShipping) {
+    throw new AppError("At least one shipping mode must be enabled", 400, "VALIDATION_ERROR");
+  }
+
   const config = await ensureShippingModesConfig(updatedBy);
   const nextValue = normalizeShippingModes({ selfShipping, platformShipping });
   config.value = nextValue;
-  config.updatedBy = updatedBy || config.updatedBy;
+  config.updatedBy = normalizeUpdatedBy(updatedBy) || config.updatedBy;
   await config.save();
   return {
     key: config.key,

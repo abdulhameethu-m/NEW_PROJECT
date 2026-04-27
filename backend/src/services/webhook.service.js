@@ -6,6 +6,7 @@ const webhookEventRepo = require("../repositories/webhook-event.repository");
 const orderRepo = require("../repositories/order.repository");
 const payoutService = require("./payout.service");
 const { applyShippingLifecycle } = require("./shipping.service");
+const logisticsService = require("./logistics.service");
 
 function buildEventId(provider, eventType, rawBody) {
   return `${provider}:${eventType}:${crypto.createHash("sha1").update(String(rawBody || "")).digest("hex")}`;
@@ -113,7 +114,8 @@ class WebhookService {
     }
   }
 
-  async handleShiprocketWebhook(data) {
+  async handleShiprocketWebhook(data, { rawBody, signature } = {}) {
+    logisticsService.verifyWebhookSignature(rawBody, signature);
     const eventId = buildEventId("SHIPROCKET", String(data?.current_status || "status"), JSON.stringify(data || {}));
     const existing = await webhookEventRepo.findByEventId(eventId);
     if (existing) {
@@ -147,7 +149,10 @@ class WebhookService {
         } else if (["Shipped", "In Transit"].includes(currentStatus)) {
           nextShippingStatus = "IN_TRANSIT";
         } else if (currentStatus === "Out for Delivery") {
-          nextShippingStatus = "IN_TRANSIT";
+          nextShippingStatus = "OUT_FOR_DELIVERY";
+        } else if (["Pickup Exception", "Pickup Failed", "Undelivered", "RTO Initiated"].includes(currentStatus)) {
+          nextShippingStatus = "FAILED";
+          nextPickupStatus = order.pickupStatus === "REQUESTED" ? "FAILED" : order.pickupStatus;
         } else if (currentStatus === "Delivered") {
           nextShippingStatus = "DELIVERED";
           nextPickupStatus = order.pickupStatus === "NOT_REQUESTED" ? "COMPLETED" : order.pickupStatus;
@@ -172,7 +177,7 @@ class WebhookService {
           deliveryStatus:
             lifecycle.shippingStatus === "DELIVERED"
               ? "DELIVERED"
-              : lifecycle.shippingStatus === "IN_TRANSIT"
+              : ["IN_TRANSIT", "OUT_FOR_DELIVERY"].includes(lifecycle.shippingStatus)
                 ? "SHIPPED"
                 : order.deliveryStatus,
           ...(lifecycle.pickupStatus === "SCHEDULED" ? { pickupScheduledAt: new Date() } : {}),
