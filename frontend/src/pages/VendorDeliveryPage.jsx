@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { VendorDataTable, VendorSection } from "../components/VendorPanel";
 import { useModuleAccess } from "../context/VendorModuleContext";
@@ -28,7 +28,15 @@ export function VendorDeliveryPage() {
   }, []);
 
   return (
-    <VendorSection title="Delivery" description="Assign courier, update tracking, and maintain order shipment visibility.">
+    <VendorSection
+      title="Delivery"
+      description="Assign courier, update tracking, and maintain order shipment visibility."
+      action={(
+        <Link to="/vendor/pickups" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
+          Ready for Pickup
+        </Link>
+      )}
+    >
       {error ? <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       <VendorDataTable
         rows={(data?.shipments || []).map((shipment) => ({

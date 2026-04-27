@@ -11,7 +11,7 @@ const listOrders = asyncHandler(async (req, res) => ok(res, await vendorDashboar
 const getOrderById = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getOrderById(req.user.sub, req.params.id), "Vendor order retrieved"));
 const updateOrderStatus = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateOrderStatus(req.user.sub, req.params.id, req.body.status), "Order status updated"));
 const markOrderSelfShipped = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.markOrderSelfShipped(req.user.sub, req.params.id, req.body), "Order marked as shipped"));
-const requestOrderPickup = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.requestOrderPickup(req.user.sub, req.params.id, req.body), "Pickup requested"));
+const requestOrderPickup = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.requestOrderPickup(req.user.sub, req.params.id, req.body), "Shipment created"));
 const getInventory = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getInventory(req.user.sub, req.query), "Inventory retrieved"));
 const updateInventory = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateInventory(req.user.sub, req.params.id, req.body), "Inventory updated"));
 const getAnalytics = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getAnalytics(req.user.sub, req.query), "Analytics retrieved"));

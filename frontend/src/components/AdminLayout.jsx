@@ -41,6 +41,10 @@ const pageMeta = {
     title: "Payouts",
     subtitle: "Manage vendor settlements, payout queues, and transfer outcomes.",
   },
+  "/admin/finance/payouts": {
+    title: "Payout Management",
+    subtitle: "Review, approve, reject, and settle vendor payout requests safely.",
+  },
   "/admin/payment-details": {
     title: "Payment Details",
     subtitle: "Inspect signature verification, linked orders, and webhook history.",
@@ -121,6 +125,12 @@ export function AdminLayout() {
       return {
         title: "Seller Details",
         subtitle: "Inspect onboarding details and decision history.",
+      };
+    }
+    if (location.pathname.startsWith("/admin/vendors/") && location.pathname.endsWith("/finance")) {
+      return {
+        title: "Vendor Finance",
+        subtitle: "Review wallet balances, payout requests, and ledger activity for a seller.",
       };
     }
     if (location.pathname.startsWith("/admin/payment-details/")) {

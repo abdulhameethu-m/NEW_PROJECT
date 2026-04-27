@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Truck, Package, CheckCircle2, Clock, AlertCircle, MapPin, Loader2 } from "lucide-react";
 
 const STATUS_COLORS = {
   NOT_SHIPPED: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
   READY_FOR_PICKUP: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  PICKUP_SCHEDULED: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
   SHIPPED: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   IN_TRANSIT: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
   OUT_FOR_DELIVERY: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
@@ -14,6 +15,7 @@ const STATUS_COLORS = {
 const STATUS_ICONS = {
   NOT_SHIPPED: Package,
   READY_FOR_PICKUP: Truck,
+  PICKUP_SCHEDULED: Truck,
   SHIPPED: Truck,
   IN_TRANSIT: Truck,
   OUT_FOR_DELIVERY: MapPin,
@@ -28,7 +30,8 @@ const STATUS_STEPS = {
     { key: "DELIVERED", label: "Delivered", description: "Successfully delivered" },
   ],
   PLATFORM: [
-    { key: "READY_FOR_PICKUP", label: "Ready for Pickup", description: "Scheduled for pickup" },
+    { key: "READY_FOR_PICKUP", label: "Shipment Created", description: "Waiting in pickup queue" },
+    { key: "PICKUP_SCHEDULED", label: "Pickup Scheduled", description: "Courier pickup has been booked" },
     { key: "IN_TRANSIT", label: "In Transit", description: "Moving to you" },
     { key: "OUT_FOR_DELIVERY", label: "Out for Delivery", description: "Driver on the way" },
     { key: "DELIVERED", label: "Delivered", description: "Successfully delivered" },

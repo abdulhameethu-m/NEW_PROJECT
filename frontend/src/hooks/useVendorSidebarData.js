@@ -17,6 +17,7 @@ export function useVendorSidebarData({ unreadCount = 0 } = {}) {
 
   const dynamicSections = useMemo(() => {
     const grouped = new Map();
+    const hasPaymentsModule = modules.some((module) => module.key === "payments" && module.enabled && module.vendorEnabled);
 
     [...modules]
       .sort((left, right) => (left.order || 0) - (right.order || 0))
@@ -39,6 +40,23 @@ export function useVendorSidebarData({ unreadCount = 0 } = {}) {
           moduleKey: module.key,
         });
       });
+
+    if (hasPaymentsModule) {
+      const financeItems = grouped.get("Finance") || [];
+      const existingPaths = new Set(financeItems.map((item) => item.path));
+
+      [
+        { name: "Payout History", path: "/vendor/finance/payouts" },
+        { name: "Ledger", path: "/vendor/finance/ledger" },
+        { name: "Payout Account", path: "/vendor/finance/account" },
+      ].forEach((item) => {
+        if (!existingPaths.has(item.path)) {
+          financeItems.push(item);
+        }
+      });
+
+      grouped.set("Finance", financeItems);
+    }
 
     return Array.from(grouped.entries()).map(([section, items]) => ({
       section,

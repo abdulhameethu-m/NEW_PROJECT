@@ -14,7 +14,12 @@ const {
   createProductSchema,
   updateProductSchema,
 } = require("../utils/validators/product.validation");
+const {
+  payoutRequestSchema,
+  payoutAccountSchema,
+} = require("../utils/validators/payout.validation");
 const vendorDashboardController = require("../modules/vendorDashboard/vendor-dashboard.controller");
+const vendorPayoutController = require("../controllers/vendorPayout.controller");
 
 const router = express.Router();
 
@@ -62,6 +67,12 @@ router.get("/analytics", requireVendorModule("analytics"), vendorDashboardContro
 
 // 🔥 PAYMENTS MODULE - Protected by vendorModuleAccess
 router.get("/payouts", requireVendorModule("payments"), vendorDashboardController.getPayouts);
+router.get("/wallet", requireVendorModule("payments"), vendorPayoutController.getWallet);
+router.get("/ledger", requireVendorModule("payments"), vendorPayoutController.getLedger);
+router.get("/payout-requests", requireVendorModule("payments"), vendorPayoutController.listPayoutRequests);
+router.post("/payouts/request", requireVendorPermission("payments.update"), validate(payoutRequestSchema), vendorPayoutController.requestPayout);
+router.get("/payout-account", requireVendorModule("payments"), vendorPayoutController.getPayoutAccount);
+router.put("/payout-account", requireVendorPermission("payments.update"), validate(payoutAccountSchema), vendorPayoutController.upsertPayoutAccount);
 
 // 🔥 DELIVERY MODULE - Protected by vendorModuleAccess
 router.get("/delivery", requireVendorModule("delivery"), vendorDashboardController.getDelivery);

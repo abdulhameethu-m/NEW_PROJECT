@@ -48,6 +48,7 @@ export const ADMIN_SECTION_ITEMS = [
       { name: "Sellers", path: "/admin/sellers", permission: "vendors.read", icon: ShoppingBag, legacyOnly: true },
       { name: "Products", path: "/admin/products", permission: "products.read", icon: Boxes },
       { name: "Orders", path: "/admin/orders", permission: "orders.read", icon: ShoppingCart },
+      { name: "Pickups", path: "/admin/pickups", permission: "orders.read", icon: Truck },
     ],
   },
   {
@@ -69,7 +70,7 @@ export const ADMIN_SECTION_ITEMS = [
     items: [
       { name: "Payments", path: "/admin/payments", permission: "payments.read", icon: CreditCard },
       { name: "Refunds", path: "/admin/refunds", permission: "payments.read", icon: RotateCcw },
-      { name: "Payouts", path: "/admin/payouts", permission: "payouts.read", icon: Wallet },
+      { name: "Payout Management", path: "/admin/finance/payouts", permission: "payouts.read", icon: Wallet },
     ],
   },
   {
@@ -95,7 +96,7 @@ export const VENDOR_DYNAMIC_MODULE_META = {
   homepage_content: { section: "Marketing", path: "/vendor/content", icon: Image },
   inventory: { section: "Management", path: "/vendor/inventory", icon: Package2 },
   orders: { section: "Management", path: "/vendor/orders", icon: ShoppingCart },
-  payments: { section: "Finance", path: "/vendor/earnings", icon: CreditCard },
+  payments: { section: "Finance", path: "/vendor/finance", icon: CreditCard },
   products: { section: "Management", path: "/vendor/products", icon: Package },
   returns: { section: "Management", path: "/vendor/returns", icon: RotateCcw },
   reviews: { section: "Growth", path: "/vendor/reviews", icon: Star },
@@ -107,6 +108,7 @@ export const VENDOR_STATIC_ITEMS = [
     key: "workspace",
     items: [
       { name: "Notifications", path: "/vendor/notifications", icon: Bell, badgeKey: "notificationsUnread" },
+      { name: "Ready for Pickup", path: "/vendor/pickups", icon: Truck },
       { name: "Offers", path: "/vendor/offers", icon: Percent },
       { name: "Support", path: "/vendor/support", icon: HeadphonesIcon },
       { name: "Settings", path: "/vendor/settings", icon: Settings },

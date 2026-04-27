@@ -44,6 +44,7 @@ import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminRolesPage } from "./pages/AdminRolesPage";
 import { AdminStaffPage } from "./pages/AdminStaffPage";
 import { AdminShippingModesPage } from "./pages/AdminShippingModesPage";
+import { AdminPickupsPage } from "./pages/AdminPickupsPage";
 import { ProductFormPage } from "./pages/ProductFormPage";
 import { ProductDetailsPage } from "./pages/ProductDetailsPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -63,9 +64,14 @@ import { VendorOrdersPage } from "./pages/VendorOrdersPage";
 import { VendorInventoryPage } from "./pages/VendorInventoryPage";
 import { VendorAnalyticsPage } from "./pages/VendorAnalyticsPage";
 import { VendorPayoutsPage } from "./pages/VendorPayoutsPage";
+import { VendorFinancePage } from "./pages/VendorFinancePage";
+import { VendorFinancePayoutsPage } from "./pages/VendorFinancePayoutsPage";
+import { VendorFinanceLedgerPage } from "./pages/VendorFinanceLedgerPage";
+import { VendorFinanceAccountPage } from "./pages/VendorFinanceAccountPage";
 import { VendorEarningsPage } from "./pages/VendorEarningsPage";
 import { VendorDeliveryPage } from "./pages/VendorDeliveryPage";
 import { VendorOrderDetailsPage } from "./pages/VendorOrderDetailsPage";
+import { VendorPickupQueuePage } from "./pages/VendorPickupQueuePage";
 import { VendorNotificationsPage } from "./pages/VendorNotificationsPage";
 import { VendorReviewsPage } from "./pages/VendorReviewsPage";
 import { VendorReturnsPage } from "./pages/VendorReturnsPage";
@@ -88,6 +94,8 @@ import { StaffPaymentsPage } from "./pages/StaffPaymentsPage";
 import { AdminPaymentsPage } from "./pages/AdminPaymentsPage";
 import { AdminRefundsPage } from "./pages/AdminRefundsPage";
 import { AdminPayoutsPage } from "./pages/AdminPayoutsPage";
+import { AdminFinancePayoutManagementPage } from "./pages/AdminFinancePayoutManagementPage";
+import { AdminVendorFinancePage } from "./pages/AdminVendorFinancePage";
 import { AdminPaymentDetailsPage } from "./pages/AdminPaymentDetailsPage";
 import { OrderSuccessPage } from "./pages/OrderSuccessPage";
 import { StaffReviewsPage } from "./pages/StaffReviewsPage";
@@ -158,8 +166,13 @@ export default function App() {
               <Route path="analytics" element={<VendorModuleRoute moduleKey="analytics"><VendorAnalyticsPage /></VendorModuleRoute>} />
               <Route path="earnings" element={<VendorModuleRoute moduleKey="payments"><VendorEarningsPage /></VendorModuleRoute>} />
               <Route path="payouts" element={<VendorModuleRoute moduleKey="payments"><VendorPayoutsPage /></VendorModuleRoute>} />
+              <Route path="finance" element={<VendorModuleRoute moduleKey="payments"><VendorFinancePage /></VendorModuleRoute>} />
+              <Route path="finance/payouts" element={<VendorModuleRoute moduleKey="payments"><VendorFinancePayoutsPage /></VendorModuleRoute>} />
+              <Route path="finance/ledger" element={<VendorModuleRoute moduleKey="payments"><VendorFinanceLedgerPage /></VendorModuleRoute>} />
+              <Route path="finance/account" element={<VendorModuleRoute moduleKey="payments"><VendorFinanceAccountPage /></VendorModuleRoute>} />
               <Route path="delivery" element={<VendorModuleRoute moduleKey="delivery"><VendorDeliveryPage /></VendorModuleRoute>} />
               <Route path="delivery/:id/edit" element={<VendorModuleRoute moduleKey="delivery"><VendorOrderDetailsPage /></VendorModuleRoute>} />
+              <Route path="pickups" element={<VendorModuleRoute moduleKey="delivery"><VendorPickupQueuePage /></VendorModuleRoute>} />
               <Route path="notifications" element={<VendorNotificationsPage />} />
               <Route path="reviews" element={<VendorModuleRoute moduleKey="reviews"><VendorReviewsPage /></VendorModuleRoute>} />
               <Route path="returns" element={<VendorModuleRoute moduleKey="returns"><VendorReturnsPage /></VendorModuleRoute>} />
@@ -190,9 +203,12 @@ export default function App() {
               <Route path="products/create" element={<AdminProductCreate />} />
               <Route path="products/:id/edit" element={<AdminProductEdit />} />
               <Route path="orders" element={<AdminOrdersPage />} />
+              <Route path="pickups" element={<AdminPickupsPage />} />
               <Route path="payments" element={<AdminPaymentsPage />} />
               <Route path="refunds" element={<AdminRefundsPage />} />
               <Route path="payouts" element={<AdminPayoutsPage />} />
+              <Route path="finance/payouts" element={<AdminFinancePayoutManagementPage />} />
+              <Route path="vendors/:id/finance" element={<AdminVendorFinancePage />} />
               <Route path="payment-details/:paymentId" element={<AdminPaymentDetailsPage />} />
               <Route path="orders/create" element={<AdminOrderCreatePage />} />
               <Route path="orders/:id" element={<AdminOrderDetailsPage />} />

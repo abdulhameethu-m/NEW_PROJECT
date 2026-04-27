@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "test:vendor-payouts": "node src/services/__tests__/vendor-payout-domain.test.js",
     "seed:admin": "node src/scripts/seedAdmin.js",
     "seed:order": "node src/scripts/seedOrder.js",
     "seed:orders:yesterday": "node src/scripts/seedOrdersYesterday.js",

@@ -50,6 +50,21 @@ export async function requestVendorOrderPickup(id, payload = {}) {
   return data;
 }
 
+export async function getVendorPickupQueue(params = {}) {
+  const { data } = await api.get("/api/vendor/pickups/queue", { params });
+  return data;
+}
+
+export async function getVendorPickupBatches(params = {}) {
+  const { data } = await api.get("/api/vendor/pickups", { params });
+  return data;
+}
+
+export async function scheduleVendorPickup(payload) {
+  const { data } = await api.post("/api/vendor/pickups/schedule", payload);
+  return data;
+}
+
 export async function getVendorInventory(params) {
   const { data } = await api.get("/api/vendor/inventory", { params });
   return data;
@@ -67,6 +82,36 @@ export async function getVendorAnalytics(params = {}) {
 
 export async function getVendorPayouts(params = {}) {
   const { data } = await api.get("/api/vendor/payouts", { params });
+  return data;
+}
+
+export async function getVendorWallet() {
+  const { data } = await api.get("/api/vendor/wallet");
+  return data;
+}
+
+export async function getVendorLedger(params = {}) {
+  const { data } = await api.get("/api/vendor/ledger", { params });
+  return data;
+}
+
+export async function getVendorPayoutRequests(params = {}) {
+  const { data } = await api.get("/api/vendor/payout-requests", { params });
+  return data;
+}
+
+export async function requestVendorPayout(payload) {
+  const { data } = await api.post("/api/vendor/payouts/request", payload);
+  return data;
+}
+
+export async function getVendorPayoutAccount() {
+  const { data } = await api.get("/api/vendor/payout-account");
+  return data;
+}
+
+export async function updateVendorPayoutAccount(payload) {
+  const { data } = await api.put("/api/vendor/payout-account", payload);
   return data;
 }
 

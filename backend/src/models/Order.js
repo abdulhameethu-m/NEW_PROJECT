@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const ORDER_STATUS = ["Pending", "Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Returned", "Cancelled"];
 const PAYMENT_STATUS = ["Pending", "Paid", "Failed", "Refunded", "Partially Refunded"];
 const SHIPPING_MODE = ["SELF", "PLATFORM"];
-const SHIPPING_STATUS = ["NOT_SHIPPED", "READY_FOR_PICKUP", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"];
+const SHIPPING_STATUS = ["NOT_SHIPPED", "READY_FOR_PICKUP", "PICKUP_SCHEDULED", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"];
 const PICKUP_STATUS = ["NOT_REQUESTED", "REQUESTED", "SCHEDULED", "COMPLETED", "FAILED"];
 
 const ORDER_STATUS_NORMALIZED = ["PLACED", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"];
@@ -107,6 +107,12 @@ const orderSchema = new mongoose.Schema(
     razorpayPaymentId: { type: String, trim: true, index: true },
     paymentCapturedAt: { type: Date },
     payoutEligibleAt: { type: Date, index: true },
+    vendorWalletReleasedAt: { type: Date, index: true },
+    vendorWalletReleaseReferenceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Ledger",
+      index: true,
+    },
     fraudFlags: {
       type: [String],
       default: [],
@@ -129,6 +135,8 @@ const orderSchema = new mongoose.Schema(
     courierName: { type: String, trim: true },
     trackingAssignedAt: { type: Date },
     shipmentId: { type: String, trim: true, index: true },
+    pickupScheduled: { type: Boolean, default: false, index: true },
+    pickupBatchId: { type: String, trim: true, index: true },
     pickupRequestedAt: { type: Date },
     pickupScheduledAt: { type: Date },
     pickupCompletedAt: { type: Date },
@@ -197,6 +205,8 @@ orderSchema.index({ createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ isActive: 1, createdAt: -1 });
 orderSchema.index({ sellerId: 1, shippingMode: 1, shippingStatus: 1, createdAt: -1 });
+orderSchema.index({ sellerId: 1, pickupScheduled: 1, shippingStatus: 1, createdAt: -1 });
+orderSchema.index({ sellerId: 1, pickupBatchId: 1, createdAt: -1 });
 
 module.exports = {
   Order: mongoose.model("Order", orderSchema),

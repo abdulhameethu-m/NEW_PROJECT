@@ -140,8 +140,11 @@ class WebhookService {
         let nextShippingStatus = order.shippingStatus;
         let nextPickupStatus = order.pickupStatus;
 
-        if (["AWB assigned", "Pickup scheduled", "Pickup generated"].includes(currentStatus)) {
+        if (currentStatus === "AWB assigned") {
           nextShippingStatus = "READY_FOR_PICKUP";
+          nextPickupStatus = order.pickupStatus || "NOT_REQUESTED";
+        } else if (["Pickup scheduled", "Pickup generated"].includes(currentStatus)) {
+          nextShippingStatus = "PICKUP_SCHEDULED";
           nextPickupStatus = "SCHEDULED";
         } else if (["Pickup complete", "Picked Up"].includes(currentStatus)) {
           nextShippingStatus = "IN_TRANSIT";
@@ -180,6 +183,7 @@ class WebhookService {
               : ["IN_TRANSIT", "OUT_FOR_DELIVERY"].includes(lifecycle.shippingStatus)
                 ? "SHIPPED"
                 : order.deliveryStatus,
+          pickupScheduled: ["SCHEDULED", "COMPLETED"].includes(lifecycle.pickupStatus),
           ...(lifecycle.pickupStatus === "SCHEDULED" ? { pickupScheduledAt: new Date() } : {}),
           ...(lifecycle.pickupStatus === "COMPLETED" ? { pickupCompletedAt: new Date() } : {}),
         });

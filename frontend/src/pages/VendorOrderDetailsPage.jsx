@@ -182,17 +182,17 @@ export function VendorOrderDetailsPage() {
     }
   }
 
-  async function requestPickup() {
+  async function createShipment() {
     if (!availableModes.includes("PLATFORM")) {
       setError("Platform shipping is not enabled by admin for your account.");
       return;
     }
     if (!pickupReadiness.isComplete) {
-      setError(`Complete your default pickup location before requesting pickup. Missing: ${pickupReadiness.missing.join(", ")}.`);
+      setError(`Complete your default pickup location before creating a shipment. Missing: ${pickupReadiness.missing.join(", ")}.`);
       return;
     }
     if (!selectedModeIsPlatform) {
-      setError("Select Platform Shipping to request pickup.");
+      setError("Select Platform Shipping to create shipment.");
       return;
     }
     setSaving(true);
@@ -243,11 +243,11 @@ export function VendorOrderDetailsPage() {
           </button>
           <button
             type="button"
-            disabled={!canSave || !selectedModeIsPlatform || !availableModes.includes("PLATFORM") || !pickupReadiness.isComplete || !["NOT_REQUESTED", "FAILED"].includes(order?.pickupStatus || "NOT_REQUESTED")}
-            onClick={requestPickup}
+            disabled={!canSave || !selectedModeIsPlatform || !availableModes.includes("PLATFORM") || !pickupReadiness.isComplete || Boolean(order?.shipmentId) || ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order?.shippingStatus)}
+            onClick={createShipment}
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
-            Request Pickup
+            Create Shipment
           </button>
         </div>
       </div>
@@ -348,7 +348,7 @@ export function VendorOrderDetailsPage() {
                     {
                       id: "PLATFORM",
                       title: "Platform Shipping",
-                      description: "Vendor requests pickup and platform logistics takes over.",
+                      description: "Create shipment now and batch pickup later from the queue.",
                     },
                   ]
                     .filter((mode) => availableModes.includes(mode.id))
@@ -384,13 +384,13 @@ export function VendorOrderDetailsPage() {
                     ? "Admin enabled both modes, so you can choose either self shipping or platform pickup for this order."
                     : availableModes.includes("SELF")
                       ? "Admin enabled only self shipping, so you can ship this order yourself."
-                      : "Admin enabled only platform shipping, so you can request pickup for this order."}
+                      : "Admin enabled only platform shipping, so you can create shipment for this order."}
                 </div>
               </div>
 
               {availableModes.includes("PLATFORM") && !pickupReadiness.isComplete ? (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Platform pickup is blocked until your default pickup location is complete. Missing: {pickupReadiness.missing.join(", ")}.{" "}
+                  Platform shipment creation is blocked until your default pickup location is complete. Missing: {pickupReadiness.missing.join(", ")}.{" "}
                   <Link to="/vendor/settings" className="font-semibold underline">
                     Update pickup settings
                   </Link>
@@ -409,6 +409,10 @@ export function VendorOrderDetailsPage() {
                 <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
                   <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Pickup status</div>
                   <div className="mt-1 font-semibold text-slate-950 dark:text-white">{order?.pickupStatus || "NOT_REQUESTED"}</div>
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Pickup batch</div>
+                  <div className="mt-1 font-semibold text-slate-950 dark:text-white">{order?.pickupBatchId || "Not scheduled"}</div>
                 </div>
               </div>
 
@@ -469,7 +473,7 @@ export function VendorOrderDetailsPage() {
 
               <div className="rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-600 dark:bg-slate-950 dark:text-slate-300">
                 {selectedModeIsPlatform
-                  ? "Platform shipping lets you request pickup. Tracking updates are then handled by logistics integration."
+                  ? "Platform shipping creates a Shiprocket shipment first. Use the Ready for Pickup queue to batch multiple shipments into one pickup request."
                   : "Self shipping requires the vendor to enter a real courier name and tracking ID before moving the order to shipped."}
               </div>
             </div>

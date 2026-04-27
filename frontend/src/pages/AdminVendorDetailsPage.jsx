@@ -86,6 +86,7 @@ export function AdminVendorDetailsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge value={vendor.status} />
+          <Link to={`/admin/vendors/${id}/finance`} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Finance</Link>
           <button type="button" onClick={() => navigate("/admin/sellers")} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Back</button>
         </div>
       </div>

@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Truck, Package, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
-import { formatCurrency } from "../utils/formatCurrency";
 
 const SHIPPING_MODES = {
   SELF: {
@@ -12,7 +11,7 @@ const SHIPPING_MODES = {
   PLATFORM: {
     id: "PLATFORM",
     title: "Platform Shipping",
-    description: "Request pickup via Shiprocket",
+    description: "Create shipment via Shiprocket and schedule pickup later",
     icon: Truck,
   },
 };
@@ -27,7 +26,7 @@ export function VendorShippingPanel({ order, onShippingSubmitted, availableModes
   const [success, setSuccess] = useState("");
 
   const isShipped = order?.shippingStatus === "SHIPPED";
-  const isPickupRequested = order?.pickupStatus === "REQUESTED";
+  const isShipmentCreated = Boolean(order?.shipmentId) || ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order?.shippingStatus);
   const canShip = order?.status === "Packed" && !isShipped;
 
   async function handleSelfShipping(e) {
@@ -88,16 +87,16 @@ export function VendorShippingPanel({ order, onShippingSubmitted, availableModes
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || "Failed to request pickup");
+        throw new Error(data.message || "Failed to create shipment");
       }
 
       const data = await response.json();
-      setSuccess("Pickup requested successfully!");
+      setSuccess("Shipment created successfully!");
       onShippingSubmitted?.(data.data);
 
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError(err.message || "Failed to request pickup");
+      setError(err.message || "Failed to create shipment");
     } finally {
       setLoading(false);
     }
@@ -146,7 +145,7 @@ export function VendorShippingPanel({ order, onShippingSubmitted, availableModes
             if (!availableModes.includes(mode.id)) return null;
             const Icon = mode.icon;
             const isSelected = selectedMode === mode.id;
-            const isDisabled = !canShip || (mode.id === "PLATFORM" && isPickupRequested) || (mode.id === "SELF" && isShipped);
+            const isDisabled = !canShip || (mode.id === "PLATFORM" && isShipmentCreated) || (mode.id === "SELF" && isShipped);
 
             return (
               <label
@@ -236,7 +235,7 @@ export function VendorShippingPanel({ order, onShippingSubmitted, availableModes
             <form onSubmit={handlePlatformPickup} className="space-y-4">
               <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-950">
                 <p className="text-sm text-blue-700 dark:text-blue-200">
-                  Clicking "Request Pickup" will create a shipment in our logistics system and schedule a pickup from your location.
+                  Clicking "Create Shipment" will only create the shipment. Schedule pickup later from the pickup queue to batch multiple shipments together.
                 </p>
               </div>
 
@@ -246,7 +245,7 @@ export function VendorShippingPanel({ order, onShippingSubmitted, availableModes
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50 dark:bg-blue-700"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Truck className="h-4 w-4" />}
-                {loading ? "Requesting..." : "Request Pickup"}
+                {loading ? "Creating..." : "Create Shipment"}
               </button>
             </form>
           )}

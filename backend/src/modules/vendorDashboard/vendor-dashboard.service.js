@@ -361,11 +361,11 @@ class VendorDashboardService {
     if (mode !== "PLATFORM") {
       throw new AppError("Platform shipping is not enabled for this vendor", 400, "SHIPPING_MODE_DISABLED");
     }
-    if (order.pickupStatus && !["NOT_REQUESTED", "FAILED"].includes(order.pickupStatus)) {
-      throw new AppError("Pickup has already been requested for this order", 400, "PICKUP_ALREADY_REQUESTED");
+    if (order.shipmentId || ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.shippingStatus)) {
+      throw new AppError("Shipment has already been created for this order", 400, "SHIPMENT_ALREADY_CREATED");
     }
     if (!["Placed", "Packed"].includes(order.status)) {
-      throw new AppError("Pickup can only be requested for packed orders", 400, "INVALID_STATUS_TRANSITION");
+      throw new AppError("Shipment can only be created for packed orders", 400, "INVALID_STATUS_TRANSITION");
     }
 
     const shipment = await deliveryService.createShipment(order, vendor);
@@ -539,7 +539,7 @@ class VendorDashboardService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select("orderNumber status shippingMode shippingStatus pickupStatus courierName deliveryPartner trackingId trackingUrl deliveryStatus createdAt shippingAddress courierAssignedByRole courierAssignedAt"),
+        .select("orderNumber status shippingMode shippingStatus pickupStatus pickupScheduled pickupBatchId courierName deliveryPartner trackingId trackingUrl deliveryStatus createdAt shippingAddress courierAssignedByRole courierAssignedAt shipmentId"),
       Order.countDocuments(filter),
     ]);
 

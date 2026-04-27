@@ -34,8 +34,14 @@ const {
   createProductModuleSchema,
   updateProductModuleSchema,
 } = require("../utils/validators/product-module.validation");
+const {
+  payoutApprovalSchema,
+  payoutPaymentSchema,
+  payoutRejectionSchema,
+} = require("../utils/validators/payout.validation");
 const roleController = require("../modules/staff/controllers/role.controller");
 const { roleSchema } = require("../modules/staff/validators");
+const adminPayoutController = require("../controllers/adminPayout.controller");
 
 const router = express.Router();
 
@@ -89,6 +95,15 @@ router.patch("/orders/:id/status", requireWorkspacePermission("orders.update"), 
 router.patch("/orders/:id/cancel", requireWorkspacePermission("orders.cancel"), adminController.cancelOrder);
 router.get("/orders/:id", requireWorkspacePermission("orders.read"), adminController.getOrderById);
 router.get("/payouts", requireWorkspacePermission("payouts.read"), adminController.listPayouts);
+router.get("/payout-requests", requireWorkspacePermission("payouts.read"), adminPayoutController.listPayoutRequests);
+router.get("/payout-requests/:id", requireWorkspacePermission("payouts.read"), adminPayoutController.getPayoutRequestById);
+router.post("/payouts/:id/approve", requireWorkspacePermission("payouts.process"), validate(payoutApprovalSchema), adminPayoutController.approvePayoutRequest);
+router.post("/payouts/:id/reject", requireWorkspacePermission("payouts.process"), validate(payoutRejectionSchema), adminPayoutController.rejectPayoutRequest);
+router.post("/payouts/:id/pay", requireWorkspacePermission("payouts.process"), validate(payoutPaymentSchema), adminPayoutController.payPayoutRequest);
+router.get("/vendors/:vendorId/wallet", requireWorkspacePermission("payouts.read"), adminPayoutController.getVendorWallet);
+router.get("/vendors/:vendorId/ledger", requireWorkspacePermission("payouts.read"), adminPayoutController.getVendorLedger);
+router.get("/vendors/:vendorId/payout-account", requireWorkspacePermission("payouts.read"), adminPayoutController.getVendorPayoutAccount);
+router.post("/payout-accounts/:accountId/verify", requireWorkspacePermission("payouts.process"), adminPayoutController.verifyVendorPayoutAccount);
 router.post("/orders", requireLegacyAdminPermission("orders:create"), validate(createAdminOrderSchema), adminController.createOrder);
 router.patch("/orders/:id", requireWorkspacePermission("orders.update"), validate(updateAdminOrderSchema), adminController.updateOrder);
 router.delete("/orders/:id", requireLegacyAdminPermission("orders:delete"), adminController.deleteOrder);

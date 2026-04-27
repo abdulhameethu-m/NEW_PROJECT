@@ -32,6 +32,22 @@ const pageMeta = {
     title: "Payouts",
     subtitle: "Review earnings, pending transfers, and payout history.",
   },
+  "/vendor/finance": {
+    title: "Wallet",
+    subtitle: "Track available balance, payout requests, and finance controls with audit-friendly clarity.",
+  },
+  "/vendor/finance/payouts": {
+    title: "Payout History",
+    subtitle: "Monitor withdrawal requests, approval progress, and payout completion details.",
+  },
+  "/vendor/finance/ledger": {
+    title: "Ledger",
+    subtitle: "Inspect wallet credits, debits, and balance snapshots line by line.",
+  },
+  "/vendor/finance/account": {
+    title: "Payout Account",
+    subtitle: "Manage the verified bank or UPI details used for vendor withdrawals.",
+  },
   "/vendor/earnings": {
     title: "Earnings",
     subtitle: "Track total earnings, pending payouts, and order payment health.",
@@ -39,6 +55,10 @@ const pageMeta = {
   "/vendor/delivery": {
     title: "Delivery",
     subtitle: "Assign courier details and maintain shipment visibility.",
+  },
+  "/vendor/pickups": {
+    title: "Ready for Pickup",
+    subtitle: "Batch ready shipments into one pickup request.",
   },
   "/vendor/notifications": {
     title: "Notifications",

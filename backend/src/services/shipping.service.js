@@ -81,6 +81,10 @@ function applyShippingLifecycle({ orderStatus, shippingMode, shippingStatus, pic
     next.status = "Packed";
   }
 
+  if (shippingStatus === "PICKUP_SCHEDULED" && next.status === "Placed") {
+    next.status = "Packed";
+  }
+
   if (shippingStatus === "SHIPPED" && !["Shipped", "Out for Delivery", "Delivered"].includes(next.status)) {
     next.status = "Shipped";
   }
@@ -174,14 +178,14 @@ async function submitSelfShipping(order, { trackingId, courierName, trackingUrl,
 }
 
 /**
- * Request platform shipping (Shiprocket pickup)
+ * Request platform shipping (shipment creation only)
  */
 async function requestPlatformShipping(order, vendor) {
   const logisticsService = require("./logistics.service");
 
   // Check if already requested
-  if (order.pickupStatus !== "NOT_REQUESTED") {
-    throw new AppError("Pickup has already been requested for this order", 400, "PICKUP_ALREADY_REQUESTED");
+  if (order.shipmentId || ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.shippingStatus)) {
+    throw new AppError("Shipment has already been created for this order", 400, "SHIPMENT_ALREADY_CREATED");
   }
 
   // Build shipment payload for Shiprocket
@@ -220,7 +224,9 @@ async function requestPlatformShipping(order, vendor) {
   // Update order
   order.shippingMode = "PLATFORM";
   order.shippingStatus = "READY_FOR_PICKUP";
-  order.pickupStatus = "REQUESTED";
+  order.pickupStatus = "NOT_REQUESTED";
+  order.pickupScheduled = false;
+  order.pickupBatchId = "";
   order.shipmentId = shipmentData.shipmentId;
   order.trackingId = shipmentData.trackingId;
   order.courierName = shipmentData.courierName;
@@ -244,7 +250,7 @@ async function requestPlatformShipping(order, vendor) {
   if (!order.timeline) order.timeline = [];
   order.timeline.push({
     status: order.status,
-    note: `Platform pickup requested. Shipment ID: ${shipmentData.shipmentId}`,
+    note: `Platform shipment created. Shipment ID: ${shipmentData.shipmentId}`,
     changedAt: new Date(),
   });
 
@@ -270,8 +276,8 @@ async function processShiprocketWebhook(event) {
 
   // Map Shiprocket status to our status
   const statusMapping = {
-    pending: "READY_FOR_PICKUP",
-    ready_to_ship: "READY_FOR_PICKUP",
+    pending: "PICKUP_SCHEDULED",
+    ready_to_ship: "PICKUP_SCHEDULED",
     in_transit: "IN_TRANSIT",
     shipped: "SHIPPED",
     out_for_delivery: "OUT_FOR_DELIVERY",
@@ -288,17 +294,20 @@ async function processShiprocketWebhook(event) {
     order.shippingStatus = newShippingStatus;
 
     // Update pickup status
-    if (newShippingStatus === "READY_FOR_PICKUP") {
+    if (newShippingStatus === "PICKUP_SCHEDULED") {
+      order.pickupScheduled = true;
       order.pickupStatus = "SCHEDULED";
       order.pickupScheduledAt = new Date();
     } else if (newShippingStatus === "SHIPPED") {
       order.pickupStatus = "COMPLETED";
       order.pickupCompletedAt = new Date();
+      order.pickupScheduled = true;
     } else if (newShippingStatus === "FAILED") {
       order.pickupStatus = "FAILED";
     } else if (newShippingStatus === "DELIVERED") {
       order.pickupStatus = "COMPLETED";
       order.deliveredAt = new Date();
+      order.pickupScheduled = true;
     }
 
     // Apply lifecycle changes

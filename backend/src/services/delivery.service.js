@@ -168,8 +168,8 @@ class DeliveryService {
     const lifecycle = applyShippingLifecycle({
       orderStatus: order.status,
       shippingMode: "PLATFORM",
-      shippingStatus: shipment.trackingId ? "IN_TRANSIT" : "READY_FOR_PICKUP",
-      pickupStatus: shipment.pickupStatus === "REQUESTED" ? "REQUESTED" : "SCHEDULED",
+      shippingStatus: "READY_FOR_PICKUP",
+      pickupStatus: "NOT_REQUESTED",
     });
 
     return {
@@ -181,12 +181,14 @@ class DeliveryService {
       logisticsProvider: shipment.provider,
       pickupAddressSnapshot: shipment.pickupAddress,
       logisticsMetadata: shipment.raw,
+      pickupScheduled: false,
+      pickupBatchId: "",
       pickupStatus: lifecycle.pickupStatus,
       pickupRequestedAt: new Date(),
       shippingMode: "PLATFORM",
       shippingStatus: lifecycle.shippingStatus,
       status: lifecycle.status,
-      deliveryStatus: shipment.trackingId ? "SHIPPED" : order.deliveryStatus,
+      deliveryStatus: order.deliveryStatus,
       courierAssignedAt: new Date(),
     };
   }

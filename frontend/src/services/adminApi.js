@@ -158,6 +158,16 @@ export async function updateShippingModes(payload) {
   return data;
 }
 
+export async function listPickupBatches(params = {}) {
+  const { data } = await adminHttp.get("/api/admin/pickups", { params });
+  return data;
+}
+
+export async function scheduleAdminPickup(payload) {
+  const { data } = await adminHttp.post("/api/admin/pickups/schedule", payload);
+  return data;
+}
+
 export async function listPayouts(params = {}) {
   const { data } = await adminHttp.get("/api/admin/payouts", { params });
   return data;
@@ -170,6 +180,46 @@ export async function processPayout(orderId) {
 
 export async function queueEligiblePayouts() {
   const { data } = await adminHttp.post("/api/payouts/queue");
+  return data;
+}
+
+export async function listPayoutRequests(params = {}) {
+  const { data } = await adminHttp.get("/api/admin/payout-requests", { params });
+  return data;
+}
+
+export async function approvePayoutRequest(id, payload = {}) {
+  const { data } = await adminHttp.post(`/api/admin/payouts/${id}/approve`, payload);
+  return data;
+}
+
+export async function rejectPayoutRequest(id, payload) {
+  const { data } = await adminHttp.post(`/api/admin/payouts/${id}/reject`, payload);
+  return data;
+}
+
+export async function payPayoutRequest(id, payload) {
+  const { data } = await adminHttp.post(`/api/admin/payouts/${id}/pay`, payload);
+  return data;
+}
+
+export async function getAdminVendorWallet(vendorId) {
+  const { data } = await adminHttp.get(`/api/admin/vendors/${vendorId}/wallet`);
+  return data;
+}
+
+export async function getAdminVendorLedger(vendorId, params = {}) {
+  const { data } = await adminHttp.get(`/api/admin/vendors/${vendorId}/ledger`, { params });
+  return data;
+}
+
+export async function getAdminVendorPayoutAccount(vendorId) {
+  const { data } = await adminHttp.get(`/api/admin/vendors/${vendorId}/payout-account`);
+  return data;
+}
+
+export async function verifyVendorPayoutAccount(accountId) {
+  const { data } = await adminHttp.post(`/api/admin/payout-accounts/${accountId}/verify`);
   return data;
 }
 

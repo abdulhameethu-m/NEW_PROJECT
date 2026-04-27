@@ -64,7 +64,7 @@ const submitSelfShipping = asyncHandler(async (req, res) => {
 });
 
 /**
- * Request platform pickup for an order
+ * Create platform shipment for an order
  * PATCH /api/vendor/orders/:orderId/shipping/platform
  * Body: { shippingMode, etc }
  */
@@ -92,7 +92,7 @@ const requestPlatformShipping = asyncHandler(async (req, res) => {
   // Request platform shipment via logistics service
   const updatedOrder = await shippingService.requestPlatformShipping(order, vendor);
 
-  return ok(res, updatedOrder, "Platform pickup requested successfully");
+  return ok(res, updatedOrder, "Platform shipment created successfully");
 });
 
 /**
@@ -196,7 +196,7 @@ const overrideShippingMode = asyncHandler(async (req, res) => {
   if (shippingMode === "SELF" && !order.shippingStatus.includes("SHIPPED")) {
     order.shippingStatus = "NOT_SHIPPED";
     order.pickupStatus = "NOT_REQUESTED";
-  } else if (shippingMode === "PLATFORM" && !order.shippingStatus.includes("READY_FOR_PICKUP")) {
+  } else if (shippingMode === "PLATFORM" && !["READY_FOR_PICKUP", "PICKUP_SCHEDULED"].includes(order.shippingStatus)) {
     order.shippingStatus = "READY_FOR_PICKUP";
     order.pickupStatus = "NOT_REQUESTED";
   }
@@ -220,7 +220,7 @@ const updateOrderShippingStatus = asyncHandler(async (req, res) => {
     throw new AppError("Order not found", 404, "NOT_FOUND");
   }
 
-  if (shippingStatus && !["NOT_SHIPPED", "READY_FOR_PICKUP", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"].includes(shippingStatus)) {
+  if (shippingStatus && !["NOT_SHIPPED", "READY_FOR_PICKUP", "PICKUP_SCHEDULED", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"].includes(shippingStatus)) {
     throw new AppError("Invalid shipping status", 400, "VALIDATION_ERROR");
   }
 
