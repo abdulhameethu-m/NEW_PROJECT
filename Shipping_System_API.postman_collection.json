@@ -1,0 +1,346 @@
+{
+  "info": {
+    "name": "Shipping Mode System API",
+    "description": "Complete API collection for dual-mode shipping system (Self & Platform)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Vendor Endpoints",
+      "item": [
+        {
+          "name": "Get Available Shipping Modes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vendor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/shipping/vendor/modes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "vendor", "modes"]
+            }
+          }
+        },
+        {
+          "name": "Get Vendor Shipping Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vendor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/shipping/vendor/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "vendor", "settings"]
+            }
+          }
+        },
+        {
+          "name": "Submit Self-Shipping Tracking",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vendor_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trackingId\": \"AWB123456789\",\n  \"courierName\": \"FedEx\",\n  \"trackingUrl\": \"https://tracking.fedex.com/...\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/shipping/vendor/orders/{{order_id}}/self",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "vendor", "orders", "{{order_id}}", "self"]
+            }
+          }
+        },
+        {
+          "name": "Request Platform Pickup",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vendor_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/shipping/vendor/orders/{{order_id}}/platform",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "vendor", "orders", "{{order_id}}", "platform"]
+            }
+          }
+        },
+        {
+          "name": "Update Vendor Shipping Settings",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vendor_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"defaultShippingMode\": \"PLATFORM\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/shipping/vendor/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "vendor", "settings"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Endpoints",
+      "item": [
+        {
+          "name": "Get Shipping Modes Configuration",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/shipping/admin/modes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "admin", "modes"]
+            }
+          }
+        },
+        {
+          "name": "Update Shipping Modes (Feature Flags)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"selfShipping\": true,\n  \"platformShipping\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/shipping/admin/modes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "admin", "modes"]
+            }
+          }
+        },
+        {
+          "name": "Get Vendor Shipping Modes (Admin View)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/shipping/admin/vendors/{{vendor_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "admin", "vendors", "{{vendor_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Vendor Allowed Shipping Modes",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"allowedShippingModes\": [\"SELF\", \"PLATFORM\"],\n  \"defaultShippingMode\": \"SELF\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/shipping/admin/vendors/{{vendor_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "admin", "vendors", "{{vendor_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Override Order Shipping Mode",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shippingMode\": \"SELF\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/shipping/admin/orders/{{order_id}}/mode",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "admin", "orders", "{{order_id}}", "mode"]
+            }
+          }
+        },
+        {
+          "name": "Update Order Shipping Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shippingStatus\": \"SHIPPED\",\n  \"pickupStatus\": \"COMPLETED\",\n  \"trackingId\": \"AWB123456\",\n  \"courierName\": \"FedEx\",\n  \"trackingUrl\": \"https://...\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/shipping/admin/orders/{{order_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "admin", "orders", "{{order_id}}", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Endpoints",
+      "item": [
+        {
+          "name": "Get Order Tracking",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/shipping/orders/{{order_id}}/tracking",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "orders", "{{order_id}}", "tracking"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Shiprocket Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Shiprocket-Signature",
+                "value": "signature_hash"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shipment_id\": 123456,\n  \"status\": \"in_transit\",\n  \"awb_code\": \"AWB123456789\",\n  \"courier_name\": \"FedEx\",\n  \"tracking_data\": {}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/shipping/webhooks/shiprocket",
+              "host": ["{{base_url}}"],
+              "path": ["api", "shipping", "webhooks", "shiprocket"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "vendor_token",
+      "value": "your_vendor_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "your_admin_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "user_token",
+      "value": "your_user_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "order_id",
+      "value": "order_mongo_id",
+      "type": "string"
+    },
+    {
+      "key": "vendor_id",
+      "value": "vendor_mongo_id",
+      "type": "string"
+    }
+  ]
+}
