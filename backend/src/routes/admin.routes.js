@@ -38,6 +38,7 @@ const {
   payoutApprovalSchema,
   payoutPaymentSchema,
   payoutRejectionSchema,
+  accountRejectionSchema,
 } = require("../utils/validators/payout.validation");
 const roleController = require("../modules/staff/controllers/role.controller");
 const { roleSchema } = require("../modules/staff/validators");
@@ -95,6 +96,7 @@ router.patch("/orders/:id/status", requireWorkspacePermission("orders.update"), 
 router.patch("/orders/:id/cancel", requireWorkspacePermission("orders.cancel"), adminController.cancelOrder);
 router.get("/orders/:id", requireWorkspacePermission("orders.read"), adminController.getOrderById);
 router.get("/payouts", requireWorkspacePermission("payouts.read"), adminController.listPayouts);
+router.get("/payout-accounts", requireWorkspacePermission("payouts.read"), adminPayoutController.listPayoutAccounts);
 router.get("/payout-requests", requireWorkspacePermission("payouts.read"), adminPayoutController.listPayoutRequests);
 router.get("/payout-requests/:id", requireWorkspacePermission("payouts.read"), adminPayoutController.getPayoutRequestById);
 router.post("/payouts/:id/approve", requireWorkspacePermission("payouts.process"), validate(payoutApprovalSchema), adminPayoutController.approvePayoutRequest);
@@ -104,6 +106,7 @@ router.get("/vendors/:vendorId/wallet", requireWorkspacePermission("payouts.read
 router.get("/vendors/:vendorId/ledger", requireWorkspacePermission("payouts.read"), adminPayoutController.getVendorLedger);
 router.get("/vendors/:vendorId/payout-account", requireWorkspacePermission("payouts.read"), adminPayoutController.getVendorPayoutAccount);
 router.post("/payout-accounts/:accountId/verify", requireWorkspacePermission("payouts.process"), adminPayoutController.verifyVendorPayoutAccount);
+router.post("/payout-accounts/:accountId/reject", requireWorkspacePermission("payouts.process"), validate(accountRejectionSchema), adminPayoutController.rejectVendorPayoutAccount);
 router.post("/orders", requireLegacyAdminPermission("orders:create"), validate(createAdminOrderSchema), adminController.createOrder);
 router.patch("/orders/:id", requireWorkspacePermission("orders.update"), validate(updateAdminOrderSchema), adminController.updateOrder);
 router.delete("/orders/:id", requireLegacyAdminPermission("orders:delete"), adminController.deleteOrder);

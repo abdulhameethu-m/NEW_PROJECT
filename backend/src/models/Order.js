@@ -148,68 +148,57 @@ const orderSchema = new mongoose.Schema(
     },
     logisticsProvider: { type: String, trim: true, default: "SHIPROCKET" },
     pickupAddressSnapshot: {
-      name: { type: String, trim: true },
-      phone: { type: String, trim: true },
-      addressLine1: { type: String, trim: true },
-      addressLine2: { type: String, trim: true },
-      city: { type: String, trim: true },
-      state: { type: String, trim: true },
-      pincode: { type: String, trim: true },
-      country: { type: String, trim: true },
-      latitude: { type: Number },
-      longitude: { type: Number },
-    },
-    logisticsMetadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
-    courierAssignedByRole: {
-      type: String,
-      enum: ["ADMIN", "VENDOR"],
-    },
-    courierAssignedById: {
-      type: mongoose.Schema.Types.ObjectId,
-    },
-    courierAssignedAt: { type: Date },
-    whatsappSent: { type: Boolean, default: false, index: true },
-    deliveryStatus: {
-      type: String,
-      enum: ["PENDING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "RETURNED"],
-      default: "PENDING",
-    },
     shippingAddress: {
-      fullName: { type: String, required: true, trim: true },
-      phone: { type: String, required: true, trim: true },
-      line1: { type: String, required: true, trim: true },
-      line2: { type: String, allowed: true, trim: true },
-      city: { type: String, required: true, trim: true },
-      state: { type: String, required: true, trim: true },
-      postalCode: { type: String, required: true, trim: true },
-      country: { type: String, required: true, trim: true },
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
-    timeline: [
-      {
-        status: { type: String, enum: ORDER_STATUS, required: true },
-        note: { type: String, trim: true },
-        changedAt: { type: Date, default: Date.now },
-      },
-    ],
+    billingAddress: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     deliveredAt: { type: Date },
-    // Soft delete (admin)
-    isActive: { type: Boolean, default: true, index: true },
+    cancelledAt: { type: Date },
+    cancelReason: { type: String, trim: true },
+    notes: { type: String, trim: true },
+    refundId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Refund",
+      index: true,
+    },
+    returnId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ReturnRequest",
+      index: true,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    collection: "orders",
+  }
 );
 
-orderSchema.index({ createdAt: -1 });
-orderSchema.index({ status: 1, createdAt: -1 });
-orderSchema.index({ isActive: 1, createdAt: -1 });
-orderSchema.index({ sellerId: 1, shippingMode: 1, shippingStatus: 1, createdAt: -1 });
-orderSchema.index({ sellerId: 1, pickupScheduled: 1, shippingStatus: 1, createdAt: -1 });
-orderSchema.index({ sellerId: 1, pickupBatchId: 1, createdAt: -1 });
+// Indexes for common queries
+orderSchema.index({ userId: 1, createdAt: -1 });
+orderSchema.index({ sellerId: 1, status: 1, createdAt: -1 });
+orderSchema.index({ orderNumber: 1 });
+orderSchema.index({ status: 1, paymentStatus: 1 });
+orderSchema.index({ payoutEligibleAt: 1, vendorWalletReleasedAt: 1 });
+orderSchema.index({ razorpayOrderId: 1 });
+orderSchema.index({ shipmentId: 1 });
+orderSchema.index({ trackingId: 1 });
+orderSchema.index({ isActive: 1, status: 1, createdAt: -1 });
+orderSchema.index({ status: 1, paymentStatus: 1, payoutEligibleAt: 1 });
 
 module.exports = {
-  Order: mongoose.model("Order", orderSchema),
+  Order: mongoose.models.Order || mongoose.model("Order", orderSchema),
   ORDER_STATUS,
   PAYMENT_STATUS,
   SHIPPING_MODE,

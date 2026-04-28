@@ -188,6 +188,11 @@ export async function listPayoutRequests(params = {}) {
   return data;
 }
 
+export async function listPayoutAccounts(params = {}) {
+  const { data } = await adminHttp.get("/api/admin/payout-accounts", { params });
+  return data;
+}
+
 export async function approvePayoutRequest(id, payload = {}) {
   const { data } = await adminHttp.post(`/api/admin/payouts/${id}/approve`, payload);
   return data;

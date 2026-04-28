@@ -30,13 +30,29 @@ const listPayoutRequests = asyncHandler(async (req, res) => {
   return ok(res, result, "Payout requests retrieved");
 });
 
+/**
+ * GET /vendor/payout-account
+ * Get vendor's active payout account (masked)
+ */
 const getPayoutAccount = asyncHandler(async (req, res) => {
   const account = await payoutAccountService.getVendorAccount(req.user.sub);
   return ok(res, account || null, "Vendor payout account retrieved");
 });
 
+/**
+ * POST/PUT /vendor/payout-account
+ * Create or update vendor payout account
+ * Accepts: accountHolderName, accountNumber, ifscCode, bankName, upiId
+ */
 const upsertPayoutAccount = asyncHandler(async (req, res) => {
-  const account = await payoutAccountService.upsertVendorAccount(req.user.sub, req.body);
+  const account = await payoutAccountService.upsertVendorAccount(
+    req.user.sub,
+    req.body,
+    {
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    }
+  );
   return ok(res, account, "Vendor payout account updated");
 });
 

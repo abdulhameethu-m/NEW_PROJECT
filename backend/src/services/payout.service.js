@@ -128,16 +128,17 @@ class PayoutService {
 
     if (vendor.razorpayFundAccountId) return vendor.razorpayFundAccountId;
 
-    const holderName = vendor.bankDetails?.holderName || vendor.companyName || vendor.shopName;
-    const accountNumber = vendor.bankDetails?.accountNumber;
-    const ifsc = vendor.bankDetails?.IFSC;
+    // Get payout account details from VendorPayoutAccount model
+    const account = await payoutAccountService.getVendorAccountByVendorId(sellerId);
+    const holderName = account?.accountHolderName || vendor.companyName || vendor.shopName;
+    const accountNumber = account?.accountNumber;
+    const ifsc = account?.ifscCode;
     const contactNumber = vendor.supportPhone || vendor.userId?.phone;
     const email = vendor.supportEmail || vendor.userId?.email;
 
-    if (!holderName || !accountNumber || !ifsc || !contactNumber || !email) {
-      throw new AppError("Vendor payout banking details are incomplete", 400, "INCOMPLETE_VENDOR_BANKING", {
+    if (!accountNumber || !ifsc) {
+      throw new AppError("Vendor payout banking details are incomplete. Please set up your payout account first.", 400, "INCOMPLETE_VENDOR_BANKING", {
         missing: {
-          holderName: !holderName,
           accountNumber: !accountNumber,
           ifsc: !ifsc,
           contactNumber: !contactNumber,
@@ -363,6 +364,24 @@ class PayoutService {
 
   async requestVendorPayout(userId, payload = {}, actor, meta) {
     const vendor = await walletService.getVendorContext(userId);
+
+    // ✅ SECURITY: Verify payout account exists and is verified
+    const account = await payoutAccountService.getVendorAccountByVendorId(vendor._id, true);
+    if (!account) {
+      throw new AppError(
+        "Payout account not found. Please set up your payout account first.",
+        400,
+        "PAYOUT_ACCOUNT_REQUIRED"
+      );
+    }
+    if (!account.isVerified) {
+      throw new AppError(
+        "Payout account is not verified yet. Please wait for admin approval.",
+        400,
+        "ACCOUNT_NOT_VERIFIED"
+      );
+    }
+
     await walletService.releaseEligibleOrderEarnings({ vendorId: vendor._id });
 
     return await executeWithOptionalTransaction(async (session) => {
@@ -543,14 +562,7 @@ class PayoutService {
 
     let fundAccountId;
     if (account.accountNumber && account.ifscCode) {
-      const vendor = await vendorRepo.findById(request.vendorId);
-      if (!vendor) throw new AppError("Vendor not found", 404, "NOT_FOUND");
-      vendor.bankDetails = {
-        accountNumber: account.accountNumber,
-        IFSC: account.ifscCode,
-        holderName: account.accountHolderName,
-      };
-      await vendor.save();
+      // VendorPayoutAccount already has all the details, just create the Razorpay fund account
       fundAccountId = await this.createConnectedAccount(request.vendorId);
     } else {
       throw new AppError("Razorpay payout currently requires verified bank account details", 400, "BANK_ACCOUNT_REQUIRED");

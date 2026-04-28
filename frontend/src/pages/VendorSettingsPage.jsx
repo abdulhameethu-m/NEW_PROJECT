@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { VendorSection } from "../components/VendorPanel";
 import { LocationPickerMap } from "../components/LocationPickerMap";
 import * as vendorDashboardService from "../services/vendorDashboardService";
@@ -74,11 +75,6 @@ const defaultForm = {
   defaultCourier: "",
   lowStockThreshold: 10,
   address: "",
-  bankDetails: {
-    accountNumber: "",
-    IFSC: "",
-    holderName: "",
-  },
   notificationPreferences: {
     emailOrders: true,
     emailPayouts: true,
@@ -111,6 +107,7 @@ const defaultForm = {
 };
 
 export function VendorSettingsPage() {
+  const nav = useNavigate();
   const mapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const [form, setForm] = useState(defaultForm);
   const [message, setMessage] = useState("");
@@ -135,7 +132,6 @@ export function VendorSettingsPage() {
           ...vendor,
           pickupAddress: defaultPickupAddress,
           pickupLocations,
-          bankDetails: { ...defaultForm.bankDetails, ...(vendor.bankDetails || {}) },
           notificationPreferences: {
             ...defaultForm.notificationPreferences,
             ...(vendor.notificationPreferences || {}),
@@ -257,7 +253,6 @@ export function VendorSettingsPage() {
         ...vendor,
         pickupAddress: nextPickupAddress,
         pickupLocations,
-        bankDetails: { ...defaultForm.bankDetails, ...(vendor.bankDetails || {}) },
         notificationPreferences: {
           ...defaultForm.notificationPreferences,
           ...(vendor.notificationPreferences || {}),
@@ -309,14 +304,30 @@ export function VendorSettingsPage() {
             <option value="monthly">Monthly</option>
           </select>
           <input value={form.lowStockThreshold || 10} onChange={(e) => setField("lowStockThreshold", Number(e.target.value))} type="number" min="0" placeholder="Low stock threshold" className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950" />
-          <input value={form.bankDetails?.holderName || ""} onChange={(e) => setField("bankDetails", { ...form.bankDetails, holderName: e.target.value })} placeholder="Account holder" className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950" />
-          <input value={form.bankDetails?.accountNumber || ""} onChange={(e) => setField("bankDetails", { ...form.bankDetails, accountNumber: e.target.value })} placeholder="Account number" className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950" />
-          <input value={form.bankDetails?.IFSC || ""} onChange={(e) => setField("bankDetails", { ...form.bankDetails, IFSC: e.target.value })} placeholder="IFSC" className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950" />
-          <div className="rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-700">
-            <div className="text-sm font-semibold text-slate-950 dark:text-white">Role & Security</div>
-            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">JWT-protected seller workspace with ownership enforcement on products, orders, payouts, and support data.</div>
+        </div>
+
+        <div className="mt-6 border-t border-slate-200 pt-6 dark:border-slate-700">
+          <h3 className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Payout Account Details</h3>
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4 dark:border-blue-900 dark:bg-blue-950">
+            <p className="text-sm text-blue-900 dark:text-blue-100">
+              Manage your bank and payout account details in the{" "}
+              <button
+                type="button"
+                onClick={() => nav("/vendor/finance/account")}
+                className="font-semibold underline hover:text-blue-700 dark:hover:text-blue-300"
+              >
+                Finance → Payout Account
+              </button>{" "}
+              section. All payout account changes are verified by our finance team before processing withdrawals.
+            </p>
           </div>
         </div>
+
+        <div className="mt-6 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-700">
+          <div className="text-sm font-semibold text-slate-950 dark:text-white">Role & Security</div>
+          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">JWT-protected seller workspace with ownership enforcement on products, orders, payouts, and support data.</div>
+        </div>
+
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           {Object.entries(form.notificationPreferences || {}).map(([key, value]) => (
             <label key={key} className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-slate-700">

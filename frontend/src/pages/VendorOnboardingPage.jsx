@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BackButton } from "../components/BackButton";
+import { PayoutAccountForm } from "../components/PayoutAccountForm";
 import * as vendorService from "../services/vendorService";
 import { LocationPickerMap } from "../components/LocationPickerMap";
 
@@ -62,11 +63,6 @@ export function VendorOnboardingPage() {
   const [gstNumber, setGstNumber] = useState("");
   const [documents, setDocuments] = useState([]);
 
-  // Step 3
-  const [accountNumber, setAccountNumber] = useState("");
-  const [IFSC, setIFSC] = useState("");
-  const [holderName, setHolderName] = useState("");
-
   // Step 4
   const [shopName, setShopName] = useState("");
   const [shopImages, setShopImages] = useState([]);
@@ -94,9 +90,6 @@ export function VendorOnboardingPage() {
         setLng(v.location?.lng != null ? String(v.location.lng) : "");
         setNoGst(Boolean(v.noGst));
         setGstNumber(v.gstNumber || "");
-        setAccountNumber(v.bankDetails?.accountNumber || "");
-        setIFSC(v.bankDetails?.IFSC || "");
-        setHolderName(v.bankDetails?.holderName || "");
         setShopName(v.shopName || "");
 
         const next = Math.min(4, Math.max(1, (v.stepCompleted || 0) + 1));
@@ -148,12 +141,6 @@ export function VendorOnboardingPage() {
         setVendor(res.data);
         setDocuments([]);
         setStep(3);
-      } else if (step === 3) {
-        const res = await vendorService.saveStep3({
-          bankDetails: { accountNumber, IFSC, holderName },
-        });
-        setVendor(res.data);
-        setStep(4);
       } else if (step === 4) {
         const res = await vendorService.submitStep4({ shopName, shopImages });
         setVendor(res.data);
@@ -307,35 +294,35 @@ export function VendorOnboardingPage() {
         {step === 3 ? (
           <div className="grid gap-4">
             <div className="text-sm font-semibold">Step 3 — Bank Details</div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <label className="text-sm font-medium">
-                Account number
-                <input
-                  className="mt-1 w-full rounded-lg border px-3 py-2"
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value)}
-                  required
-                />
-              </label>
-              <label className="text-sm font-medium">
-                IFSC
-                <input
-                  className="mt-1 w-full rounded-lg border px-3 py-2"
-                  value={IFSC}
-                  onChange={(e) => setIFSC(e.target.value)}
-                  required
-                />
-              </label>
-              <label className="text-sm font-medium">
-                Account holder
-                <input
-                  className="mt-1 w-full rounded-lg border px-3 py-2"
-                  value={holderName}
-                  onChange={(e) => setHolderName(e.target.value)}
-                  required
-                />
-              </label>
-            </div>
+            <p className="text-sm text-slate-600">
+              Provide your bank account details for payout processing. We'll verify these details with our finance team.
+            </p>
+            <PayoutAccountForm
+              onSubmit={async (formData) => {
+                try {
+                  setError("");
+                  setSaving(true);
+                  const res = await vendorService.saveStep3({
+                    bankDetails: {
+                      accountNumber: formData.accountNumber,
+                      IFSC: formData.ifscCode,
+                      holderName: formData.accountHolderName,
+                      bankName: formData.bankName,
+                    },
+                    upiId: formData.upiId,
+                  });
+                  setVendor(res.data);
+                  setStep(4);
+                } catch (e) {
+                  setError(normalizeError(e));
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              loading={saving}
+              showOptionalHint={false}
+              submitLabel="Save & continue"
+            />
           </div>
         ) : null}
 

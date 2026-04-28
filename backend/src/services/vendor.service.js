@@ -1,6 +1,7 @@
 const { AppError } = require("../utils/AppError");
 const vendorRepo = require("../repositories/vendor.repository");
 const userRepo = require("../repositories/user.repository");
+const payoutAccountService = require("./payoutAccount.service");
 const { uploadMany } = require("../utils/upload");
 
 async function ensureVendorProfile(userId) {
@@ -61,8 +62,26 @@ async function saveStep2(userId, payload, files) {
 
 async function saveStep3(userId, payload) {
   const existing = await ensureVendorProfile(userId);
+  
+  // Create or update VendorPayoutAccount with bank details
+  const bankDetails = payload.bankDetails || {};
+  const payoutPayload = {
+    accountHolderName: bankDetails.holderName || "",
+    accountNumber: bankDetails.accountNumber || "",
+    ifscCode: bankDetails.IFSC || "",
+    bankName: bankDetails.bankName || "",
+    upiId: payload.upiId || "",
+  };
+  
+  // Only create payout account if at least some details are provided
+  if (payoutPayload.accountHolderName || payoutPayload.accountNumber || payoutPayload.ifscCode || payoutPayload.upiId) {
+    await payoutAccountService.upsertVendorAccount(userId, payoutPayload, {
+      source: "vendor_onboarding_step3",
+    });
+  }
+  
+  // Update vendor profile (no longer storing bankDetails here)
   const update = {
-    bankDetails: payload.bankDetails,
     stepCompleted: bumpStep(existing.stepCompleted, 3),
     status: existing.status === "rejected" ? "draft" : existing.status,
   };

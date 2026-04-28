@@ -42,10 +42,22 @@ const payoutPaymentSchema = Joi.object({
   adminNote: Joi.string().trim().max(1000).allow("", null),
 }).required();
 
+/**
+ * Schema for rejecting vendor payout account
+ */
+const accountRejectionSchema = Joi.object({
+  reason: Joi.string().trim().min(10).max(500).required().messages({
+    "string.min": "Rejection reason must be at least 10 characters",
+    "string.max": "Rejection reason cannot exceed 500 characters",
+    "any.required": "Rejection reason is required",
+  }),
+}).required();
+
 module.exports = {
   payoutRequestSchema,
   payoutAccountSchema,
   payoutApprovalSchema,
   payoutRejectionSchema,
   payoutPaymentSchema,
+  accountRejectionSchema,
 };

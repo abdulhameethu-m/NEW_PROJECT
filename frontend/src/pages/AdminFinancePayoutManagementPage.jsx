@@ -16,9 +16,11 @@ import { PayoutCard } from "../components/PayoutCard";
 import { StatusBadge } from "../components/StatusBadge";
 import {
   approvePayoutRequest,
+  listPayoutAccounts,
   listPayoutRequests,
   payPayoutRequest,
   rejectPayoutRequest,
+  verifyVendorPayoutAccount,
 } from "../services/adminApi";
 import { formatCurrency } from "../utils/formatCurrency";
 
@@ -51,6 +53,9 @@ export function AdminFinancePayoutManagementPage() {
   const [toast, setToast] = useState(null);
   const [status, setStatus] = useState("");
   const [requests, setRequests] = useState([]);
+  const [accountBusyId, setAccountBusyId] = useState("");
+  const [pendingAccounts, setPendingAccounts] = useState([]);
+  const [accountsPagination, setAccountsPagination] = useState({ page: 1, limit: 10, pages: 1, total: 0 });
   const [pagination, setPagination] = useState({ page: 1, limit: 10, pages: 1, total: 0 });
   const [approveTarget, setApproveTarget] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
@@ -79,9 +84,43 @@ export function AdminFinancePayoutManagementPage() {
     }
   }
 
+  async function loadAccounts(nextPage = accountsPagination.page) {
+    try {
+      const response = await listPayoutAccounts({
+        page: nextPage,
+        limit: accountsPagination.limit,
+        verified: "false",
+      });
+      setPendingAccounts(response.data?.accounts || []);
+      setAccountsPagination(response.data?.pagination || { page: 1, limit: 10, pages: 1, total: 0 });
+    } catch (err) {
+      const message = normalizeError(err);
+      setError(message);
+      setToast({ type: "error", message });
+    }
+  }
+
   useEffect(() => {
     loadRequests(1);
+    loadAccounts(1);
   }, [status]);
+
+  async function handleVerifyAccount(account) {
+    if (!account?._id) return;
+    setAccountBusyId(account._id);
+    setError("");
+    try {
+      await verifyVendorPayoutAccount(account._id);
+      await loadAccounts(accountsPagination.page);
+      setToast({ type: "success", message: "Payout account verified." });
+    } catch (err) {
+      const message = normalizeError(err);
+      setError(message);
+      setToast({ type: "error", message });
+    } finally {
+      setAccountBusyId("");
+    }
+  }
 
   async function runAction(target, handler, onSuccess) {
     if (!target?._id) return;
@@ -125,6 +164,66 @@ export function AdminFinancePayoutManagementPage() {
       </FilterBar>
 
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
+
+      <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-4 py-4">
+          <div className="text-base font-semibold text-slate-950">Pending Payout Account Verification</div>
+          <div className="mt-1 text-sm text-slate-500">Vendor bank and UPI submissions waiting for finance review.</div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Vendor Name</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Bank / UPI</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Submitted</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {loading ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">Loading payout accounts...</td></tr>
+              ) : pendingAccounts.length ? (
+                pendingAccounts.map((account) => (
+                  <tr key={account._id}>
+                    <td className="px-4 py-3">
+                      <Link to={`/admin/vendors/${account.vendorId?._id}/finance`} className="font-semibold text-slate-950 hover:underline">
+                        {account.vendorId?.companyName || account.vendorId?.shopName || "Vendor"}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {account.bankName || account.accountNumber ? `${account.bankName || "Bank"} / ${account.accountNumber ? `****${String(account.accountNumber).slice(-4)}` : "-"}` : account.upiId || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{formatFinanceDateTime(account.createdAt)}</td>
+                    <td className="px-4 py-3"><StatusBadge value={account.isVerified ? "VERIFIED" : "PENDING"} /></td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          disabled={accountBusyId === account._id}
+                          onClick={() => handleVerifyAccount(account)}
+                          className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          {accountBusyId === account._id ? "Verifying..." : "Verify"}
+                        </button>
+                        <Link to={`/admin/vendors/${account.vendorId?._id}/finance`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                          View Vendor
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">No pending payout account verifications found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="border-t border-slate-200 px-4 py-4">
+          <FinancePagination pagination={accountsPagination} disabled={loading} onPageChange={loadAccounts} />
+        </div>
+      </div>
 
       <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">

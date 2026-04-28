@@ -51,7 +51,7 @@ const vendorSchema = new mongoose.Schema(
       },
     ],
 
-    // Step 3
+    // Step 3 (DEPRECATED: Use VendorPayoutAccount instead)
     bankDetails: {
       accountNumber: { type: String, trim: true, maxlength: 40 },
       IFSC: { type: String, trim: true, maxlength: 20 },

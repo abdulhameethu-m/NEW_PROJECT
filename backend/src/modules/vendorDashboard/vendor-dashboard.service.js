@@ -615,7 +615,6 @@ class VendorDashboardService {
       payoutSchedule: payload.payoutSchedule,
       defaultCourier: payload.defaultCourier,
       lowStockThreshold: payload.lowStockThreshold,
-      bankDetails: payload.bankDetails,
       address: payload.address,
       pickupAddress: pickupSettings.pickupAddress,
       pickupLocations: pickupSettings.pickupLocations,

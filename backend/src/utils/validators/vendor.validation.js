@@ -23,11 +23,21 @@ const step2Schema = Joi.object({
 
 const step3Schema = Joi.object({
   bankDetails: Joi.object({
-    accountNumber: Joi.string().trim().min(6).max(40).required(),
-    IFSC: Joi.string().trim().min(5).max(20).required(),
-    holderName: Joi.string().trim().min(2).max(160).required(),
-  }).required(),
-});
+    accountNumber: Joi.string().trim().min(6).max(40).allow("", null),
+    IFSC: Joi.string().trim().min(5).max(20).allow("", null),
+    holderName: Joi.string().trim().min(2).max(160).allow("", null),
+    bankName: Joi.string().trim().max(160).allow("", null),
+  }).optional(),
+  upiId: Joi.string().trim().max(160).allow("", null),
+}).custom((value, helpers) => {
+  const bd = value.bankDetails || {};
+  const hasBankDetails = bd.accountNumber && bd.IFSC && bd.holderName;
+  const hasUpi = value.upiId;
+  if (!hasBankDetails && !hasUpi) {
+    return helpers.error("any.custom", { message: "Provide either complete bank details or a UPI ID" });
+  }
+  return value;
+}, "Bank or UPI requirement");
 
 const step4Schema = Joi.object({
   shopName: Joi.string().trim().min(2).max(160).required(),
