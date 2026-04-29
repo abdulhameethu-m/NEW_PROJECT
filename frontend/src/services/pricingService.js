@@ -97,6 +97,7 @@ export async function getAllPricingRules(options = {}) {
   const params = {};
   if (options.active !== undefined) params.active = options.active;
   if (options.category) params.category = options.category;
+  if (options.categoryId) params.categoryId = options.categoryId;
 
   const { data } = await adminHttp.get("/api/admin/pricing-rules", { params });
   return data;
@@ -157,6 +158,26 @@ export async function toggleMultipleRulesActive(ruleIds, isActive) {
     "/api/admin/pricing-rules/batch/toggle-active",
     { ruleIds, isActive }
   );
+  return data;
+}
+
+export async function getPricingCategories() {
+  const { data } = await adminHttp.get("/api/admin/pricing-categories");
+  return data;
+}
+
+export async function createPricingCategory(categoryData) {
+  const { data } = await adminHttp.post("/api/admin/pricing-categories", categoryData);
+  return data;
+}
+
+export async function updatePricingCategory(categoryId, updates) {
+  const { data } = await adminHttp.put(`/api/admin/pricing-categories/${categoryId}`, updates);
+  return data;
+}
+
+export async function deletePricingCategory(categoryId) {
+  const { data } = await adminHttp.delete(`/api/admin/pricing-categories/${categoryId}`);
   return data;
 }
 

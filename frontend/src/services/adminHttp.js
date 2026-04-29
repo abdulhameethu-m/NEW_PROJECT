@@ -4,9 +4,11 @@ import { useStaffAuthStore } from "../context/staffAuthStore";
 
 function resolveAuthContext() {
   const authState = useAuthStore.getState();
-  
-  // For admin panel, prefer legacy admin token if available
-  if (authState.token) {
+  const role = String(authState?.user?.role || "").trim().toLowerCase();
+  const isLegacyAdmin = ["admin", "super_admin", "support_admin", "finance_admin"].includes(role);
+
+  // Prefer the legacy token only when it actually belongs to an admin user.
+  if (authState.token && isLegacyAdmin) {
     return { type: "legacy", ...authState };
   }
 
@@ -14,6 +16,10 @@ function resolveAuthContext() {
   const staffState = useStaffAuthStore.getState();
   if (staffState.token) {
     return { type: "staff", ...staffState };
+  }
+
+  if (authState.token) {
+    return { type: "legacy", ...authState };
   }
 
   return { type: "legacy", ...authState };

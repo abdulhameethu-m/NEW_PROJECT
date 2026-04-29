@@ -139,7 +139,6 @@ const pricingConfigSchema = new mongoose.Schema(
 );
 
 // Ensure only one active pricing config (optional singleton pattern)
-pricingConfigSchema.index({ isActive: 1 });
 pricingConfigSchema.index({ updatedAt: -1 });
 
 module.exports = mongoose.model("PricingConfig", pricingConfigSchema);

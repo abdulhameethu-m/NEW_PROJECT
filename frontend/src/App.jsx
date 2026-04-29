@@ -44,8 +44,10 @@ import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminRolesPage } from "./pages/AdminRolesPage";
 import { AdminStaffPage } from "./pages/AdminStaffPage";
 import { AdminShippingModesPage } from "./pages/AdminShippingModesPage";
+import { AdminShippingConfigPage } from "./pages/AdminShippingConfigPage";
 import { AdminPickupsPage } from "./pages/AdminPickupsPage";
 import { AdminPricingPage } from "./pages/AdminPricingPage";
+import { AdminPricingCategoriesPage } from "./pages/AdminPricingCategoriesPage";
 import { ProductFormPage } from "./pages/ProductFormPage";
 import { ProductDetailsPage } from "./pages/ProductDetailsPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -201,6 +203,7 @@ export default function App() {
               <Route path="content" element={<AdminContentPage />} />
               <Route path="vendor-access" element={<AdminVendorAccessPage />} />
               <Route path="vendor-access/shipping" element={<AdminShippingModesPage />} />
+              <Route path="shipping/config" element={<AdminShippingConfigPage />} />
               <Route path="products/create" element={<AdminProductCreate />} />
               <Route path="products/:id/edit" element={<AdminProductEdit />} />
               <Route path="orders" element={<AdminOrdersPage />} />
@@ -218,6 +221,7 @@ export default function App() {
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
               <Route path="pricing" element={<AdminPricingPage />} />
+              <Route path="pricing-categories" element={<AdminPricingCategoriesPage />} />
               <Route path="roles" element={<AdminRolesPage />} />
               <Route path="staff" element={<AdminStaffPage />} />
             </Route>

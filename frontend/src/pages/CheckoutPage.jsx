@@ -7,7 +7,6 @@ import { CheckoutStepper } from "../components/commerce/CheckoutStepper";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { OrderSummaryCard } from "../components/commerce/OrderSummaryCard";
 import { PriceBreakdown } from "../components/commerce/PriceBreakdown";
-import { DynamicPriceBreakdown } from "../components/commerce/DynamicPriceBreakdown";
 import * as cartService from "../services/cartService";
 import * as checkoutService from "../services/checkoutService";
 import * as paymentService from "../services/paymentService";
@@ -78,7 +77,7 @@ export function CheckoutPage() {
       const [checkoutRes, addressRes, pricingRes] = await Promise.all([
         checkoutService.prepareCheckout(),
         userService.getUserAddresses(),
-        pricingService.getPricingConfig(),
+        pricingService.getPricingConfig().catch(() => ({ data: null })),
       ]);
 
       const nextSummary = checkoutRes?.data || null;

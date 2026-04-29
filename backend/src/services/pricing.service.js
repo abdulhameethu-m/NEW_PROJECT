@@ -1,5 +1,6 @@
 const { AppError } = require("../utils/AppError");
 const PricingRule = require("../models/PricingRule");
+const pricingCategoryService = require("./pricing-category.service");
 
 /**
  * Pricing Calculation Service
@@ -14,7 +15,9 @@ class PricingService {
    * @returns {Promise<Array>} Array of active pricing rules sorted by sortOrder
    */
   async getActiveRules() {
+    await pricingCategoryService.ensureDefaultPricingCategoriesIfNeeded();
     return PricingRule.find({ isActive: true, isArchived: false })
+      .populate("categoryId", "name key description isActive isSystem sortOrder")
       .sort({ sortOrder: 1, createdAt: 1 })
       .lean();
   }
@@ -25,7 +28,9 @@ class PricingService {
    * @returns {Promise<Array>} Active rules in the specified category
    */
   async getRulesByCategory(category) {
+    await pricingCategoryService.ensureDefaultPricingCategoriesIfNeeded();
     return PricingRule.find({ isActive: true, isArchived: false, category })
+      .populate("categoryId", "name key description isActive isSystem sortOrder")
       .sort({ sortOrder: 1 })
       .lean();
   }
@@ -103,6 +108,17 @@ class PricingService {
 
     try {
       const rules = await this.getActiveRules();
+      if (!rules.length) {
+        return {
+          subtotal: Math.round(subtotal * 100) / 100,
+          charges: [],
+          chargesTotal: 0,
+          total: Math.round(subtotal * 100) / 100,
+          itemCount,
+          calculatedAt: new Date().toISOString(),
+        };
+      }
+
       const charges = [];
       let totalCharges = 0;
 
@@ -115,6 +131,19 @@ class PricingService {
             key: rule.key,
             displayName: rule.displayName,
             category: rule.category,
+            categoryId: rule.categoryId?._id ? String(rule.categoryId._id) : rule.categoryId ? String(rule.categoryId) : null,
+            categoryMeta:
+              rule.categoryId && rule.categoryId.key
+                ? {
+                    id: String(rule.categoryId._id),
+                    key: rule.categoryId.key,
+                    name: rule.categoryId.name,
+                    description: rule.categoryId.description || "",
+                    isActive: Boolean(rule.categoryId.isActive),
+                    isSystem: Boolean(rule.categoryId.isSystem),
+                    sortOrder: Number(rule.categoryId.sortOrder || 0),
+                  }
+                : null,
             amount,
             type: rule.type,
             sortOrder: rule.sortOrder,
@@ -272,8 +301,11 @@ class PricingService {
     }
 
     // Category validation
-    if (ruleData.category && !["DELIVERY", "PLATFORM_FEE", "TAX", "HANDLING", "PACKAGING", "DISCOUNT", "OTHER"].includes(ruleData.category)) {
-      errors.push("Invalid category");
+    if (ruleData.category !== undefined && typeof ruleData.category !== "string") {
+      errors.push("Category must be a string");
+    }
+    if (ruleData.categoryId !== undefined && ruleData.categoryId !== null && typeof ruleData.categoryId !== "string") {
+      errors.push("categoryId must be a string");
     }
 
     // Min/Max order value validation
@@ -326,6 +358,7 @@ class PricingService {
         type: rule.type,
         value: rule.value,
         category: rule.category,
+        categoryId: rule.categoryId?._id ? String(rule.categoryId._id) : rule.categoryId ? String(rule.categoryId) : null,
         appliesTo: rule.appliesTo,
         sortOrder: rule.sortOrder,
       });
@@ -371,6 +404,139 @@ class PricingService {
       calculatedAmount: amount,
       preview: `${rule.displayName}: ₹${amount.toFixed(2)}`,
     };
+  }
+
+  /**
+   * Calculate order total with all charges INCLUDING SHIPPING
+   * 
+   * @param {number} subtotal - Order subtotal
+   * @param {Array} cartItems - Cart items (needed for weight calculation)
+   * @param {Object} shippingAddress - Shipping address for zone determination
+   * @param {number} itemCount - Total items
+   * @param {Object} options - Additional options
+   * @returns {Promise<Object>} Breakdown with subtotal, charges (including shipping), and total
+   */
+  async calculateOrderTotalWithShipping(subtotal, cartItems, shippingAddress, itemCount = 1, options = {}) {
+    try {
+      // Get regular pricing charges (excluding shipping-related items)
+      const pricingBreakdown = await this.calculateOrderTotal(subtotal, itemCount);
+
+      // Calculate shipping cost
+      const shippingPricingService = require("./shipping-pricing.service");
+      const shippingResult = await shippingPricingService.calculateShippingCost({
+        cartItems,
+        shippingAddress,
+        state: options.state || "Tamil Nadu",
+        fallbackCost: options.fallbackShippingCost || 0,
+      });
+
+      // Add shipping as a charge if cost > 0
+      const charges = [...pricingBreakdown.charges];
+      let totalCharges = pricingBreakdown.chargesTotal;
+
+      if (shippingResult.cost > 0) {
+        charges.push({
+          id: shippingResult.rule?.id || "shipping_fallback",
+          key: "shipping_cost",
+          displayName: "Shipping Fee",
+          category: "SHIPPING",
+          categoryId: null,
+          categoryMeta: null,
+          amount: shippingResult.cost,
+          type: "FIXED",
+          sortOrder: 10,
+          metadata: {
+            weight: shippingResult.weight,
+            zone: shippingResult.zone,
+            ruleApplied: shippingResult.ruleApplied,
+          },
+        });
+        totalCharges += shippingResult.cost;
+      }
+
+      // Re-sort charges by sortOrder
+      charges.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+      const total = Math.round((subtotal + totalCharges) * 100) / 100;
+
+      return {
+        subtotal: Math.round(subtotal * 100) / 100,
+        charges,
+        chargesTotal: Math.round(totalCharges * 100) / 100,
+        total,
+        itemCount,
+        shipping: {
+          weight: shippingResult.weight,
+          zone: shippingResult.zone,
+          cost: shippingResult.cost,
+          ruleApplied: shippingResult.ruleApplied,
+        },
+        calculatedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError(`Error calculating order total with shipping: ${error.message}`, 500);
+    }
+  }
+
+  /**
+   * Calculate seller breakdown with shipping
+   * 
+   * @param {Array} sellers - Array of seller data
+   * @param {Array} cartItems - Cart items for shipping calculation
+   * @param {Object} shippingAddress - Shipping address
+   * @param {number} totalItemCount - Total items
+   * @param {Object} options - Additional options
+   * @returns {Promise<Object>} Breakdown with shipping included
+   */
+  async calculateSellerBreakdownWithShipping(sellers, cartItems, shippingAddress, totalItemCount = 0, options = {}) {
+    try {
+      const breakdown = await this.calculateSellerBreakdown(sellers, totalItemCount);
+
+      // Calculate shipping for the entire order
+      const shippingPricingService = require("./shipping-pricing.service");
+      const shippingResult = await shippingPricingService.calculateShippingCost({
+        cartItems,
+        shippingAddress,
+        state: options.state || "Tamil Nadu",
+        fallbackCost: options.fallbackShippingCost || 0,
+      });
+
+      // Add shipping as a global charge
+      if (shippingResult.cost > 0) {
+        breakdown.globalCharges.push({
+          id: shippingResult.rule?.id || "shipping_fallback",
+          key: "shipping_cost",
+          displayName: "Shipping Fee",
+          category: "SHIPPING",
+          amount: shippingResult.cost,
+          type: "FIXED",
+          appliesTo: "ORDER",
+          metadata: {
+            weight: shippingResult.weight,
+            zone: shippingResult.zone,
+            ruleApplied: shippingResult.ruleApplied,
+          },
+        });
+
+        breakdown.grandTotal = Math.round((breakdown.grandTotal + shippingResult.cost) * 100) / 100;
+      }
+
+      breakdown.shipping = {
+        weight: shippingResult.weight,
+        zone: shippingResult.zone,
+        cost: shippingResult.cost,
+        ruleApplied: shippingResult.ruleApplied,
+      };
+
+      return breakdown;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError(
+        `Error calculating seller breakdown with shipping: ${error.message}`,
+        500
+      );
+    }
   }
 }
 

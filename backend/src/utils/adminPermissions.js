@@ -36,7 +36,10 @@ const ALL_PERMISSIONS = [
   "payments:refund",
   "payouts:read",
   "payouts:process",
+  "settings:read",
+  "settings:create",
   "settings:update",
+  "settings:delete",
 ];
 
 const ROLE_PERMISSIONS = {
@@ -58,7 +61,10 @@ const ROLE_PERMISSIONS = {
     "payments:refund",
     "payouts:read",
     "payouts:process",
+    "settings:read",
+    "settings:create",
     "settings:update",
+    "settings:delete",
     "categories:read",
     "roles:read",
     "staff:read",
@@ -79,16 +85,22 @@ const ROLE_PERMISSIONS = {
     "payments:refund",
     "payouts:read",
     "payouts:process",
+    "settings:read",
   ],
 };
 
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase();
+}
+
 function hasPermission(role, permission) {
   const normalized = String(permission || "").replace(/\./g, ":");
-  return (ROLE_PERMISSIONS[role] || []).includes(normalized);
+  return (ROLE_PERMISSIONS[normalizeRole(role)] || []).includes(normalized);
 }
 
 module.exports = {
   ADMIN_ROLES,
   ROLE_PERMISSIONS,
   hasPermission,
+  normalizeRole,
 };

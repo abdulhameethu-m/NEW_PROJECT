@@ -11,7 +11,8 @@
     "seed:order": "node src/scripts/seedOrder.js",
     "seed:orders:yesterday": "node src/scripts/seedOrdersYesterday.js",
     "seed:orders:dates": "node src/scripts/seedOrdersByDate.js",
-    "migrate:currency:inr": "node src/scripts/migrateCurrencyToINR.js"
+    "migrate:currency:inr": "node src/scripts/migrateCurrencyToINR.js",
+    "migrate:pricing:categories": "node src/scripts/migratePricingCategories.js"
   },
   "keywords": [],
   "author": "",

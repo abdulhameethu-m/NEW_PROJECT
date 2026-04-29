@@ -2,6 +2,9 @@ const { ok } = require("../utils/apiResponse");
 const { asyncHandler } = require("../utils/asyncHandler");
 const { AppError } = require("../utils/AppError");
 const PricingConfig = require("../models/PricingConfig");
+const PricingRule = require("../models/PricingRule");
+const pricingCategoryService = require("../services/pricing-category.service");
+const pricingService = require("../services/pricing.service");
 
 // ==================== LEGACY PRICING CONFIG ENDPOINTS ====================
 
@@ -10,10 +13,45 @@ const PricingConfig = require("../models/PricingConfig");
  * Get current pricing configuration (public)
  */
 const getPricingConfig = asyncHandler(async (req, res) => {
+  if (req.query?.subtotal !== undefined) {
+    const parsedSubtotal = parseFloat(req.query.subtotal);
+    const parsedItemCount = parseInt(req.query.itemCount || "1", 10);
+
+    if (isNaN(parsedSubtotal) || parsedSubtotal < 0) {
+      throw new AppError("subtotal must be a valid non-negative number", 400);
+    }
+
+    const result = await pricingService.calculateOrderTotal(parsedSubtotal, parsedItemCount);
+    return ok(res, result, "Pricing calculation retrieved");
+  }
+
   const config = await PricingConfig.findOne({ isActive: true });
 
   if (!config) {
-    throw new AppError("Pricing configuration not found", 404);
+    return ok(
+      res,
+      {
+        deliveryFee: 0,
+        deliveryFreeAbove: 0,
+        platformFeePercentage: 0,
+        platformFeeCapped: 0,
+        taxPercentage: 0,
+        taxableBasis: "subtotal",
+        handlingFee: 0,
+        bulkDiscountThreshold: 0,
+        bulkDiscountPercentage: 0,
+        maxDiscountPercentage: 0,
+        returnWindow: 0,
+        refundProcessingDays: 0,
+        shippingModes: {
+          selfShipping: true,
+          platformShipping: true,
+        },
+        isActive: false,
+        isFallback: true,
+      },
+      "Pricing configuration fallback returned"
+    );
   }
 
   return ok(res, config, "Pricing configuration retrieved");
@@ -27,7 +65,31 @@ const getAdminPricingConfig = asyncHandler(async (req, res) => {
   const config = await PricingConfig.findOne({ isActive: true }).select("+_id");
 
   if (!config) {
-    throw new AppError("Pricing configuration not found", 404);
+    return ok(
+      res,
+      {
+        _id: null,
+        deliveryFee: 0,
+        deliveryFreeAbove: 0,
+        platformFeePercentage: 0,
+        platformFeeCapped: 0,
+        taxPercentage: 0,
+        taxableBasis: "subtotal",
+        handlingFee: 0,
+        bulkDiscountThreshold: 0,
+        bulkDiscountPercentage: 0,
+        maxDiscountPercentage: 0,
+        returnWindow: 0,
+        refundProcessingDays: 0,
+        shippingModes: {
+          selfShipping: true,
+          platformShipping: true,
+        },
+        isActive: false,
+        isFallback: true,
+      },
+      "Pricing configuration fallback returned"
+    );
   }
 
   return ok(res, config, "Pricing configuration retrieved");
@@ -163,15 +225,12 @@ const initializePricingConfig = asyncHandler(async (req, res) => {
 
 // ==================== DYNAMIC PRICING RULES ====================
 
-const PricingRule = require("../models/PricingRule");
-const pricingService = require("../services/pricing.service");
-
 /**
  * GET /api/admin/pricing-rules
  * Get all pricing rules (admin only)
  */
 const getAllPricingRules = asyncHandler(async (req, res) => {
-  const { active, category, sortBy = "sortOrder" } = req.query;
+  const { active, category, categoryId, sortBy = "sortOrder" } = req.query;
 
   const query = { isArchived: false };
 
@@ -184,8 +243,12 @@ const getAllPricingRules = asyncHandler(async (req, res) => {
   if (category) {
     query.category = category;
   }
+  if (categoryId) {
+    query.categoryId = categoryId;
+  }
 
   const rules = await PricingRule.find(query)
+    .populate("categoryId", "name key description isActive isSystem sortOrder")
     .sort(sortBy === "name" ? { displayName: 1 } : { [sortBy]: 1 })
     .lean();
 
@@ -208,7 +271,7 @@ const getActivePricingRules = asyncHandler(async (req, res) => {
 const getPricingRule = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const rule = await PricingRule.findById(id);
+  const rule = await PricingRule.findById(id).populate("categoryId", "name key description isActive isSystem sortOrder");
 
   if (!rule || rule.isArchived) {
     throw new AppError("Pricing rule not found", 404);
@@ -222,10 +285,21 @@ const getPricingRule = asyncHandler(async (req, res) => {
  * Create a new pricing rule (admin only)
  */
 const createPricingRule = asyncHandler(async (req, res) => {
-  const { key, displayName, type, value, category, appliesTo, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes } = req.body;
+  const { key, displayName, type, value, category, categoryId, appliesTo, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes } = req.body;
 
   // Validate input
-  const validationErrors = pricingService.validateRule({ key, displayName, type, value, category, appliesTo, maxCap, minOrderValue, freeAboveValue });
+  const validationErrors = pricingService.validateRule({
+    key,
+    displayName,
+    type,
+    value,
+    category,
+    categoryId,
+    appliesTo,
+    maxCap,
+    minOrderValue,
+    freeAboveValue,
+  });
 
   if (validationErrors.length > 0) {
     throw new AppError(validationErrors.join("; "), 400);
@@ -237,12 +311,19 @@ const createPricingRule = asyncHandler(async (req, res) => {
     throw new AppError(`Pricing rule with key "${key}" already exists`, 400);
   }
 
+  const resolvedCategory = await pricingCategoryService.resolveCategory({
+    categoryId,
+    categoryKey: category,
+    fallbackKey: "OTHER",
+  });
+
   const newRule = new PricingRule({
     key: key.toLowerCase(),
     displayName,
     type,
     value,
-    category: category || "OTHER",
+    category: resolvedCategory.key,
+    categoryId: resolvedCategory._id,
     appliesTo: appliesTo || "ORDER",
     sortOrder: sortOrder || 0,
     maxCap: maxCap || 0,
@@ -254,6 +335,7 @@ const createPricingRule = asyncHandler(async (req, res) => {
   });
 
   await newRule.save();
+  await newRule.populate("categoryId", "name key description isActive isSystem sortOrder");
 
   return ok(res, newRule, "Pricing rule created", 201);
 });
@@ -264,7 +346,7 @@ const createPricingRule = asyncHandler(async (req, res) => {
  */
 const updatePricingRule = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { key, displayName, type, value, category, appliesTo, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes, isActive } = req.body;
+  const { key, displayName, type, value, category, categoryId, appliesTo, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes, isActive } = req.body;
 
   const rule = await PricingRule.findById(id);
 
@@ -287,7 +369,15 @@ const updatePricingRule = asyncHandler(async (req, res) => {
   if (displayName !== undefined) updateData.displayName = displayName;
   if (type !== undefined) updateData.type = type;
   if (value !== undefined) updateData.value = value;
-  if (category !== undefined) updateData.category = category;
+  if (category !== undefined || categoryId !== undefined) {
+    const resolvedCategory = await pricingCategoryService.resolveCategory({
+      categoryId,
+      categoryKey: category !== undefined ? category : rule.category,
+      fallbackKey: rule.category || "OTHER",
+    });
+    updateData.category = resolvedCategory.key;
+    updateData.categoryId = resolvedCategory._id;
+  }
   if (appliesTo !== undefined) updateData.appliesTo = appliesTo;
   if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
   if (maxCap !== undefined) updateData.maxCap = maxCap;
@@ -310,7 +400,7 @@ const updatePricingRule = asyncHandler(async (req, res) => {
   const updated = await PricingRule.findByIdAndUpdate(id, updateData, {
     new: true,
     runValidators: true,
-  });
+  }).populate("categoryId", "name key description isActive isSystem sortOrder");
 
   return ok(res, updated, "Pricing rule updated");
 });
@@ -332,6 +422,33 @@ const deletePricingRule = asyncHandler(async (req, res) => {
   await PricingRule.findByIdAndUpdate(id, { isArchived: true, lastModifiedBy: req.user.sub });
 
   return ok(res, { id }, "Pricing rule archived");
+});
+
+const getPricingCategories = asyncHandler(async (req, res) => {
+  const categories = await pricingCategoryService.listPricingCategories({ includeInactive: true });
+  return ok(res, categories, "Pricing categories retrieved");
+});
+
+const createPricingCategory = asyncHandler(async (req, res) => {
+  const category = await pricingCategoryService.createPricingCategory(req.body || {});
+  return ok(res, category, "Pricing category created", 201);
+});
+
+const updatePricingCategory = asyncHandler(async (req, res) => {
+  const category = await pricingCategoryService.updatePricingCategory(req.params.id, req.body || {});
+  return ok(res, category, "Pricing category updated");
+});
+
+const deletePricingCategory = asyncHandler(async (req, res) => {
+  const category = await pricingCategoryService.deletePricingCategory(req.params.id);
+  const fallbackCategory = await pricingCategoryService.resolveCategory({ categoryKey: "OTHER" });
+
+  await PricingRule.updateMany(
+    { categoryId: category._id },
+    { category: fallbackCategory.key, categoryId: fallbackCategory._id }
+  );
+
+  return ok(res, { id: req.params.id }, "Pricing category deleted");
 });
 
 /**
@@ -420,6 +537,10 @@ module.exports = {
   createPricingRule,
   updatePricingRule,
   deletePricingRule,
+  getPricingCategories,
+  createPricingCategory,
+  updatePricingCategory,
+  deletePricingCategory,
   toggleMultipleRulesActive,
   calculateOrderTotal,
   getPricingSummary,

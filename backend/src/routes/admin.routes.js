@@ -44,6 +44,7 @@ const roleController = require("../modules/staff/controllers/role.controller");
 const { roleSchema } = require("../modules/staff/validators");
 const adminPayoutController = require("../controllers/adminPayout.controller");
 const pricingController = require("../controllers/pricing.controller");
+const shippingConfigRoutes = require("./shippingConfig.routes");
 
 const router = express.Router();
 
@@ -208,53 +209,79 @@ router.delete("/roles/:id", requireWorkspacePermission("roles.delete"), roleCont
 // Pricing configuration routes
 router.get(
   "/pricing",
-  requireWorkspacePermission("settings.read"),
+  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
   pricingController.getAdminPricingConfig
 );
 router.put(
   "/pricing/:id",
-  requireWorkspacePermission("settings.update"),
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
   pricingController.updatePricingConfig
 );
 router.post(
   "/pricing/initialize",
-  requireWorkspacePermission("settings.create"),
+  requireWorkspacePermission("settings.create", { legacyPermission: "settings:update" }),
   pricingController.initializePricingConfig
 );
 
 // Dynamic Pricing Rules endpoints (NEW)
 router.get(
   "/pricing-rules",
-  requireWorkspacePermission("settings.read"),
+  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
   pricingController.getAllPricingRules
 );
 router.post(
   "/pricing-rules",
-  requireWorkspacePermission("settings.create"),
+  requireWorkspacePermission("settings.create", { legacyPermission: "settings:update" }),
   express.json(),
   pricingController.createPricingRule
 );
 router.get(
   "/pricing-rules/:id",
-  requireWorkspacePermission("settings.read"),
+  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
   pricingController.getPricingRule
 );
 router.put(
   "/pricing-rules/:id",
-  requireWorkspacePermission("settings.update"),
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
   express.json(),
   pricingController.updatePricingRule
 );
 router.delete(
   "/pricing-rules/:id",
-  requireWorkspacePermission("settings.delete"),
+  requireWorkspacePermission("settings.delete", { legacyPermission: "settings:update" }),
   pricingController.deletePricingRule
 );
 router.patch(
   "/pricing-rules/batch/toggle-active",
-  requireWorkspacePermission("settings.update"),
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
   express.json(),
   pricingController.toggleMultipleRulesActive
 );
+
+router.get(
+  "/pricing-categories",
+  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
+  pricingController.getPricingCategories
+);
+router.post(
+  "/pricing-categories",
+  requireWorkspacePermission("settings.create", { legacyPermission: "settings:update" }),
+  express.json(),
+  pricingController.createPricingCategory
+);
+router.put(
+  "/pricing-categories/:id",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  pricingController.updatePricingCategory
+);
+router.delete(
+  "/pricing-categories/:id",
+  requireWorkspacePermission("settings.delete", { legacyPermission: "settings:update" }),
+  pricingController.deletePricingCategory
+);
+
+// Shipping Configuration routes
+router.use("/shipping-config", shippingConfigRoutes);
 
 module.exports = router;

@@ -270,8 +270,20 @@ const productSchema = new mongoose.Schema(
     metaDescription: String,
     metaKeywords: [String],
 
-    // Additional Details
-    weight: Number, // in kg
+    // Additional Details - Shipping & Logistics
+    weight: {
+      value: {
+        type: Number,
+        required: true,
+        min: [0.1, "Weight must be greater than 0"],
+        description: "Weight in kilograms",
+      },
+      unit: {
+        type: String,
+        enum: ["kg"],
+        default: "kg",
+      },
+    },
     dimensions: {
       length: Number,
       width: Number,
@@ -293,6 +305,24 @@ const productSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Pre-save validation for weight
+productSchema.pre("save", function (next) {
+  if (!this.weight || !this.weight.value) {
+    const err = new Error(
+      "Product weight is required. Must specify weight in kg with minimum value 0.1"
+    );
+    err.statusCode = 400;
+    err.code = "WEIGHT_REQUIRED";
+    return next(err);
+  }
+  next();
+});
+
+// Helper method to get weight in kg
+productSchema.methods.getWeightInKg = function () {
+  return this.weight?.value || 0;
+};
 
 // Indexes for performance
 productSchema.index({ name: "text", description: "text" });

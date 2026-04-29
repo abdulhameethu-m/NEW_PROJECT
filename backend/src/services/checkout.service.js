@@ -64,13 +64,15 @@ async function resolveSellerIdForProduct(product) {
 }
 
 class CheckoutService {
-  async prepare(userId, { currency } = {}) {
+  async prepare(userId, { currency, shippingAddress } = {}) {
     const cart = await cartRepo.findByUserId(userId);
     if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
       throw new AppError("Cart is empty", 400, "EMPTY_CART");
     }
 
     const validated = [];
+    const validatedWithProducts = []; // Keep full product data for shipping calculation
+
     for (const item of cart.items) {
       asObjectId(item.productId, "productId");
       const product = await productRepo.findById(item.productId);
@@ -86,7 +88,7 @@ class CheckoutService {
       const resolvedSellerId = await resolveSellerIdForProduct(product);
       if (!resolvedSellerId) throw new AppError("Seller not found for product", 400, "INVALID_PRODUCT");
 
-      validated.push({
+      const itemData = {
         productId: product._id,
         sellerId: resolvedSellerId,
         name: product.name,
@@ -102,6 +104,14 @@ class CheckoutService {
         variantSku: variant?.sku || item.variantSku || "",
         variantTitle: variant?.title || item.variantTitle || "",
         variantAttributes: variant?.attributes || item.variantAttributes || {},
+      };
+
+      validated.push(itemData);
+
+      // For shipping calculation, include product data
+      validatedWithProducts.push({
+        ...itemData,
+        product, // Include full product for weight extraction
       });
     }
 
@@ -115,8 +125,33 @@ class CheckoutService {
     const subtotal = sellers.reduce((sum, s) => sum + s.subtotal, 0);
     const totalItemCount = validated.reduce((sum, item) => sum + item.quantity, 0);
 
-    // Calculate pricing dynamically using pricing rules
-    const pricingBreakdown = await pricingService.calculateOrderTotal(subtotal, totalItemCount);
+    // Calculate pricing with shipping if address is provided
+    let pricingBreakdown;
+    let shippingData = null;
+
+    if (shippingAddress) {
+      try {
+        pricingBreakdown = await pricingService.calculateOrderTotalWithShipping(
+          subtotal,
+          validatedWithProducts,
+          shippingAddress,
+          totalItemCount
+        );
+        
+        // Extract shipping data from charges
+        const shippingCharge = pricingBreakdown.charges.find((c) => c.key === "shipping_cost");
+        if (shippingCharge) {
+          shippingData = pricingBreakdown.shipping;
+        }
+      } catch (error) {
+        // If shipping calculation fails, fall back to regular pricing
+        console.error("Shipping calculation error:", error.message);
+        pricingBreakdown = await pricingService.calculateOrderTotal(subtotal, totalItemCount);
+      }
+    } else {
+      // No shipping address provided, use regular pricing
+      pricingBreakdown = await pricingService.calculateOrderTotal(subtotal, totalItemCount);
+    }
 
     return {
       currency: currency || cart.currency || "INR",
@@ -126,6 +161,7 @@ class CheckoutService {
       chargesTotal: pricingBreakdown.chargesTotal,
       total: pricingBreakdown.total,
       itemCount: totalItemCount,
+      shipping: shippingData,
     };
   }
 
@@ -203,9 +239,36 @@ class CheckoutService {
       overallSubtotal += subtotal;
     }
 
-    // Get pricing breakdown for entire order
-    const pricingBreakdown = await pricingService.calculateOrderTotal(overallSubtotal, totalItemCount);
+    // Prepare validated items with full product data for shipping calculation
+    const validatedWithProducts = [];
+    for (const item of validated) {
+      const product = await productRepo.findById(item.productId);
+      if (product) {
+        validatedWithProducts.push({
+          ...item,
+          product,
+        });
+      }
+    }
+
+    // Get pricing breakdown with shipping for entire order
+    let pricingBreakdown;
+    try {
+      pricingBreakdown = await pricingService.calculateOrderTotalWithShipping(
+        overallSubtotal,
+        validatedWithProducts,
+        shippingAddress,
+        totalItemCount
+      );
+    } catch (error) {
+      // If shipping calculation fails, fall back to regular pricing
+      console.error("Shipping calculation error in createOrder:", error.message);
+      pricingBreakdown = await pricingService.calculateOrderTotal(overallSubtotal, totalItemCount);
+    }
+
     const chargesBreakdown = pricingBreakdown.charges || [];
+    const shippingCharge = chargesBreakdown.find((c) => c.key === "shipping_cost");
+    const shippingFee = shippingCharge?.amount || 0;
 
     for (const sellerData of bySeller.values()) {
       const vendor = await vendorRepo.findById(sellerData.sellerId);
@@ -240,7 +303,7 @@ class CheckoutService {
         sellerId: sellerData.sellerId,
         items: cleanedItems,
         subtotal,
-        shippingFee: 0,  // Charges are calculated separately
+        shippingFee: Math.round(shippingFee * 100) / 100,  // Calculated shipping fee
         taxAmount: 0,
         chargesBreakdown: chargesBreakdown,  // Store detailed charges
         chargesTotal: Math.round(sellerChargeShare * 100) / 100,

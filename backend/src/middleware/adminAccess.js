@@ -1,5 +1,5 @@
 const { AppError } = require("../utils/AppError");
-const { ADMIN_ROLES, hasPermission } = require("../utils/adminPermissions");
+const { ADMIN_ROLES, hasPermission, normalizeRole } = require("../utils/adminPermissions");
 const { verifyAccessToken, verifyStaffAccessToken } = require("../utils/jwt");
 const { Staff } = require("../modules/staff/models/Staff");
 const { StaffSession } = require("../modules/staff/models/StaffSession");
@@ -20,7 +20,7 @@ async function adminWorkspaceAuthRequired(req, res, next) {
 
   try {
     const payload = verifyAccessToken(token);
-    if (ADMIN_ROLES.includes(payload.role)) {
+    if (ADMIN_ROLES.includes(normalizeRole(payload.role))) {
       req.user = payload;
       req.authContext = { type: "legacy_admin" };
       return next();

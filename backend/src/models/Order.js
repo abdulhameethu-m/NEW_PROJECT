@@ -188,11 +188,8 @@ const orderSchema = new mongoose.Schema(
 // Indexes for common queries
 orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ sellerId: 1, status: 1, createdAt: -1 });
-orderSchema.index({ orderNumber: 1 });
 orderSchema.index({ status: 1, paymentStatus: 1 });
 orderSchema.index({ payoutEligibleAt: 1, vendorWalletReleasedAt: 1 });
-orderSchema.index({ razorpayOrderId: 1 });
-orderSchema.index({ shipmentId: 1 });
 orderSchema.index({ trackingId: 1 });
 orderSchema.index({ isActive: 1, status: 1, createdAt: -1 });
 orderSchema.index({ status: 1, paymentStatus: 1, payoutEligibleAt: 1 });

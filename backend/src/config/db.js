@@ -7,7 +7,7 @@ async function connectDb() {
   if (isConnected) return;
 
   const primaryUri = process.env.MONGODB_URI;
-  const fallbackUri = process.env.MONGODB_FALLBACK_URI || "mongodb://127.0.0.1:27017/amazon_likee";
+  const fallbackUri = process.env.MONGODB_FALLBACK_URI || "mongodb://127.0.0.1:27017/amazon_like";
   const connectOptions = {
     autoIndex: process.env.NODE_ENV !== "production",
     serverSelectionTimeoutMS: 5000,
@@ -47,6 +47,9 @@ async function connectDb() {
       logger.info("MongoDB connected to fallback local database");
     } catch (fallbackError) {
       logger.error("Fallback MongoDB connection also failed", { error: fallbackError.message });
+      if (fallbackUri.includes("127.0.0.1:27017") || fallbackUri.includes("localhost:27017")) {
+        fallbackError.message = `${fallbackError.message}. Local MongoDB is unavailable. Start the MongoDB service or set MONGODB_URI to a working Atlas cluster.`;
+      }
       throw fallbackError;
     }
   }

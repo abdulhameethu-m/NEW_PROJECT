@@ -108,12 +108,21 @@ const pricingRuleSchema = new mongoose.Schema(
       description: "Rule doesn't apply if order subtotal >= this value",
     },
 
-    // Category: for better organization in UI
+    // Legacy category key kept for backward compatibility and display
     category: {
       type: String,
-      enum: ["DELIVERY", "PLATFORM_FEE", "TAX", "HANDLING", "PACKAGING", "DISCOUNT", "OTHER"],
       default: "OTHER",
+      uppercase: true,
+      trim: true,
       description: "Rule category for organization",
+    },
+
+    // Dynamic category reference
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PricingCategory",
+      index: true,
+      description: "Dynamic pricing category reference",
     },
 
     // Metadata and internal notes
@@ -146,6 +155,7 @@ const pricingRuleSchema = new mongoose.Schema(
 
 // Compound index for querying active rules
 pricingRuleSchema.index({ isActive: 1, sortOrder: 1, category: 1 });
+pricingRuleSchema.index({ categoryId: 1, isActive: 1, sortOrder: 1 });
 
 // Index for finding by key
 pricingRuleSchema.index({ key: 1, isActive: 1 });
@@ -161,18 +171,16 @@ pricingRuleSchema.virtual("isPercentage").get(function () {
 });
 
 // Validation middleware
-pricingRuleSchema.pre("save", function (next) {
+pricingRuleSchema.pre("save", async function () {
   // Validate percentage max value
   if (this.type === "PERCENTAGE" && this.value > 100) {
-    return next(new Error("Percentage value cannot exceed 100"));
+    throw new Error("Percentage value cannot exceed 100");
   }
 
   // Validate min/free above
   if (this.minOrderValue > 0 && this.freeAboveValue > 0 && this.minOrderValue >= this.freeAboveValue) {
-    return next(new Error("minOrderValue must be less than freeAboveValue"));
+    throw new Error("minOrderValue must be less than freeAboveValue");
   }
-
-  next();
 });
 
 module.exports = mongoose.model("PricingRule", pricingRuleSchema);

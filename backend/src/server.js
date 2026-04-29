@@ -6,10 +6,12 @@ const { connectDb } = require("./config/db");
 const { logger } = require("./utils/logger");
 const { ensurePredefinedStaffRoles } = require("./modules/staff/services/role.service");
 const { initializeSettlementScheduler, shutdown } = require("./jobs/settlement.job");
+const { ensureDefaultPricingCategories } = require("./services/pricing-category.service");
 
 async function start() {
   await connectDb();
   await ensurePredefinedStaffRoles();
+  await ensureDefaultPricingCategories();
 
   // Initialize settlement scheduler
   try {

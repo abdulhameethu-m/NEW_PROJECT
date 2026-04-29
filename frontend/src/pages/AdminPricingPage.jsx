@@ -72,17 +72,22 @@ export function AdminPricingPage() {
 
   // Save pricing config
   const handleSave = async () => {
-    if (!config?._id) {
-      setError("Configuration ID not found");
-      return;
-    }
-
     setSaving(true);
     setError("");
     setSuccess("");
 
     try {
-      const res = await pricingService.updatePricingConfig(config._id, formData);
+      let res;
+
+      if (!config?._id) {
+        const initRes = await pricingService.initializePricingConfig();
+        const initializedConfig = initRes?.data;
+        setConfig(initializedConfig);
+        res = await pricingService.updatePricingConfig(initializedConfig?._id, formData);
+      } else {
+        res = await pricingService.updatePricingConfig(config._id, formData);
+      }
+
       const updatedConfig = res?.data;
       setConfig(updatedConfig);
       setSuccess("Pricing configuration updated successfully!");

@@ -85,6 +85,10 @@ const pageMeta = {
     title: "Pricing Configuration",
     subtitle: "Manage platform-wide pricing rules, fees, and discounts.",
   },
+  "/admin/pricing-categories": {
+    title: "Pricing Categories",
+    subtitle: "Create and manage pricing categories to organize your fees and charges.",
+  },
   "/admin/roles": {
     title: "Staff Roles",
     subtitle: "Create reusable role templates and manage RBAC permissions.",
