@@ -7,7 +7,10 @@ async function connectDb() {
   if (isConnected) return;
 
   const primaryUri = process.env.MONGODB_URI;
-  const fallbackUri = process.env.MONGODB_FALLBACK_URI || "mongodb://127.0.0.1:27017/amazon_like";
+  const localFallbackEnabled = process.env.MONGODB_ENABLE_LOCAL_FALLBACK === "true";
+  const fallbackUri = localFallbackEnabled
+    ? (process.env.MONGODB_FALLBACK_URI || "mongodb://127.0.0.1:27017/amazon_like")
+    : "";
   const connectOptions = {
     autoIndex: process.env.NODE_ENV !== "production",
     serverSelectionTimeoutMS: 5000,
@@ -16,7 +19,9 @@ async function connectDb() {
   mongoose.set("strictQuery", true);
 
   if (!primaryUri && !fallbackUri) {
-    throw new Error("Missing MONGODB_URI and fallback MongoDB URI");
+    throw new Error(
+      "Missing MONGODB_URI. Set a working Atlas URI, or enable local fallback with MONGODB_ENABLE_LOCAL_FALLBACK=true."
+    );
   }
 
   const stableApiOptions = {
@@ -37,7 +42,7 @@ async function connectDb() {
     return;
   } catch (primaryError) {
     logger.warn("Primary MongoDB connection failed", { error: primaryError.message });
-    if (!primaryUri || primaryUri === fallbackUri) {
+    if (!fallbackUri || !primaryUri || primaryUri === fallbackUri) {
       throw primaryError;
     }
 

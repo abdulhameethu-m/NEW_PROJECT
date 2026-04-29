@@ -58,6 +58,7 @@ const settlementMetricsSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    suppressReservedKeysWarning: true,
   }
 );
 
