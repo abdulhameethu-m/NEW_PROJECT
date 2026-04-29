@@ -6,16 +6,14 @@ const SHIPPING_ZONES = {
   REMOTE: "Far districts",
 };
 
-const SHIPPING_STATES = ["Tamil Nadu", "All States"];
-
 const shippingConfigSchema = new mongoose.Schema(
   {
     // Location & Zone
     state: {
       type: String,
       required: true,
-      enum: SHIPPING_STATES,
       default: "Tamil Nadu",
+      trim: true,
       index: true,
     },
     zone: {
@@ -105,15 +103,35 @@ const shippingConfigSchema = new mongoose.Schema(
 shippingConfigSchema.index({ state: 1, zone: 1, isActive: 1 });
 shippingConfigSchema.index({ state: 1, minWeight: 1, maxWeight: 1, isActive: 1 });
 
+function validateShippingRuleValues(payload = {}) {
+  if (payload.minWeight !== undefined && payload.maxWeight !== undefined && payload.minWeight >= payload.maxWeight) {
+    const error = new Error("minWeight must be less than maxWeight");
+    error.name = "ValidationError";
+    throw error;
+  }
+
+  if (payload.baseWeight !== undefined && payload.maxWeight !== undefined && payload.baseWeight > payload.maxWeight) {
+    const error = new Error("baseWeight must not exceed maxWeight");
+    error.name = "ValidationError";
+    throw error;
+  }
+}
+
 // Pre-save validation
-shippingConfigSchema.pre("save", function (next) {
-  if (this.minWeight >= this.maxWeight) {
-    next(new Error("minWeight must be less than maxWeight"));
-  }
-  if (this.baseWeight > this.maxWeight) {
-    next(new Error("baseWeight must not exceed maxWeight"));
-  }
-  next();
+shippingConfigSchema.pre("save", function () {
+  validateShippingRuleValues(this);
+});
+
+shippingConfigSchema.pre("findOneAndUpdate", async function () {
+  const updates = this.getUpdate() || {};
+  const setUpdates = updates.$set || {};
+  const current = await this.model.findOne(this.getQuery()).lean();
+  const merged = {
+    ...(current || {}),
+    ...updates,
+    ...setUpdates,
+  };
+  validateShippingRuleValues(merged);
 });
 
 // Schema static methods for queries

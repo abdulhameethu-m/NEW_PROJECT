@@ -428,29 +428,35 @@ class PricingService {
         shippingAddress,
         state: options.state || "Tamil Nadu",
         fallbackCost: options.fallbackShippingCost || 0,
+        orderTotal: subtotal,
       });
 
-      // Add shipping as a charge if cost > 0
+      // Always include shipping as an explicit charge for checkout transparency.
       const charges = [...pricingBreakdown.charges];
       let totalCharges = pricingBreakdown.chargesTotal;
 
+      charges.push({
+        id: shippingResult.rule?.id || "shipping_fallback",
+        key: "shipping_cost",
+        displayName: "Shipping Fee",
+        category: "SHIPPING",
+        categoryId: null,
+        categoryMeta: null,
+        amount: shippingResult.cost,
+        type: "FIXED",
+        sortOrder: 10,
+        metadata: {
+          weight: shippingResult.weight,
+          zone: shippingResult.zone,
+          ruleApplied: shippingResult.ruleApplied,
+          fallbackApplied: shippingResult.fallbackApplied,
+          matchType: shippingResult.matchType || "unknown",
+          matchedOn: shippingResult.matchedOn || "unknown",
+          state: shippingResult.state || options.state || "Tamil Nadu",
+          costBreakdown: shippingResult.costBreakdown || null,
+        },
+      });
       if (shippingResult.cost > 0) {
-        charges.push({
-          id: shippingResult.rule?.id || "shipping_fallback",
-          key: "shipping_cost",
-          displayName: "Shipping Fee",
-          category: "SHIPPING",
-          categoryId: null,
-          categoryMeta: null,
-          amount: shippingResult.cost,
-          type: "FIXED",
-          sortOrder: 10,
-          metadata: {
-            weight: shippingResult.weight,
-            zone: shippingResult.zone,
-            ruleApplied: shippingResult.ruleApplied,
-          },
-        });
         totalCharges += shippingResult.cost;
       }
 
@@ -500,25 +506,31 @@ class PricingService {
         shippingAddress,
         state: options.state || "Tamil Nadu",
         fallbackCost: options.fallbackShippingCost || 0,
+        orderTotal: sellers.reduce((sum, seller) => sum + Number(seller.subtotal || 0), 0),
       });
 
-      // Add shipping as a global charge
-      if (shippingResult.cost > 0) {
-        breakdown.globalCharges.push({
-          id: shippingResult.rule?.id || "shipping_fallback",
-          key: "shipping_cost",
-          displayName: "Shipping Fee",
-          category: "SHIPPING",
-          amount: shippingResult.cost,
-          type: "FIXED",
-          appliesTo: "ORDER",
-          metadata: {
-            weight: shippingResult.weight,
-            zone: shippingResult.zone,
-            ruleApplied: shippingResult.ruleApplied,
-          },
-        });
+      // Always surface shipping in global charges, even when free.
+      breakdown.globalCharges.push({
+        id: shippingResult.rule?.id || "shipping_fallback",
+        key: "shipping_cost",
+        displayName: "Shipping Fee",
+        category: "SHIPPING",
+        amount: shippingResult.cost,
+        type: "FIXED",
+        appliesTo: "ORDER",
+        metadata: {
+          weight: shippingResult.weight,
+          zone: shippingResult.zone,
+          ruleApplied: shippingResult.ruleApplied,
+          fallbackApplied: shippingResult.fallbackApplied,
+          matchType: shippingResult.matchType || "unknown",
+          matchedOn: shippingResult.matchedOn || "unknown",
+          state: shippingResult.state || options.state || "Tamil Nadu",
+          costBreakdown: shippingResult.costBreakdown || null,
+        },
+      });
 
+      if (shippingResult.cost > 0) {
         breakdown.grandTotal = Math.round((breakdown.grandTotal + shippingResult.cost) * 100) / 100;
       }
 

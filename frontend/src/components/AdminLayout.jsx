@@ -65,6 +65,10 @@ const pageMeta = {
     title: "Shipping Access",
     subtitle: "Control which shipping modes vendors can use across the marketplace.",
   },
+  "/admin/shipping": {
+    title: "Shipping Configuration",
+    subtitle: "Manage weight-based pricing rules and the zone resolution matrix for checkout.",
+  },
   "/admin/analytics": {
     title: "Analytics",
     subtitle: "Review revenue, top products, and sales momentum.",

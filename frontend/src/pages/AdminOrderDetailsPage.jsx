@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteOrder, getOrderById, updateOrder } from "../services/adminApi";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
+import { formatWeight, getWeightUnit, getWeightValue } from "../utils/weight";
 import { useAdminSession } from "../hooks/useAdminSession";
 
 function normalizeError(err) {
@@ -240,6 +241,14 @@ export function AdminOrderDetailsPage() {
                 <div key={it.productId?._id || it.productId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
                   <div className="min-w-0">
                     <div className="truncate font-semibold text-slate-950 dark:text-white">{it.name}</div>
+                    {getWeightValue(it) > 0 ? (
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Weight: {formatWeight(getWeightValue(it), getWeightUnit(it))}
+                        {Number(it.quantity || 0) > 1
+                          ? ` each • ${formatWeight(getWeightValue(it) * Number(it.quantity || 0), getWeightUnit(it))} total`
+                          : ""}
+                      </div>
+                    ) : null}
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       Qty {it.quantity} · {formatCurrency(it.price)}
                     </div>

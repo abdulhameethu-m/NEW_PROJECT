@@ -4,6 +4,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { getUserInvoiceUrl, getUserOrder, getUserOrderTracking } from "../services/userService";
 import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
+import { formatWeight, getWeightUnit, getWeightValue } from "../utils/weight";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Failed to load order details.";
@@ -82,11 +83,26 @@ export function OrderDetailsPage() {
                   {item.image ? <img src={resolveApiAssetUrl(item.image)} alt={item.name} className="h-full w-full object-cover" /> : null}
                 </div>
                 <div className="min-w-0 flex-1">
+                  {(() => {
+                    const itemWeight = getWeightValue(item);
+                    const itemWeightUnit = getWeightUnit(item);
+                    const totalWeight = itemWeight * Number(item.quantity || 0);
+                    return (
+                      <>
                   <div className="font-semibold text-slate-950 dark:text-white">{item.name}</div>
                   <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Quantity: {item.quantity}</div>
+                  {itemWeight > 0 ? (
+                    <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                      Weight: {formatWeight(itemWeight, itemWeightUnit)}
+                      {Number(item.quantity || 0) > 1 ? ` each • ${formatWeight(totalWeight, itemWeightUnit)} total` : ""}
+                    </div>
+                  ) : null}
                   <div className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
                     {formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}
                   </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             ))}

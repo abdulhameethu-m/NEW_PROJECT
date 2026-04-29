@@ -1,12 +1,40 @@
 const { AppError } = require("../utils/AppError");
 const ShippingConfig = require("../models/ShippingConfig");
 
+function clearShippingCaches() {
+  const shippingPricingService = require("./shipping-pricing.service");
+  shippingPricingService.clearCache();
+}
+
 /**
  * Shipping Configuration Admin Service
  * CRUD operations for managing shipping rules
  */
 
 class ShippingConfigAdminService {
+  normalizeValidationError(error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    if (error?.name === "ValidationError") {
+      const messages =
+        error?.errors && typeof error.errors === "object"
+          ? Object.values(error.errors)
+              .map((err) => err.message)
+              .filter(Boolean)
+          : [];
+
+      throw new AppError(
+        messages.length ? messages.join(", ") : error.message || "Validation failed",
+        400,
+        "VALIDATION_ERROR"
+      );
+    }
+
+    throw error;
+  }
+
   /**
    * Create a new shipping rule
    * @param {Object} data - Rule data
@@ -61,15 +89,10 @@ class ShippingConfigAdminService {
     try {
       const rule = new ShippingConfig(data);
       await rule.save();
+      clearShippingCaches();
       return rule;
     } catch (error) {
-      if (error.name === "ValidationError") {
-        const messages = Object.values(error.errors)
-          .map((err) => err.message)
-          .join(", ");
-        throw new AppError(messages, 400, "VALIDATION_ERROR");
-      }
-      throw error;
+      this.normalizeValidationError(error);
     }
   }
 
@@ -141,15 +164,10 @@ class ShippingConfigAdminService {
         throw new AppError("Shipping rule not found", 404, "NOT_FOUND");
       }
 
+      clearShippingCaches();
       return rule;
     } catch (error) {
-      if (error.name === "ValidationError") {
-        const messages = Object.values(error.errors)
-          .map((err) => err.message)
-          .join(", ");
-        throw new AppError(messages, 400, "VALIDATION_ERROR");
-      }
-      throw error;
+      this.normalizeValidationError(error);
     }
   }
 
@@ -163,6 +181,7 @@ class ShippingConfigAdminService {
     if (!rule) {
       throw new AppError("Shipping rule not found", 404, "NOT_FOUND");
     }
+    clearShippingCaches();
     return rule;
   }
 
@@ -188,18 +207,16 @@ class ShippingConfigAdminService {
         { runValidators: true }
       );
 
+      clearShippingCaches();
+
       return {
         modified: result.modifiedCount,
         matched: result.matchedCount,
         acknowledged: result.acknowledged,
       };
     } catch (error) {
-      if (error.name === "ValidationError") {
-        throw new AppError(
-          "Validation failed during bulk update",
-          400,
-          "VALIDATION_ERROR"
-        );
+      if (error?.name === "ValidationError") {
+        throw new AppError(error.message || "Validation failed during bulk update", 400, "VALIDATION_ERROR");
       }
       throw error;
     }

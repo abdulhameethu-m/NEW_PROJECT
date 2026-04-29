@@ -10,6 +10,7 @@ const vendorRepo = require("../repositories/vendor.repository");
 const { getCommissionPercentage } = require("./finance-config.service");
 const { resolveVendorShippingModes } = require("./shipping.service");
 const pricingService = require("./pricing.service");
+const { getItemWeight } = require("../utils/cartWeightCalculator");
 
 function asObjectId(id, fieldName) {
   if (!mongoose.isValidObjectId(id)) throw new AppError(`Invalid ${fieldName}`, 400, "VALIDATION_ERROR");
@@ -46,6 +47,62 @@ function generateOrderNumber() {
 
 function generateOrderGroupId() {
   return `grp_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+}
+
+function getProductWeightSnapshot(product) {
+  if (product?.weight && typeof product.weight === "object" && Number(product.weight.value) > 0) {
+    return {
+      value: Number(product.weight.value),
+      unit: product.weight.unit || "kg",
+    };
+  }
+
+  if (typeof product?.weight === "number" && product.weight > 0) {
+    return {
+      value: Number(product.weight),
+      unit: "kg",
+    };
+  }
+
+  return null;
+}
+
+function buildSellerShippingShares(items = [], shippingFee = 0) {
+  if (!Array.isArray(items) || items.length === 0 || shippingFee <= 0) {
+    return new Map();
+  }
+
+  const weightsBySeller = new Map();
+  let totalWeight = 0;
+
+  for (const item of items) {
+    const sellerKey = String(item.sellerId);
+    const itemWeight = getItemWeight(item) * Number(item.quantity || 0);
+    totalWeight += itemWeight;
+    weightsBySeller.set(sellerKey, (weightsBySeller.get(sellerKey) || 0) + itemWeight);
+  }
+
+  const sellerIds = Array.from(weightsBySeller.keys());
+  if (sellerIds.length === 0) {
+    return new Map();
+  }
+
+  const shares = new Map();
+  let assigned = 0;
+  sellerIds.forEach((sellerId, index) => {
+    const rawShare =
+      totalWeight > 0
+        ? shippingFee * ((weightsBySeller.get(sellerId) || 0) / totalWeight)
+        : shippingFee / sellerIds.length;
+    const roundedShare =
+      index === sellerIds.length - 1
+        ? Math.round((shippingFee - assigned) * 100) / 100
+        : Math.round(rawShare * 100) / 100;
+    assigned = Math.round((assigned + roundedShare) * 100) / 100;
+    shares.set(sellerId, roundedShare);
+  });
+
+  return shares;
 }
 
 async function resolveSellerIdForProduct(product) {
@@ -104,6 +161,7 @@ class CheckoutService {
         variantSku: variant?.sku || item.variantSku || "",
         variantTitle: variant?.title || item.variantTitle || "",
         variantAttributes: variant?.attributes || item.variantAttributes || {},
+        weight: getProductWeightSnapshot(product),
       };
 
       validated.push(itemData);
@@ -138,11 +196,7 @@ class CheckoutService {
           totalItemCount
         );
         
-        // Extract shipping data from charges
-        const shippingCharge = pricingBreakdown.charges.find((c) => c.key === "shipping_cost");
-        if (shippingCharge) {
-          shippingData = pricingBreakdown.shipping;
-        }
+        shippingData = pricingBreakdown.shipping || null;
       } catch (error) {
         // If shipping calculation fails, fall back to regular pricing
         console.error("Shipping calculation error:", error.message);
@@ -221,6 +275,7 @@ class CheckoutService {
         variantSku: variant?.sku || item.variantSku || "",
         variantTitle: variant?.title || item.variantTitle || "",
         variantAttributes: variant?.attributes || item.variantAttributes || {},
+        weight: getProductWeightSnapshot(product),
       });
     }
 
@@ -269,6 +324,7 @@ class CheckoutService {
     const chargesBreakdown = pricingBreakdown.charges || [];
     const shippingCharge = chargesBreakdown.find((c) => c.key === "shipping_cost");
     const shippingFee = shippingCharge?.amount || 0;
+    const shippingShares = buildSellerShippingShares(validatedWithProducts, shippingFee);
 
     for (const sellerData of bySeller.values()) {
       const vendor = await vendorRepo.findById(sellerData.sellerId);
@@ -284,13 +340,15 @@ class CheckoutService {
         variantSku: it.variantSku,
         variantTitle: it.variantTitle,
         variantAttributes: it.variantAttributes,
+        weight: it.weight || undefined,
       }));
 
       const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+      const sellerShippingFee = shippingShares.get(String(sellerData.sellerId)) || 0;
       
       // Calculate this seller's share of charges proportionally
       const sellerChargeShare = chargesBreakdown.length > 0 
-        ? pricingBreakdown.chargesTotal * (subtotal / overallSubtotal)
+        ? pricingBreakdown.chargesTotal * (overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size)
         : 0;
       
       const totalAmount = subtotal + sellerChargeShare;
@@ -303,9 +361,9 @@ class CheckoutService {
         sellerId: sellerData.sellerId,
         items: cleanedItems,
         subtotal,
-        shippingFee: Math.round(shippingFee * 100) / 100,  // Calculated shipping fee
+        shippingFee: Math.round(sellerShippingFee * 100) / 100,
         taxAmount: 0,
-        chargesBreakdown: chargesBreakdown,  // Store detailed charges
+        chargesBreakdown: chargesBreakdown,
         chargesTotal: Math.round(sellerChargeShare * 100) / 100,
         totalAmount,
         platformCommissionRate: commissionPercentage,
@@ -356,8 +414,8 @@ class CheckoutService {
         status: "PENDING",
         shippingAddress,
         amountBreakdown: {
-          subtotal: totalAmount,
-          shippingFee: 0,
+          subtotal: overallSubtotal,
+          shippingFee: Math.round(shippingFee * 100) / 100,
           taxAmount: 0,
           totalAmount,
         },

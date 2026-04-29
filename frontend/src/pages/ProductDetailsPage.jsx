@@ -11,6 +11,7 @@ import { useAuthStore } from "../context/authStore";
 import { formatCurrency } from "../utils/formatCurrency";
 import { getDefaultVariant, getVariantGroups } from "../utils/productVariants";
 import { saveRedirectAfterLogin } from "../utils/loginRedirect";
+import { getFormattedWeight } from "../utils/weight";
 
 function buildVariantMatch(variants = [], selectedAttributes = {}) {
   return (
@@ -212,6 +213,7 @@ export function ProductDetailsPage() {
   }, [activeVariant, product]);
 
   const stock = Number(activeVariant?.stock ?? product?.stock ?? 0);
+  const productWeightLabel = useMemo(() => getFormattedWeight(product), [product]);
   const moduleTabs = useMemo(() => {
     const details = buildModulesData(product, moduleSections);
     return moduleSections
@@ -454,6 +456,7 @@ export function ProductDetailsPage() {
                 <div className="mt-2 grid gap-2">
                   {activeVariant?.title ? <div>{activeVariant.title}</div> : <div>Standard product configuration</div>}
                   <div>{stock > 0 ? `${stock} units ready to dispatch.` : "Currently unavailable."}</div>
+                  {productWeightLabel ? <div>Weight: {productWeightLabel}</div> : null}
                   <div>SKU: {activeVariant?.sku || product.productNumber || product.SKU}</div>
                 </div>
               </div>

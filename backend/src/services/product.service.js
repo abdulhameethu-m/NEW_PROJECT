@@ -31,6 +31,38 @@ function buildVariantTitle(options = []) {
   return options.map((item) => item.value).filter(Boolean).join(" / ");
 }
 
+function normalizeProductWeight(rawWeight, { required = false } = {}) {
+  if (rawWeight === undefined) {
+    if (!required) return undefined;
+    throw new AppError("Product weight is required", 400, "VALIDATION_ERROR");
+  }
+
+  if (rawWeight === null || rawWeight === "") {
+    throw new AppError("Product weight is required", 400, "VALIDATION_ERROR");
+  }
+
+  if (typeof rawWeight === "number") {
+    if (!Number.isFinite(rawWeight) || rawWeight <= 0) {
+      throw new AppError("Product weight must be greater than 0", 400, "VALIDATION_ERROR");
+    }
+    return { value: rawWeight, unit: "kg" };
+  }
+
+  const value = Number(rawWeight?.value);
+  const unit = String(rawWeight?.unit || "kg").trim().toLowerCase();
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new AppError("Product weight must be greater than 0", 400, "VALIDATION_ERROR");
+  }
+  if (unit !== "kg") {
+    throw new AppError("Product weight unit must be kg", 400, "VALIDATION_ERROR");
+  }
+
+  return {
+    value,
+    unit: "kg",
+  };
+}
+
 async function normalizeProductVariants({ categoryId, subCategoryId, variants = [], fallbackImages = [] }) {
   const attributeDefs = await listAttributeDefinitions({ categoryId, subCategoryId, activeOnly: true });
   const variantDefs = attributeDefs.filter((item) => item.isVariant);
@@ -303,6 +335,7 @@ class ProductService {
 
     const productPayload = {
       ...productData,
+      weight: normalizeProductWeight(productData.weight, { required: true }),
       slug,
       category: category.name,
       subCategory: subcategory.name,
@@ -371,6 +404,10 @@ class ProductService {
     delete updateData.slug;
     delete updateData.SKU;
     delete updateData.productNumber;
+
+    if (Object.prototype.hasOwnProperty.call(updateData, "weight")) {
+      updateData.weight = normalizeProductWeight(updateData.weight);
+    }
 
     const nextCategoryId = updateData.categoryId || product.categoryId;
     const nextSubCategoryId = updateData.subCategoryId || product.subCategoryId;

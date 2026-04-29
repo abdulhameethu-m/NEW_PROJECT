@@ -203,7 +203,8 @@ export default function App() {
               <Route path="content" element={<AdminContentPage />} />
               <Route path="vendor-access" element={<AdminVendorAccessPage />} />
               <Route path="vendor-access/shipping" element={<AdminShippingModesPage />} />
-              <Route path="shipping/config" element={<AdminShippingConfigPage />} />
+              <Route path="shipping" element={<AdminShippingConfigPage />} />
+              <Route path="shipping/config" element={<Navigate to="/admin/shipping" replace />} />
               <Route path="products/create" element={<AdminProductCreate />} />
               <Route path="products/:id/edit" element={<AdminProductEdit />} />
               <Route path="orders" element={<AdminOrdersPage />} />

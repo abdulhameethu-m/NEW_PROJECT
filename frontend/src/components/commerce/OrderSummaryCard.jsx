@@ -1,8 +1,12 @@
 import { formatCurrency } from "../../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../../utils/resolveUrl";
+import { formatWeight, getWeightUnit, getWeightValue } from "../../utils/weight";
 
 export function OrderSummaryCard({ item, onQuantityChange, busy = false, editable = true }) {
   const itemTotal = Number(item?.price || 0) * Number(item?.quantity || 0);
+  const unitWeight = getWeightValue(item);
+  const weightUnit = getWeightUnit(item);
+  const totalWeight = unitWeight * Number(item?.quantity || 0);
 
   return (
     <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
@@ -17,6 +21,12 @@ export function OrderSummaryCard({ item, onQuantityChange, busy = false, editabl
           <div className="line-clamp-2 text-sm font-semibold text-slate-950 dark:text-white">{item?.name}</div>
           {item?.variantTitle ? <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Variant: {item.variantTitle}</div> : null}
           <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Unit price: {formatCurrency(item?.price || 0)}</div>
+          {unitWeight > 0 ? (
+            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Weight: {formatWeight(unitWeight, weightUnit)}
+              {Number(item?.quantity || 0) > 1 ? ` each • ${formatWeight(totalWeight, weightUnit)} total` : ""}
+            </div>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             {editable ? (

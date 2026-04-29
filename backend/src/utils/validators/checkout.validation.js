@@ -13,6 +13,7 @@ const shippingAddressSchema = Joi.object({
 
 const checkoutPrepareSchema = Joi.object({
   currency: Joi.string().valid("USD", "EUR", "INR", "GBP").default("INR"),
+  shippingAddress: shippingAddressSchema.optional(),
 });
 
 const checkoutCreateSchema = Joi.object({

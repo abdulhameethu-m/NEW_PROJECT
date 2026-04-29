@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
+import { formatWeight, getWeightUnit, getWeightValue } from "../utils/weight";
 import * as vendorDashboardService from "../services/vendorDashboardService";
 
 function normalizeError(err) {
@@ -287,6 +288,14 @@ export function VendorOrderDetailsPage() {
                 <div key={item.productId?._id || `${item.name}-${index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
                   <div className="min-w-0">
                     <div className="truncate font-semibold text-slate-950 dark:text-white">{item.name}</div>
+                    {getWeightValue(item) > 0 ? (
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Weight: {formatWeight(getWeightValue(item), getWeightUnit(item))}
+                        {Number(item.quantity || 0) > 1
+                          ? ` each • ${formatWeight(getWeightValue(item) * Number(item.quantity || 0), getWeightUnit(item))} total`
+                          : ""}
+                      </div>
+                    ) : null}
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       Qty {item.quantity} · {formatCurrency(item.price)}
                     </div>

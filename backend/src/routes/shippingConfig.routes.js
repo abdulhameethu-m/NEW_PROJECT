@@ -3,7 +3,7 @@ const { validate } = require("../middleware/validate");
 const { body, param } = require("express-validator");
 const {
   adminWorkspaceAuthRequired,
-  requireLegacyAdminPermission,
+  requireWorkspacePermission,
 } = require("../middleware/adminAccess");
 const shippingConfigController = require("../controllers/shippingConfig.controller");
 
@@ -11,7 +11,7 @@ const router = express.Router();
 
 // All routes require admin authentication
 router.use(adminWorkspaceAuthRequired);
-router.use(requireLegacyAdminPermission("settings:write"));
+router.use(requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }));
 
 /**
  * POST /admin/shipping-config
@@ -22,8 +22,10 @@ router.post(
   validate([
     body("state")
       .optional()
-      .isIn(["Tamil Nadu", "All States"])
-      .withMessage("Invalid state"),
+      .isString()
+      .trim()
+      .notEmpty()
+      .withMessage("State is required"),
     body("zone")
       .notEmpty()
       .isIn(["LOCAL", "REGIONAL", "REMOTE"])
@@ -89,6 +91,63 @@ router.get("/summary", shippingConfigController.getConfigurationSummary);
 router.get("/validate/configuration", shippingConfigController.validateShippingConfiguration);
 
 /**
+ * PATCH /admin/shipping-config/bulk/update
+ * Bulk update shipping rules
+ */
+router.patch(
+  "/bulk/update",
+  validate([
+    body("ruleIds")
+      .isArray({ min: 1 })
+      .withMessage("ruleIds must be a non-empty array"),
+    body("updates").isObject().withMessage("updates must be an object"),
+  ]),
+  shippingConfigController.bulkUpdateShippingRules
+);
+
+/**
+ * POST /admin/shipping-config/calculate-preview
+ * Test shipping calculation
+ */
+router.post(
+  "/calculate-preview",
+  validate([
+    body("weight")
+      .notEmpty()
+      .isFloat({ min: 0.1 })
+      .withMessage("Weight must be provided and greater than 0.1"),
+    body("state")
+      .optional()
+      .isString()
+      .trim()
+      .notEmpty()
+      .withMessage("State is required"),
+    body("zone")
+      .optional()
+      .isIn(["LOCAL", "REGIONAL", "REMOTE"])
+      .withMessage("Invalid zone"),
+  ]),
+  shippingConfigController.calculateShippingPreview
+);
+
+router.get("/location-config", shippingConfigController.getShippingLocationConfig);
+router.put(
+  "/location-config",
+  validate([
+    body("states")
+      .isArray({ min: 1 })
+      .withMessage("states must be a non-empty array"),
+  ]),
+  shippingConfigController.updateShippingLocationConfig
+);
+
+/**
+ * GET /admin/shipping-config/statistics
+ * Get shipping configuration statistics
+ */
+router.get("/statistics", shippingConfigController.getShippingStatistics);
+
+/**
  * GET /admin/shipping-config/:ruleId
  * Get a specific shipping rule
  */
@@ -108,8 +167,10 @@ router.put(
     param("ruleId").isMongoId().withMessage("Invalid rule ID"),
     body("state")
       .optional()
-      .isIn(["Tamil Nadu", "All States"])
-      .withMessage("Invalid state"),
+      .isString()
+      .trim()
+      .notEmpty()
+      .withMessage("State is required"),
     body("zone")
       .optional()
       .isIn(["LOCAL", "REGIONAL", "REMOTE"])
@@ -148,50 +209,6 @@ router.delete(
   validate([param("ruleId").isMongoId().withMessage("Invalid rule ID")]),
   shippingConfigController.deleteShippingRule
 );
-
-/**
- * PATCH /admin/shipping-config/bulk/update
- * Bulk update shipping rules
- */
-router.patch(
-  "/bulk/update",
-  validate([
-    body("ruleIds")
-      .isArray({ min: 1 })
-      .withMessage("ruleIds must be a non-empty array"),
-    body("updates").isObject().withMessage("updates must be an object"),
-  ]),
-  shippingConfigController.bulkUpdateShippingRules
-);
-
-/**
- * POST /admin/shipping-config/calculate-preview
- * Test shipping calculation
- */
-router.post(
-  "/calculate-preview",
-  validate([
-    body("weight")
-      .notEmpty()
-      .isFloat({ min: 0.1 })
-      .withMessage("Weight must be provided and greater than 0.1"),
-    body("state")
-      .optional()
-      .isIn(["Tamil Nadu", "All States"])
-      .withMessage("Invalid state"),
-    body("zone")
-      .optional()
-      .isIn(["LOCAL", "REGIONAL", "REMOTE"])
-      .withMessage("Invalid zone"),
-  ]),
-  shippingConfigController.calculateShippingPreview
-);
-
-/**
- * GET /admin/shipping-config/statistics
- * Get shipping configuration statistics
- */
-router.get("/statistics", shippingConfigController.getShippingStatistics);
 
 /**
  * POST /admin/shipping-config/:ruleId/clone

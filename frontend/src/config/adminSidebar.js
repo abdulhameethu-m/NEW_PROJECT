@@ -8,6 +8,7 @@ import {
   ShoppingBag,
   ShoppingCart,
   Tags,
+  Truck,
   Users,
   Wallet,
   UserCog,
@@ -121,6 +122,12 @@ export const ADMIN_SIDEBAR_CONFIG = [
         path: "/admin/settings",
         permission: "settings.update",
         icon: Settings,
+      },
+      {
+        name: "Shipping",
+        path: "/admin/shipping",
+        permission: "settings.update",
+        icon: Truck,
       },
       {
         name: "Staff Roles",

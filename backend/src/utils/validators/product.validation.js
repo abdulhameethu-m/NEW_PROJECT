@@ -29,6 +29,15 @@ const productVariantSchema = Joi.object({
   isActive: Joi.boolean().default(true),
 });
 
+const weightSchema = Joi.object({
+  value: Joi.number().greater(0).required().messages({
+    "number.base": "Weight must be a number",
+    "number.greater": "Weight must be greater than 0",
+    "any.required": "Weight is required",
+  }),
+  unit: Joi.string().valid("kg").default("kg"),
+});
+
 // Schema for creating/updating a product
 const productSchema = Joi.object({
   name: Joi.string().required().trim().min(3).max(255).messages({
@@ -102,7 +111,7 @@ const productSchema = Joi.object({
   metaDescription: Joi.string().trim().max(160),
   metaKeywords: Joi.array().items(Joi.string().trim()).max(10),
 
-  weight: Joi.number().min(0),
+  weight: weightSchema.required(),
 
   dimensions: Joi.object({
     length: Joi.number().min(0),
@@ -153,7 +162,7 @@ const updateProductSchema = Joi.object({
   variants: Joi.array().items(productVariantSchema),
   metaDescription: Joi.string().trim().max(160),
   metaKeywords: Joi.array().items(Joi.string().trim()).max(10),
-  weight: Joi.number().min(0),
+  weight: weightSchema,
   dimensions: Joi.object({
     length: Joi.number().min(0),
     width: Joi.number().min(0),

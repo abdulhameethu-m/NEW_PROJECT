@@ -3,6 +3,7 @@ const { asyncHandler } = require("../utils/asyncHandler");
 const { AppError } = require("../utils/AppError");
 const shippingConfigAdminService = require("../services/shippingConfigAdmin.service");
 const shippingPricingService = require("../services/shipping-pricing.service");
+const shippingZoneConfigService = require("../services/shipping-zone-config.service");
 
 /**
  * ==================== ADMIN SHIPPING CONFIG ENDPOINTS ====================
@@ -134,14 +135,13 @@ const getShippingStatistics = asyncHandler(async (req, res) => {
  * GET /admin/shipping-config/options
  */
 const getShippingOptions = asyncHandler(async (req, res) => {
-  const ZONES = ["LOCAL", "REGIONAL", "REMOTE"];
-  const STATES = ["Tamil Nadu", "All States"];
+  const zoneConfig = await shippingZoneConfigService.getZoneConfig();
 
   return ok(
     res,
     {
-      zones: ZONES,
-      states: STATES,
+      zones: shippingZoneConfigService.ZONES,
+      states: zoneConfig.states.map((entry) => entry.state),
       zoneDescriptions: {
         LOCAL: "Same city delivery",
         REGIONAL: "Nearby districts",
@@ -150,6 +150,16 @@ const getShippingOptions = asyncHandler(async (req, res) => {
     },
     "Shipping options retrieved successfully"
   );
+});
+
+const getShippingLocationConfig = asyncHandler(async (req, res) => {
+  const config = await shippingZoneConfigService.getZoneConfig();
+  return ok(res, config, "Shipping location configuration retrieved successfully");
+});
+
+const updateShippingLocationConfig = asyncHandler(async (req, res) => {
+  const config = await shippingZoneConfigService.updateZoneConfig(req.body, req.user?.sub);
+  return ok(res, config, "Shipping location configuration updated successfully");
 });
 
 /**
@@ -205,6 +215,8 @@ module.exports = {
   calculateShippingPreview,
   getShippingStatistics,
   getShippingOptions,
+  getShippingLocationConfig,
+  updateShippingLocationConfig,
   cloneShippingRule,
   validateShippingConfiguration,
   getConfigurationSummary,

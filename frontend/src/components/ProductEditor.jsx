@@ -189,7 +189,10 @@ export function ProductEditor({
           lowStockThreshold: product.lowStockThreshold || 10,
           images: product.images || [],
           tags: product.tags?.join(", ") || "",
-          weight: product.weight?.toString() || "",
+          weight:
+            product.weight && typeof product.weight === "object"
+              ? product.weight.value?.toString?.() || ""
+              : product.weight?.toString() || "",
           returnPolicy: product.returnPolicy || "",
           metaDescription: product.metaDescription || "",
           metaKeywords: product.metaKeywords?.join(", ") || "",
@@ -456,6 +459,7 @@ export function ProductEditor({
     if (!formData.subCategoryId) return setError("Subcategory is required");
     if (formData.images.length === 0) return setError("At least one product image is required");
     if (!formData.productNumber.trim()) return setError("Product number is required");
+    if (!formData.weight || Number(formData.weight) <= 0) return setError("Product weight is required");
 
     for (const section of moduleSections) {
       for (const field of section.fields.filter((item) => !item.isVariant)) {
@@ -517,7 +521,10 @@ export function ProductEditor({
           .split(",")
           .map((tag) => tag.trim().toLowerCase())
           .filter(Boolean),
-        ...(formData.weight ? { weight: Number(formData.weight) } : {}),
+        weight: {
+          value: Number(formData.weight),
+          unit: "kg",
+        },
         returnPolicy: formData.returnPolicy,
         metaDescription: formData.metaDescription,
         metaKeywords: formData.metaKeywords
@@ -801,8 +808,8 @@ export function ProductEditor({
           <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Additional details</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Weight (kg)</label>
-              <input type="number" name="weight" value={formData.weight} onChange={handleChange} min="0" step="0.01" className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Weight (kg) *</label>
+              <input type="number" name="weight" value={formData.weight} onChange={handleChange} min="0.1" step="0.01" className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Low stock threshold</label>

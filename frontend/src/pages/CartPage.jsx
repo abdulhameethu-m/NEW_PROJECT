@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { BackButton } from "../components/BackButton";
 import * as cartService from "../services/cartService";
 import { formatCurrency } from "../utils/formatCurrency";
+import { formatWeight, getFormattedWeight, getWeightUnit, getWeightValue } from "../utils/weight";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
@@ -111,6 +112,10 @@ export function CartPage() {
               const sellerName = item?.sellerId?.companyName || "";
               const variantLabel = item?.variantTitle || "";
               const variantId = item?.variantId || "";
+              const itemWeight = getWeightValue(p || item);
+              const itemWeightUnit = getWeightUnit(p || item);
+              const totalWeight = itemWeight * qty;
+              const productWeightLabel = getFormattedWeight(p || item);
               const busyKey = `${id}:${variantId}`;
               return (
                 <div key={`${String(id)}:${variantId}`} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
@@ -151,6 +156,12 @@ export function CartPage() {
                             {sellerName && (
                               <div className="text-xs text-slate-500 dark:text-slate-400">
                                 <span className="font-medium">Seller:</span> {sellerName}
+                              </div>
+                            )}
+                            {productWeightLabel && (
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                <span className="font-medium">Weight:</span> {productWeightLabel}
+                                {qty > 1 ? ` each • ${formatWeight(totalWeight, itemWeightUnit)} total` : ""}
                               </div>
                             )}
                           </div>

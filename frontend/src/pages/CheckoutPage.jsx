@@ -70,20 +70,27 @@ export function CheckoutPage() {
   const [pricingConfig, setPricingConfig] = useState(null);
   const mapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
+  async function loadPreparedCheckout(shippingAddress) {
+    const payload = shippingAddress ? { shippingAddress } : {};
+    const checkoutRes = await checkoutService.prepareCheckout(payload);
+    return checkoutRes?.data || null;
+  }
+
   async function refresh() {
     setLoading(true);
     setError("");
     try {
-      const [checkoutRes, addressRes, pricingRes] = await Promise.all([
-        checkoutService.prepareCheckout(),
+      const [addressRes, pricingRes] = await Promise.all([
         userService.getUserAddresses(),
         pricingService.getPricingConfig().catch(() => ({ data: null })),
       ]);
 
-      const nextSummary = checkoutRes?.data || null;
       const nextAddresses = Array.isArray(addressRes?.data) ? addressRes.data : [];
       const nextPricingConfig = pricingRes?.data || null;
       const defaultAddress = getDefaultAddress(nextAddresses);
+      const nextSummary = await loadPreparedCheckout(
+        defaultAddress ? getShippingAddressFromSavedAddress(defaultAddress) : null
+      );
 
       setSummary(nextSummary);
       setAddresses(nextAddresses);
@@ -163,8 +170,7 @@ export function CheckoutPage() {
     setError("");
     try {
       await cartService.updateCartItem(productId, quantity, variantId);
-      const checkoutRes = await checkoutService.prepareCheckout();
-      setSummary(checkoutRes?.data || null);
+      setSummary(await loadPreparedCheckout(getActiveShippingAddress()));
       setToast({ type: "success", message: "Order summary updated." });
     } catch (err) {
       setError(normalizeError(err));
@@ -188,6 +194,11 @@ export function CheckoutPage() {
       setSelectedAddressId(createdAddress?._id || "");
       setShowAddressModal(false);
       setShowAddressSelector(false);
+      setSummary(
+        await loadPreparedCheckout(
+          createdAddress ? getShippingAddressFromSavedAddress(createdAddress) : getShippingAddressFromForm(formSnapshot)
+        )
+      );
       setToast({ type: "success", message: "Address saved and selected for delivery." });
       setCurrentStep("summary");
     } catch (err) {
@@ -369,6 +380,9 @@ export function CheckoutPage() {
                           setAddressForm(getAddressFormFromSavedAddress(address));
                           setShowAddressSelector(false);
                           setShowAddressModal(false);
+                          loadPreparedCheckout(getShippingAddressFromSavedAddress(address))
+                            .then((nextSummary) => setSummary(nextSummary))
+                            .catch((err) => setError(normalizeError(err)));
                           setCurrentStep("summary");
                         }}
                       />

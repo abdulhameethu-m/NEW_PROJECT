@@ -190,11 +190,16 @@ export function getProductHighlights(product) {
 }
 
 export function getProductSpecifications(product) {
+  const productWeight =
+    product?.weight && typeof product.weight === "object"
+      ? product.weight.value
+      : product?.weight;
+
   const specs = [
     ["Category", product?.category],
     ["Sub-category", product?.subCategory],
     ["SKU", product?.SKU],
-    ["Weight", product?.weight ? `${product.weight} kg` : ""],
+    ["Weight", productWeight ? `${productWeight} kg` : ""],
     [
       "Dimensions",
       product?.dimensions
