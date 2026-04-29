@@ -83,12 +83,12 @@ export function ProductCard({ product }) {
       className="group relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/85 shadow-[0_24px_80px_-45px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/80"
     >
       <div className="block">
-        <div className="relative aspect-[0.9] overflow-hidden bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-slate-800">
+        <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-slate-800">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt={product.name}
-              className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
+              className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
               loading="lazy"
             />
           ) : (

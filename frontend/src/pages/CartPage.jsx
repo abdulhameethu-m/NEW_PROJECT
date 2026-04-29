@@ -113,54 +113,92 @@ export function CartPage() {
               const variantId = item?.variantId || "";
               const busyKey = `${id}:${variantId}`;
               return (
-                <div key={`${String(id)}:${variantId}`} className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 dark:border-slate-800 dark:bg-slate-900">
-                  <div className="flex gap-3 sm:gap-4">
-                    <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
-                      {img ? <img src={img} alt={name} className="h-full w-full object-cover" /> : null}
+                <div key={`${String(id)}:${variantId}`} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                  <div className="flex gap-4">
+                    {/* Product Image - Fixed Size */}
+                    <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
+                      {img ? (
+                        <img
+                          src={img}
+                          alt={name}
+                          className="h-full w-full object-cover cursor-pointer transition hover:opacity-80"
+                          onClick={() => navigate(`/product/${id}`)}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-xs text-slate-400">No image</div>
+                      )}
                     </div>
+
+                    {/* Product Info Section */}
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm sm:text-base font-semibold text-slate-950 dark:text-white">{name}</div>
-                          {variantLabel ? <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 truncate">Variant: {variantLabel}</div> : null}
-                          {sellerName ? (
-                            <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 truncate">Seller: {sellerName}</div>
-                          ) : null}
-                        </div>
-                        <div className="text-xs sm:text-sm font-semibold text-slate-950 dark:text-white flex-shrink-0">
-                          {formatCurrency(price * qty)}
-                        </div>
-                      </div>
+                      <div className="flex flex-col h-full justify-between">
+                        {/* Product Details */}
+                        <div>
+                          <h3
+                            className="text-base font-semibold text-slate-950 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 line-clamp-2"
+                            onClick={() => navigate(`/product/${id}`)}
+                          >
+                            {name}
+                          </h3>
 
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={busyId === busyKey || qty <= 1}
-                          onClick={() => changeQty(String(id), variantId, qty - 1)}
-                          className="rounded-lg border border-slate-300 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"
-                        >
-                          −
-                        </button>
-                        <div className="min-w-10 sm:min-w-12 rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-1.5 sm:py-2 text-center text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
-                          {qty}
-                        </div>
-                        <button
-                          type="button"
-                          disabled={busyId === busyKey}
-                          onClick={() => changeQty(String(id), variantId, qty + 1)}
-                          className="rounded-lg border border-slate-300 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"
-                        >
-                          +
-                        </button>
+                          {/* Variant and Seller Info */}
+                          <div className="mt-2 space-y-1">
+                            {variantLabel && (
+                              <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+                                <span className="font-medium">{variantLabel}</span>
+                              </div>
+                            )}
+                            {sellerName && (
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                <span className="font-medium">Seller:</span> {sellerName}
+                              </div>
+                            )}
+                          </div>
 
-                        <button
-                          type="button"
-                          disabled={busyId === busyKey}
-                          onClick={() => remove(String(id), variantId)}
-                          className="ml-auto rounded-lg border border-rose-200 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900 dark:text-rose-200 dark:hover:bg-rose-950/30"
-                        >
-                          Remove
-                        </button>
+                          {/* Price Display */}
+                          <div className="mt-3">
+                            <div className="text-lg font-semibold text-slate-950 dark:text-white">
+                              {formatCurrency(price * qty)}
+                            </div>
+                            <div className="text-sm text-slate-500 dark:text-slate-400">
+                              {formatCurrency(price)} each
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Quantity and Action Controls */}
+                        <div className="mt-4 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={busyId === busyKey || qty <= 1}
+                              onClick={() => changeQty(String(id), variantId, qty - 1)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 font-semibold disabled:opacity-50 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+                            >
+                              −
+                            </button>
+                            <div className="w-12 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center text-sm font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+                              {qty}
+                            </div>
+                            <button
+                              type="button"
+                              disabled={busyId === busyKey}
+                              onClick={() => changeQty(String(id), variantId, qty + 1)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 font-semibold disabled:opacity-50 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={busyId === busyKey}
+                            onClick={() => remove(String(id), variantId)}
+                            className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900 dark:text-rose-200 dark:hover:bg-rose-950/30"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

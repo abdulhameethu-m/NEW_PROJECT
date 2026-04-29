@@ -34,6 +34,7 @@ const productModuleRoutes = require("./routes/product-module.routes");
 const exportRoutes = require("./routes/export.routes");
 const vendorModuleRoutes = require("./routes/vendorModule.routes");
 const contentRoutes = require("./routes/content.routes");
+const pricingRoutes = require("./routes/pricing.routes");
 const staffRoutes = require("./modules/staff/routes");
 const settlementRoutes = require("./routes/settlement.routes");
 
@@ -151,6 +152,7 @@ function createApp() {
   app.use("/api/export", exportRoutes);
   app.use("/api/modules", vendorModuleRoutes);
   app.use("/api/content", contentRoutes);
+  app.use("/api/pricing", pricingRoutes);
   app.use("/api/staff", staffRoutes);
   app.use("/api/admin", settlementRoutes);
 

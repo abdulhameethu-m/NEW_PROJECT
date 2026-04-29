@@ -10,6 +10,7 @@ import { PriceBreakdown } from "../components/commerce/PriceBreakdown";
 import * as cartService from "../services/cartService";
 import * as checkoutService from "../services/checkoutService";
 import * as paymentService from "../services/paymentService";
+import * as pricingService from "../services/pricingService";
 import * as userService from "../services/userService";
 import { formatCurrency } from "../utils/formatCurrency";
 import {
@@ -66,23 +67,27 @@ export function CheckoutPage() {
   const [showAddressSelector, setShowAddressSelector] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [toast, setToast] = useState(null);
+  const [pricingConfig, setPricingConfig] = useState(null);
   const mapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   async function refresh() {
     setLoading(true);
     setError("");
     try {
-      const [checkoutRes, addressRes] = await Promise.all([
+      const [checkoutRes, addressRes, pricingRes] = await Promise.all([
         checkoutService.prepareCheckout(),
         userService.getUserAddresses(),
+        pricingService.getPricingConfig(),
       ]);
 
       const nextSummary = checkoutRes?.data || null;
       const nextAddresses = Array.isArray(addressRes?.data) ? addressRes.data : [];
+      const nextPricingConfig = pricingRes?.data || null;
       const defaultAddress = getDefaultAddress(nextAddresses);
 
       setSummary(nextSummary);
       setAddresses(nextAddresses);
+      setPricingConfig(nextPricingConfig);
 
       if (defaultAddress) {
         setSelectedAddressId(defaultAddress._id);
@@ -110,7 +115,24 @@ export function CheckoutPage() {
     [addresses, selectedAddressId]
   );
   const orderItems = useMemo(() => getSummaryItems(summary), [summary]);
-  const priceBreakdown = useMemo(() => buildPriceBreakdown(summary), [summary]);
+  
+  // Calculate price breakdown with dynamic pricing configuration
+  const priceBreakdown = useMemo(() => {
+    if (!summary) return null;
+    
+    // If we have dynamic pricing config, use it for calculation
+    if (pricingConfig) {
+      return pricingService.calculatePriceBreakdown({
+        subtotal: Number(summary?.subtotal || 0),
+        discount: Math.max((Number(summary?.originalAmount || summary?.subtotal || 0) - Number(summary?.subtotal || 0)), 0),
+        itemCount: getSummaryItems(summary).reduce((sum, item) => sum + Number(item?.quantity || 0), 0),
+        pricingConfig,
+      });
+    }
+    
+    // Fall back to old calculation method
+    return buildPriceBreakdown(summary);
+  }, [summary, pricingConfig]);
   const hasUsableAddress = Boolean(selectedAddress) || (!selectedAddress && isAddressFormValid(addressForm));
   const unlockedSteps = useMemo(() => (hasUsableAddress ? ["address", "summary", "payment"] : ["address"]), [hasUsableAddress]);
 

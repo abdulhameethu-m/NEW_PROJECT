@@ -43,6 +43,7 @@ const {
 const roleController = require("../modules/staff/controllers/role.controller");
 const { roleSchema } = require("../modules/staff/validators");
 const adminPayoutController = require("../controllers/adminPayout.controller");
+const pricingController = require("../controllers/pricing.controller");
 
 const router = express.Router();
 
@@ -203,5 +204,22 @@ router.get("/roles/:id", requireWorkspacePermission("roles.read"), roleControlle
 router.post("/roles", requireWorkspacePermission("roles.create"), validate(roleSchema), roleController.createRole);
 router.patch("/roles/:id", requireWorkspacePermission("roles.update"), validate(roleSchema), roleController.updateRole);
 router.delete("/roles/:id", requireWorkspacePermission("roles.delete"), roleController.deleteRole);
+
+// Pricing configuration routes
+router.get(
+  "/pricing",
+  requireWorkspacePermission("settings.read"),
+  pricingController.getAdminPricingConfig
+);
+router.put(
+  "/pricing/:id",
+  requireWorkspacePermission("settings.update"),
+  pricingController.updatePricingConfig
+);
+router.post(
+  "/pricing/initialize",
+  requireWorkspacePermission("settings.create"),
+  pricingController.initializePricingConfig
+);
 
 module.exports = router;

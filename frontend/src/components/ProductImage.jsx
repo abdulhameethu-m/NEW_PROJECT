@@ -74,7 +74,7 @@ export function ProductImage({ media = [], productName = "Product" }) {
                 src={resolveApiAssetUrl(activeMedia.url)}
                 alt={activeMedia.altText || productName}
                 loading="lazy"
-                className="block h-full max-h-full w-full max-w-full rounded-xl object-contain transition duration-300 ease-out hover:scale-105 lg:cursor-zoom-in"
+                className="block h-full max-h-full w-full max-w-full rounded-xl object-contain transition duration-200 ease-out hover:scale-125 lg:cursor-zoom-in"
                 style={zoomStyle}
                 onMouseMove={(event) => {
                   if (window.innerWidth < 1024) return;
@@ -83,7 +83,7 @@ export function ProductImage({ media = [], productName = "Product" }) {
                   const y = ((event.clientY - bounds.top) / bounds.height) * 100;
                   setZoomStyle({
                     transformOrigin: `${x}% ${y}%`,
-                    transform: "scale(1.1)",
+                    transform: "scale(1.5)",
                   });
                 }}
                 onMouseLeave={resetZoom}

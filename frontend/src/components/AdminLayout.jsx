@@ -81,6 +81,10 @@ const pageMeta = {
     title: "Settings",
     subtitle: "Admin workspace preferences and operational notes.",
   },
+  "/admin/pricing": {
+    title: "Pricing Configuration",
+    subtitle: "Manage platform-wide pricing rules, fees, and discounts.",
+  },
   "/admin/roles": {
     title: "Staff Roles",
     subtitle: "Create reusable role templates and manage RBAC permissions.",

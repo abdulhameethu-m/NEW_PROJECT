@@ -78,6 +78,7 @@ export const ADMIN_SECTION_ITEMS = [
     key: "workspace",
     items: [
       { name: "Settings", path: "/admin/settings", permission: "settings.update", icon: Settings },
+      { name: "Pricing", path: "/admin/pricing", permission: "settings.update", icon: Percent },
       { name: "Staff Roles", path: "/admin/roles", permission: "roles.read", icon: ShieldCheck, legacyOnly: true },
       { name: "Staff Accounts", path: "/admin/staff", permission: "staff.read", icon: UserCog, legacyOnly: true },
     ],

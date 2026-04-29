@@ -45,6 +45,7 @@ import { AdminRolesPage } from "./pages/AdminRolesPage";
 import { AdminStaffPage } from "./pages/AdminStaffPage";
 import { AdminShippingModesPage } from "./pages/AdminShippingModesPage";
 import { AdminPickupsPage } from "./pages/AdminPickupsPage";
+import { AdminPricingPage } from "./pages/AdminPricingPage";
 import { ProductFormPage } from "./pages/ProductFormPage";
 import { ProductDetailsPage } from "./pages/ProductDetailsPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -216,6 +217,7 @@ export default function App() {
               <Route path="revenue" element={<AdminRevenuePage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
+              <Route path="pricing" element={<AdminPricingPage />} />
               <Route path="roles" element={<AdminRolesPage />} />
               <Route path="staff" element={<AdminStaffPage />} />
             </Route>
