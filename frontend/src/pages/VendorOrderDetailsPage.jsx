@@ -32,6 +32,14 @@ function getPickupLocationReadiness(shippingSettings = {}) {
   };
 }
 
+function resolvePickupAddress(order, pickupReadiness) {
+  return (
+    order?.pickupAddressSnapshot ||
+    pickupReadiness?.pickupLocation ||
+    null
+  );
+}
+
 const STATUS_OPTIONS = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 
 export function VendorOrderDetailsPage() {
@@ -95,6 +103,15 @@ export function VendorOrderDetailsPage() {
   const hasBothModes = availableModes.includes("SELF") && availableModes.includes("PLATFORM");
   const selectedModeIsSelf = selectedMode === "SELF";
   const selectedModeIsPlatform = selectedMode === "PLATFORM";
+  const pickupAddress = resolvePickupAddress(order, pickupReadiness);
+  const paymentSummary = {
+    subtotal: Number(order?.subtotal || 0),
+    shippingFee: Number(order?.shippingFee || 0),
+    platformFee: Number(order?.platformFee || 0),
+    tax: Number(order?.taxAmount || 0),
+    discount: Number(order?.discountAmount || 0),
+    total: Number(order?.totalAmount || 0),
+  };
 
   function validateTrackingFields() {
     if (trackingUrl.trim()) {
@@ -285,19 +302,31 @@ export function VendorOrderDetailsPage() {
               ))
             ) : items.length ? (
               items.map((item, index) => (
-                <div key={item.productId?._id || `${item.name}-${index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
-                  <div className="min-w-0">
+                <div key={`${item.productId?._id || `${item.name}-${index}`}-${item.variantId || "base"}`} className="grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
+                  <div className="h-16 w-16 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+                    {item.image ? (
+                      <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">No image</div>
+                    )}
+                  </div>
+                  <div className="min-w-0 space-y-1">
                     <div className="truncate font-semibold text-slate-950 dark:text-white">{item.name}</div>
+                    {item.variantTitle || item.variantId ? (
+                      <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                        Variant: {item.variantTitle || Object.entries(item.variantAttributes || {}).map(([key, value]) => `${key}: ${value}`).join(" / ")}
+                      </div>
+                    ) : null}
                     {getWeightValue(item) > 0 ? (
-                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
                         Weight: {formatWeight(getWeightValue(item), getWeightUnit(item))}
                         {Number(item.quantity || 0) > 1
                           ? ` each • ${formatWeight(getWeightValue(item) * Number(item.quantity || 0), getWeightUnit(item))} total`
                           : ""}
                       </div>
                     ) : null}
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Qty {item.quantity} · {formatCurrency(item.price)}
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Qty {item.quantity} · Unit {formatCurrency(item.price)}
                     </div>
                   </div>
                   <div className="text-sm font-semibold text-slate-950 dark:text-white">
@@ -312,9 +341,16 @@ export function VendorOrderDetailsPage() {
             )}
           </div>
 
-          <div className="mt-5 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
-            <div className="text-slate-500 dark:text-slate-400">Total</div>
-            <div className="font-semibold text-slate-950 dark:text-white">{formatCurrency(order?.totalAmount || 0)}</div>
+          <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
+            <div className="mb-2 font-semibold text-slate-950 dark:text-white">Payment summary</div>
+            <div className="grid gap-1 text-slate-600 dark:text-slate-300">
+              <div className="flex items-center justify-between"><span>Subtotal</span><span>{formatCurrency(paymentSummary.subtotal)}</span></div>
+              <div className="flex items-center justify-between"><span>Shipping Fee</span><span>{formatCurrency(paymentSummary.shippingFee)}</span></div>
+              <div className="flex items-center justify-between"><span>Platform Fee</span><span>{formatCurrency(paymentSummary.platformFee)}</span></div>
+              <div className="flex items-center justify-between"><span>Tax</span><span>{formatCurrency(paymentSummary.tax)}</span></div>
+              <div className="flex items-center justify-between"><span>Discount</span><span>- {formatCurrency(paymentSummary.discount)}</span></div>
+              <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2 font-semibold text-slate-950 dark:border-slate-800 dark:text-white"><span>Total Amount</span><span>{formatCurrency(paymentSummary.total)}</span></div>
+            </div>
           </div>
         </section>
 
@@ -339,6 +375,21 @@ export function VendorOrderDetailsPage() {
                 {address?.city}, {address?.state} {address?.postalCode}
               </div>
               <div>{address?.country}</div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">Pickup address</div>
+            <div className="mt-3 grid gap-1 text-sm text-slate-600 dark:text-slate-300">
+              <div className="font-semibold text-slate-950 dark:text-white">{pickupAddress?.name || "Not captured yet"}</div>
+              <div>{pickupAddress?.phone || "No pickup phone"}</div>
+              <div>{pickupAddress?.addressLine1 || "No pickup address"}</div>
+              {pickupAddress?.addressLine2 ? <div>{pickupAddress.addressLine2}</div> : null}
+              <div>
+                {[pickupAddress?.city, pickupAddress?.state, pickupAddress?.pincode].filter(Boolean).join(", ") ||
+                  "Pickup city/state/pincode not available"}
+              </div>
+              <div>{pickupAddress?.country || ""}</div>
             </div>
           </div>
 

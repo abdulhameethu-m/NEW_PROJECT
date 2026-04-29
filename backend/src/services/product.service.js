@@ -31,6 +31,27 @@ function buildVariantTitle(options = []) {
   return options.map((item) => item.value).filter(Boolean).join(" / ");
 }
 
+function normalizeVariantWeight(rawWeight, fallbackWeight) {
+  if (rawWeight === undefined || rawWeight === null || rawWeight === "") {
+    return fallbackWeight || undefined;
+  }
+  if (typeof rawWeight === "number") {
+    if (!Number.isFinite(rawWeight) || rawWeight <= 0) {
+      throw new AppError("Variant weight must be greater than 0", 400, "VALIDATION_ERROR");
+    }
+    return { value: rawWeight, unit: "kg" };
+  }
+  const value = Number(rawWeight?.value);
+  const unit = String(rawWeight?.unit || "kg").trim().toLowerCase();
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new AppError("Variant weight must be greater than 0", 400, "VALIDATION_ERROR");
+  }
+  if (unit !== "kg") {
+    throw new AppError("Variant weight unit must be kg", 400, "VALIDATION_ERROR");
+  }
+  return { value, unit: "kg" };
+}
+
 function normalizeProductWeight(rawWeight, { required = false } = {}) {
   if (rawWeight === undefined) {
     if (!required) return undefined;
@@ -63,7 +84,13 @@ function normalizeProductWeight(rawWeight, { required = false } = {}) {
   };
 }
 
-async function normalizeProductVariants({ categoryId, subCategoryId, variants = [], fallbackImages = [] }) {
+async function normalizeProductVariants({
+  categoryId,
+  subCategoryId,
+  variants = [],
+  fallbackImages = [],
+  productWeight,
+}) {
   const attributeDefs = await listAttributeDefinitions({ categoryId, subCategoryId, activeOnly: true });
   const variantDefs = attributeDefs.filter((item) => item.isVariant);
   const variantKeys = variantDefs.map((item) => item.key);
@@ -133,6 +160,7 @@ async function normalizeProductVariants({ categoryId, subCategoryId, variants = 
     const images = (Array.isArray(rawVariant.images) ? rawVariant.images : [])
       .map(normalizeImage)
       .filter((image) => image.url);
+    const normalizedWeight = normalizeVariantWeight(rawVariant.weight, productWeight);
 
     normalized.push({
       variantId,
@@ -144,6 +172,7 @@ async function normalizeProductVariants({ categoryId, subCategoryId, variants = 
       stock,
       sku: variantSku,
       images: images.length ? images : fallbackImages,
+      ...(normalizedWeight ? { weight: normalizedWeight } : {}),
       isDefault: Boolean(rawVariant.isDefault),
       isActive: rawVariant.isActive !== false,
     });
@@ -192,6 +221,7 @@ async function prepareDynamicProductData({
   variants = [],
   images = [],
   extraDetails = {},
+  productWeight,
 }) {
   const normalizedModulesData = await validateAndNormalizeModulesData({
     categoryId,
@@ -217,6 +247,7 @@ async function prepareDynamicProductData({
     subCategoryId,
     variants,
     fallbackImages: normalizedImages,
+    productWeight,
   });
 
   return {
@@ -322,6 +353,7 @@ class ProductService {
         variants: productData.variants || [],
         images: productData.images || [],
         extraDetails: productData.extraDetails || {},
+        productWeight: normalizeProductWeight(productData.weight, { required: true }),
       });
     const generatedProductNumber = await generateNextProductNumber({
       categoryId: productData.categoryId,
@@ -432,6 +464,7 @@ class ProductService {
             variants: hasVariantUpdate ? updateData.variants || [] : product.variants || [],
             images: updateData.images !== undefined ? updateData.images || [] : product.images || [],
             extraDetails: hasExtraDetailsUpdate ? updateData.extraDetails || {} : product.extraDetails || {},
+            productWeight: updateData.weight || product.weight,
           });
 
         updateData.modulesData = normalizedModulesData;

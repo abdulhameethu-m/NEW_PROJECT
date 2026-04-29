@@ -49,7 +49,14 @@ function generateOrderGroupId() {
   return `grp_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 }
 
-function getProductWeightSnapshot(product) {
+function getProductWeightSnapshot(product, variant = null) {
+  if (variant?.weight && typeof variant.weight === "object" && Number(variant.weight.value) > 0) {
+    return {
+      value: Number(variant.weight.value),
+      unit: variant.weight.unit || "kg",
+    };
+  }
+
   if (product?.weight && typeof product.weight === "object" && Number(product.weight.value) > 0) {
     return {
       value: Number(product.weight.value),
@@ -161,7 +168,7 @@ class CheckoutService {
         variantSku: variant?.sku || item.variantSku || "",
         variantTitle: variant?.title || item.variantTitle || "",
         variantAttributes: variant?.attributes || item.variantAttributes || {},
-        weight: getProductWeightSnapshot(product),
+        weight: getProductWeightSnapshot(product, variant),
       };
 
       validated.push(itemData);
@@ -275,7 +282,7 @@ class CheckoutService {
         variantSku: variant?.sku || item.variantSku || "",
         variantTitle: variant?.title || item.variantTitle || "",
         variantAttributes: variant?.attributes || item.variantAttributes || {},
-        weight: getProductWeightSnapshot(product),
+        weight: getProductWeightSnapshot(product, variant),
       });
     }
 
@@ -323,6 +330,9 @@ class CheckoutService {
 
     const chargesBreakdown = pricingBreakdown.charges || [];
     const shippingCharge = chargesBreakdown.find((c) => c.key === "shipping_cost");
+    const platformFeeCharge = chargesBreakdown.find((c) => c.key === "platform_fee");
+    const taxCharge = chargesBreakdown.find((c) => c.key === "tax");
+    const discountCharge = chargesBreakdown.find((c) => c.key === "discount");
     const shippingFee = shippingCharge?.amount || 0;
     const shippingShares = buildSellerShippingShares(validatedWithProducts, shippingFee);
 
@@ -362,7 +372,9 @@ class CheckoutService {
         items: cleanedItems,
         subtotal,
         shippingFee: Math.round(sellerShippingFee * 100) / 100,
-        taxAmount: 0,
+        platformFee: Math.round((platformFeeCharge?.amount || 0) * (overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size) * 100) / 100,
+        taxAmount: Math.round((taxCharge?.amount || 0) * (overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size) * 100) / 100,
+        discountAmount: Math.round((discountCharge?.amount || 0) * (overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size) * 100) / 100,
         chargesBreakdown: chargesBreakdown,
         chargesTotal: Math.round(sellerChargeShare * 100) / 100,
         totalAmount,

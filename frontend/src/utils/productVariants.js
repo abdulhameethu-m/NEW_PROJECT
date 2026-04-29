@@ -69,6 +69,7 @@ export function mergeVariantRows({
   basePrice = 0,
   baseDiscountPrice = "",
   baseStock = 0,
+  baseWeight = 0,
   productNumber = "",
 }) {
   const existingById = new Map((existingVariants || []).map((variant) => [variant.variantId, variant]));
@@ -88,6 +89,7 @@ export function mergeVariantRows({
       price: existing?.price ?? basePrice ?? "",
       discountPrice: existing?.discountPrice ?? baseDiscountPrice ?? "",
       stock: existing?.stock ?? baseStock ?? 0,
+      weight: existing?.weight?.value ?? existing?.weight ?? baseWeight ?? 0,
       sku: existing?.sku || [productNumber, suffix].filter(Boolean).join("-") || `VAR-${index + 1}`,
       images: Array.isArray(existing?.images) ? existing.images : [],
       isDefault: Boolean(existing?.isDefault) || index === 0,
@@ -111,6 +113,10 @@ export function normalizeVariantPayloadRows(rows = [], productName = "") {
       ? { discountPrice: Number(row.discountPrice) }
       : {}),
     stock: Number(row.stock || 0),
+    weight: {
+      value: Number(row.weight || 0),
+      unit: "kg",
+    },
     sku: String(row.sku || "").trim().toUpperCase(),
     images: parseCommaSeparatedValues(row.imageUrlsText).map((url, imageIndex) => ({
       url,

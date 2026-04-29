@@ -34,6 +34,10 @@ const attributeSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    values: {
+      type: [String],
+      default: undefined,
+    },
     moduleKey: {
       type: String,
       required: true,

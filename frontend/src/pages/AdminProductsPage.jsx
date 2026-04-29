@@ -6,6 +6,7 @@ import {
   getProductStats,
   listProducts,
   rejectProduct,
+  updateProduct,
 } from "../services/adminApi";
 import { ReportingToolbar } from "../components/ReportingToolbar";
 import { StatusBadge } from "../components/StatusBadge";
@@ -101,6 +102,18 @@ export function AdminProductsPage() {
       await deleteProduct(productId);
       setSelectedProduct(null);
       setRejectReason("");
+      await refresh();
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function handleToggleActive(product) {
+    setBusyId(product._id);
+    try {
+      await updateProduct(product._id, { isActive: !product.isActive });
       await refresh();
     } catch (err) {
       setError(normalizeError(err));
@@ -220,6 +233,14 @@ export function AdminProductsPage() {
                     >
                       Edit
                     </Link>
+                    <button
+                      type="button"
+                      disabled={busyId === product._id}
+                      onClick={() => handleToggleActive(product)}
+                      className="w-full rounded-xl border border-indigo-300 px-3 py-2 text-center text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950 sm:w-auto"
+                    >
+                      {product.isActive ? "Deactivate" : "Activate"}
+                    </button>
                     {isLegacyAdmin || canAccess("products.delete") ? (
                       <button
                         type="button"

@@ -73,6 +73,28 @@ function resolveVariant(product, variantId = "") {
   return variants.find((item) => item.variantId === variantId && item.isActive) || null;
 }
 
+function getProductWeightSnapshot(product, variant = null) {
+  if (variant?.weight && typeof variant.weight === "object" && Number(variant.weight.value) > 0) {
+    return {
+      value: Number(variant.weight.value),
+      unit: variant.weight.unit || "kg",
+    };
+  }
+  if (product?.weight && typeof product.weight === "object" && Number(product.weight.value) > 0) {
+    return {
+      value: Number(product.weight.value),
+      unit: product.weight.unit || "kg",
+    };
+  }
+  if (typeof product?.weight === "number" && product.weight > 0) {
+    return {
+      value: Number(product.weight),
+      unit: "kg",
+    };
+  }
+  return undefined;
+}
+
 class OrderService {
   async createFromCart(userId, { address, currency } = {}) {
     const cart = await cartRepo.findByUserId(userId);
@@ -108,6 +130,7 @@ class OrderService {
         variantSku: variant?.sku || item.variantSku || "",
         variantTitle: variant?.title || item.variantTitle || "",
         variantAttributes: variant?.attributes || item.variantAttributes || {},
+        weight: getProductWeightSnapshot(product, variant),
       });
     }
 
@@ -143,6 +166,7 @@ class OrderService {
         variantSku: it.variantSku,
         variantTitle: it.variantTitle,
         variantAttributes: it.variantAttributes,
+        weight: it.weight,
       }));
 
       const subtotal = orderItems.reduce((sum, it) => sum + it.price * it.quantity, 0);

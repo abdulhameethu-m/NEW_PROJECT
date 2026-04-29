@@ -33,6 +33,16 @@ function getSellerPickupWarning(order) {
   };
 }
 
+function resolvePickupAddress(order) {
+  return (
+    order?.pickupAddressSnapshot ||
+    order?.sellerId?.pickupLocations?.find?.((location) => location?.isDefault) ||
+    order?.sellerId?.pickupLocations?.[0] ||
+    order?.sellerId?.pickupAddress ||
+    null
+  );
+}
+
 const STATUS_OPTIONS = ["Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Returned"];
 
 export function AdminOrderDetailsPage() {
@@ -85,6 +95,15 @@ export function AdminOrderDetailsPage() {
   const user = order?.userId;
   const address = order?.shippingAddress;
   const pickupWarning = getSellerPickupWarning(order);
+  const pickupAddress = resolvePickupAddress(order);
+  const paymentSummary = {
+    subtotal: Number(order?.subtotal || 0),
+    shippingFee: Number(order?.shippingFee || 0),
+    platformFee: Number(order?.platformFee || 0),
+    tax: Number(order?.taxAmount || 0),
+    discount: Number(order?.discountAmount || 0),
+    total: Number(order?.totalAmount || 0),
+  };
 
   const canSave = useMemo(() => !!order && !saving && !loading, [order, saving, loading]);
   const hasTrackingFields = Boolean(trackingId.trim() && trackingUrl.trim());
@@ -238,19 +257,31 @@ export function AdminOrderDetailsPage() {
               ))
             ) : items.length ? (
               items.map((it) => (
-                <div key={it.productId?._id || it.productId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
-                  <div className="min-w-0">
+                <div key={`${it.productId?._id || it.productId}-${it.variantId || "base"}`} className="grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
+                  <div className="h-16 w-16 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+                    {it.image ? (
+                      <img src={it.image} alt={it.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">No image</div>
+                    )}
+                  </div>
+                  <div className="min-w-0 space-y-1">
                     <div className="truncate font-semibold text-slate-950 dark:text-white">{it.name}</div>
+                    {it.variantTitle || it.variantId ? (
+                      <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                        Variant: {it.variantTitle || Object.entries(it.variantAttributes || {}).map(([key, value]) => `${key}: ${value}`).join(" / ")}
+                      </div>
+                    ) : null}
                     {getWeightValue(it) > 0 ? (
-                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
                         Weight: {formatWeight(getWeightValue(it), getWeightUnit(it))}
                         {Number(it.quantity || 0) > 1
                           ? ` each • ${formatWeight(getWeightValue(it) * Number(it.quantity || 0), getWeightUnit(it))} total`
                           : ""}
                       </div>
                     ) : null}
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Qty {it.quantity} · {formatCurrency(it.price)}
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Qty {it.quantity} · Unit {formatCurrency(it.price)}
                     </div>
                   </div>
                   <div className="text-sm font-semibold text-slate-950 dark:text-white">
@@ -265,9 +296,16 @@ export function AdminOrderDetailsPage() {
             )}
           </div>
 
-          <div className="mt-5 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
-            <div className="text-slate-500 dark:text-slate-400">Total</div>
-            <div className="font-semibold text-slate-950 dark:text-white">{formatCurrency(order?.totalAmount || 0)}</div>
+          <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
+            <div className="mb-2 font-semibold text-slate-950 dark:text-white">Payment summary</div>
+            <div className="grid gap-1 text-slate-600 dark:text-slate-300">
+              <div className="flex items-center justify-between"><span>Subtotal</span><span>{formatCurrency(paymentSummary.subtotal)}</span></div>
+              <div className="flex items-center justify-between"><span>Shipping Fee</span><span>{formatCurrency(paymentSummary.shippingFee)}</span></div>
+              <div className="flex items-center justify-between"><span>Platform Fee</span><span>{formatCurrency(paymentSummary.platformFee)}</span></div>
+              <div className="flex items-center justify-between"><span>Tax</span><span>{formatCurrency(paymentSummary.tax)}</span></div>
+              <div className="flex items-center justify-between"><span>Discount</span><span>- {formatCurrency(paymentSummary.discount)}</span></div>
+              <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2 font-semibold text-slate-950 dark:border-slate-800 dark:text-white"><span>Total Amount</span><span>{formatCurrency(paymentSummary.total)}</span></div>
+            </div>
           </div>
         </section>
 
@@ -299,17 +337,17 @@ export function AdminOrderDetailsPage() {
             <div className="text-sm font-semibold text-slate-950 dark:text-white">Pickup address</div>
             <div className="mt-3 grid gap-1 text-sm text-slate-600 dark:text-slate-300">
               <div className="font-semibold text-slate-950 dark:text-white">
-                {order?.pickupAddressSnapshot?.name || "Not captured yet"}
+                {pickupAddress?.name || "Not captured yet"}
               </div>
-              <div>{order?.pickupAddressSnapshot?.phone || "No pickup phone"}</div>
-              <div>{order?.pickupAddressSnapshot?.addressLine1 || "No pickup address"}</div>
-              {order?.pickupAddressSnapshot?.addressLine2 ? <div>{order.pickupAddressSnapshot.addressLine2}</div> : null}
+              <div>{pickupAddress?.phone || "No pickup phone"}</div>
+              <div>{pickupAddress?.addressLine1 || "No pickup address"}</div>
+              {pickupAddress?.addressLine2 ? <div>{pickupAddress.addressLine2}</div> : null}
               <div>
-                {[order?.pickupAddressSnapshot?.city, order?.pickupAddressSnapshot?.state, order?.pickupAddressSnapshot?.pincode]
+                {[pickupAddress?.city, pickupAddress?.state, pickupAddress?.pincode]
                   .filter(Boolean)
                   .join(", ") || "Pickup city/state/pincode not available"}
               </div>
-              <div>{order?.pickupAddressSnapshot?.country || ""}</div>
+              <div>{pickupAddress?.country || ""}</div>
             </div>
           </div>
 

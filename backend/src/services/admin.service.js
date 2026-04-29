@@ -312,6 +312,28 @@ function resolveVariant(product, variantId = "") {
   return variants.find((item) => item.variantId === variantId && item.isActive) || null;
 }
 
+function getProductWeightSnapshot(product, variant = null) {
+  if (variant?.weight && typeof variant.weight === "object" && Number(variant.weight.value) > 0) {
+    return {
+      value: Number(variant.weight.value),
+      unit: variant.weight.unit || "kg",
+    };
+  }
+  if (product?.weight && typeof product.weight === "object" && Number(product.weight.value) > 0) {
+    return {
+      value: Number(product.weight.value),
+      unit: product.weight.unit || "kg",
+    };
+  }
+  if (typeof product?.weight === "number" && product.weight > 0) {
+    return {
+      value: Number(product.weight),
+      unit: "kg",
+    };
+  }
+  return undefined;
+}
+
 async function listOrders(filters = {}) {
   return await orderRepo.list(filters);
 }
@@ -428,6 +450,7 @@ async function createOrder(payload, actor, meta) {
       variantSku: variant?.sku || "",
       variantTitle: variant?.title || "",
       variantAttributes: variant?.attributes || {},
+      weight: getProductWeightSnapshot(product, variant),
     });
   }
 
@@ -462,6 +485,7 @@ async function createOrder(payload, actor, meta) {
       variantSku: x.variantSku,
       variantTitle: x.variantTitle,
       variantAttributes: x.variantAttributes,
+      weight: x.weight,
     }));
     const subtotal = cleanedItems.reduce((sum, x) => sum + x.price * x.quantity, 0);
     const totalAmount = subtotal;

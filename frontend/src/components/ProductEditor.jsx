@@ -206,6 +206,11 @@ export function ProductEditor({
             price: variant.price?.toString?.() ?? variant.price ?? "",
             discountPrice: variant.discountPrice?.toString?.() ?? "",
             stock: variant.stock?.toString?.() ?? variant.stock ?? 0,
+            weight:
+              variant.weight?.value?.toString?.() ??
+              (product.weight && typeof product.weight === "object"
+                ? product.weight.value?.toString?.() || ""
+                : product.weight?.toString?.() || ""),
             imageUrlsText: Array.isArray(variant.images) ? variant.images.map((image) => image.url).join(", ") : "",
           }))
         );
@@ -355,6 +360,7 @@ export function ProductEditor({
         basePrice: formData.price,
         baseDiscountPrice: formData.discountPrice,
         baseStock: formData.stock,
+        baseWeight: formData.weight,
         productNumber: formData.productNumber,
       })
     );
@@ -485,6 +491,9 @@ export function ProductEditor({
       if (!variant.sku) return setError("Each variant requires a SKU");
       if (!Number.isFinite(variant.price) || variant.price < 0) return setError("Each variant requires a valid price");
       if (!Number.isFinite(variant.stock) || variant.stock < 0) return setError("Each variant requires a valid stock quantity");
+      if (!Number.isFinite(Number(variant.weight?.value || 0)) || Number(variant.weight?.value || 0) <= 0) {
+        return setError("Each variant requires a valid weight in kg");
+      }
     }
 
     setSubmitting(true);
@@ -773,17 +782,18 @@ export function ProductEditor({
             </div>
 
             <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
-              <div className="grid grid-cols-[minmax(240px,1.4fr)_120px_120px_160px_1fr] gap-3 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+              <div className="grid grid-cols-[minmax(220px,1.4fr)_110px_110px_110px_160px_1fr] gap-3 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950 dark:text-slate-400">
                 <div>Variant</div>
                 <div>Price</div>
                 <div>Stock</div>
+                <div>Weight(kg)</div>
                 <div>SKU</div>
                 <div>Variant images</div>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-800">
                 {variantRows.length ? (
                   variantRows.map((variant) => (
-                    <div key={variant.variantId} className="grid grid-cols-[minmax(240px,1.4fr)_120px_120px_160px_1fr] gap-3 px-4 py-3">
+                    <div key={variant.variantId} className="grid grid-cols-[minmax(220px,1.4fr)_110px_110px_110px_160px_1fr] gap-3 px-4 py-3">
                       <div>
                         <div className="font-medium text-slate-950 dark:text-white">{variant.title}</div>
                         <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -792,6 +802,7 @@ export function ProductEditor({
                       </div>
                       <input type="number" min="0" step="0.01" value={variant.price} onChange={(event) => updateVariantRow(variant.variantId, { price: event.target.value })} className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
                       <input type="number" min="0" value={variant.stock} onChange={(event) => updateVariantRow(variant.variantId, { stock: event.target.value })} className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
+                      <input type="number" min="0.01" step="0.01" value={variant.weight || ""} onChange={(event) => updateVariantRow(variant.variantId, { weight: event.target.value })} className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
                       <input type="text" value={variant.sku} onChange={(event) => updateVariantRow(variant.variantId, { sku: event.target.value.toUpperCase() })} className="rounded border border-slate-300 px-2 py-2 text-sm uppercase dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
                       <input type="text" value={variant.imageUrlsText || ""} onChange={(event) => updateVariantRow(variant.variantId, { imageUrlsText: event.target.value })} placeholder="Comma-separated image URLs" className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
                     </div>

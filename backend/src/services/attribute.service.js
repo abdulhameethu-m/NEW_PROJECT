@@ -13,12 +13,18 @@ function normalizeModuleKey(value = "") {
 }
 
 function normalizeAttributePayload(payload = {}) {
+  const normalizedOptions = Array.isArray(payload.options)
+    ? payload.options
+    : Array.isArray(payload.values)
+      ? payload.values
+      : [];
   return {
     name: String(payload.name || "").trim(),
     key: String(payload.key || "").trim().toLowerCase(),
     type: payload.type || "text",
     required: Boolean(payload.required),
-    options: Array.isArray(payload.options) ? payload.options.map((item) => String(item).trim()).filter(Boolean) : [],
+    options: normalizedOptions.map((item) => String(item).trim()).filter(Boolean),
+    values: normalizedOptions.map((item) => String(item).trim()).filter(Boolean),
     moduleKey: normalizeModuleKey(payload.moduleKey || payload.group || "general"),
     group: String(payload.group || payload.moduleKey || "General").trim() || "General",
     order: Number.isFinite(Number(payload.order)) ? Number(payload.order) : 0,

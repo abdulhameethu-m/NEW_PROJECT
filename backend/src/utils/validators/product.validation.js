@@ -22,6 +22,10 @@ const productVariantSchema = Joi.object({
     .default([]),
   price: Joi.number().required().min(0),
   discountPrice: Joi.number().min(0),
+  weight: Joi.object({
+    value: Joi.number().greater(0).required(),
+    unit: Joi.string().valid("kg").default("kg"),
+  }),
   stock: Joi.number().required().integer().min(0),
   sku: Joi.string().trim().uppercase().regex(/^[A-Z0-9-]+$/).required(),
   images: Joi.array().items(productImageSchema).max(10).default([]),

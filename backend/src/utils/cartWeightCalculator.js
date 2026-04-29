@@ -41,6 +41,13 @@ function calculateCartWeight(cartItems) {
  * @returns {number} Weight in kg
  */
 function getItemWeight(item) {
+  if (item?.weight && typeof item.weight === "object") {
+    const snapshotWeight = Number(item.weight.value);
+    if (Number.isFinite(snapshotWeight) && snapshotWeight > 0) {
+      return snapshotWeight;
+    }
+  }
+
   const product = item.product || item;
 
   // Try structured weight field first

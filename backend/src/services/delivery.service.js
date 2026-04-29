@@ -2,6 +2,7 @@ const { AppError } = require("../utils/AppError");
 const orderRepo = require("../repositories/order.repository");
 const vendorRepo = require("../repositories/vendor.repository");
 const logisticsService = require("./logistics.service");
+const { VendorPickupAddress } = require("../models/VendorPickupAddress");
 const {
   applyShippingLifecycle,
   validateCourierName,
@@ -10,8 +11,22 @@ const {
 
 const SERVICEABLE_PINCODE_PATTERN = /^\d{6}$/;
 
-function normalizePickupAddress(vendor) {
+async function normalizePickupAddress(vendor) {
+  const externalPickup = vendor?._id
+    ? await VendorPickupAddress.findOne({ vendorId: vendor._id, isActive: true }).lean()
+    : null;
   const primary =
+    externalPickup
+      ? {
+          name: externalPickup.name,
+          phone: externalPickup.phone,
+          addressLine1: externalPickup.address,
+          city: externalPickup.city,
+          state: externalPickup.state,
+          pincode: externalPickup.pincode,
+          country: "India",
+        }
+      :
     vendor?.pickupLocations?.find?.((location) => location?.isDefault) ||
     vendor?.pickupLocations?.[0] ||
     vendor?.pickupAddress ||
@@ -52,8 +67,8 @@ function assertPickupAddressIsComplete(pickupAddress) {
   }
 }
 
-function buildPlatformShipmentRequest(order, vendor) {
-  const pickupAddress = normalizePickupAddress(vendor);
+async function buildPlatformShipmentRequest(order, vendor) {
+  const pickupAddress = await normalizePickupAddress(vendor);
   assertPickupAddressIsComplete(pickupAddress);
 
   if (!order?.shippingAddress?.postalCode || !SERVICEABLE_PINCODE_PATTERN.test(String(order.shippingAddress.postalCode).trim())) {
@@ -79,18 +94,26 @@ function buildPlatformShipmentRequest(order, vendor) {
       paymentMethod: order.paymentMethod,
       subtotal: order.subtotal,
       customerEmail: order.userId?.email || vendor?.supportEmail || "support@example.com",
-      items: (order.items || []).map((item) => ({
-        name: item.name,
-        sku: item.variantSku || String(item.productId),
-        units: item.quantity,
-        sellingPrice: item.price,
-      })),
+      items: (order.items || []).map((item) => {
+        const itemWeight = Number(item?.weight?.value || 0);
+        return {
+          name: item.name,
+          sku: item.variantSku || String(item.productId),
+          units: item.quantity,
+          sellingPrice: item.price,
+          weight: itemWeight > 0 ? itemWeight : undefined,
+        };
+      }),
     },
   };
 }
 
 function buildShiprocketPayload(platformRequest, vendor) {
   const { orderDetails, deliveryAddress, pickupAddress } = platformRequest;
+  const totalWeight = (orderDetails.items || []).reduce(
+    (sum, item) => sum + Number(item.weight || 0) * Number(item.units || 0),
+    0
+  );
   return {
     order_id: orderDetails.orderId,
     order_date: new Date(orderDetails.orderDate).toISOString(),
@@ -118,7 +141,7 @@ function buildShiprocketPayload(platformRequest, vendor) {
     length: 10,
     breadth: 10,
     height: 10,
-    weight: 1,
+    weight: totalWeight > 0 ? Number(totalWeight.toFixed(3)) : 1,
   };
 }
 
@@ -132,7 +155,7 @@ class DeliveryService {
       resolvedVendor = resolvedOrder.sellerId ? await vendorRepo.findById(resolvedOrder.sellerId._id || resolvedOrder.sellerId) : null;
     }
     if (!resolvedOrder) throw new AppError("Order not found", 404, "NOT_FOUND");
-    const platformRequest = buildPlatformShipmentRequest(resolvedOrder, resolvedVendor);
+    const platformRequest = await buildPlatformShipmentRequest(resolvedOrder, resolvedVendor);
     const shipment = await logisticsService.createPlatformShipment({
       ...platformRequest,
       providerPayload: buildShiprocketPayload(platformRequest, resolvedVendor),

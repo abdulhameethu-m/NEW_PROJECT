@@ -52,6 +52,17 @@ const productVariantSchema = new mongoose.Schema(
       type: Number,
       min: 0,
     },
+    weight: {
+      value: {
+        type: Number,
+        min: 0,
+      },
+      unit: {
+        type: String,
+        enum: ["kg"],
+        default: "kg",
+      },
+    },
     stock: {
       type: Number,
       required: true,
@@ -335,6 +346,7 @@ productSchema.index({ createdAt: -1 });
 productSchema.index({ status: 1, isActive: 1, createdAt: -1 });
 productSchema.index({ "attributes.$**": 1 });
 productSchema.index({ "variants.attributes.$**": 1 });
+productSchema.index({ "variants.stock": 1, isActive: 1, status: 1 });
 
 module.exports = {
   Product: mongoose.model("Product", productSchema),
