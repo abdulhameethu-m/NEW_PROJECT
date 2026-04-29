@@ -222,4 +222,39 @@ router.post(
   pricingController.initializePricingConfig
 );
 
+// Dynamic Pricing Rules endpoints (NEW)
+router.get(
+  "/pricing-rules",
+  requireWorkspacePermission("settings.read"),
+  pricingController.getAllPricingRules
+);
+router.post(
+  "/pricing-rules",
+  requireWorkspacePermission("settings.create"),
+  express.json(),
+  pricingController.createPricingRule
+);
+router.get(
+  "/pricing-rules/:id",
+  requireWorkspacePermission("settings.read"),
+  pricingController.getPricingRule
+);
+router.put(
+  "/pricing-rules/:id",
+  requireWorkspacePermission("settings.update"),
+  express.json(),
+  pricingController.updatePricingRule
+);
+router.delete(
+  "/pricing-rules/:id",
+  requireWorkspacePermission("settings.delete"),
+  pricingController.deletePricingRule
+);
+router.patch(
+  "/pricing-rules/batch/toggle-active",
+  requireWorkspacePermission("settings.update"),
+  express.json(),
+  pricingController.toggleMultipleRulesActive
+);
+
 module.exports = router;

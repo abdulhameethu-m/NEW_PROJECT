@@ -3,6 +3,8 @@ const { asyncHandler } = require("../utils/asyncHandler");
 const { AppError } = require("../utils/AppError");
 const PricingConfig = require("../models/PricingConfig");
 
+// ==================== LEGACY PRICING CONFIG ENDPOINTS ====================
+
 /**
  * GET /api/pricing
  * Get current pricing configuration (public)
@@ -159,9 +161,267 @@ const initializePricingConfig = asyncHandler(async (req, res) => {
   return ok(res, defaultConfig, "Pricing configuration initialized");
 });
 
+// ==================== DYNAMIC PRICING RULES ====================
+
+const PricingRule = require("../models/PricingRule");
+const pricingService = require("../services/pricing.service");
+
+/**
+ * GET /api/admin/pricing-rules
+ * Get all pricing rules (admin only)
+ */
+const getAllPricingRules = asyncHandler(async (req, res) => {
+  const { active, category, sortBy = "sortOrder" } = req.query;
+
+  const query = { isArchived: false };
+
+  if (active === "true") {
+    query.isActive = true;
+  } else if (active === "false") {
+    query.isActive = false;
+  }
+
+  if (category) {
+    query.category = category;
+  }
+
+  const rules = await PricingRule.find(query)
+    .sort(sortBy === "name" ? { displayName: 1 } : { [sortBy]: 1 })
+    .lean();
+
+  return ok(res, rules, "Pricing rules retrieved");
+});
+
+/**
+ * GET /api/pricing-rules
+ * Get all active pricing rules (public for checkout)
+ */
+const getActivePricingRules = asyncHandler(async (req, res) => {
+  const rules = await pricingService.getActiveRules();
+  return ok(res, rules, "Active pricing rules retrieved");
+});
+
+/**
+ * GET /api/admin/pricing-rules/:id
+ * Get a specific pricing rule (admin only)
+ */
+const getPricingRule = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const rule = await PricingRule.findById(id);
+
+  if (!rule || rule.isArchived) {
+    throw new AppError("Pricing rule not found", 404);
+  }
+
+  return ok(res, rule, "Pricing rule retrieved");
+});
+
+/**
+ * POST /api/admin/pricing-rules
+ * Create a new pricing rule (admin only)
+ */
+const createPricingRule = asyncHandler(async (req, res) => {
+  const { key, displayName, type, value, category, appliesTo, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes } = req.body;
+
+  // Validate input
+  const validationErrors = pricingService.validateRule({ key, displayName, type, value, category, appliesTo, maxCap, minOrderValue, freeAboveValue });
+
+  if (validationErrors.length > 0) {
+    throw new AppError(validationErrors.join("; "), 400);
+  }
+
+  // Check if key already exists
+  const existing = await PricingRule.findOne({ key: key.toLowerCase() });
+  if (existing) {
+    throw new AppError(`Pricing rule with key "${key}" already exists`, 400);
+  }
+
+  const newRule = new PricingRule({
+    key: key.toLowerCase(),
+    displayName,
+    type,
+    value,
+    category: category || "OTHER",
+    appliesTo: appliesTo || "ORDER",
+    sortOrder: sortOrder || 0,
+    maxCap: maxCap || 0,
+    minOrderValue: minOrderValue || 0,
+    freeAboveValue: freeAboveValue || 0,
+    description,
+    notes,
+    lastModifiedBy: req.user.sub,
+  });
+
+  await newRule.save();
+
+  return ok(res, newRule, "Pricing rule created", 201);
+});
+
+/**
+ * PUT /api/admin/pricing-rules/:id
+ * Update a pricing rule (admin only)
+ */
+const updatePricingRule = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { key, displayName, type, value, category, appliesTo, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes, isActive } = req.body;
+
+  const rule = await PricingRule.findById(id);
+
+  if (!rule || rule.isArchived) {
+    throw new AppError("Pricing rule not found", 404);
+  }
+
+  // Prepare update data
+  const updateData = {};
+
+  if (key && key !== rule.key) {
+    // Check if new key already exists
+    const existing = await PricingRule.findOne({ key: key.toLowerCase(), _id: { $ne: id } });
+    if (existing) {
+      throw new AppError(`Pricing rule with key "${key}" already exists`, 400);
+    }
+    updateData.key = key.toLowerCase();
+  }
+
+  if (displayName !== undefined) updateData.displayName = displayName;
+  if (type !== undefined) updateData.type = type;
+  if (value !== undefined) updateData.value = value;
+  if (category !== undefined) updateData.category = category;
+  if (appliesTo !== undefined) updateData.appliesTo = appliesTo;
+  if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+  if (maxCap !== undefined) updateData.maxCap = maxCap;
+  if (minOrderValue !== undefined) updateData.minOrderValue = minOrderValue;
+  if (freeAboveValue !== undefined) updateData.freeAboveValue = freeAboveValue;
+  if (description !== undefined) updateData.description = description;
+  if (notes !== undefined) updateData.notes = notes;
+  if (isActive !== undefined) updateData.isActive = isActive;
+
+  updateData.lastModifiedBy = req.user.sub;
+
+  // Validate the entire rule after update
+  const validationData = { ...rule.toObject(), ...updateData };
+  const validationErrors = pricingService.validateRule(validationData);
+
+  if (validationErrors.length > 0) {
+    throw new AppError(validationErrors.join("; "), 400);
+  }
+
+  const updated = await PricingRule.findByIdAndUpdate(id, updateData, {
+    new: true,
+    runValidators: true,
+  });
+
+  return ok(res, updated, "Pricing rule updated");
+});
+
+/**
+ * DELETE /api/admin/pricing-rules/:id
+ * Delete a pricing rule (soft delete - archive)
+ */
+const deletePricingRule = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const rule = await PricingRule.findById(id);
+
+  if (!rule || rule.isArchived) {
+    throw new AppError("Pricing rule not found", 404);
+  }
+
+  // Soft delete (archive)
+  await PricingRule.findByIdAndUpdate(id, { isArchived: true, lastModifiedBy: req.user.sub });
+
+  return ok(res, { id }, "Pricing rule archived");
+});
+
+/**
+ * POST /api/admin/pricing-rules/batch/toggle-active
+ * Bulk toggle active status for multiple rules
+ */
+const toggleMultipleRulesActive = asyncHandler(async (req, res) => {
+  const { ruleIds, isActive } = req.body;
+
+  if (!Array.isArray(ruleIds) || ruleIds.length === 0) {
+    throw new AppError("ruleIds must be a non-empty array", 400);
+  }
+
+  if (typeof isActive !== "boolean") {
+    throw new AppError("isActive must be a boolean", 400);
+  }
+
+  const result = await PricingRule.updateMany(
+    { _id: { $in: ruleIds }, isArchived: false },
+    { isActive, lastModifiedBy: req.user.sub }
+  );
+
+  return ok(res, result, "Pricing rules updated");
+});
+
+/**
+ * GET /api/pricing/calculate
+ * Calculate order total with current pricing rules (public for checkout)
+ */
+const calculateOrderTotal = asyncHandler(async (req, res) => {
+  const { subtotal, itemCount = 1 } = req.query;
+
+  const parsedSubtotal = parseFloat(subtotal);
+  const parsedItemCount = parseInt(itemCount);
+
+  if (isNaN(parsedSubtotal) || parsedSubtotal < 0) {
+    throw new AppError("subtotal must be a valid non-negative number", 400);
+  }
+
+  const result = await pricingService.calculateOrderTotal(parsedSubtotal, parsedItemCount);
+
+  return ok(res, result, "Order total calculated");
+});
+
+/**
+ * GET /api/pricing/summary
+ * Get pricing summary (public)
+ */
+const getPricingSummary = asyncHandler(async (req, res) => {
+  const summary = await pricingService.getPricingSummary();
+  return ok(res, summary, "Pricing summary retrieved");
+});
+
+/**
+ * POST /api/pricing/preview-rule
+ * Preview the impact of a specific rule (public for preview)
+ */
+const previewRuleImpact = asyncHandler(async (req, res) => {
+  const { ruleId, subtotal } = req.body;
+
+  if (!ruleId) {
+    throw new AppError("ruleId is required", 400);
+  }
+
+  const parsedSubtotal = parseFloat(subtotal);
+  if (isNaN(parsedSubtotal) || parsedSubtotal < 0) {
+    throw new AppError("subtotal must be a valid non-negative number", 400);
+  }
+
+  const preview = await pricingService.previewRuleImpact(ruleId, parsedSubtotal);
+
+  return ok(res, preview, "Rule impact previewed");
+});
+
 module.exports = {
+  // Legacy endpoints (kept for backward compatibility)
   getPricingConfig,
   getAdminPricingConfig,
   updatePricingConfig,
   initializePricingConfig,
+
+  // New dynamic pricing rules endpoints
+  getAllPricingRules,
+  getActivePricingRules,
+  getPricingRule,
+  createPricingRule,
+  updatePricingRule,
+  deletePricingRule,
+  toggleMultipleRulesActive,
+  calculateOrderTotal,
+  getPricingSummary,
+  previewRuleImpact,
 };

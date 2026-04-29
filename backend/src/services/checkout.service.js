@@ -9,6 +9,7 @@ const paymentRepo = require("../repositories/payment.repository");
 const vendorRepo = require("../repositories/vendor.repository");
 const { getCommissionPercentage } = require("./finance-config.service");
 const { resolveVendorShippingModes } = require("./shipping.service");
+const pricingService = require("./pricing.service");
 
 function asObjectId(id, fieldName) {
   if (!mongoose.isValidObjectId(id)) throw new AppError(`Invalid ${fieldName}`, 400, "VALIDATION_ERROR");
@@ -112,17 +113,19 @@ class CheckoutService {
     });
 
     const subtotal = sellers.reduce((sum, s) => sum + s.subtotal, 0);
-    const shippingFee = 0;
-    const taxAmount = 0;
-    const totalAmount = subtotal + shippingFee + taxAmount;
+    const totalItemCount = validated.reduce((sum, item) => sum + item.quantity, 0);
+
+    // Calculate pricing dynamically using pricing rules
+    const pricingBreakdown = await pricingService.calculateOrderTotal(subtotal, totalItemCount);
 
     return {
       currency: currency || cart.currency || "INR",
       sellers,
       subtotal,
-      shippingFee,
-      taxAmount,
-      totalAmount,
+      charges: pricingBreakdown.charges,
+      chargesTotal: pricingBreakdown.chargesTotal,
+      total: pricingBreakdown.total,
+      itemCount: totalItemCount,
     };
   }
 
@@ -190,6 +193,19 @@ class CheckoutService {
     const commissionPercentage = await getCommissionPercentage();
     const resolvedGroupId = orderGroupId || generateOrderGroupId();
     const resolvedPaymentStatus = paymentStatus || (paymentMethod === "ONLINE" ? "Paid" : "Pending");
+    const totalItemCount = validated.reduce((sum, item) => sum + item.quantity, 0);
+
+    // Calculate total pricing for the entire order
+    let overallSubtotal = 0;
+    for (const sellerData of bySeller.values()) {
+      const items = sellerData.items;
+      const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+      overallSubtotal += subtotal;
+    }
+
+    // Get pricing breakdown for entire order
+    const pricingBreakdown = await pricingService.calculateOrderTotal(overallSubtotal, totalItemCount);
+    const chargesBreakdown = pricingBreakdown.charges || [];
 
     for (const sellerData of bySeller.values()) {
       const vendor = await vendorRepo.findById(sellerData.sellerId);
@@ -208,9 +224,13 @@ class CheckoutService {
       }));
 
       const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
-      const shippingFee = 0;
-      const taxAmount = 0;
-      const totalAmount = subtotal + shippingFee + taxAmount;
+      
+      // Calculate this seller's share of charges proportionally
+      const sellerChargeShare = chargesBreakdown.length > 0 
+        ? pricingBreakdown.chargesTotal * (subtotal / overallSubtotal)
+        : 0;
+      
+      const totalAmount = subtotal + sellerChargeShare;
       const commission = Number(((totalAmount * commissionPercentage) / 100).toFixed(2));
       const sellerAmount = Number((totalAmount - commission).toFixed(2));
 
@@ -220,8 +240,10 @@ class CheckoutService {
         sellerId: sellerData.sellerId,
         items: cleanedItems,
         subtotal,
-        shippingFee,
-        taxAmount,
+        shippingFee: 0,  // Charges are calculated separately
+        taxAmount: 0,
+        chargesBreakdown: chargesBreakdown,  // Store detailed charges
+        chargesTotal: Math.round(sellerChargeShare * 100) / 100,
         totalAmount,
         platformCommissionRate: commissionPercentage,
         platformCommissionAmount: commission,

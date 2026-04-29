@@ -7,6 +7,7 @@ import { CheckoutStepper } from "../components/commerce/CheckoutStepper";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { OrderSummaryCard } from "../components/commerce/OrderSummaryCard";
 import { PriceBreakdown } from "../components/commerce/PriceBreakdown";
+import { DynamicPriceBreakdown } from "../components/commerce/DynamicPriceBreakdown";
 import * as cartService from "../services/cartService";
 import * as checkoutService from "../services/checkoutService";
 import * as paymentService from "../services/paymentService";
@@ -116,11 +117,26 @@ export function CheckoutPage() {
   );
   const orderItems = useMemo(() => getSummaryItems(summary), [summary]);
   
-  // Calculate price breakdown with dynamic pricing configuration
+  // Use dynamic pricing breakdown from API response (includes all active pricing rules)
+  const totalAmount = useMemo(() => {
+    return summary?.total || summary?.totalAmount || 0;
+  }, [summary]);
+
+  // Build summary for display that includes dynamic charges
   const priceBreakdown = useMemo(() => {
     if (!summary) return null;
     
-    // If we have dynamic pricing config, use it for calculation
+    // New API response includes charges and total from pricing engine
+    if (summary.charges && summary.chargesTotal !== undefined) {
+      return {
+        subtotal: summary.subtotal || 0,
+        charges: summary.charges,
+        chargesTotal: summary.chargesTotal || 0,
+        totalAmount: summary.total || 0,
+      };
+    }
+    
+    // Fall back to old calculation method if new format not available
     if (pricingConfig) {
       return pricingService.calculatePriceBreakdown({
         subtotal: Number(summary?.subtotal || 0),
@@ -130,7 +146,7 @@ export function CheckoutPage() {
       });
     }
     
-    // Fall back to old calculation method
+    // Fallback to legacy method
     return buildPriceBreakdown(summary);
   }, [summary, pricingConfig]);
   const hasUsableAddress = Boolean(selectedAddress) || (!selectedAddress && isAddressFormValid(addressForm));
@@ -469,7 +485,7 @@ export function CheckoutPage() {
               <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Order total</div>
                 <div className="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
-                  {formatCurrency(priceBreakdown?.totalAmount || 0)}
+                  {formatCurrency(totalAmount || 0)}
                 </div>
                 <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                   {paymentMethod === "ONLINE" ? "You will be redirected to Razorpay next." : "Cash will be collected on delivery."}
