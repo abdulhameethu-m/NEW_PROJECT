@@ -227,9 +227,16 @@ export function Layout() {
       {!isAdminRoute && !isVendorWorkspace && !isStaffWorkspace ? (
         <CategoryNavigation 
           categories={presentedCategories}
-          onSelect={(category) => {
-            setSelectedCategory(category);
-            navigate(`/products?category=${category.slug}`);
+          onSelect={(item) => {
+            setSelectedCategory(item);
+            // Check if it's a subcategory or category based on presence of categoryId property
+            if (item.categoryId) {
+              // It's a subcategory
+              navigate(`/products?categoryId=${item.categoryId}&subCategoryId=${item._id || item.id}`);
+            } else {
+              // It's a category
+              navigate(`/products?categoryId=${item._id || item.id}`);
+            }
           }}
           selectedCategory={selectedCategory}
         />

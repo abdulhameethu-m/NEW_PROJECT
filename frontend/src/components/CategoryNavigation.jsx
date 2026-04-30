@@ -216,7 +216,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
           </button>
         </div>
 
-        {/* Dropdown Submenu - Rendered at top level with fixed positioning */}
+        {/* Dropdown Submenu - Flipkart Style */}
         {hoveredCategoryId && !isScrolled && (
           <div
             className="fixed left-0 right-0 top-[calc(theme(top.16)+3.5rem)] z-40 animate-in fade-in duration-200"
@@ -227,12 +227,12 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
             }}
             onMouseLeave={handleHoverLeave}
           >
-            <div className="mx-auto w-full max-w-[88rem] px-3 lg:px-8 py-6">
-              <div className="rounded-2xl bg-white shadow-2xl border border-slate-100 dark:bg-slate-900 dark:border-slate-800 overflow-hidden backdrop-blur-xl bg-white/95 dark:bg-slate-900/95">
+            <div className="mx-auto w-full max-w-[88rem] px-3 lg:px-8 py-4">
+              <div className="bg-white shadow-xl border border-slate-100 dark:bg-slate-900 dark:border-slate-800 overflow-hidden backdrop-blur-xl">
                 {loadingSubcategories === hoveredCategoryId ? (
-                  <div className="px-8 py-12 text-center text-sm text-slate-500 dark:text-slate-400">Loading...</div>
+                  <div className="px-6 py-8 text-center text-sm text-slate-500 dark:text-slate-400">Loading...</div>
                 ) : (subcategories[hoveredCategoryId] || []).length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0">
                     {(subcategories[hoveredCategoryId] || []).map((subcategory, index) => (
                       <button
                         key={subcategory._id || subcategory.id}
@@ -241,18 +241,16 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
                           onSelect?.(subcategory);
                           setHoveredCategoryId(null);
                         }}
-                        className={`px-6 py-4 text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-150 group cursor-pointer ${
-                          index % 4 !== 3 ? "border-r border-slate-100 dark:border-slate-800" : ""
-                        } ${Math.floor(index / 4) !== Math.floor(((subcategories[hoveredCategoryId] || []).length - 1) / 4) ? "border-b border-slate-100 dark:border-slate-800" : ""}`}
+                        className="px-4 py-3 text-left text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors duration-100 group cursor-pointer border-slate-100 dark:border-slate-800"
                       >
-                        <span className="block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-150">
+                        <span className="block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-100 line-clamp-2">
                           {subcategory.name}
                         </span>
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <div className="px-8 py-12 text-center text-sm text-slate-500 dark:text-slate-400">No subcategories</div>
+                  <div className="px-6 py-8 text-center text-sm text-slate-500 dark:text-slate-400">No subcategories</div>
                 )}
               </div>
             </div>

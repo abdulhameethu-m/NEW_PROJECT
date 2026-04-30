@@ -29,7 +29,7 @@ export function formatWeight(value, unit = "kg") {
 
   const formatted = Number.isInteger(numericValue)
     ? String(numericValue)
-    : numericValue.toFixed(2).replace(/\.?0+$/, "");
+    : numericValue.toFixed(3).replace(/\.?0+$/, "");
 
   return `${formatted} ${unit}`;
 }

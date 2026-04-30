@@ -56,14 +56,14 @@ const shippingConfigSchema = new mongoose.Schema(
     minWeight: {
       type: Number,
       required: true,
-      min: 0.1,
-      default: 0.1,
+      min: 0.001,
+      default: 0.001,
       description: "Minimum weight in kg for this rule",
     },
     maxWeight: {
       type: Number,
       required: true,
-      min: 0.1,
+      min: 0.001,
       default: 100,
       description: "Maximum weight in kg for this rule",
     },

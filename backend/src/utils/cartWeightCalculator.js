@@ -24,8 +24,8 @@ function calculateCartWeight(cartItems) {
       totalWeight += itemTotalWeight;
     }
 
-    // Round to 2 decimal places
-    return Math.round(totalWeight * 100) / 100;
+    // Preserve gram-level precision in kg values.
+    return Math.round(totalWeight * 1000) / 1000;
   } catch (error) {
     throw new AppError(
       `Error calculating cart weight: ${error.message}`,
@@ -114,7 +114,7 @@ function getWeightBreakdown(cartItems) {
       productName: product.name || "Unknown",
       quantity,
       weightPerUnit: itemWeight,
-      totalWeight: Math.round(itemWeight * quantity * 100) / 100,
+      totalWeight: Math.round(itemWeight * quantity * 1000) / 1000,
     };
   });
 }

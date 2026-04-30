@@ -77,4 +77,13 @@ runTest("shipping rule applies per-kg pricing above base weight", () => {
   assert.equal(rule.calculateCost(3), 90);
 });
 
+runTest("cart weight preserves gram precision in kg values", () => {
+  const total = calculateCartWeight([
+    { quantity: 1, product: { name: "Product A", weight: { value: 0.1, unit: "kg" } } },
+    { quantity: 1, product: { name: "Product B", weight: { value: 0.25, unit: "kg" } } },
+  ]);
+
+  assert.equal(total, 0.35);
+});
+
 console.log("All shipping domain checks passed.");

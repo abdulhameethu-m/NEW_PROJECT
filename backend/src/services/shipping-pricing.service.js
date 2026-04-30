@@ -25,6 +25,10 @@ class ShippingPricingService {
     this.rulesCache.clear();
   }
 
+  roundWeight(value) {
+    return Math.round(Number(value || 0) * 1000) / 1000;
+  }
+
   async determineZone(address) {
     const result = await resolveZone(address || {});
     return result.zone;
@@ -140,7 +144,7 @@ class ShippingPricingService {
       return null;
     }
 
-    const roundedWeight = Math.round(Number(weight || 0) * 100) / 100;
+    const roundedWeight = this.roundWeight(weight);
     const baseWeight = Number(rule.baseWeight || 0);
     const basePrice = Number(rule.basePrice || 0);
     const pricePerKg = Number(rule.pricePerKg || 0);
@@ -154,7 +158,7 @@ class ShippingPricingService {
     return {
       baseWeight,
       basePrice,
-      extraWeight: Math.round(extraWeight * 100) / 100,
+      extraWeight: this.roundWeight(extraWeight),
       pricePerKg,
       extraCost,
       weightBasedCost,
@@ -209,7 +213,7 @@ class ShippingPricingService {
       if (!rule) {
         return {
           cost: Math.round(fallbackCost * 100) / 100,
-          weight: Math.round(weight * 100) / 100,
+          weight: this.roundWeight(weight),
           zone,
           state: derivedState,
           ruleApplied: false,
@@ -225,7 +229,7 @@ class ShippingPricingService {
 
       return {
         cost: Math.round(cost * 100) / 100,
-        weight: Math.round(weight * 100) / 100,
+        weight: this.roundWeight(weight),
         zone,
         state: derivedState,
         rule: {

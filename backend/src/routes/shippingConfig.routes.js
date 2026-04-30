@@ -44,12 +44,12 @@ router.post(
       .withMessage("Price per kg must be a positive number"),
     body("minWeight")
       .notEmpty()
-      .isFloat({ min: 0.1 })
-      .withMessage("Min weight must be at least 0.1"),
+      .isFloat({ min: 0.001 })
+      .withMessage("Min weight must be at least 0.001"),
     body("maxWeight")
       .notEmpty()
-      .isFloat({ min: 0.1 })
-      .withMessage("Max weight must be at least 0.1"),
+      .isFloat({ min: 0.001 })
+      .withMessage("Max weight must be at least 0.001"),
     body("freeShippingThreshold")
       .optional()
       .isFloat({ min: 0 })
@@ -114,8 +114,8 @@ router.post(
   validate([
     body("weight")
       .notEmpty()
-      .isFloat({ min: 0.1 })
-      .withMessage("Weight must be provided and greater than 0.1"),
+      .isFloat({ min: 0.001 })
+      .withMessage("Weight must be provided and greater than 0.001"),
     body("state")
       .optional()
       .isString()
@@ -189,12 +189,12 @@ router.put(
       .withMessage("Price per kg must be positive"),
     body("minWeight")
       .optional()
-      .isFloat({ min: 0.1 })
-      .withMessage("Min weight must be at least 0.1"),
+      .isFloat({ min: 0.001 })
+      .withMessage("Min weight must be at least 0.001"),
     body("maxWeight")
       .optional()
-      .isFloat({ min: 0.1 })
-      .withMessage("Max weight must be at least 0.1"),
+      .isFloat({ min: 0.001 })
+      .withMessage("Max weight must be at least 0.001"),
     body("isActive").optional().isBoolean().withMessage("isActive must be boolean"),
   ]),
   shippingConfigController.updateShippingRule

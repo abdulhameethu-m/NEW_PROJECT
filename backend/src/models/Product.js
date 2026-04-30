@@ -316,16 +316,15 @@ const productSchema = new mongoose.Schema(
 );
 
 // Pre-save validation for weight
-productSchema.pre("save", function (next) {
+productSchema.pre("save", async function () {
   if (!this.weight || !this.weight.value) {
     const err = new Error(
       "Product weight is required. Must specify weight in kg with minimum value 0.1"
     );
     err.statusCode = 400;
     err.code = "WEIGHT_REQUIRED";
-    return next(err);
+    throw err;
   }
-  next();
 });
 
 // Helper method to get weight in kg

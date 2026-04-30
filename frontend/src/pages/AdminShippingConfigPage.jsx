@@ -31,6 +31,14 @@ function formatMultilineList(values = []) {
   return Array.isArray(values) ? values.join("\n") : "";
 }
 
+function formatKg(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return "0.000";
+  }
+  return numericValue.toFixed(3);
+}
+
 function createRuleForm(defaultState = "Tamil Nadu") {
   return {
     state: defaultState,
@@ -157,13 +165,13 @@ export function AdminShippingConfigPage() {
     setFormData({
       state: rule.state,
       zone: rule.zone,
-      baseWeight: String(rule.baseWeight ?? ""),
-      basePrice: String(rule.basePrice ?? ""),
-      pricePerKg: String(rule.pricePerKg ?? ""),
-      minWeight: String(rule.minWeight ?? ""),
-      maxWeight: String(rule.maxWeight ?? ""),
-      freeShippingThreshold: rule.freeShippingThreshold?.toString() || "",
-      minOrderValue: rule.minOrderValue?.toString() || "",
+      baseWeight: String(Number(rule.baseWeight || 0)),
+      basePrice: String(Number(rule.basePrice || 0)),
+      pricePerKg: String(Number(rule.pricePerKg || 0)),
+      minWeight: String(Number(rule.minWeight || 0)),
+      maxWeight: String(Number(rule.maxWeight || 0)),
+      freeShippingThreshold: String(Number(rule.freeShippingThreshold || 0)),
+      minOrderValue: String(Number(rule.minOrderValue || 0)),
       isActive: Boolean(rule.isActive),
       notes: rule.notes || "",
     });
@@ -211,11 +219,11 @@ export function AdminShippingConfigPage() {
       if (!Number.isFinite(payload.pricePerKg) || payload.pricePerKg < 0) {
         throw new Error("Price per kg must be a valid number");
       }
-      if (!Number.isFinite(payload.minWeight) || payload.minWeight < 0.1) {
-        throw new Error("Min weight must be at least 0.1");
+      if (!Number.isFinite(payload.minWeight) || payload.minWeight < 0.001) {
+        throw new Error("Min weight must be at least 0.001");
       }
-      if (!Number.isFinite(payload.maxWeight) || payload.maxWeight < 0.1) {
-        throw new Error("Max weight must be at least 0.1");
+      if (!Number.isFinite(payload.maxWeight) || payload.maxWeight < 0.001) {
+        throw new Error("Max weight must be at least 0.001");
       }
       if (payload.minWeight >= payload.maxWeight) {
         throw new Error("Min weight must be less than max weight");
@@ -555,7 +563,7 @@ export function AdminShippingConfigPage() {
                     name="baseWeight"
                     value={formData.baseWeight}
                     onChange={handleFormChange}
-                    step="0.01"
+                    step="0.001"
                     min="0"
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
                   />
@@ -581,7 +589,7 @@ export function AdminShippingConfigPage() {
                     name="pricePerKg"
                     value={formData.pricePerKg}
                     onChange={handleFormChange}
-                    step="0.01"
+                    step="0.1"
                     min="0"
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
                   />
@@ -594,8 +602,8 @@ export function AdminShippingConfigPage() {
                     name="minWeight"
                     value={formData.minWeight}
                     onChange={handleFormChange}
-                    step="0.01"
-                    min="0.1"
+                    step="0.001"
+                    min="0.001"
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
                   />
                 </div>
@@ -607,8 +615,8 @@ export function AdminShippingConfigPage() {
                     name="maxWeight"
                     value={formData.maxWeight}
                     onChange={handleFormChange}
-                    step="0.01"
-                    min="0.1"
+                    step="0.001"
+                    min="0.001"
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
                   />
                 </div>
@@ -691,8 +699,8 @@ export function AdminShippingConfigPage() {
                   type="number"
                   value={previewWeight}
                   onChange={(event) => setPreviewWeight(event.target.value)}
-                  step="0.01"
-                  min="0.1"
+                  step="0.001"
+                  min="0.001"
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
                 />
               </div>
@@ -723,7 +731,7 @@ export function AdminShippingConfigPage() {
                     </div>
                     <p className="mt-2 text-sm text-slate-600">
                       Base Rs. {Number(preview.breakdown?.basePrice || 0).toFixed(2)} for first{" "}
-                      {Number(preview.breakdown?.baseWeight || 0).toFixed(2)}kg, plus Rs.{" "}
+                      {formatKg(preview.breakdown?.baseWeight || 0)}kg, plus Rs.{" "}
                       {Number(preview.breakdown?.pricePerKg || 0).toFixed(2)} per extra kg.
                     </p>
                   </div>
@@ -761,10 +769,10 @@ export function AdminShippingConfigPage() {
                         <td className="px-6 py-4 text-sm text-gray-800">{rule.state}</td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{rule.zone}</td>
                         <td className="px-6 py-4 text-sm text-gray-800">
-                          {rule.minWeight}kg - {rule.maxWeight}kg
+                          {formatKg(rule.minWeight)}kg - {formatKg(rule.maxWeight)}kg
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-800">Rs. {rule.basePrice}</td>
-                        <td className="px-6 py-4 text-sm text-gray-800">Rs. {rule.pricePerKg}</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">Rs. {Number(rule.basePrice).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">Rs. {Number(rule.pricePerKg).toFixed(2)}</td>
                         <td className="px-6 py-4 text-sm">
                           <span
                             className={`rounded px-2 py-1 text-xs font-medium ${
