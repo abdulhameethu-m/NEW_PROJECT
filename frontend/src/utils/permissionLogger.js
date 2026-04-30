@@ -10,12 +10,14 @@ const LOG_LEVELS = {
   ERROR: "ERROR",
 };
 
+const isDev = import.meta.env.DEV;
+
 function formatPermissions(permissions) {
   if (!permissions) return "{}";
   return Object.entries(permissions)
     .map(([module, actions]) => {
       const granted = Object.entries(actions || {})
-        .filter(([, granted]) => granted)
+        .filter(([, allowed]) => allowed)
         .map(([action]) => action)
         .join(",");
       return `${module}:[${granted}]`;
@@ -23,10 +25,8 @@ function formatPermissions(permissions) {
     .join("|");
 }
 
-const isDev = process.env.NODE_ENV !== "production";
-
 function log(level, context, message, data = {}) {
-  if (!isDev && level === LOG_LEVELS.DEBUG) return; // Skip debug logs in production
+  if (!isDev && level === LOG_LEVELS.DEBUG) return;
 
   const timestamp = new Date().toISOString();
   const prefix = `[${timestamp}] [${level}] [${context}]`;
@@ -41,10 +41,8 @@ function log(level, context, message, data = {}) {
   }
 }
 
-// ========== AUTHENTICATION LOGS ==========
-
 export function logLogin(email, roleId, permissions) {
-  log(LOG_LEVELS.INFO, "AUTH_LOGIN", `Staff logged in`, {
+  log(LOG_LEVELS.INFO, "AUTH_LOGIN", "Staff logged in", {
     email,
     roleId,
     permissions: formatPermissions(permissions),
@@ -52,19 +50,17 @@ export function logLogin(email, roleId, permissions) {
 }
 
 export function logLogout(email) {
-  log(LOG_LEVELS.INFO, "AUTH_LOGOUT", `Staff logged out`, {
+  log(LOG_LEVELS.INFO, "AUTH_LOGOUT", "Staff logged out", {
     email,
   });
 }
 
-// ========== PERMISSION SYNC LOGS ==========
-
 export function logPermissionSyncStart() {
-  log(LOG_LEVELS.DEBUG, "PERMISSION_SYNC", `Starting permission sync...`);
+  log(LOG_LEVELS.DEBUG, "PERMISSION_SYNC", "Starting permission sync...");
 }
 
 export function logPermissionSyncSuccess(email, permissions, syncedAt) {
-  log(LOG_LEVELS.INFO, "PERMISSION_SYNC", `Permission sync successful`, {
+  log(LOG_LEVELS.INFO, "PERMISSION_SYNC", "Permission sync successful", {
     email,
     permissions: formatPermissions(permissions),
     syncedAt,
@@ -72,7 +68,7 @@ export function logPermissionSyncSuccess(email, permissions, syncedAt) {
 }
 
 export function logPermissionSyncFailed(email, error) {
-  log(LOG_LEVELS.WARN, "PERMISSION_SYNC", `Permission sync failed`, {
+  log(LOG_LEVELS.WARN, "PERMISSION_SYNC", "Permission sync failed", {
     email,
     error: error?.message || String(error),
   });
@@ -82,13 +78,11 @@ export function logPeriodicSync(interval) {
   log(LOG_LEVELS.DEBUG, "PERMISSION_SYNC", `Periodic sync scheduled every ${interval}ms`);
 }
 
-// ========== PERMISSION CHECK LOGS ==========
-
 export function logPermissionCheck(permission, granted, availablePermissions) {
   log(
     granted ? LOG_LEVELS.DEBUG : LOG_LEVELS.WARN,
     "PERMISSION_CHECK",
-    `Permission check: ${permission} - ${granted ? "✓ GRANTED" : "✗ DENIED"}`,
+    `Permission check: ${permission} - ${granted ? "GRANTED" : "DENIED"}`,
     {
       permission,
       granted,
@@ -101,7 +95,7 @@ export function logModuleAccess(moduleName, permission, granted) {
   log(
     granted ? LOG_LEVELS.DEBUG : LOG_LEVELS.WARN,
     "MODULE_ACCESS",
-    `Module access: ${moduleName} - ${granted ? "✓ ALLOWED" : "✗ DENIED"}`,
+    `Module access: ${moduleName} - ${granted ? "ALLOWED" : "DENIED"}`,
     {
       moduleName,
       permission,
@@ -110,13 +104,11 @@ export function logModuleAccess(moduleName, permission, granted) {
   );
 }
 
-// ========== ROUTE NAVIGATION LOGS ==========
-
 export function logRouteNavigation(route, permission, allowed) {
   log(
     allowed ? LOG_LEVELS.DEBUG : LOG_LEVELS.WARN,
     "ROUTE_NAVIGATION",
-    `Navigation to ${route} - ${allowed ? "✓ ALLOWED" : "✗ BLOCKED"}`,
+    `Navigation to ${route} - ${allowed ? "ALLOWED" : "BLOCKED"}`,
     {
       route,
       permission,
@@ -132,20 +124,16 @@ export function logUnauthorizedAccess(route, permission) {
   });
 }
 
-// ========== STATE UPDATE LOGS ==========
-
 export function logStateUpdate(stateName, oldValue, newValue) {
   const changed = JSON.stringify(oldValue) !== JSON.stringify(newValue);
   if (changed) {
     log(LOG_LEVELS.DEBUG, "STATE_UPDATE", `Auth state updated - ${stateName}`, {
       stateName,
-      oldValue: typeof oldValue === "object" ? Object.keys(oldValue) : oldValue,
-      newValue: typeof newValue === "object" ? Object.keys(newValue) : newValue,
+      oldValue: typeof oldValue === "object" ? Object.keys(oldValue || {}) : oldValue,
+      newValue: typeof newValue === "object" ? Object.keys(newValue || {}) : newValue,
     });
   }
 }
-
-// ========== ERROR LOGS ==========
 
 export function logAuthError(error, context = "") {
   log(LOG_LEVELS.ERROR, "AUTH_ERROR", `Authentication error ${context}`, {
@@ -159,8 +147,6 @@ export function logPermissionError(error, context = "") {
     error: error?.message || String(error),
   });
 }
-
-// ========== PERFORMANCE LOGS ==========
 
 export function logSyncPerformance(duration, status) {
   log(LOG_LEVELS.DEBUG, "PERFORMANCE", `Permission sync completed in ${duration}ms - ${status}`);

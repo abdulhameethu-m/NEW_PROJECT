@@ -135,7 +135,6 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
             <div className={`flex px-2 py-2 will-change-none transition-all duration-300 gap-${isScrolled ? "1" : "4"}`}>
               {categoryList.map((category) => {
                 const isSelected = selectedCategory?.id === category.id || selectedCategory?.slug === category.slug;
-                const isHovered = hoveredCategoryId === category.id;
                 
                 // Scrolled mode: compact text-only buttons
                 if (isScrolled) {
@@ -233,7 +232,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
                   <div className="px-6 py-8 text-center text-sm text-slate-500 dark:text-slate-400">Loading...</div>
                 ) : (subcategories[hoveredCategoryId] || []).length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0">
-                    {(subcategories[hoveredCategoryId] || []).map((subcategory, index) => (
+                    {(subcategories[hoveredCategoryId] || []).map((subcategory) => (
                       <button
                         key={subcategory._id || subcategory.id}
                         type="button"

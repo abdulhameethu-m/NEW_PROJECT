@@ -24,7 +24,7 @@ export function useAdminSidebarData() {
         setEnabledModules(
           Object.fromEntries(modules.map((module) => [module.key, module.enabled === true]))
         );
-      } catch (error) {
+      } catch {
         if (!active) return;
         setEnabledModules({});
       } finally {

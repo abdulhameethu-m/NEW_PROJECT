@@ -596,6 +596,36 @@ class ProductRepository {
     await product.save();
     return product;
   }
+
+  async restoreSale(productId, quantity, amount, variantId = "") {
+    if (!variantId) {
+      return await Product.findByIdAndUpdate(
+        productId,
+        {
+          $inc: {
+            "analytics.salesCount": -quantity,
+            "analytics.totalRevenue": -amount,
+            stock: quantity,
+          },
+        },
+        { new: true }
+      );
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) return null;
+    const variant = Array.isArray(product.variants)
+      ? product.variants.find((item) => item.variantId === variantId)
+      : null;
+    if (variant) {
+      variant.stock = Number(variant.stock || 0) + quantity;
+    }
+    product.stock = Number(product.stock || 0) + quantity;
+    product.analytics.salesCount = Math.max(0, Number(product.analytics?.salesCount || 0) - quantity);
+    product.analytics.totalRevenue = Math.max(0, Number(product.analytics?.totalRevenue || 0) - amount);
+    await product.save();
+    return product;
+  }
 }
 
 module.exports = new ProductRepository();

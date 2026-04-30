@@ -27,7 +27,7 @@ export function Layout() {
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
   const [cartCount, setCartCount] = useState(0);
-  const { categories, loading: categoriesLoading } = useCategories();
+  const { categories } = useCategories();
   const presentedCategories = usePresentedCategories(categories);
   const isAdminRoute =
     location.pathname === "/dashboard/admin" ||

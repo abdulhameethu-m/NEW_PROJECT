@@ -11,6 +11,8 @@ const PAYMENT_STATUS = [
   "PARTIALLY_REFUNDED",
 ];
 
+const FULFILLMENT_STATUS = ["PENDING", "PROCESSING", "COMPLETED", "FAILED"];
+
 const paymentSchema = new mongoose.Schema(
   {
     userId: {
@@ -45,6 +47,15 @@ const paymentSchema = new mongoose.Schema(
       default: "CREATED",
       index: true,
     },
+    fulfillmentStatus: {
+      type: String,
+      enum: FULFILLMENT_STATUS,
+      default: "PENDING",
+      index: true,
+    },
+    fulfillmentStartedAt: { type: Date },
+    fulfilledAt: { type: Date },
+    fulfillmentError: { type: String, trim: true, maxlength: 500 },
     receipt: {
       type: String,
       trim: true,
@@ -113,4 +124,5 @@ module.exports = {
   Payment: mongoose.model("Payment", paymentSchema),
   PAYMENT_METHODS,
   PAYMENT_STATUS,
+  FULFILLMENT_STATUS,
 };

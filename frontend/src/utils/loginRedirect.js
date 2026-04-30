@@ -6,6 +6,7 @@
  */
 
 const STORAGE_KEY = "redirectAfterLogin";
+const isDev = import.meta.env.DEV;
 
 /**
  * Safe URLs that are allowed for redirects
@@ -76,7 +77,7 @@ export function saveRedirectAfterLogin(url) {
     localStorage.setItem(STORAGE_KEY, target);
   } catch (error) {
     // Silently fail
-    if (process.env.NODE_ENV === "development") {
+    if (isDev) {
       console.debug("Failed to save redirect URL:", error);
     }
   }
@@ -109,7 +110,7 @@ export function consumeRedirectAfterLogin() {
     return null;
   } catch (error) {
     // Silently fail
-    if (process.env.NODE_ENV === "development") {
+    if (isDev) {
       console.debug("Failed to consume redirect URL:", error);
     }
     return null;
@@ -127,7 +128,7 @@ export function clearRedirectAfterLogin() {
     window.sessionStorage.removeItem(STORAGE_KEY);
   } catch (error) {
     // Silently fail
-    if (process.env.NODE_ENV === "development") {
+    if (isDev) {
       console.debug("Failed to clear redirect URL:", error);
     }
   }

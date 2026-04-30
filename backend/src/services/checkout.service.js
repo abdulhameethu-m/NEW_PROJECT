@@ -49,6 +49,34 @@ function generateOrderGroupId() {
   return `grp_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 }
 
+function roundMoney(value) {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function getChargeAmount(charges = [], predicate) {
+  const charge = Array.isArray(charges) ? charges.find(predicate) : null;
+  return roundMoney(charge?.amount || 0);
+}
+
+function buildSummaryShape({ currency, sellers, subtotal, charges, chargesTotal, total, itemCount, shipping }) {
+  return {
+    currency,
+    sellers,
+    subtotal: roundMoney(subtotal),
+    charges,
+    chargesTotal: roundMoney(chargesTotal),
+    total: roundMoney(total),
+    itemCount,
+    shipping,
+    shippingFee: getChargeAmount(charges, (charge) => charge?.key === "shipping_cost"),
+    taxAmount: getChargeAmount(
+      charges,
+      (charge) => charge?.key === "tax" || String(charge?.category || "").toUpperCase() === "TAX"
+    ),
+    totalAmount: roundMoney(total),
+  };
+}
+
 function getProductWeightSnapshot(product, variant = null) {
   if (variant?.weight && typeof variant.weight === "object" && Number(variant.weight.value) > 0) {
     return {
@@ -214,7 +242,7 @@ class CheckoutService {
       pricingBreakdown = await pricingService.calculateOrderTotal(subtotal, totalItemCount);
     }
 
-    return {
+    return buildSummaryShape({
       currency: currency || cart.currency || "INR",
       sellers,
       subtotal,
@@ -223,7 +251,7 @@ class CheckoutService {
       total: pricingBreakdown.total,
       itemCount: totalItemCount,
       shipping: shippingData,
-    };
+    });
   }
 
   async createOrder(
@@ -399,62 +427,118 @@ class CheckoutService {
       });
     }
 
-    const orders = await orderRepo.createMany(orderPayloads);
-
+    const inventoryAdjustments = [];
+    let orders = [];
     let payment = null;
-    if (paymentRecordId) {
-      payment = await paymentRepo.updateById(paymentRecordId, {
-        $set: {
+    const payouts = [];
+
+    try {
+      for (const item of validated) {
+        await productRepo.recordSale(item.productId, item.quantity, item.price * item.quantity, item.variantId);
+        inventoryAdjustments.push(item);
+      }
+
+      orders = await orderRepo.createMany(orderPayloads);
+
+      if (paymentRecordId) {
+        payment = await paymentRepo.updateById(paymentRecordId, {
+          $set: {
+            orderIds: orders.map((order) => order._id),
+            orderGroupId: resolvedGroupId,
+            shippingAddress,
+            status: resolvedPaymentStatus === "Paid" ? "PAID" : "PENDING",
+            fulfillmentStatus: "COMPLETED",
+            fulfilledAt: new Date(),
+            razorpayOrderId: razorpayOrderId || undefined,
+            razorpayPaymentId: razorpayPaymentId || undefined,
+            paidAt: resolvedPaymentStatus === "Paid" ? new Date() : undefined,
+          },
+          $unset: {
+            fulfillmentError: 1,
+          },
+        });
+      } else if (paymentMethod === "COD") {
+        const totalAmount = orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+        payment = await paymentRepo.create({
+          userId,
           orderIds: orders.map((order) => order._id),
           orderGroupId: resolvedGroupId,
+          amount: totalAmount,
+          currency: "INR",
+          method: "COD",
+          status: "PENDING",
+          fulfillmentStatus: "COMPLETED",
+          fulfilledAt: new Date(),
           shippingAddress,
-          status: resolvedPaymentStatus === "Paid" ? "PAID" : "PENDING",
-          razorpayOrderId: razorpayOrderId || undefined,
-          razorpayPaymentId: razorpayPaymentId || undefined,
-          paidAt: resolvedPaymentStatus === "Paid" ? new Date() : undefined,
-        },
-      });
-    } else if (paymentMethod === "COD") {
-      const totalAmount = orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
-      payment = await paymentRepo.create({
-        userId,
-        orderIds: orders.map((order) => order._id),
-        orderGroupId: resolvedGroupId,
-        amount: totalAmount,
-        currency: "INR",
-        method: "COD",
-        status: "PENDING",
-        shippingAddress,
-        amountBreakdown: {
-          subtotal: overallSubtotal,
-          shippingFee: Math.round(shippingFee * 100) / 100,
-          taxAmount: 0,
-          totalAmount,
-        },
-      });
+          amountBreakdown: {
+            subtotal: roundMoney(overallSubtotal),
+            shippingFee: roundMoney(shippingFee),
+            taxAmount: roundMoney(taxCharge?.amount || 0),
+            totalAmount: roundMoney(totalAmount),
+          },
+        });
+
+        for (const order of orders) {
+          await orderRepo.updateById(order._id, { paymentRecordId: payment._id, orderGroupId: resolvedGroupId });
+        }
+      }
 
       for (const order of orders) {
-        await orderRepo.updateById(order._id, { paymentRecordId: payment._id, orderGroupId: resolvedGroupId });
+        const payout = await payoutRepo.create({
+          sellerId: order.sellerId,
+          orderId: order._id,
+          amount: order.totalAmount,
+          commission: order.platformCommissionAmount,
+          netAmount: order.vendorEarning,
+          status: "ON_HOLD",
+          notes: "Awaiting delivery confirmation and payout eligibility window.",
+        });
+        payouts.push(payout);
       }
+
+      await cartRepo.clear(userId);
+
+      return { orders, payouts, payment, orderGroupId: resolvedGroupId };
+    } catch (error) {
+      for (const payout of payouts) {
+        await payoutRepo
+          .updateById(payout._id, {
+            $set: {
+              status: "CANCELLED",
+              notes: "Rolled back after order creation failure.",
+            },
+          })
+          .catch(() => {});
+      }
+
+      if (orders.length === 0 && paymentMethod === "COD" && payment?._id) {
+        await paymentRepo
+          .updateById(payment._id, {
+            $set: {
+              status: "FAILED",
+              fulfillmentStatus: "FAILED",
+              fulfillmentError: error.message,
+              failedAt: new Date(),
+            },
+          })
+          .catch(() => {});
+      } else if (orders.length === 0 && paymentRecordId) {
+        await paymentRepo
+          .updateById(paymentRecordId, {
+            $set: {
+              fulfillmentStatus: "FAILED",
+              fulfillmentError: error.message,
+            },
+          })
+          .catch(() => {});
+      }
+
+      for (const item of inventoryAdjustments.reverse()) {
+        await productRepo.restoreSale(item.productId, item.quantity, item.price * item.quantity, item.variantId).catch(() => {});
+      }
+
+      throw error;
     }
-
-    const payouts = [];
-    for (const order of orders) {
-      const payout = await payoutRepo.create({
-        sellerId: order.sellerId,
-        orderId: order._id,
-        amount: order.totalAmount,
-        commission: order.platformCommissionAmount,
-        netAmount: order.vendorEarning,
-        status: "ON_HOLD",
-        notes: "Awaiting delivery confirmation and payout eligibility window.",
-      });
-      payouts.push(payout);
-    }
-
-    await cartRepo.clear(userId);
-
-    return { orders, payouts, payment, orderGroupId: resolvedGroupId };
   }
 }
 

@@ -8,7 +8,7 @@ function normalizeError(error) {
 
 export function StaffAnalyticsPage() {
   useRequirePermission("analytics.read");
-  const { hasPermission } = useStaffPermission();
+  useStaffPermission();
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

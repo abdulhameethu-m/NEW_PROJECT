@@ -114,9 +114,19 @@ export function buildPriceBreakdown(summary) {
     return sum + original * Number(item?.quantity || 0);
   }, 0);
   const subtotal = Number(summary?.subtotal || 0);
-  const shippingFee = Number(summary?.shippingFee || 0);
-  const taxAmount = Number(summary?.taxAmount || 0);
-  const totalAmount = Number(summary?.totalAmount || subtotal + shippingFee + taxAmount);
+  const charges = Array.isArray(summary?.charges) ? summary.charges : [];
+  const shippingFee = Number(
+    summary?.shippingFee ||
+      charges.find((charge) => charge?.key === "shipping_cost")?.amount ||
+      summary?.shipping?.cost ||
+      0
+  );
+  const taxAmount = Number(
+    summary?.taxAmount ||
+      charges.find((charge) => charge?.key === "tax" || String(charge?.category || "").toUpperCase() === "TAX")?.amount ||
+      0
+  );
+  const totalAmount = Number(summary?.totalAmount || summary?.total || subtotal + shippingFee + taxAmount);
   const discount = Math.max((mrp || subtotal) - subtotal, 0);
 
   return {

@@ -1,33 +1,11 @@
 const mongoose = require("mongoose");
 const { AppError } = require("../utils/AppError");
-const cartRepo = require("../repositories/cart.repository");
 const orderRepo = require("../repositories/order.repository");
-const productRepo = require("../repositories/product.repository");
+const payoutRepo = require("../repositories/payout.repository");
 const vendorRepo = require("../repositories/vendor.repository");
 const productService = require("./product.service");
 const { ORDER_STATUS, PAYMENT_STATUS } = require("../models/Order");
-const { resolveVendorShippingModes } = require("./shipping.service");
-
-function asObjectId(id, fieldName) {
-  if (!mongoose.isValidObjectId(id)) throw new AppError(`Invalid ${fieldName}`, 400, "VALIDATION_ERROR");
-  return id;
-}
-
-function generateOrderNumber() {
-  const ts = Date.now();
-  const rand = Math.random().toString(16).slice(2, 8).toUpperCase();
-  return `ORD-${ts}-${rand}`;
-}
-
-function groupBySeller(items = []) {
-  const map = new Map();
-  for (const it of items) {
-    const key = String(it.sellerId);
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(it);
-  }
-  return map;
-}
+const checkoutService = require("./checkout.service");
 
 function normalizeAddress(address) {
   const a = address || {};
@@ -44,158 +22,23 @@ function normalizeAddress(address) {
   };
 }
 
-async function resolveSellerIdForProduct(product) {
-  if (product?.sellerId) return product.sellerId;
-  if (product?.creatorType === "ADMIN" && product?.createdBy?._id) {
-    const vendor = await vendorRepo.upsertByUserId(product.createdBy._id, {
-      status: "approved",
-      stepCompleted: 4,
-      companyName: "Platform Store",
-      shopName: "Platform Store",
-      storeDescription: "Products sold directly by the platform.",
-    });
-    return vendor._id;
-  }
-  return null;
-}
-
-function resolveVariant(product, variantId = "") {
-  const variants = Array.isArray(product?.variants) ? product.variants : [];
-  if (!variants.length) return null;
-  if (!variantId) {
-    return (
-      variants.find((item) => item.isDefault && item.isActive && item.stock > 0) ||
-      variants.find((item) => item.isActive && item.stock > 0) ||
-      variants.find((item) => item.isActive) ||
-      null
-    );
-  }
-  return variants.find((item) => item.variantId === variantId && item.isActive) || null;
-}
-
-function getProductWeightSnapshot(product, variant = null) {
-  if (variant?.weight && typeof variant.weight === "object" && Number(variant.weight.value) > 0) {
-    return {
-      value: Number(variant.weight.value),
-      unit: variant.weight.unit || "kg",
-    };
-  }
-  if (product?.weight && typeof product.weight === "object" && Number(product.weight.value) > 0) {
-    return {
-      value: Number(product.weight.value),
-      unit: product.weight.unit || "kg",
-    };
-  }
-  if (typeof product?.weight === "number" && product.weight > 0) {
-    return {
-      value: Number(product.weight),
-      unit: "kg",
-    };
-  }
-  return undefined;
+function asObjectId(id, fieldName) {
+  if (!mongoose.isValidObjectId(id)) throw new AppError(`Invalid ${fieldName}`, 400, "VALIDATION_ERROR");
+  return id;
 }
 
 class OrderService {
   async createFromCart(userId, { address, currency } = {}) {
-    const cart = await cartRepo.findByUserId(userId);
-    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
-      throw new AppError("Cart is empty", 400, "EMPTY_CART");
+    const shippingAddress = normalizeAddress(address);
+    if (!shippingAddress?.fullName || !shippingAddress?.line1 || !shippingAddress?.postalCode) {
+      throw new AppError("Shipping address is required", 400, "MISSING_ADDRESS");
     }
 
-    // Validate stock & product availability for each item (fresh read).
-    const validated = [];
-    for (const item of cart.items) {
-      asObjectId(item.productId, "productId");
-      const product = await productRepo.findById(item.productId);
-      if (!product) throw new AppError("Product not found", 404, "NOT_FOUND");
-      if (product.status !== "APPROVED" || product.isActive !== true) {
-        throw new AppError(`Product not available: ${product.name}`, 400, "NOT_AVAILABLE");
-      }
-      const variant = resolveVariant(product, item.variantId);
-      const availableStock = variant ? Number(variant.stock || 0) : Number(product.stock || 0);
-      if (availableStock < item.quantity) {
-        throw new AppError(`Out of stock: ${product.name}`, 400, "INSUFFICIENT_STOCK");
-      }
-      const resolvedSellerId = await resolveSellerIdForProduct(product);
-      if (!resolvedSellerId) throw new AppError("Seller not found for product", 400, "INVALID_PRODUCT");
-
-      validated.push({
-        product,
-        productId: product._id,
-        sellerId: resolvedSellerId,
-        quantity: item.quantity,
-        // snapshot price (refresh to current unit price at checkout time)
-        price: Number(variant?.discountPrice || variant?.price || product.discountPrice || product.price || 0),
-        variantId: variant?.variantId || item.variantId || "",
-        variantSku: variant?.sku || item.variantSku || "",
-        variantTitle: variant?.title || item.variantTitle || "",
-        variantAttributes: variant?.attributes || item.variantAttributes || {},
-        weight: getProductWeightSnapshot(product, variant),
-      });
-    }
-
-    // "Lock" inventory by decrementing stock right away (simple and consistent with current schema).
-    // If any decrement fails mid-way, we fail fast (no transaction). In production you'd use a Mongo transaction or stock reservations.
-    for (const it of validated) {
-      await productService.recordSale(it.productId, it.quantity, it.price * it.quantity, it.variantId);
-    }
-
-    const bySeller = groupBySeller(validated);
-    const now = new Date();
-
-    const orderPayloads = Array.from(bySeller.entries()).map(([sellerId, items]) => {
-      const sellerItems = { sellerId, items };
-      return sellerItems;
+    return await checkoutService.createOrder(userId, {
+      shippingAddress,
+      paymentMethod: "COD",
+      currency,
     });
-
-    const preparedPayloads = [];
-    for (const sellerGroup of orderPayloads) {
-      const vendor = await vendorRepo.findById(sellerGroup.sellerId);
-      const vendorShipping = await resolveVendorShippingModes(vendor);
-      const items = sellerGroup.items;
-      const orderItems = items.map((it) => ({
-        productId: it.productId,
-        name: it.product.name,
-        price: it.price,
-        quantity: it.quantity,
-        image:
-          it.product.variants?.find((variant) => variant.variantId === it.variantId)?.images?.find((image) => image.isPrimary)?.url ||
-          it.product.variants?.find((variant) => variant.variantId === it.variantId)?.images?.[0]?.url ||
-          (Array.isArray(it.product.images) && it.product.images.length ? it.product.images[0]?.url : undefined),
-        variantId: it.variantId,
-        variantSku: it.variantSku,
-        variantTitle: it.variantTitle,
-        variantAttributes: it.variantAttributes,
-        weight: it.weight,
-      }));
-
-      const subtotal = orderItems.reduce((sum, it) => sum + it.price * it.quantity, 0);
-      preparedPayloads.push({
-        orderNumber: generateOrderNumber(),
-        userId,
-        sellerId: sellerGroup.sellerId,
-        items: orderItems,
-        subtotal,
-        shippingFee: 0,
-        taxAmount: 0,
-        totalAmount: subtotal,
-        currency: currency || cart.currency || "INR",
-        status: "Pending",
-        paymentStatus: "Pending",
-        shippingMode: vendorShipping.defaultShippingMode,
-        shippingStatus: "NOT_SHIPPED",
-        pickupStatus: "NOT_REQUESTED",
-        shippingAddress: normalizeAddress(address),
-        timeline: [{ status: "Pending", note: "Order placed", changedAt: now }],
-      });
-    }
-
-    const created = await orderRepo.createMany(preparedPayloads);
-
-    // Clear cart after successful order writes.
-    await cartRepo.clear(userId);
-
-    return created;
   }
 
   async listForUser(userId, { page, limit, status } = {}) {
@@ -221,6 +64,45 @@ class OrderService {
     if (!["Pending", "Placed"].includes(order.status)) {
       throw new AppError("Order cannot be cancelled at this stage", 400, "INVALID_OPERATION");
     }
+    if (order.paymentStatus === "Partially Refunded") {
+      throw new AppError("This order already has a partial refund and needs manual review", 400, "MANUAL_REVIEW_REQUIRED");
+    }
+
+    if (order.paymentStatus === "Paid" && order.paymentRecordId) {
+      const paymentService = require("./payment.service");
+      await paymentService.processRefund({
+        orderId: order._id,
+        paymentId: order.paymentRecordId._id || order.paymentRecordId,
+        amount: Number(order.totalAmount || 0),
+        reason: "Order cancelled by customer before dispatch",
+        actorRole: "system",
+        notes: "Auto-refund triggered during order cancellation.",
+      });
+    }
+
+    for (const item of order.items || []) {
+      await productService.restoreSale(
+        item.productId?._id || item.productId,
+        Number(item.quantity || 0),
+        Number(item.price || 0) * Number(item.quantity || 0),
+        item.variantId || ""
+      );
+    }
+
+    const payouts = await payoutRepo.findByOrderId(order._id);
+    await Promise.all(
+      payouts
+        .filter((payout) => ["ON_HOLD", "PENDING", "QUEUED"].includes(payout.status))
+        .map((payout) =>
+          payoutRepo.updateById(payout._id, {
+            $set: {
+              status: "CANCELLED",
+              notes: "Cancelled because the order was cancelled before fulfillment.",
+            },
+          })
+        )
+    );
+
     return await orderRepo.updateStatus(orderId, "Cancelled");
   }
 
@@ -231,6 +113,53 @@ class OrderService {
     if (order.status !== "Delivered") {
       throw new AppError("Only delivered orders can be returned", 400, "INVALID_OPERATION");
     }
+    const payouts = await payoutRepo.findByOrderId(order._id);
+    if (payouts.some((payout) => ["PROCESSING", "PAID"].includes(payout.status))) {
+      throw new AppError(
+        "This delivered order has already entered vendor settlement and needs manual support review",
+        400,
+        "MANUAL_REVIEW_REQUIRED"
+      );
+    }
+
+    if (order.paymentStatus === "Partially Refunded") {
+      throw new AppError("This order already has a partial refund and needs manual review", 400, "MANUAL_REVIEW_REQUIRED");
+    }
+
+    if (order.paymentStatus === "Paid" && order.paymentRecordId) {
+      const paymentService = require("./payment.service");
+      await paymentService.processRefund({
+        orderId: order._id,
+        paymentId: order.paymentRecordId._id || order.paymentRecordId,
+        amount: Number(order.totalAmount || 0),
+        reason: "Order returned by customer",
+        actorRole: "system",
+        notes: "Auto-refund triggered during return processing.",
+      });
+    }
+
+    for (const item of order.items || []) {
+      await productService.restoreSale(
+        item.productId?._id || item.productId,
+        Number(item.quantity || 0),
+        Number(item.price || 0) * Number(item.quantity || 0),
+        item.variantId || ""
+      );
+    }
+
+    await Promise.all(
+      payouts
+        .filter((payout) => ["ON_HOLD", "PENDING", "QUEUED"].includes(payout.status))
+        .map((payout) =>
+          payoutRepo.updateById(payout._id, {
+            $set: {
+              status: "CANCELLED",
+              notes: "Cancelled because the order was returned before payout settlement.",
+            },
+          })
+        )
+    );
+
     return await orderRepo.updateStatus(orderId, "Returned");
   }
 

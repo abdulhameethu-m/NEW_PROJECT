@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { useAccessibleVendorModules } from "../hooks/useVendorModules";
 
 // Create context
@@ -14,7 +14,7 @@ export function VendorModuleProvider({ children }) {
     [modules]
   );
   const canAccessAction = useMemo(
-    () => (moduleKey, action = "read") => {
+    () => (moduleKey) => {
       const module = moduleMap[moduleKey];
       if (!module) {
         return false;

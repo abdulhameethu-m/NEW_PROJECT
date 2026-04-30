@@ -110,7 +110,7 @@ export function CompactPriceBreakdown({ subtotal, itemCount = 1, currencySymbol 
       try {
         const result = await pricingService.calculateOrderTotal(subtotal, itemCount);
         setBreakdown(result.data || result);
-      } catch (err) {
+      } catch {
         setBreakdown(null);
       } finally {
         setLoading(false);
@@ -169,7 +169,7 @@ export function ExpandablePriceBreakdown({ subtotal, itemCount = 1, currencySymb
       try {
         const result = await pricingService.calculateOrderTotal(subtotal, itemCount);
         setBreakdown(result.data || result);
-      } catch (err) {
+      } catch {
         setBreakdown(null);
       } finally {
         setLoading(false);

@@ -662,6 +662,15 @@ class ProductService {
 
     return await productRepo.recordSale(productId, quantity, amount, variantId);
   }
+
+  async restoreSale(productId, quantity, amount, variantId = "") {
+    const product = await productRepo.findById(productId);
+    if (!product) {
+      throw new AppError("Product not found", 404, "NOT_FOUND");
+    }
+
+    return await productRepo.restoreSale(productId, quantity, amount, variantId);
+  }
 }
 
 module.exports = new ProductService();

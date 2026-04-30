@@ -4,6 +4,7 @@ const paymentRepo = require("../repositories/payment.repository");
 const refundRepo = require("../repositories/refund.repository");
 const webhookEventRepo = require("../repositories/webhook-event.repository");
 const orderRepo = require("../repositories/order.repository");
+const paymentService = require("./payment.service");
 const payoutService = require("./payout.service");
 const { applyShippingLifecycle } = require("./shipping.service");
 const logisticsService = require("./logistics.service");
@@ -61,6 +62,14 @@ class WebhookService {
                 paymentCapturedAt: new Date(),
               });
             }
+          } else {
+            await paymentService.fulfillPaidPayment({
+              paymentId: payment._id,
+              userId: payment.userId?._id || payment.userId,
+              shippingAddress: payment.shippingAddress,
+              razorpayOrderId: paymentEntity.order_id,
+              razorpayPaymentId: paymentEntity.id,
+            });
           }
         }
       }
