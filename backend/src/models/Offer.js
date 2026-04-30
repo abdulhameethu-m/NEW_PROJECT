@@ -11,7 +11,7 @@ const offerSchema = new mongoose.Schema(
       index: true,
     },
     title: { type: String, required: true, trim: true, maxlength: 160 },
-    code: { type: String, required: true, trim: true, uppercase: true, maxlength: 40 },
+    code: { type: String, required: true, trim: true, maxlength: 40 },
     description: { type: String, trim: true, maxlength: 600 },
     type: {
       type: String,

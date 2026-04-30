@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Heart,
   MapPin,
@@ -13,20 +13,47 @@ import { UserMenu } from "./UserMenu";
 import { Footer } from "./Footer";
 import { SearchBar } from "./SearchBar";
 import { LocationSelector } from "./LocationSelector";
+import { CategoryNavigation } from "./CategoryNavigation";
 import { useDarkMode } from "../hooks/useDarkMode";
+import { useCategories } from "../hooks/useCategories";
+import { usePresentedCategories } from "../utils/categoryPresentation";
 import * as cartService from "../services/cartService";
 
 export function Layout() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [isDarkMode, setIsDarkMode] = useDarkMode();
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
   const [cartCount, setCartCount] = useState(0);
+  const { categories, loading: categoriesLoading } = useCategories();
+  const presentedCategories = usePresentedCategories(categories);
   const isAdminRoute =
     location.pathname === "/dashboard/admin" ||
     location.pathname.startsWith("/admin");
   const isVendorWorkspace = location.pathname.startsWith("/vendor/");
   const isStaffWorkspace = location.pathname.startsWith("/staff/");
   const showShopActions = user?.role === "user";
+
+  // Detect scroll with requestAnimationFrame for smooth performance
+  useEffect(() => {
+    let ticking = false;
+
+    function handleScroll() {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setIsScrolled(window.scrollY > 50);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const navItems = [
     { label: "Home", href: "/" },
     { label: "Shop", href: "/shop" },
@@ -80,12 +107,14 @@ export function Layout() {
               <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap">
                 <Link
                   to="/"
-                  className="inline-flex min-w-fit items-center gap-3 rounded-full border border-white/60 bg-white/75 px-4 py-2.5 text-base font-semibold tracking-[-0.03em] text-slate-950 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-slate-900/70 dark:text-white"
+                  className={`inline-flex min-w-fit items-center gap-2 rounded-lg border border-white/60 bg-white/75 px-3 py-2 font-semibold tracking-[-0.03em] text-slate-950 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-slate-900/70 dark:text-white transition hover:shadow-lg ${
+                    isScrolled ? "opacity-0 w-0 pointer-events-none" : "opacity-100"
+                  }`}
                 >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 via-violet-500 to-orange-400 text-sm font-bold text-white">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 via-violet-500 to-orange-400 text-xs font-bold text-white">
                     U
                   </span>
-                  UChooseMe
+                  <span className="hidden sm:inline text-sm">UChooseMe</span>
                 </Link>
 
                 <div className="order-3 w-full lg:order-none lg:flex-1">
@@ -193,6 +222,17 @@ export function Layout() {
             </div>
           </div>
         </header>
+      ) : null}
+
+      {!isAdminRoute && !isVendorWorkspace && !isStaffWorkspace ? (
+        <CategoryNavigation 
+          categories={presentedCategories}
+          onSelect={(category) => {
+            setSelectedCategory(category);
+            navigate(`/products?category=${category.slug}`);
+          }}
+          selectedCategory={selectedCategory}
+        />
       ) : null}
 
       <main

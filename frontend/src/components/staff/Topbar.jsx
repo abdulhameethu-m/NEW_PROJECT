@@ -7,11 +7,48 @@ export function StaffTopbar({ user, role, permissions, module, onMenuToggle }) {
   const navigate = useNavigate();
   const logout = useStaffAuthStore((state) => state.logout);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  // Update dropdown position when opened
+  useEffect(() => {
+    function updateDropdownPosition() {
+      if (!triggerRef.current) return;
+
+      const rect = triggerRef.current.getBoundingClientRect();
+      const dropdownHeight = 280; // Approximate dropdown height
+      const viewportHeight = window.innerHeight;
+      
+      // Check if there's enough space below
+      const hasSpaceBelow = rect.bottom + dropdownHeight + 16 < viewportHeight;
+      
+      if (hasSpaceBelow) {
+        // Position below the trigger
+        setDropdownPosition({
+          top: rect.bottom + 8,
+          left: rect.right - 256, // Align right edge (w-64 = 256px)
+        });
+      } else {
+        // Position above the trigger
+        setDropdownPosition({
+          top: rect.top - dropdownHeight - 8,
+          left: rect.right - 256,
+        });
+      }
+    }
+
+    if (dropdownOpen) {
+      updateDropdownPosition();
+      window.addEventListener("resize", updateDropdownPosition);
+      return () => window.removeEventListener("resize", updateDropdownPosition);
+    }
+  }, [dropdownOpen]);
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          triggerRef.current && !triggerRef.current.contains(event.target)) {
         setDropdownOpen(false);
       }
     }
@@ -80,6 +117,7 @@ export function StaffTopbar({ user, role, permissions, module, onMenuToggle }) {
 
           <div className="relative" ref={dropdownRef}>
             <button
+              ref={triggerRef}
               type="button"
               onClick={() => setDropdownOpen((current) => !current)}
               className="flex items-center gap-2 rounded-xl px-3 py-2 hover:bg-slate-100"
@@ -95,7 +133,16 @@ export function StaffTopbar({ user, role, permissions, module, onMenuToggle }) {
             </button>
 
             {dropdownOpen ? (
-              <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg">
+              <div
+                ref={dropdownRef}
+                style={{
+                  position: "fixed",
+                  top: `${dropdownPosition.top}px`,
+                  left: `${dropdownPosition.left}px`,
+                  zIndex: 9999,
+                }}
+                className="w-64 rounded-2xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5"
+              >
                 <div className="border-b border-slate-200 px-4 py-3">
                   <div className="text-sm font-medium text-slate-950">{user?.name || "Staff"}</div>
                   <div className="text-xs text-slate-500">{user?.email}</div>

@@ -83,12 +83,12 @@ export function ProductCard({ product }) {
       className="group relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/85 shadow-[0_24px_80px_-45px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/80"
     >
       <div className="block">
-        <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-slate-800">
+        <div className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-slate-800">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt={product.name}
-              className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+              className="h-full w-full object-cover object-center transition duration-700 group-hover:scale-105"
               loading="lazy"
             />
           ) : (
@@ -100,9 +100,12 @@ export function ProductCard({ product }) {
 
           <div className="absolute left-4 top-4 flex flex-wrap items-center gap-2">
             {discountPercent > 0 ? (
-              <span className="rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-3 py-1 text-[11px] font-semibold text-white shadow-lg shadow-orange-500/25">
-                {discountPercent}% off
-              </span>
+              <div className="opacity-0 transition duration-300 group-hover:opacity-100">
+                <div className="rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-2 text-center shadow-lg shadow-orange-500/30">
+                  <div className="text-lg font-black text-white">{discountPercent}%</div>
+                  <div className="text-xs font-semibold text-white">OFF</div>
+                </div>
+              </div>
             ) : null}
             {product?.ratings?.averageRating > 0 ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-800 backdrop-blur">

@@ -12,7 +12,6 @@ const pricingCategorySchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      uppercase: true,
       maxlength: 50,
       match: /^[A-Z0-9_]+$/,
       unique: true,

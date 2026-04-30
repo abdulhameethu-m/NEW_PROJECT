@@ -12,7 +12,6 @@ const categorySchema = new mongoose.Schema(
     code: {
       type: String,
       trim: true,
-      uppercase: true,
       maxlength: 10,
     },
     slug: {
@@ -23,6 +22,11 @@ const categorySchema = new mongoose.Schema(
       index: true,
     },
     icon: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    logo: {
       type: String,
       trim: true,
       default: "",

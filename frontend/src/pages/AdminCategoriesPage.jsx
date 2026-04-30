@@ -12,6 +12,7 @@ const initialForm = {
   code: "",
   slug: "",
   icon: "",
+  logo: "",
   color: "",
   order: 0,
   isActive: true,
@@ -62,6 +63,18 @@ export function AdminCategoriesPage() {
     setForm(initialForm);
   }
 
+  function handleLogoUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64String = e.target?.result;
+      setForm((current) => ({ ...current, logo: base64String }));
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setSaving(true);
@@ -97,6 +110,7 @@ export function AdminCategoriesPage() {
       code: category.code || "",
       slug: category.slug || "",
       icon: category.icon || "",
+      logo: category.logo || "",
       color: category.color || "",
       order: category.order || 0,
       isActive: category.isActive !== false,
@@ -104,7 +118,7 @@ export function AdminCategoriesPage() {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
+    <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr] bg-white dark:bg-slate-950">
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div>
           <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Category management</h2>
@@ -132,14 +146,18 @@ export function AdminCategoriesPage() {
                 <div key={category._id} className="grid gap-3 px-4 py-4 lg:grid-cols-[1.2fr_.8fr_.7fr_auto] lg:items-center">
                   <div className="min-w-0">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-lg dark:bg-slate-800">
-                        {category.icon || category.name?.charAt(0) || "C"}
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-lg dark:bg-slate-800 overflow-hidden">
+                        {category.logo ? (
+                          <img src={category.logo} alt={category.name} className="h-full w-full object-cover" />
+                        ) : (
+                          category.icon || category.name?.charAt(0) || "C"
+                        )}
                       </div>
                       <div className="min-w-0">
                         <div className="truncate font-medium text-slate-900 dark:text-white">{category.name}</div>
-            <div className="truncate text-xs text-slate-500 dark:text-slate-400">
-              {category.code || "-"} • {category.slug}
-            </div>
+                        <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                          {category.code || "-"} • {category.slug}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -229,6 +247,23 @@ export function AdminCategoriesPage() {
               />
             </label>
           </div>
+
+          <label className="grid gap-2">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Category Logo</span>
+            <div className="flex items-center gap-3">
+              {form.logo ? (
+                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950">
+                  <img src={form.logo} alt="Category logo preview" className="max-h-full max-w-full rounded" />
+                </div>
+              ) : null}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              />
+            </div>
+          </label>
 
           <label className="grid gap-2">
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Gradient classes</span>

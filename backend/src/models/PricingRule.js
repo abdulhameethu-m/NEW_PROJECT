@@ -112,7 +112,6 @@ const pricingRuleSchema = new mongoose.Schema(
     category: {
       type: String,
       default: "OTHER",
-      uppercase: true,
       trim: true,
       description: "Rule category for organization",
     },

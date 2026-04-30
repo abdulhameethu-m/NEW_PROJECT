@@ -4,6 +4,7 @@ const { verifyAccessToken, verifyStaffAccessToken } = require("../utils/jwt");
 const { Staff } = require("../modules/staff/models/Staff");
 const { StaffSession } = require("../modules/staff/models/StaffSession");
 const { hasStaffPermission } = require("../modules/staff/permissions");
+const { logger } = require("../utils/logger");
 const vendorModuleService = require("../services/vendorModule.service");
 
 function getTokenFromReq(req) {
@@ -16,16 +17,21 @@ function getTokenFromReq(req) {
 
 async function adminWorkspaceAuthRequired(req, res, next) {
   const token = getTokenFromReq(req);
-  if (!token) return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
+  if (!token) {
+    logger.warn("Auth request without token", { path: req.path, method: req.method });
+    return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
+  }
 
   try {
     const payload = verifyAccessToken(token);
     if (ADMIN_ROLES.includes(normalizeRole(payload.role))) {
       req.user = payload;
       req.authContext = { type: "legacy_admin" };
+      logger.debug("Legacy admin authenticated", { role: payload.role, path: req.path });
       return next();
     }
   } catch (error) {
+    logger.debug("Legacy admin token verification failed", { error: error.message });
     // Staff tokens are validated below.
   }
 
@@ -33,11 +39,13 @@ async function adminWorkspaceAuthRequired(req, res, next) {
     const payload = verifyStaffAccessToken(token);
     const session = await StaffSession.findById(payload.sid);
     if (!session || session.revokedAt || session.expiresAt < new Date()) {
+      logger.warn("Staff session expired or revoked", { staffId: payload.sub, path: req.path });
       return next(new AppError("Session expired", 401, "UNAUTHORIZED"));
     }
 
     const staff = await Staff.findById(payload.sub).populate("roleId");
     if (!staff || staff.status !== "active") {
+      logger.warn("Staff account unavailable", { staffId: payload.sub, status: staff?.status });
       return next(new AppError("Staff account unavailable", 401, "UNAUTHORIZED"));
     }
 
@@ -47,6 +55,7 @@ async function adminWorkspaceAuthRequired(req, res, next) {
       ((staff.forceLogoutAt && issuedAt < staff.forceLogoutAt) ||
         (staff.passwordChangedAt && issuedAt < staff.passwordChangedAt))
     ) {
+      logger.warn("Staff session invalidated due to password/logout", { staffId: payload.sub });
       return next(new AppError("Session expired", 401, "UNAUTHORIZED"));
     }
 
@@ -68,8 +77,10 @@ async function adminWorkspaceAuthRequired(req, res, next) {
       authType: "staff",
     };
     req.authContext = { type: "staff" };
+    logger.debug("Staff authenticated", { staffId: payload.sub, path: req.path });
     return next();
   } catch (error) {
+    logger.warn("Auth token verification failed", { error: error.message, path: req.path });
     return next(new AppError("Invalid or expired token", 401, "UNAUTHORIZED"));
   }
 }

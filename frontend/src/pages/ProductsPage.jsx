@@ -799,22 +799,25 @@ function ProductCard({ product }) {
       to={`/product/${product._id}`}
       className="block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-950 dark:hover:shadow-slate-800/50"
     >
-      <div className="relative overflow-hidden bg-slate-100 dark:bg-slate-800">
+      <div className="group relative w-full aspect-square overflow-hidden bg-slate-100 dark:bg-slate-800">
         {product.images?.[0]?.url ? (
           <img
             src={product.images[0].url}
             alt={product.name}
-            className="h-40 w-full object-cover sm:h-48"
+            className="h-full w-full object-cover object-center group-hover:scale-110 transition duration-300"
             onError={(event) => {
-              event.target.src = "https://via.placeholder.com/300x200?text=Product";
+              event.target.src = "https://via.placeholder.com/300x300?text=Product";
             }}
           />
         ) : (
-          <div className="h-40 bg-slate-200 dark:bg-slate-700 sm:h-48" />
+          <div className="w-full aspect-square bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-400">No Image</div>
         )}
         {discountPercent > 0 ? (
-          <div className="absolute right-2 top-2 rounded bg-red-600 px-2 py-1 text-xs font-bold text-white">
-            -{discountPercent}%
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition duration-300">
+            <div className="rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-3 py-2 text-center shadow-lg shadow-orange-500/30">
+              <div className="text-base font-black text-white">{discountPercent}%</div>
+              <div className="text-xs font-semibold text-white">OFF</div>
+            </div>
           </div>
         ) : null}
       </div>

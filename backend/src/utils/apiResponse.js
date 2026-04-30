@@ -1,5 +1,5 @@
-function ok(res, data = {}, message = "OK") {
-  return res.json({ success: true, message, data });
+function ok(res, data = {}, message = "OK", statusCode = 200) {
+  return res.status(statusCode).json({ success: true, message, data });
 }
 
 function fail(res, statusCode, message, details) {

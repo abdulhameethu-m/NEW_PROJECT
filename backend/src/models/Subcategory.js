@@ -14,7 +14,6 @@ const subcategorySchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      uppercase: true,
       maxlength: 10,
     },
     categoryId: {

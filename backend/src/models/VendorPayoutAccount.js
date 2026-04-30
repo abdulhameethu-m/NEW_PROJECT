@@ -13,7 +13,7 @@ const vendorPayoutAccountSchema = new mongoose.Schema(
     // ACCOUNT DETAILS (Encrypted)
     accountHolderName: { type: String, trim: true, maxlength: 160, default: "" },
     accountNumberEncrypted: { type: String, maxlength: 500, default: "" }, // Encrypted
-    ifscCode: { type: String, trim: true, uppercase: true, maxlength: 20, default: "" },
+    ifscCode: { type: String, trim: true, maxlength: 20, default: "" },
     bankName: { type: String, trim: true, maxlength: 160, default: "" },
     upiIdEncrypted: { type: String, maxlength: 500, default: "" }, // Encrypted
 

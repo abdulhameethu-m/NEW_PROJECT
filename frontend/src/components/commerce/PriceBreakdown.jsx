@@ -50,31 +50,35 @@ export function PriceBreakdown({ breakdown }) {
           <>
             {shippingCostBreakdown ? (
               <>
-                <div className="flex items-center justify-between">
-                  <span>Base shipping</span>
-                  <span className="font-medium text-slate-950 dark:text-white">
-                    {formatCurrency(baseShipping)}
-                  </span>
-                </div>
+                {extraShipping > 0 || shippingDiscount > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span>Base shipping</span>
+                      <span className="font-medium text-slate-950 dark:text-white">
+                        {formatCurrency(baseShipping)}
+                      </span>
+                    </div>
 
-                {extraShipping > 0 ? (
-                  <div className="flex items-center justify-between">
-                    <span>Extra weight charge</span>
-                    <span className="font-medium text-slate-950 dark:text-white">
-                      {formatCurrency(extraShipping)}
-                    </span>
-                  </div>
+                    {extraShipping > 0 ? (
+                      <div className="flex items-center justify-between">
+                        <span>Extra weight charge</span>
+                        <span className="font-medium text-slate-950 dark:text-white">
+                          {formatCurrency(extraShipping)}
+                        </span>
+                      </div>
+                    ) : null}
+
+                    {shippingDiscount > 0 ? (
+                      <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+                        <span>Shipping discount</span>
+                        <span className="font-medium">- {formatCurrency(shippingDiscount)}</span>
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
 
-                {shippingDiscount > 0 ? (
-                  <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-                    <span>Shipping discount</span>
-                    <span className="font-medium">- {formatCurrency(shippingDiscount)}</span>
-                  </div>
-                ) : null}
-
                 <div className="flex items-center justify-between">
-                  <span>Shipping Fee</span>
+                  <span>Shipping fee</span>
                   <span className="font-medium text-slate-950 dark:text-white">
                     {shippingAmount === 0 ? "Free" : formatCurrency(shippingAmount)}
                   </span>
@@ -82,7 +86,7 @@ export function PriceBreakdown({ breakdown }) {
               </>
             ) : shippingCharge ? (
               <div className="flex items-center justify-between">
-                <span>Shipping Fee</span>
+                <span>Shipping</span>
                 <span className="font-medium text-slate-950 dark:text-white">
                   {shippingAmount === 0 ? "Free" : formatCurrency(shippingAmount)}
                 </span>

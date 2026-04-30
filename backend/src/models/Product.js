@@ -73,7 +73,6 @@ const productVariantSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      uppercase: true,
     },
     images: {
       type: [variantImageSchema],
@@ -176,7 +175,6 @@ const productSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
-      uppercase: true,
       index: true,
     },
     lowStockThreshold: {

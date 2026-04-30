@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../context/authStore";
+import { Portal } from "./Portal";
 import * as authService from "../services/authService";
 
 export function UserMenu() {
@@ -9,8 +10,43 @@ export function UserMenu() {
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
   const menuRef = useRef(null);
   const triggerRef = useRef(null);
+
+  // Update dropdown position when opened or window resizes
+  useEffect(() => {
+    function updatePosition() {
+      if (!triggerRef.current) return;
+
+      const rect = triggerRef.current.getBoundingClientRect();
+      const menuHeight = 360; // Approximate dropdown height
+      const viewportHeight = window.innerHeight;
+      
+      // Check if there's enough space below
+      const hasSpaceBelow = rect.bottom + menuHeight + 16 < viewportHeight;
+      
+      if (hasSpaceBelow) {
+        // Position below the trigger
+        setPosition({
+          top: rect.bottom + 8,
+          left: rect.right - 224, // Align right edge (w-56 = 224px)
+        });
+      } else {
+        // Position above the trigger
+        setPosition({
+          top: rect.top - menuHeight - 8,
+          left: rect.right - 224,
+        });
+      }
+    }
+
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("resize", updatePosition);
+      return () => window.removeEventListener("resize", updatePosition);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -123,54 +159,62 @@ export function UserMenu() {
       </button>
 
       {isOpen && (
-        <div
-          ref={menuRef}
-          className="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-lg border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-200"
-        >
-          <div className="border-b border-slate-100 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarBg}`}
-              >
-                {initials}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold text-slate-900">
-                  {user.name}
+        <Portal>
+          <div
+            ref={menuRef}
+            style={{
+              position: "fixed",
+              top: `${position.top}px`,
+              left: `${position.left}px`,
+              zIndex: 50000,
+            }}
+            className="w-56 origin-top-right rounded-lg border border-slate-200 bg-white shadow-xl ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-200"
+          >
+            <div className="border-b border-slate-100 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarBg}`}
+                >
+                  {initials}
                 </div>
-                <div className="truncate text-xs text-slate-500">
-                  {user.email}
-                </div>
-                <div className="mt-1 inline-block rounded bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-700">
-                  {user.role}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-slate-900">
+                    {user.name}
+                  </div>
+                  <div className="truncate text-xs text-slate-500">
+                    {user.email}
+                  </div>
+                  <div className="mt-1 inline-block rounded bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-700">
+                    {user.role}
+                  </div>
                 </div>
               </div>
             </div>
+
+            <nav className="space-y-0 py-2">
+              {menuItems.map((item) => (
+                <button
+                  key={item.path}
+                  onClick={() => handleMenuClick(item.path)}
+                  className="flex w-full items-center gap-3 px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </nav>
+
+            <div className="border-t border-slate-100" />
+
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+            >
+              <span>🚪</span>
+              <span>Logout</span>
+            </button>
           </div>
-
-          <nav className="space-y-0 py-2">
-            {menuItems.map((item) => (
-              <button
-                key={item.path}
-                onClick={() => handleMenuClick(item.path)}
-                className="flex w-full items-center gap-3 px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
-              >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </nav>
-
-          <div className="border-t border-slate-100" />
-
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
-          >
-            <span>🚪</span>
-            <span>Logout</span>
-          </button>
-        </div>
+        </Portal>
       )}
     </div>
   );

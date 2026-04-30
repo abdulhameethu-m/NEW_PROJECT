@@ -101,21 +101,24 @@ function ProductCard({ product }) {
       className="group overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-lg transition-all duration-300 transform hover:scale-105"
     >
       {/* Image Container */}
-      <div className="relative overflow-hidden bg-slate-100 dark:bg-slate-800 h-40 sm:h-48">
+      <div className="relative w-full aspect-square overflow-hidden bg-slate-100 dark:bg-slate-800">
         {product.images?.[0]?.url ? (
           <img
             src={product.images[0].url}
             alt={product.name}
-            className="h-full w-full object-cover group-hover:scale-110 transition duration-300"
+            className="h-full w-full object-cover object-center group-hover:scale-110 transition duration-300"
           />
         ) : (
           <div className="h-full flex items-center justify-center text-slate-400">No Image</div>
         )}
 
-        {/* Discount Badge */}
+        {/* Discount Badge - Show on Hover at Top */}
         {discountPercent > 0 && (
-          <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded-md text-xs font-bold">
-            -{discountPercent}%
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition duration-300">
+            <div className="rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-3 py-2 text-center shadow-lg shadow-orange-500/30">
+              <div className="text-base font-black text-white">{discountPercent}%</div>
+              <div className="text-xs font-semibold text-white">OFF</div>
+            </div>
           </div>
         )}
 
