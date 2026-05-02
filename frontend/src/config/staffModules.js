@@ -18,6 +18,8 @@ export const STAFF_MODULES = [
     permission: "users.read",
     section: "management",
     order: 1,
+    notificationModule: "MANAGEMENT",
+    notificationSubModule: "USERS",
   },
   {
     key: "orders",
@@ -28,6 +30,8 @@ export const STAFF_MODULES = [
     permission: "orders.read",
     section: "management",
     order: 2,
+    notificationModule: "MANAGEMENT",
+    notificationSubModule: "ORDERS",
   },
   {
     key: "products",
@@ -38,6 +42,8 @@ export const STAFF_MODULES = [
     permission: "products.read",
     section: "management",
     order: 3,
+    notificationModule: "MANAGEMENT",
+    notificationSubModule: "PRODUCTS",
   },
   {
     key: "reviews",
@@ -48,6 +54,8 @@ export const STAFF_MODULES = [
     permission: "reviews.read",
     section: "management",
     order: 4,
+    notificationModule: "GROWTH",
+    notificationSubModule: "REVIEWS",
   },
   {
     key: "payments",
@@ -58,6 +66,8 @@ export const STAFF_MODULES = [
     permission: "payments.read",
     section: "finance",
     order: 5,
+    notificationModule: "FINANCE",
+    notificationSubModule: "PAYMENTS",
   },
   {
     key: "payouts",
@@ -68,6 +78,8 @@ export const STAFF_MODULES = [
     permission: "payouts.read",
     section: "finance",
     order: 6,
+    notificationModule: "FINANCE",
+    notificationSubModule: "PAYOUTS",
   },
   {
     key: "analytics",
@@ -88,6 +100,8 @@ export const STAFF_MODULES = [
     permission: "settings.update",
     section: "admin",
     order: 8,
+    notificationModule: "WORKSPACE",
+    notificationSubModule: "SETTINGS",
   },
   {
     key: "roles",

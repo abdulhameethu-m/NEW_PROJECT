@@ -17,6 +17,7 @@ const { Review } = require("../models/Review");
 const { Product } = require("../models/Product");
 const { ReturnRequest } = require("../models/ReturnRequest");
 const { AuditLog } = require("../models/AuditLog");
+const notificationService = require("./notification.service");
 
 function assertObjectId(value, fieldName) {
   if (!mongoose.isValidObjectId(value)) {
@@ -373,6 +374,16 @@ class UserService {
       entityType: "Order",
       entityId: orderId,
     });
+    await notificationService.notifyVendorAndOperations({
+      vendorId: order.sellerId?._id || order.sellerId,
+      permissionKey: "orders.read",
+      module: "MANAGEMENT",
+      subModule: "ORDERS",
+      type: "ORDER_CANCELLED",
+      title: "Order cancelled",
+      message: `Order ${order.orderNumber} was cancelled by the customer.`,
+      referenceId: orderId,
+    });
     return updated;
   }
 
@@ -403,6 +414,19 @@ class UserService {
       message: `Return request submitted for order ${order.orderNumber}.`,
       entityType: "ReturnRequest",
       entityId: request._id,
+    });
+    await notificationService.notifyVendorAndOperations({
+      vendorId: order.sellerId?._id || order.sellerId,
+      permissionKey: "orders.read",
+      module: "MANAGEMENT",
+      subModule: "RETURNS",
+      type: "RETURN_REQUEST",
+      title: "Return requested",
+      message: `A return was requested for order ${order.orderNumber}.`,
+      referenceId: request._id,
+      meta: {
+        orderNumber: order.orderNumber,
+      },
     });
     return request;
   }

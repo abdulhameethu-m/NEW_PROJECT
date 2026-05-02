@@ -1,6 +1,7 @@
 const { AppError } = require("../utils/AppError");
 const PricingRule = require("../models/PricingRule");
 const pricingCategoryService = require("./pricing-category.service");
+const { isValidObjectId } = require("mongoose");
 
 /**
  * Pricing Calculation Service
@@ -10,16 +11,51 @@ const pricingCategoryService = require("./pricing-category.service");
  * Handles conditional application based on order value.
  */
 class PricingService {
+  normalizeCategoryId(value) {
+    if (value == null || value === "") return null;
+    if (typeof value === "object") {
+      const nestedId = value._id || value.id || null;
+      return nestedId ? String(nestedId) : null;
+    }
+    return String(value);
+  }
+
+  async assertCategoryCanEnableRules(categoryId) {
+    if (!categoryId) return null;
+    const category = await pricingCategoryService.getCategoryById(categoryId);
+    if (!category.isActive) {
+      throw new AppError("Cannot activate a pricing rule while its category is inactive", 400, "CATEGORY_INACTIVE");
+    }
+    return category;
+  }
+
+  decorateRule(rule) {
+    const categoryDoc = rule.categoryId && typeof rule.categoryId === "object" ? rule.categoryId : null;
+    const categoryIsActive = categoryDoc ? Boolean(categoryDoc.isActive) : true;
+    const inheritedInactive = !categoryIsActive;
+    const effectiveIsActive = Boolean(rule.isActive) && !inheritedInactive;
+
+    return {
+      ...rule,
+      categoryId: categoryDoc || rule.categoryId,
+      effectiveIsActive,
+      inheritedInactive,
+    };
+  }
+
   /**
    * Get all active pricing rules
    * @returns {Promise<Array>} Array of active pricing rules sorted by sortOrder
    */
   async getActiveRules() {
     await pricingCategoryService.ensureDefaultPricingCategoriesIfNeeded();
-    return PricingRule.find({ isActive: true, isArchived: false })
+    const rules = await PricingRule.find({ isActive: true, isArchived: false })
       .populate("categoryId", "name key description isActive isSystem sortOrder")
       .sort({ sortOrder: 1, createdAt: 1 })
       .lean();
+    return rules
+      .map((rule) => this.decorateRule(rule))
+      .filter((rule) => rule.effectiveIsActive);
   }
 
   /**
@@ -29,10 +65,13 @@ class PricingService {
    */
   async getRulesByCategory(category) {
     await pricingCategoryService.ensureDefaultPricingCategoriesIfNeeded();
-    return PricingRule.find({ isActive: true, isArchived: false, category })
+    const rules = await PricingRule.find({ isActive: true, isArchived: false, category })
       .populate("categoryId", "name key description isActive isSystem sortOrder")
       .sort({ sortOrder: 1 })
       .lean();
+    return rules
+      .map((rule) => this.decorateRule(rule))
+      .filter((rule) => rule.effectiveIsActive);
   }
 
   /**
@@ -304,8 +343,13 @@ class PricingService {
     if (ruleData.category !== undefined && typeof ruleData.category !== "string") {
       errors.push("Category must be a string");
     }
-    if (ruleData.categoryId !== undefined && ruleData.categoryId !== null && typeof ruleData.categoryId !== "string") {
-      errors.push("categoryId must be a string");
+    const normalizedCategoryId = this.normalizeCategoryId(ruleData.categoryId);
+    if (ruleData.categoryId !== undefined && ruleData.categoryId !== null) {
+      if (typeof normalizedCategoryId !== "string") {
+        errors.push("categoryId must be a string");
+      } else if (!isValidObjectId(normalizedCategoryId)) {
+        errors.push("categoryId must be a valid ObjectId string");
+      }
     }
 
     // Min/Max order value validation

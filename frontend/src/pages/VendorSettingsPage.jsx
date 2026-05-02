@@ -284,7 +284,10 @@ export function VendorSettingsPage() {
       <VendorSection title="Store Profile" description="Public storefront information for your vendor account.">
         <div className="grid gap-4 md:grid-cols-2">
           <input value={form.companyName || ""} onChange={(e) => setField("companyName", e.target.value)} placeholder="Company name" className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950" />
-          <input value={form.shopName || ""} onChange={(e) => setField("shopName", e.target.value)} placeholder="Shop name" className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950" />
+          <div>
+            <input value={form.shopName || ""} onChange={(e) => setField("shopName", e.target.value)} placeholder={form.companyName ? `Leave blank to use "${form.companyName}"` : "Shop display name (optional)"} className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950 w-full" />
+            <div className="mt-1 text-xs text-slate-500">Defaults to company name if empty</div>
+          </div>
           <input value={form.storeSlug || ""} onChange={(e) => setField("storeSlug", e.target.value)} placeholder="Store slug" className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950" />
           <input value={form.supportEmail || ""} onChange={(e) => setField("supportEmail", e.target.value)} placeholder="Support email" className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950" />
           <input value={form.supportPhone || ""} onChange={(e) => setField("supportPhone", e.target.value)} placeholder="Support phone" className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950" />

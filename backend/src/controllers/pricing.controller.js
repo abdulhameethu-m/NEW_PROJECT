@@ -5,6 +5,23 @@ const PricingConfig = require("../models/PricingConfig");
 const PricingRule = require("../models/PricingRule");
 const pricingCategoryService = require("../services/pricing-category.service");
 const pricingService = require("../services/pricing.service");
+const { isValidObjectId } = require("mongoose");
+
+function normalizeCategoryIdInput(value) {
+  if (value == null || value === "") return undefined;
+  if (typeof value === "object") {
+    const nested = value._id || value.id;
+    return nested ? String(nested) : undefined;
+  }
+  return String(value);
+}
+
+function assertOptionalObjectId(value, fieldName) {
+  if (value === undefined) return;
+  if (!isValidObjectId(value)) {
+    throw new AppError(`${fieldName} must be a valid ObjectId string`, 400, "VALIDATION_ERROR");
+  }
+}
 
 // ==================== LEGACY PRICING CONFIG ENDPOINTS ====================
 
@@ -244,7 +261,8 @@ const getAllPricingRules = asyncHandler(async (req, res) => {
     query.category = category;
   }
   if (categoryId) {
-    query.categoryId = categoryId;
+    assertOptionalObjectId(String(categoryId), "categoryId");
+    query.categoryId = String(categoryId);
   }
 
   const rules = await PricingRule.find(query)
@@ -252,7 +270,7 @@ const getAllPricingRules = asyncHandler(async (req, res) => {
     .sort(sortBy === "name" ? { displayName: 1 } : { [sortBy]: 1 })
     .lean();
 
-  return ok(res, rules, "Pricing rules retrieved");
+  return ok(res, rules.map((rule) => pricingService.decorateRule(rule)), "Pricing rules retrieved");
 });
 
 /**
@@ -285,7 +303,9 @@ const getPricingRule = asyncHandler(async (req, res) => {
  * Create a new pricing rule (admin only)
  */
 const createPricingRule = asyncHandler(async (req, res) => {
-  const { key, displayName, type, value, category, categoryId, appliesTo, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes } = req.body;
+  const { key, displayName, type, value, category, appliesTo, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes, isActive } = req.body;
+  const categoryId = normalizeCategoryIdInput(req.body?.categoryId);
+  assertOptionalObjectId(categoryId, "categoryId");
 
   // Validate input
   const validationErrors = pricingService.validateRule({
@@ -331,13 +351,18 @@ const createPricingRule = asyncHandler(async (req, res) => {
     freeAboveValue: freeAboveValue || 0,
     description,
     notes,
+    isActive: isActive !== undefined ? Boolean(isActive) : true,
     lastModifiedBy: req.user.sub,
   });
+
+  if (newRule.isActive) {
+    await pricingService.assertCategoryCanEnableRules(String(resolvedCategory._id));
+  }
 
   await newRule.save();
   await newRule.populate("categoryId", "name key description isActive isSystem sortOrder");
 
-  return ok(res, newRule, "Pricing rule created", 201);
+  return ok(res, pricingService.decorateRule(newRule.toObject()), "Pricing rule created", 201);
 });
 
 /**
@@ -346,7 +371,9 @@ const createPricingRule = asyncHandler(async (req, res) => {
  */
 const updatePricingRule = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { key, displayName, type, value, category, categoryId, appliesTo, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes, isActive } = req.body;
+  const { key, displayName, type, value, category, appliesTo, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes, isActive } = req.body;
+  const categoryId = normalizeCategoryIdInput(req.body?.categoryId);
+  assertOptionalObjectId(categoryId, "categoryId");
 
   const rule = await PricingRule.findById(id);
 
@@ -377,6 +404,9 @@ const updatePricingRule = asyncHandler(async (req, res) => {
     });
     updateData.category = resolvedCategory.key;
     updateData.categoryId = resolvedCategory._id;
+    if (!resolvedCategory.isActive) {
+      updateData.isActive = false;
+    }
   }
   if (appliesTo !== undefined) updateData.appliesTo = appliesTo;
   if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
@@ -397,12 +427,17 @@ const updatePricingRule = asyncHandler(async (req, res) => {
     throw new AppError(validationErrors.join("; "), 400);
   }
 
+  if (updateData.isActive === true) {
+    const targetCategoryId = updateData.categoryId || rule.categoryId;
+    await pricingService.assertCategoryCanEnableRules(String(targetCategoryId));
+  }
+
   const updated = await PricingRule.findByIdAndUpdate(id, updateData, {
     new: true,
     runValidators: true,
   }).populate("categoryId", "name key description isActive isSystem sortOrder");
 
-  return ok(res, updated, "Pricing rule updated");
+  return ok(res, pricingService.decorateRule(updated.toObject()), "Pricing rule updated");
 });
 
 /**
@@ -466,12 +501,51 @@ const toggleMultipleRulesActive = asyncHandler(async (req, res) => {
     throw new AppError("isActive must be a boolean", 400);
   }
 
+  const normalizedRuleIds = ruleIds.map((id) => String(id));
+
+  if (isActive === true) {
+    const rules = await PricingRule.find({ _id: { $in: normalizedRuleIds }, isArchived: false })
+      .populate("categoryId", "isActive")
+      .lean();
+
+    const blockedRule = rules.find((rule) => rule.categoryId && rule.categoryId.isActive === false);
+    if (blockedRule) {
+      throw new AppError("Cannot activate rules whose category is inactive", 400, "CATEGORY_INACTIVE");
+    }
+  }
+
   const result = await PricingRule.updateMany(
-    { _id: { $in: ruleIds }, isArchived: false },
-    { isActive, lastModifiedBy: req.user.sub }
+    { _id: { $in: normalizedRuleIds }, isArchived: false },
+    { $set: { isActive, lastModifiedBy: req.user.sub } }
   );
 
   return ok(res, result, "Pricing rules updated");
+});
+
+const togglePricingRuleActive = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { isActive } = req.body || {};
+
+  if (typeof isActive !== "boolean") {
+    throw new AppError("isActive must be a boolean", 400, "VALIDATION_ERROR");
+  }
+
+  const rule = await PricingRule.findById(id);
+  if (!rule || rule.isArchived) {
+    throw new AppError("Pricing rule not found", 404);
+  }
+
+  if (isActive === true) {
+    await pricingService.assertCategoryCanEnableRules(String(rule.categoryId));
+  }
+
+  const updated = await PricingRule.findByIdAndUpdate(
+    id,
+    { $set: { isActive, lastModifiedBy: req.user.sub } },
+    { new: true, runValidators: true }
+  ).populate("categoryId", "name key description isActive isSystem sortOrder");
+
+  return ok(res, pricingService.decorateRule(updated.toObject()), "Pricing rule active state updated");
 });
 
 /**
@@ -542,6 +616,7 @@ module.exports = {
   updatePricingCategory,
   deletePricingCategory,
   toggleMultipleRulesActive,
+  togglePricingRuleActive,
   calculateOrderTotal,
   getPricingSummary,
   previewRuleImpact,

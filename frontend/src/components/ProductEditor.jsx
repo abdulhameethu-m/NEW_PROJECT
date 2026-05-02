@@ -120,6 +120,7 @@ export function ProductEditor({
   const [error, setError] = useState("");
   const [formData, setFormData] = useState(getInitialForm);
   const [imageUrl, setImageUrl] = useState("");
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [subcategories, setSubcategories] = useState([]);
   const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
   const [attributeGroups, setAttributeGroups] = useState({});
@@ -199,6 +200,7 @@ export function ProductEditor({
           modulesData: product.modulesData || product.extraDetails || {},
           attributes: product.attributes || {},
         });
+        setSelectedImageIndex(0);
 
         setVariantRows(
           (product.variants || []).map((variant) => ({
@@ -407,31 +409,53 @@ export function ProductEditor({
 
   function handleAddImage() {
     if (!imageUrl.trim()) return;
-    setFormData((prev) => ({
-      ...prev,
-      images: [
-        ...prev.images,
-        {
-          url: imageUrl.trim(),
-          altText: `${prev.name || "Product"} image ${prev.images.length + 1}`,
-          isPrimary: prev.images.length === 0,
-        },
-      ],
-    }));
+    setFormData((prev) => {
+      const nextIndex = prev.images.length;
+      setSelectedImageIndex(nextIndex);
+      return {
+        ...prev,
+        images: [
+          ...prev.images,
+          {
+            url: imageUrl.trim(),
+            altText: `${prev.name || "Product"} image ${prev.images.length + 1}`,
+            isPrimary: prev.images.length === 0,
+          },
+        ],
+      };
+    });
     setImageUrl("");
   }
 
   function handleRemoveImage(index) {
     setFormData((prev) => {
       const nextImages = prev.images.filter((_, currentIndex) => currentIndex !== index);
+      const hasPrimary = nextImages.some((image) => image.isPrimary);
       return {
         ...prev,
         images: nextImages.map((image, imageIndex) => ({
           ...image,
-          isPrimary: imageIndex === 0 ? true : image.isPrimary && imageIndex === 0,
+          isPrimary: hasPrimary ? image.isPrimary : imageIndex === 0,
         })),
       };
     });
+    setSelectedImageIndex((current) => {
+      const nextLength = Math.max(formData.images.length - 1, 0);
+      if (current > index) return current - 1;
+      if (current >= nextLength) return Math.max(nextLength - 1, 0);
+      return current;
+    });
+  }
+
+  function handleSelectPrimaryImage(index) {
+    setFormData((prev) => ({
+      ...prev,
+      images: prev.images.map((image, imageIndex) => ({
+        ...image,
+        isPrimary: imageIndex === index,
+      })),
+    }));
+    setSelectedImageIndex(index);
   }
 
   function handleVariantSelectionChange(def, rawValue) {
@@ -659,16 +683,66 @@ export function ProductEditor({
             <button type="button" onClick={handleAddImage} className="rounded bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-950">Add image</button>
           </div>
           {formData.images.length ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {formData.images.map((image, index) => (
-                <div key={`${image.url}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
-                  <img src={image.url} alt={image.altText || formData.name} className="h-32 w-full object-cover" />
-                  <div className="flex items-center justify-between px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
-                    <span>{image.isPrimary ? "Primary" : `Image ${index + 1}`}</span>
-                    <button type="button" onClick={() => handleRemoveImage(index)} className="font-semibold text-rose-700">Remove</button>
-                  </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(16rem,.8fr)]">
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/50">
+                <div className="flex h-[22rem] items-center justify-center p-4">
+                  <img
+                    src={formData.images[selectedImageIndex]?.url}
+                    alt={formData.images[selectedImageIndex]?.altText || formData.name}
+                    className="h-full w-full object-contain"
+                  />
                 </div>
-              ))}
+                <div className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                  {formData.images[selectedImageIndex]?.isPrimary ? "Primary image" : `Previewing image ${selectedImageIndex + 1}`}
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                {formData.images.map((image, index) => (
+                  <div
+                    key={`${image.url}-${index}`}
+                    className={`overflow-hidden rounded-2xl border bg-white dark:bg-slate-900 ${
+                      selectedImageIndex === index
+                        ? "border-slate-900 ring-2 ring-slate-200 dark:border-white dark:ring-slate-700"
+                        : "border-slate-200 dark:border-slate-800"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImageIndex(index)}
+                      className="flex w-full items-center gap-3 p-3 text-left"
+                    >
+                      <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl bg-slate-50 dark:bg-slate-950">
+                        <img src={image.url} alt={image.altText || formData.name} className="h-full w-full object-contain" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                          {image.isPrimary ? "Primary image" : `Image ${index + 1}`}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          Click to preview full image
+                        </div>
+                      </div>
+                    </button>
+                    <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 text-xs dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectPrimaryImage(index)}
+                        className="rounded-lg border border-slate-200 px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        {image.isPrimary ? "Primary" : "Make primary"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className="rounded-lg border border-rose-200 px-2.5 py-1 font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
         </section>

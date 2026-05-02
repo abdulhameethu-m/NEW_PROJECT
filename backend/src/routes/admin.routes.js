@@ -246,6 +246,12 @@ router.put(
   express.json(),
   pricingController.updatePricingRule
 );
+router.patch(
+  "/pricing-rules/:id/active",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  pricingController.togglePricingRuleActive
+);
 router.delete(
   "/pricing-rules/:id",
   requireWorkspacePermission("settings.delete", { legacyPermission: "settings:update" }),

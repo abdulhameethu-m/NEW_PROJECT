@@ -21,6 +21,7 @@ const {
   normalizeShippingMode,
   resolveVendorShippingModes,
 } = require("../../services/shipping.service");
+const notificationService = require("../../services/notification.service");
 
 const VENDOR_ORDER_FLOW = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 
@@ -322,6 +323,22 @@ class VendorDashboardService {
       entityType: "Order",
       entityId: updated._id,
     });
+    await notificationService.notifyOperations(
+      {
+        module: "MANAGEMENT",
+        subModule: "ORDERS",
+        type: "ORDER_STATUS_CHANGED",
+        title: "Vendor updated an order",
+        message: `Order ${updated.orderNumber} moved to ${status}.`,
+        referenceId: updated._id,
+        meta: {
+          vendorId: vendor._id,
+          orderNumber: updated.orderNumber,
+          status,
+        },
+      },
+      "orders.read"
+    );
 
     return updated;
   }
@@ -418,6 +435,14 @@ class VendorDashboardService {
         entityType: "Product",
         entityId: product._id,
         priority: "high",
+      });
+      await notificationService.notifyVendorUser(vendor._id, {
+        module: "MANAGEMENT",
+        subModule: "INVENTORY",
+        type: "INVENTORY_ALERT",
+        title: "Low stock alert",
+        message: `${product.name} is running low with ${product.stock} units left.`,
+        referenceId: product._id,
       });
     }
 
@@ -805,6 +830,22 @@ class VendorDashboardService {
         notes: "Refund initiated from vendor return workflow.",
       });
     }
+
+    await notificationService.notifyOperations(
+      {
+        module: "MANAGEMENT",
+        subModule: "RETURNS",
+        type: "RETURN_STATUS_CHANGED",
+        title: "Return status updated",
+        message: `Return request for order ${request.orderId?.orderNumber || request.orderId} moved to ${payload.status}.`,
+        referenceId: request._id,
+        meta: {
+          vendorId: vendor._id,
+          status: payload.status,
+        },
+      },
+      "orders.read"
+    );
 
     return request;
   }

@@ -4,6 +4,7 @@ import { SidebarItem } from "./SidebarItem";
 export function SidebarSection({
   section,
   items,
+  badgeCount = 0,
   isOpen,
   onToggle,
   onNavigate,
@@ -21,9 +22,16 @@ export function SidebarSection({
         className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:text-white dark:hover:bg-slate-800"
       >
         <span>{section}</span>
-        <ChevronDown
-          className={`h-4 w-4 flex-shrink-0 text-slate-500 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
-        />
+        <span className="ml-auto flex items-center gap-2">
+          {badgeCount > 0 ? (
+            <span className="inline-flex min-w-6 justify-center rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-semibold text-white">
+              {badgeCount}
+            </span>
+          ) : null}
+          <ChevronDown
+            className={`h-4 w-4 flex-shrink-0 text-slate-500 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+          />
+        </span>
       </button>
 
       <div

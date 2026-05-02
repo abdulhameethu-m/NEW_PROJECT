@@ -3,6 +3,7 @@ const vendorRepo = require("../repositories/vendor.repository");
 const { AppError } = require("../utils/AppError");
 const auditService = require("./audit.service");
 const { getEncryptionService, EncryptionService } = require("../utils/encryption");
+const notificationService = require("./notification.service");
 
 class PayoutAccountService {
   constructor() {
@@ -216,6 +217,25 @@ class PayoutAccountService {
       userAgent: meta?.userAgent,
     });
 
+    await notificationService.notifyOperations(
+      {
+        module: "FINANCE",
+        subModule: "PAYOUTS",
+        type: "PAYOUT_ACCOUNT_SUBMITTED",
+        title: existingAccount ? "Payout account updated" : "Payout account submitted",
+        message: existingAccount
+          ? "A vendor updated payout account details and is awaiting verification."
+          : "A vendor submitted payout account details for verification.",
+        referenceId: account._id,
+        meta: {
+          vendorId: vendor._id,
+          version: account.version,
+          verificationStatus: account.verificationStatus,
+        },
+      },
+      "payouts.read"
+    );
+
     return this.maskAccountData(account);
   }
 
@@ -250,6 +270,18 @@ class PayoutAccountService {
       userAgent: meta?.userAgent,
     });
 
+    await notificationService.notifyVendorUser(account.vendorId, {
+      module: "FINANCE",
+      subModule: "PAYOUTS",
+      type: "PAYOUT_ACCOUNT_VERIFIED",
+      title: "Payout account verified",
+      message: "Your payout account has been verified and is ready for payout requests.",
+      referenceId: account._id,
+      meta: {
+        version: account.version,
+      },
+    });
+
     return this.maskAccountData(account);
   }
 
@@ -281,6 +313,19 @@ class PayoutAccountService {
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
+    });
+
+    await notificationService.notifyVendorUser(account.vendorId, {
+      module: "FINANCE",
+      subModule: "PAYOUTS",
+      type: "PAYOUT_ACCOUNT_REJECTED",
+      title: "Payout account rejected",
+      message: "Your payout account was rejected. Please review the reason and update your details.",
+      referenceId: account._id,
+      meta: {
+        reason: account.rejectionReason,
+        version: account.version,
+      },
     });
 
     return this.maskAccountData(account);

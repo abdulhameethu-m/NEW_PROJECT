@@ -12,7 +12,7 @@ function normalizeSectionKey(section) {
     .replace(/[^a-z0-9]+/g, "-");
 }
 
-export function useVendorSidebarData({ unreadCount = 0 } = {}) {
+export function useVendorSidebarData({ unreadCount = 0, summary = { modules: {}, subModules: {} } } = {}) {
   const { modules, loading, error } = useModuleAccess();
 
   const dynamicSections = useMemo(() => {
@@ -38,6 +38,8 @@ export function useVendorSidebarData({ unreadCount = 0 } = {}) {
           icon: meta.icon,
           title: module.description,
           moduleKey: module.key,
+          notificationModule: meta.notificationModule,
+          notificationSubModule: meta.notificationSubModule,
         });
       });
 
@@ -46,9 +48,9 @@ export function useVendorSidebarData({ unreadCount = 0 } = {}) {
       const existingPaths = new Set(financeItems.map((item) => item.path));
 
       [
-        { name: "Payout History", path: "/vendor/finance/payouts" },
-        { name: "Ledger", path: "/vendor/finance/ledger" },
-        { name: "Payout Account", path: "/vendor/finance/account" },
+        { name: "Payout History", path: "/vendor/finance/payouts", notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
+        { name: "Ledger", path: "/vendor/finance/ledger", notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
+        { name: "Payout Account", path: "/vendor/finance/account", notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
       ].forEach((item) => {
         if (!existingPaths.has(item.path)) {
           financeItems.push(item);
@@ -61,19 +63,29 @@ export function useVendorSidebarData({ unreadCount = 0 } = {}) {
     return Array.from(grouped.entries()).map(([section, items]) => ({
       section,
       key: normalizeSectionKey(section),
-      items,
+      badgeCount: Number(summary.modules?.[String(section || "").toUpperCase()] || 0),
+      items: items.map((item) => ({
+        ...item,
+        badgeCount: Number(summary.subModules?.[item.notificationSubModule] || 0),
+      })),
     }));
-  }, [modules]);
+  }, [modules, summary.modules, summary.subModules]);
 
   const staticSections = useMemo(() => {
     return VENDOR_STATIC_ITEMS.map((section) => ({
       ...section,
+      badgeCount: Number(summary.modules?.[section.notificationModule] || 0),
       items: section.items.map((item) => ({
         ...item,
-        badgeCount: item.badgeKey === "notificationsUnread" ? unreadCount : undefined,
+        notificationModule: item.notificationModule,
+        notificationSubModule: item.notificationSubModule,
+        badgeCount:
+          item.badgeKey === "notificationsUnread"
+            ? unreadCount
+            : Number(summary.subModules?.[item.notificationSubModule] || 0),
       })),
     }));
-  }, [unreadCount]);
+  }, [summary.modules, summary.subModules, unreadCount]);
 
   return {
     title: "Vendor Central",

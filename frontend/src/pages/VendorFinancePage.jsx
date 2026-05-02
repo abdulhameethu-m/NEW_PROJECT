@@ -9,6 +9,7 @@ import {
   FinanceTabs,
   formatFinanceDateTime,
   getPayoutAccountStatus,
+  maskAccountNumber,
 } from "../components/finance/FinanceComponents";
 import { StatusBadge } from "../components/StatusBadge";
 import { VendorDataTable, VendorMetricCard, VendorSection } from "../components/VendorPanel";
@@ -127,6 +128,114 @@ export function VendorFinancePage() {
         <VendorMetricCard label="Total Earnings" value={formatCurrency(wallet?.totalEarnings)} hint="Lifetime vendor earnings credited to wallet" />
         <VendorMetricCard label="Withdrawn Amount" value={formatCurrency(wallet?.withdrawnAmount)} hint="Total successfully paid out to your account" />
       </div>
+
+      {/* Payout Account Details Section */}
+      {payoutAccount && (payoutAccount.accountHolderName || payoutAccount.upiId) ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Payout Account Details</h2>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                Bank information from your registration
+              </p>
+            </div>
+            <div>
+              <StatusBadge value={payoutAccountStatus.label} />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {payoutAccount.accountHolderName && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                  Account Holder
+                </div>
+                <div className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
+                  {payoutAccount.accountHolderName}
+                </div>
+              </div>
+            )}
+
+            {payoutAccount.bankName && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                  Bank Name
+                </div>
+                <div className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
+                  {payoutAccount.bankName}
+                </div>
+              </div>
+            )}
+
+            {payoutAccount.accountNumber && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                  Account Number
+                </div>
+                <div className="mt-2 text-sm font-semibold text-slate-950 dark:text-white font-mono">
+                  {maskAccountNumber(payoutAccount.accountNumber)}
+                </div>
+              </div>
+            )}
+
+            {payoutAccount.ifscCode && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                  IFSC Code
+                </div>
+                <div className="mt-2 text-sm font-semibold text-slate-950 dark:text-white font-mono">
+                  {payoutAccount.ifscCode}
+                </div>
+              </div>
+            )}
+
+            {payoutAccount.upiId && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                  UPI ID
+                </div>
+                <div className="mt-2 text-sm font-semibold text-slate-950 dark:text-white font-mono">
+                  {payoutAccount.upiId}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!payoutAccount.isVerified && (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-200">
+              <div className="font-semibold">Pending Verification</div>
+              <div className="mt-1">Your payout account details are under review. You can still request payouts, but they won't be processed until verified.</div>
+            </div>
+          )}
+
+          <div className="mt-4">
+            <Link
+              to="/vendor/finance/account"
+              className="inline-flex text-sm font-semibold text-sky-700 hover:underline dark:text-sky-300"
+            >
+              Update account details →
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-800/40 dark:bg-amber-900/20">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 text-xl">⚠️</div>
+            <div>
+              <h3 className="font-semibold text-amber-900 dark:text-amber-200">No Payout Account Configured</h3>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                You haven't provided bank details yet. Add your payout account to enable withdrawals.
+              </p>
+              <Link
+                to="/vendor/finance/account"
+                className="mt-3 inline-flex rounded-lg bg-amber-900 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-950 dark:bg-amber-800 dark:hover:bg-amber-700"
+              >
+                Add Bank Details
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <VendorSection
         title="Wallet Controls"

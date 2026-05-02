@@ -136,7 +136,11 @@ export function PricingCategoriesManager() {
           item._id === category._id ? { ...item, isActive: !item.isActive } : item
         )
       );
-      setSuccess(`Category ${!category.isActive ? "enabled" : "disabled"}!`);
+      setSuccess(
+        !category.isActive
+          ? "Category enabled!"
+          : "Category disabled. All rules in this category were also disabled."
+      );
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
       setError(normalizeMessage(err, "Failed to toggle category"));

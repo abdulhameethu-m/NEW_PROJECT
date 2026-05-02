@@ -37,6 +37,7 @@ const contentRoutes = require("./routes/content.routes");
 const pricingRoutes = require("./routes/pricing.routes");
 const staffRoutes = require("./modules/staff/routes");
 const settlementRoutes = require("./routes/settlement.routes");
+const notificationRoutes = require("./routes/notification.routes");
 
 function createLimiter({
   windowMs = 15 * 60 * 1000,
@@ -155,6 +156,7 @@ function createApp() {
   app.use("/api/pricing", pricingRoutes);
   app.use("/api/staff", staffRoutes);
   app.use("/api/admin", settlementRoutes);
+  app.use("/api/notifications", notificationRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

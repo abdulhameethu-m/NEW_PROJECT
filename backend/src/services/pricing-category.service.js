@@ -1,5 +1,7 @@
 const { AppError } = require("../utils/AppError");
 const PricingCategory = require("../models/PricingCategory");
+const PricingRule = require("../models/PricingRule");
+const { isValidObjectId } = require("mongoose");
 
 const DEFAULT_CATEGORIES = [
   { key: "DELIVERY", name: "Delivery", description: "Delivery-related charges", isSystem: true, sortOrder: 10 },
@@ -51,6 +53,9 @@ async function listPricingCategories({ includeInactive = true } = {}) {
 
 async function getCategoryById(id) {
   await ensureDefaultPricingCategoriesIfNeeded();
+  if (!isValidObjectId(id)) {
+    throw new AppError("Pricing category id must be a valid ObjectId", 400, "VALIDATION_ERROR");
+  }
   const category = await PricingCategory.findById(id);
   if (!category) {
     throw new AppError("Pricing category not found", 404, "NOT_FOUND");
@@ -67,7 +72,12 @@ async function resolveCategory({ categoryId, categoryKey, fallbackKey = "OTHER" 
   await ensureDefaultPricingCategoriesIfNeeded();
 
   if (categoryId) {
-    const category = await PricingCategory.findById(categoryId);
+    const normalizedCategoryId =
+      typeof categoryId === "object" && categoryId !== null ? categoryId._id || categoryId.id : categoryId;
+    if (!isValidObjectId(normalizedCategoryId)) {
+      throw new AppError("categoryId must be a valid ObjectId string", 400, "VALIDATION_ERROR");
+    }
+    const category = await PricingCategory.findById(normalizedCategoryId);
     if (!category) {
       throw new AppError("Pricing category not found", 404, "NOT_FOUND");
     }
@@ -153,6 +163,15 @@ async function updatePricingCategory(id, payload) {
   }
 
   await category.save();
+
+  if (payload?.isActive === false) {
+    // Category state dominates rule state: disabling a category disables all attached rules.
+    await PricingRule.updateMany(
+      { categoryId: category._id, isArchived: false, isActive: true },
+      { $set: { isActive: false } }
+    );
+  }
+
   return category;
 }
 

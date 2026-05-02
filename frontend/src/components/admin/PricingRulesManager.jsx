@@ -35,6 +35,14 @@ export function PricingRulesManager() {
     return err?.response?.data?.message || err?.message || fallback;
   }
 
+  function normalizeCategoryId(value) {
+    if (!value) return "";
+    if (typeof value === "object") {
+      return value._id || value.id || "";
+    }
+    return String(value);
+  }
+
   async function loadRules() {
     setLoading(true);
     setError("");
@@ -59,7 +67,7 @@ export function PricingRulesManager() {
       setCategories(items);
       setFormData((current) => ({
         ...current,
-        categoryId: current.categoryId || getOtherCategoryId(items),
+        categoryId: normalizeCategoryId(current.categoryId) || getOtherCategoryId(items),
       }));
     } catch (err) {
       setError(normalizeMessage(err, "Failed to load pricing categories"));
@@ -98,12 +106,17 @@ export function PricingRulesManager() {
     setError("");
 
     try {
+      const payload = {
+        ...formData,
+        categoryId: normalizeCategoryId(formData.categoryId) || getOtherCategoryId(),
+      };
+
       if (editingRule) {
-        const response = await pricingService.updatePricingRule(editingRule._id, formData);
+        const response = await pricingService.updatePricingRule(editingRule._id, payload);
         setSuccess("Rule updated successfully!");
         setRules(rules.map((rule) => (rule._id === editingRule._id ? response.data : rule)));
       } else {
-        const response = await pricingService.createPricingRule(formData);
+        const response = await pricingService.createPricingRule(payload);
         setSuccess("Rule created successfully!");
         setRules([...rules, response.data]);
       }
@@ -120,7 +133,7 @@ export function PricingRulesManager() {
       displayName: rule.displayName,
       type: rule.type,
       value: rule.value,
-      categoryId: rule.categoryId?._id || rule.categoryId || getOtherCategoryId(),
+      categoryId: normalizeCategoryId(rule.categoryId) || getOtherCategoryId(),
       appliesTo: rule.appliesTo,
       sortOrder: rule.sortOrder,
       maxCap: rule.maxCap,
@@ -146,8 +159,8 @@ export function PricingRulesManager() {
 
   async function handleToggleActive(rule) {
     try {
-      await pricingService.updatePricingRule(rule._id, { isActive: !rule.isActive });
-      setRules(rules.map((item) => (item._id === rule._id ? { ...item, isActive: !item.isActive } : item)));
+      const response = await pricingService.togglePricingRuleActive(rule._id, !rule.isActive);
+      setRules(rules.map((item) => (item._id === rule._id ? response.data : item)));
       setSuccess(`Rule ${!rule.isActive ? "enabled" : "disabled"}!`);
     } catch (err) {
       setError(normalizeMessage(err, "Failed to toggle rule"));
@@ -163,8 +176,29 @@ export function PricingRulesManager() {
 
   function getCategoryLabel(rule) {
     if (rule.categoryId?.name) return rule.categoryId.name;
-    const selectedCategoryId = rule.categoryId?._id || rule.categoryId || "";
+    const selectedCategoryId = normalizeCategoryId(rule.categoryId);
     return categories.find((item) => item._id === selectedCategoryId)?.name || rule.category || "Other";
+  }
+
+  function getRuleStatus(rule) {
+    if (rule.inheritedInactive) {
+      return {
+        label: "Category Inactive",
+        className: "bg-amber-100 text-amber-800",
+      };
+    }
+
+    if (rule.isActive) {
+      return {
+        label: "Active",
+        className: "bg-green-600 text-white",
+      };
+    }
+
+    return {
+      label: "Inactive",
+      className: "bg-gray-400 text-white",
+    };
   }
 
   return (
@@ -412,14 +446,17 @@ export function PricingRulesManager() {
                   </td>
                   <td className="border p-3 text-sm">{rule.appliesTo}</td>
                   <td className="border p-3">
-                    <button
-                      onClick={() => handleToggleActive(rule)}
-                      className={`rounded px-3 py-1 text-sm font-medium text-white ${
-                        rule.isActive ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 hover:bg-gray-500"
-                      }`}
-                    >
-                      {rule.isActive ? "Active" : "Inactive"}
-                    </button>
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => handleToggleActive(rule)}
+                        className={`rounded px-3 py-1 text-sm font-medium ${getRuleStatus(rule).className}`}
+                      >
+                        {getRuleStatus(rule).label}
+                      </button>
+                      {rule.inheritedInactive ? (
+                        <span className="text-xs text-amber-700">Enable the category first</span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="border p-3">
                     <div className="flex gap-2">

@@ -106,6 +106,7 @@ export function Sidebar({
               key={section.key}
               section={section.section}
               items={section.items}
+              badgeCount={section.badgeCount}
               isOpen={openSection === section.key}
               onToggle={() =>
                 setOpenSection((current) => (current === section.key ? null : section.key))

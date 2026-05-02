@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { Topbar } from "./Topbar";
 import { Sidebar } from "./sidebar/Sidebar";
@@ -6,6 +6,7 @@ import { useVendorDashboardStore } from "../context/vendorDashboardStore";
 import { useAuthStore } from "../context/authStore";
 import { VendorModuleProvider, useModuleAccess } from "../context/VendorModuleContext";
 import { useVendorSidebarData } from "../hooks/useVendorSidebarData";
+import { useRoleNotifications } from "../hooks/useRoleNotifications";
 
 const pageMeta = {
   "/vendor/dashboard": {
@@ -93,14 +94,29 @@ const pageMeta = {
 function VendorLayoutInner() {
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
-  const { sidebarOpen, setSidebarOpen, notificationsUnread, fetchNotificationsUnread } = useVendorDashboardStore();
+  const { sidebarOpen, setSidebarOpen } = useVendorDashboardStore();
   const { can } = useModuleAccess();
-  const sidebarData = useVendorSidebarData({ unreadCount: notificationsUnread });
+  const baseSidebarData = useVendorSidebarData();
+  const activeNotificationTarget = useMemo(() => {
+    for (const section of baseSidebarData.sections) {
+      const item = section.items.find(
+        (entry) => location.pathname === entry.path || location.pathname.startsWith(`${entry.path}/`)
+      );
+      if (item?.notificationModule || item?.notificationSubModule) {
+        return {
+          module: item.notificationModule,
+          subModule: item.notificationSubModule,
+        };
+      }
+    }
+    return null;
+  }, [baseSidebarData.sections, location.pathname]);
+  const { summary } = useRoleNotifications("vendor", activeNotificationTarget);
+  const sidebarData = useVendorSidebarData({
+    unreadCount: summary.total,
+    summary,
+  });
   const meta = pageMeta[location.pathname] || pageMeta["/vendor/dashboard"];
-
-  useEffect(() => {
-    fetchNotificationsUnread().catch(() => {});
-  }, [fetchNotificationsUnread, location.pathname]);
 
   if (!user || user.role !== "vendor") {
     return <Navigate to="/dashboard" replace />;

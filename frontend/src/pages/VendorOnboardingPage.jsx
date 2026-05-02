@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { BackButton } from "../components/BackButton";
 import { PayoutAccountForm } from "../components/PayoutAccountForm";
@@ -51,12 +51,25 @@ export function VendorOnboardingPage() {
   const [vendor, setVendor] = useState(null);
 
   const [step, setStep] = useState(1);
+  const step3FormRef = useRef(null);
 
   // Step 1
   const [companyName, setCompanyName] = useState("");
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
+
+  // Step 1 - Pickup Address
+  const [pickupLocationName, setPickupLocationName] = useState("");
+  const [pickupLocationPhone, setPickupLocationPhone] = useState("");
+  const [pickupAddressLine1, setPickupAddressLine1] = useState("");
+  const [pickupAddressLine2, setPickupAddressLine2] = useState("");
+  const [pickupCity, setPickupCity] = useState("");
+  const [pickupState, setPickupState] = useState("");
+  const [pickupPincode, setPickupPincode] = useState("");
+  const [pickupCountry, setPickupCountry] = useState("India");
+  const [pickupLat, setPickupLat] = useState("");
+  const [pickupLng, setPickupLng] = useState("");
 
   // Step 2
   const [noGst, setNoGst] = useState(false);
@@ -91,6 +104,21 @@ export function VendorOnboardingPage() {
         setNoGst(Boolean(v.noGst));
         setGstNumber(v.gstNumber || "");
         setShopName(v.shopName || "");
+
+        // Hydrate pickup location (from pickupLocations array or pickupAddress)
+        const defaultPickup = v.pickupLocations?.[0] || v.pickupAddress;
+        if (defaultPickup) {
+          setPickupLocationName(defaultPickup.name || "");
+          setPickupLocationPhone(defaultPickup.phone || "");
+          setPickupAddressLine1(defaultPickup.addressLine1 || "");
+          setPickupAddressLine2(defaultPickup.addressLine2 || "");
+          setPickupCity(defaultPickup.city || "");
+          setPickupState(defaultPickup.state || "");
+          setPickupPincode(defaultPickup.pincode || "");
+          setPickupCountry(defaultPickup.country || "India");
+          setPickupLat(defaultPickup.latitude != null ? String(defaultPickup.latitude) : "");
+          setPickupLng(defaultPickup.longitude != null ? String(defaultPickup.longitude) : "");
+        }
 
         const next = Math.min(4, Math.max(1, (v.stepCompleted || 0) + 1));
         setStep(next);
@@ -129,6 +157,19 @@ export function VendorOnboardingPage() {
           companyName,
           address,
           location: { lat: Number(lat), lng: Number(lng) },
+          pickupLocations: [{
+            name: pickupLocationName,
+            phone: pickupLocationPhone,
+            addressLine1: pickupAddressLine1,
+            addressLine2: pickupAddressLine2,
+            city: pickupCity,
+            state: pickupState,
+            pincode: pickupPincode,
+            country: pickupCountry,
+            latitude: pickupLat ? Number(pickupLat) : null,
+            longitude: pickupLng ? Number(pickupLng) : null,
+            isDefault: true,
+          }],
         });
         setVendor(res.data);
         setStep(2);
@@ -251,6 +292,118 @@ export function VendorOnboardingPage() {
             >
               Use current location
             </button>
+
+            <hr className="my-2" />
+
+            <div className="text-sm font-semibold">Primary Pickup Location</div>
+            <p className="text-xs text-slate-500">
+              Enter your primary pickup location details where orders will be collected from.
+            </p>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-medium">
+                Location name (optional)
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={pickupLocationName}
+                  onChange={(e) => setPickupLocationName(e.target.value)}
+                  placeholder={companyName ? `e.g. ${companyName} - Warehouse` : "e.g. Main warehouse"}
+                />
+                <div className="mt-1 text-xs text-slate-500">Defaults to company name if not provided</div>
+              </label>
+              <label className="text-sm font-medium">
+                Phone
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={pickupLocationPhone}
+                  onChange={(e) => setPickupLocationPhone(e.target.value)}
+                  placeholder="e.g. +91-9876543210"
+                />
+              </label>
+              <label className="md:col-span-2 text-sm font-medium">
+                Address Line 1
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={pickupAddressLine1}
+                  onChange={(e) => setPickupAddressLine1(e.target.value)}
+                  placeholder="Street address"
+                />
+              </label>
+              <label className="md:col-span-2 text-sm font-medium">
+                Address Line 2
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={pickupAddressLine2}
+                  onChange={(e) => setPickupAddressLine2(e.target.value)}
+                  placeholder="Apartment, suite, etc. (optional)"
+                />
+              </label>
+              <label className="text-sm font-medium">
+                City
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={pickupCity}
+                  onChange={(e) => setPickupCity(e.target.value)}
+                  placeholder="e.g. Chennai"
+                />
+              </label>
+              <label className="text-sm font-medium">
+                State
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={pickupState}
+                  onChange={(e) => setPickupState(e.target.value)}
+                  placeholder="e.g. Tamil Nadu"
+                />
+              </label>
+              <label className="text-sm font-medium">
+                Pincode
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={pickupPincode}
+                  onChange={(e) => setPickupPincode(e.target.value)}
+                  placeholder="e.g. 600001"
+                />
+              </label>
+              <label className="text-sm font-medium">
+                Country
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={pickupCountry}
+                  onChange={(e) => setPickupCountry(e.target.value)}
+                />
+              </label>
+              <label className="text-sm font-medium">
+                Latitude
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={pickupLat}
+                  onChange={(e) => setPickupLat(e.target.value)}
+                  placeholder="e.g. 13.0827"
+                />
+              </label>
+              <label className="text-sm font-medium">
+                Longitude
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={pickupLng}
+                  onChange={(e) => setPickupLng(e.target.value)}
+                  placeholder="e.g. 80.2707"
+                />
+              </label>
+            </div>
+
+            {mapsKey && (pickupLat || pickupLng) ? (
+              <LocationPickerMap
+                apiKey={mapsKey}
+                lat={pickupLat ? Number(pickupLat) : Number.NaN}
+                lng={pickupLng ? Number(pickupLng) : Number.NaN}
+                onChange={({ lat: newLat, lng: newLng }) => {
+                  setPickupLat(String(newLat));
+                  setPickupLng(String(newLng));
+                }}
+              />
+            ) : null}
           </div>
         ) : null}
 
@@ -298,6 +451,7 @@ export function VendorOnboardingPage() {
               Provide your bank account details for payout processing. We'll verify these details with our finance team.
             </p>
             <PayoutAccountForm
+              ref={step3FormRef}
               onSubmit={async (formData) => {
                 try {
                   setError("");
@@ -321,7 +475,7 @@ export function VendorOnboardingPage() {
               }}
               loading={saving}
               showOptionalHint={false}
-              submitLabel="Save & continue"
+              hideSubmitButton={true}
             />
           </div>
         ) : null}
@@ -330,13 +484,16 @@ export function VendorOnboardingPage() {
           <div className="grid gap-4">
             <div className="text-sm font-semibold">Step 4 — Shop Setup</div>
             <label className="text-sm font-medium">
-              Shop name
+              Shop display name (optional)
               <input
                 className="mt-1 w-full rounded-lg border px-3 py-2"
                 value={shopName}
                 onChange={(e) => setShopName(e.target.value)}
-                required
+                placeholder={companyName || "Leave blank to use company name"}
               />
+              <div className="mt-1 text-xs text-slate-500">
+                Defaults to company name if not provided
+              </div>
             </label>
             <label className="text-sm font-medium">
               Upload 4–5 shop images (JPG/PNG/WebP)
@@ -366,7 +523,14 @@ export function VendorOnboardingPage() {
           <button
             type="button"
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-            onClick={saveCurrentStep}
+            onClick={() => {
+              if (step === 3) {
+                // Trigger form submission for Step 3
+                step3FormRef.current?.requestSubmit?.();
+              } else {
+                saveCurrentStep();
+              }
+            }}
             disabled={saving}
           >
             {saving ? "Saving..." : step === 4 ? "Submit for approval" : "Save & continue"}

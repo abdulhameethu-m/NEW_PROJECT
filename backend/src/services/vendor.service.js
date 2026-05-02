@@ -39,6 +39,31 @@ async function saveStep1(userId, payload) {
     stepCompleted: bumpStep(existing.stepCompleted, 1),
     status: existing.status === "rejected" ? "draft" : existing.status,
   };
+
+  // Save pickup locations if provided
+  if (payload.pickupLocations && Array.isArray(payload.pickupLocations)) {
+    const processedLocations = payload.pickupLocations
+      .filter((loc) => loc && (loc.name || loc.addressLine1))
+      .map((loc) => ({
+        // Default location name to company name if not provided
+        name: (loc.name && loc.name.trim()) ? loc.name : payload.companyName,
+        phone: loc.phone || "",
+        addressLine1: loc.addressLine1 || "",
+        addressLine2: loc.addressLine2 || "",
+        city: loc.city || "",
+        state: loc.state || "",
+        pincode: loc.pincode || "",
+        country: loc.country || "India",
+        latitude: Number.isFinite(Number(loc.latitude)) ? Number(loc.latitude) : undefined,
+        longitude: Number.isFinite(Number(loc.longitude)) ? Number(loc.longitude) : undefined,
+        isDefault: loc.isDefault || false,
+      }));
+
+    if (processedLocations.length > 0) {
+      update.pickupLocations = processedLocations;
+    }
+  }
+
   return await vendorRepo.upsertByUserId(userId, update);
 }
 
@@ -97,7 +122,8 @@ async function saveStep4AndSubmit(userId, payload, files) {
   }
 
   const update = {
-    shopName: payload.shopName,
+    // Use provided shop name, or default to company name
+    shopName: payload.shopName && payload.shopName.trim() ? payload.shopName : existing.companyName,
     shopImages: uploaded,
     stepCompleted: bumpStep(existing.stepCompleted, 4),
     status: "pending",

@@ -42,13 +42,14 @@ export const ADMIN_SECTION_ITEMS = [
   },
   {
     section: "Management",
+    notificationModule: "MANAGEMENT",
     key: "management",
     items: [
-      { name: "Users", path: "/admin/users", permission: "users.read", icon: Users },
+      { name: "Users", path: "/admin/users", permission: "users.read", icon: Users, notificationModule: "MANAGEMENT", notificationSubModule: "USERS" },
       { name: "Sellers", path: "/admin/sellers", permission: "vendors.read", icon: ShoppingBag, legacyOnly: true },
-      { name: "Products", path: "/admin/products", permission: "products.read", icon: Boxes },
-      { name: "Orders", path: "/admin/orders", permission: "orders.read", icon: ShoppingCart },
-      { name: "Pickups", path: "/admin/pickups", permission: "orders.read", icon: Truck },
+      { name: "Products", path: "/admin/products", permission: "products.read", icon: Boxes, notificationModule: "MANAGEMENT", notificationSubModule: "PRODUCTS" },
+      { name: "Orders", path: "/admin/orders", permission: "orders.read", icon: ShoppingCart, notificationModule: "MANAGEMENT", notificationSubModule: "ORDERS" },
+      { name: "Pickups", path: "/admin/pickups", permission: "orders.read", icon: Truck, notificationModule: "MANAGEMENT", notificationSubModule: "DELIVERY" },
     ],
   },
   {
@@ -66,18 +67,20 @@ export const ADMIN_SECTION_ITEMS = [
   },
   {
     section: "Finance",
+    notificationModule: "FINANCE",
     key: "finance",
     items: [
-      { name: "Payments", path: "/admin/payments", permission: "payments.read", icon: CreditCard },
-      { name: "Refunds", path: "/admin/refunds", permission: "payments.read", icon: RotateCcw },
-      { name: "Payout Management", path: "/admin/finance/payouts", permission: "payouts.read", icon: Wallet },
+      { name: "Payments", path: "/admin/payments", permission: "payments.read", icon: CreditCard, notificationModule: "FINANCE", notificationSubModule: "PAYMENTS" },
+      { name: "Refunds", path: "/admin/refunds", permission: "payments.read", icon: RotateCcw, notificationModule: "MANAGEMENT", notificationSubModule: "RETURNS" },
+      { name: "Payout Management", path: "/admin/finance/payouts", permission: "payouts.read", icon: Wallet, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
     ],
   },
   {
     section: "Workspace",
+    notificationModule: "WORKSPACE",
     key: "workspace",
     items: [
-      { name: "Settings", path: "/admin/settings", permission: "settings.update", icon: Settings },
+      { name: "Settings", path: "/admin/settings", permission: "settings.update", icon: Settings, notificationModule: "WORKSPACE", notificationSubModule: "SETTINGS" },
       { name: "Shipping", path: "/admin/shipping", permission: "settings.update", icon: Truck },
       { name: "Pricing", path: "/admin/pricing", permission: "settings.update", icon: Percent },
       { name: "Pricing Categories", path: "/admin/pricing-categories", permission: "settings.update", icon: Tags },
@@ -95,26 +98,27 @@ export const VENDOR_PRIMARY_ITEM = {
 
 export const VENDOR_DYNAMIC_MODULE_META = {
   analytics: { section: "Finance", path: "/vendor/analytics", icon: BarChart3 },
-  delivery: { section: "Management", path: "/vendor/delivery", icon: Truck },
+  delivery: { section: "Management", path: "/vendor/delivery", icon: Truck, notificationModule: "MANAGEMENT", notificationSubModule: "DELIVERY" },
   homepage_content: { section: "Marketing", path: "/vendor/content", icon: Image },
-  inventory: { section: "Management", path: "/vendor/inventory", icon: Package2 },
-  orders: { section: "Management", path: "/vendor/orders", icon: ShoppingCart },
-  payments: { section: "Finance", path: "/vendor/finance", icon: CreditCard },
-  products: { section: "Management", path: "/vendor/products", icon: Package },
-  returns: { section: "Management", path: "/vendor/returns", icon: RotateCcw },
-  reviews: { section: "Growth", path: "/vendor/reviews", icon: Star },
+  inventory: { section: "Management", path: "/vendor/inventory", icon: Package2, notificationModule: "MANAGEMENT", notificationSubModule: "INVENTORY" },
+  orders: { section: "Management", path: "/vendor/orders", icon: ShoppingCart, notificationModule: "MANAGEMENT", notificationSubModule: "ORDERS" },
+  payments: { section: "Finance", path: "/vendor/finance", icon: CreditCard, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
+  products: { section: "Management", path: "/vendor/products", icon: Package, notificationModule: "MANAGEMENT", notificationSubModule: "PRODUCTS" },
+  returns: { section: "Management", path: "/vendor/returns", icon: RotateCcw, notificationModule: "MANAGEMENT", notificationSubModule: "RETURNS" },
+  reviews: { section: "Growth", path: "/vendor/reviews", icon: Star, notificationModule: "GROWTH", notificationSubModule: "REVIEWS" },
 };
 
 export const VENDOR_STATIC_ITEMS = [
   {
     section: "Workspace",
+    notificationModule: "WORKSPACE",
     key: "workspace",
     items: [
       { name: "Notifications", path: "/vendor/notifications", icon: Bell, badgeKey: "notificationsUnread" },
       { name: "Ready for Pickup", path: "/vendor/pickups", icon: Truck },
       { name: "Offers", path: "/vendor/offers", icon: Percent },
-      { name: "Support", path: "/vendor/support", icon: HeadphonesIcon },
-      { name: "Settings", path: "/vendor/settings", icon: Settings },
+      { name: "Support", path: "/vendor/support", icon: HeadphonesIcon, notificationModule: "WORKSPACE", notificationSubModule: "SUPPORT" },
+      { name: "Settings", path: "/vendor/settings", icon: Settings, notificationModule: "WORKSPACE", notificationSubModule: "SETTINGS" },
     ],
   },
 ];

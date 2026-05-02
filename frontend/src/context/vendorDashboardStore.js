@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import * as vendorDashboardService from "../services/vendorDashboardService";
+import { getNotificationSummary } from "../services/notificationService";
 
 export const useVendorDashboardStore = create((set) => ({
   sidebarOpen: false,
@@ -12,8 +13,8 @@ export const useVendorDashboardStore = create((set) => ({
     return response.data;
   },
   fetchNotificationsUnread: async () => {
-    const response = await vendorDashboardService.getVendorNotifications({ limit: 1 });
-    set({ notificationsUnread: response.data.unreadCount || 0 });
-    return response.data.unreadCount || 0;
+    const response = await getNotificationSummary("vendor");
+    set({ notificationsUnread: response.data?.total || 0 });
+    return response.data?.total || 0;
   },
 }));

@@ -11,6 +11,7 @@ const { getCommissionPercentage } = require("./finance-config.service");
 const { resolveVendorShippingModes } = require("./shipping.service");
 const pricingService = require("./pricing.service");
 const { getItemWeight } = require("../utils/cartWeightCalculator");
+const notificationService = require("./notification.service");
 
 function asObjectId(id, fieldName) {
   if (!mongoose.isValidObjectId(id)) throw new AppError(`Invalid ${fieldName}`, 400, "VALIDATION_ERROR");
@@ -497,6 +498,26 @@ class CheckoutService {
       }
 
       await cartRepo.clear(userId);
+
+      await Promise.all(
+        orders.map((order) =>
+          notificationService.notifyVendorAndOperations({
+            vendorId: order.sellerId,
+            permissionKey: "orders.read",
+            module: "MANAGEMENT",
+            subModule: "ORDERS",
+            type: "ORDER_CREATED",
+            title: "New order",
+            message: `Order ${order.orderNumber} was placed successfully.`,
+            referenceId: order._id,
+            meta: {
+              orderNumber: order.orderNumber,
+              paymentMethod: order.paymentMethod,
+              totalAmount: order.totalAmount,
+            },
+          })
+        )
+      );
 
       return { orders, payouts, payment, orderGroupId: resolvedGroupId };
     } catch (error) {

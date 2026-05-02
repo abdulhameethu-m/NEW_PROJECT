@@ -22,6 +22,7 @@ const {
   buildWalletSnapshot,
   roundMoney,
 } = require("./vendorFinance.rules");
+const notificationService = require("./notification.service");
 
 const PAYOUT_DELAY_DAYS = Number(process.env.PAYOUT_DELAY_DAYS || 7);
 const MIN_PAYOUT_REQUEST_AMOUNT = Number(process.env.MIN_PAYOUT_REQUEST_AMOUNT || 500);
@@ -444,6 +445,22 @@ class PayoutService {
         userAgent: meta?.userAgent,
       });
 
+      await notificationService.notifyOperations(
+        {
+          module: "FINANCE",
+          subModule: "PAYOUTS",
+          type: "PAYOUT_REQUEST",
+          title: "New payout request",
+          message: `A vendor requested a payout of INR ${amount}.`,
+          referenceId: request._id,
+          meta: {
+            vendorId: vendor._id,
+            amount,
+          },
+        },
+        "payouts.read"
+      );
+
       return { request, wallet: updatedWallet, ledgerEntry };
     });
   }
@@ -477,6 +494,15 @@ class PayoutService {
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
+    });
+
+    await notificationService.notifyVendorUser(request.vendorId, {
+      module: "FINANCE",
+      subModule: "PAYOUTS",
+      type: "PAYOUT_APPROVED",
+      title: "Payout approved",
+      message: `Your payout request for INR ${request.amount} was approved.`,
+      referenceId: request._id,
     });
 
     return request;
@@ -532,6 +558,18 @@ class PayoutService {
         },
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
+      });
+
+      await notificationService.notifyVendorUser(request.vendorId, {
+        module: "FINANCE",
+        subModule: "PAYOUTS",
+        type: "PAYOUT_REJECTED",
+        title: "Payout rejected",
+        message: `Your payout request for INR ${request.amount} was rejected.`,
+        referenceId: request._id,
+        meta: {
+          reason: payload.adminNote || "",
+        },
       });
 
       return { request, wallet: updatedWallet, ledgerEntry };
@@ -701,6 +739,19 @@ class PayoutService {
         },
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
+      });
+
+      await notificationService.notifyVendorUser(lockedRequest.vendorId, {
+        module: "FINANCE",
+        subModule: "PAYOUTS",
+        type: "PAYOUT_PAID",
+        title: "Payout completed",
+        message: `Your payout request for INR ${lockedRequest.amount} has been paid.`,
+        referenceId: lockedRequest._id,
+        meta: {
+          transactionId: executionResult.transactionId,
+          mode,
+        },
       });
 
       return { request: lockedRequest, wallet: updatedWallet, ledgerEntry };

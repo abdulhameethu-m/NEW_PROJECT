@@ -1,17 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, forwardRef } from "react";
 
 /**
  * PayoutAccountForm Component
  * Used in vendor onboarding and account management
  * Displays form for entering payout account details (bank or UPI)
  */
-export function PayoutAccountForm({
-  initialData = {},
-  onSubmit,
-  loading = false,
-  showOptionalHint = true,
-  submitLabel = "Save Account",
-}) {
+export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
+  {
+    initialData = {},
+    onSubmit,
+    loading = false,
+    showOptionalHint = true,
+    submitLabel = "Save Account",
+    hideSubmitButton = false,
+  },
+  ref
+) {
   const [formData, setFormData] = useState({
     accountHolderName: initialData.accountHolderName || "",
     accountNumber: initialData.accountNumber || "",
@@ -21,6 +25,21 @@ export function PayoutAccountForm({
   });
 
   const [errors, setErrors] = useState({});
+  const isInitialMount = useRef(true);
+
+  // Only sync form data on initial mount or when explicitly changing accounts
+  useEffect(() => {
+    if (isInitialMount.current) {
+      setFormData({
+        accountHolderName: initialData.accountHolderName || "",
+        accountNumber: initialData.accountNumber || "",
+        ifscCode: (initialData.ifscCode || "").toUpperCase(),
+        bankName: initialData.bankName || "",
+        upiId: initialData.upiId || "",
+      });
+      isInitialMount.current = false;
+    }
+  }, []);
 
   // Form validation
   const validate = () => {
@@ -80,7 +99,7 @@ export function PayoutAccountForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-4">
+    <form ref={ref} onSubmit={handleSubmit} className="grid gap-4">
       {errors.general && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {errors.general}
@@ -225,20 +244,22 @@ export function PayoutAccountForm({
         </label>
       </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className={`rounded-lg font-semibold py-2 px-4 text-white transition ${
-          loading
-            ? "bg-slate-400 cursor-not-allowed"
-            : "bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800"
-        }`}
-      >
-        {loading ? "Saving..." : submitLabel}
-      </button>
+      {!hideSubmitButton && (
+        <button
+          type="submit"
+          disabled={loading}
+          className={`rounded-lg font-semibold py-2 px-4 text-white transition ${
+            loading
+              ? "bg-slate-400 cursor-not-allowed"
+              : "bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800"
+          }`}
+        >
+          {loading ? "Saving..." : submitLabel}
+        </button>
+      )}
     </form>
   );
-}
+});
 
 /**
  * PayoutAccountDisplay Component

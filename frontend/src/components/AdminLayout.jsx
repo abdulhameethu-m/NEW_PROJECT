@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Topbar } from "./Topbar";
 import { useAdminSidebarData } from "../hooks/useAdminSidebarData";
+import { useRoleNotifications } from "../hooks/useRoleNotifications";
+import { ADMIN_SECTION_ITEMS } from "../config/sidebarModules";
 
 const pageMeta = {
   "/admin/dashboard": {
@@ -130,7 +132,22 @@ const pageMeta = {
 export function AdminLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const sidebarData = useAdminSidebarData();
+  const activeNotificationTarget = useMemo(() => {
+    for (const section of ADMIN_SECTION_ITEMS) {
+      const item = section.items.find(
+        (entry) => location.pathname === entry.path || location.pathname.startsWith(`${entry.path}/`)
+      );
+      if (item?.notificationModule || item?.notificationSubModule) {
+        return {
+          module: item.notificationModule,
+          subModule: item.notificationSubModule,
+        };
+      }
+    }
+    return null;
+  }, [location.pathname]);
+  const { summary } = useRoleNotifications("admin", activeNotificationTarget);
+  const sidebarData = useAdminSidebarData(summary);
 
   const meta = useMemo(() => {
     if (location.pathname.startsWith("/admin/sellers/")) {

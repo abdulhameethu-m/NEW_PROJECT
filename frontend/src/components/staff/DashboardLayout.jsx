@@ -5,6 +5,7 @@ import { StaffSidebar } from "./Sidebar";
 import { StaffTopbar } from "./Topbar";
 import * as staffAuthService from "../../services/staffAuthService";
 import { getStaffModuleByRoute } from "../../config/staffModules";
+import { useRoleNotifications } from "../../hooks/useRoleNotifications";
 
 // Periodic sync interval - 5 minutes
 const PERMISSION_SYNC_INTERVAL = 5 * 60 * 1000;
@@ -152,12 +153,20 @@ export function StaffDashboardLayout({ children }) {
   }
 
   const activeModule = getStaffModuleByRoute(location.pathname);
+  const activeNotificationTarget = activeModule?.notificationModule || activeModule?.notificationSubModule
+    ? {
+        module: activeModule.notificationModule,
+        subModule: activeModule.notificationSubModule,
+      }
+    : null;
+  const { summary } = useRoleNotifications("staff", activeNotificationTarget);
 
   return (
     <div className="flex min-h-screen overflow-hidden bg-slate-100">
       <StaffSidebar
         permissions={user?.permissions || {}}
         enabledModules={user?.enabledModules || {}}
+        summary={summary}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((current) => !current)}
       />

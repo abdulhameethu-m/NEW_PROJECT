@@ -16,6 +16,7 @@ const { getCommissionPercentage } = require("./finance-config.service");
 const payoutService = require("./payout.service");
 const { getShippingModesConfig, updateShippingModesConfig } = require("./shipping-config.service");
 const { normalizeShippingMode } = require("./shipping.service");
+const notificationService = require("./notification.service");
 
 function resolveGlobalShippingModes(configValue = {}) {
   const modes = [];
@@ -532,6 +533,20 @@ async function createOrder(payload, actor, meta) {
     ipAddress: meta?.ipAddress,
     userAgent: meta?.userAgent,
   });
+  await Promise.all(
+    created.map((order) =>
+      notificationService.notifyVendorAndOperations({
+        vendorId: order.sellerId,
+        permissionKey: "orders.read",
+        module: "MANAGEMENT",
+        subModule: "ORDERS",
+        type: "ORDER_CREATED",
+        title: "Order created by admin",
+        message: `Order ${order.orderNumber} was created from the admin workspace.`,
+        referenceId: order._id,
+      })
+    )
+  );
   return { orders: created };
 }
 
@@ -762,6 +777,19 @@ async function updateOrderStatus(orderId, status, actor, meta) {
     metadata: { status },
     ipAddress: meta?.ipAddress,
     userAgent: meta?.userAgent,
+  });
+  await notificationService.notifyVendorAndOperations({
+    vendorId: updated.sellerId,
+    permissionKey: "orders.read",
+    module: "MANAGEMENT",
+    subModule: "ORDERS",
+    type: "ORDER_STATUS_CHANGED",
+    title: "Order status updated",
+    message: `Order ${updated.orderNumber} moved to ${status}.`,
+    referenceId: updated._id,
+    meta: {
+      status,
+    },
   });
   return updated;
 }

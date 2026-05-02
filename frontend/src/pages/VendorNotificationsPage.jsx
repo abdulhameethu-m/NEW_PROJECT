@@ -1,24 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
 import { StatusBadge } from "../components/StatusBadge";
 import { VendorList, VendorSection } from "../components/VendorPanel";
-import * as vendorDashboardService from "../services/vendorDashboardService";
-import { useVendorDashboardStore } from "../context/vendorDashboardStore";
+import { getNotifications, markNotificationsRead } from "../services/notificationService";
 
 export function VendorNotificationsPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
-  const fetchNotificationsUnread = useVendorDashboardStore((state) => state.fetchNotificationsUnread);
 
   const load = useCallback(async () => {
     try {
-      const response = await vendorDashboardService.getVendorNotifications({ limit: 30 });
-      setData(response.data);
+      const response = await getNotifications("vendor", { limit: 30 });
+      setData({
+        notifications: response.data?.notifications || [],
+        unreadCount: response.data?.summary?.total || 0,
+      });
       setError("");
-      await fetchNotificationsUnread();
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load notifications.");
     }
-  }, [fetchNotificationsUnread]);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -27,7 +27,7 @@ export function VendorNotificationsPage() {
   }, [load]);
 
   async function markRead(id) {
-    await vendorDashboardService.markVendorNotificationRead(id);
+    await markNotificationsRead("vendor", { notificationIds: [id] });
     await load();
   }
 

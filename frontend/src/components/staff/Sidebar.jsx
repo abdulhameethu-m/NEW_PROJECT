@@ -16,7 +16,7 @@ const ICON_MAP = {
   UserCheck: UserCheckIcon,
 };
 
-export function StaffSidebar({ permissions, enabledModules = {}, isOpen, onToggle }) {
+export function StaffSidebar({ permissions, enabledModules = {}, summary = { modules: {}, subModules: {} }, isOpen, onToggle }) {
   const location = useLocation();
   const [expandedSections, setExpandedSections] = useState({
     main: true,
@@ -89,9 +89,36 @@ export function StaffSidebar({ permissions, enabledModules = {}, isOpen, onToggl
                   className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"
                 >
                   <span>{SIDEBAR_SECTIONS[section] || section}</span>
+                  <span className="ml-auto mr-2 inline-flex items-center gap-2">
+                    {Number(
+                      summary.modules?.[
+                        section === "management"
+                          ? "MANAGEMENT"
+                          : section === "finance"
+                            ? "FINANCE"
+                            : section === "admin"
+                              ? "WORKSPACE"
+                              : ""
+                      ] || 0
+                    ) > 0 ? (
+                      <span className="inline-flex min-w-6 justify-center rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-semibold text-white">
+                        {Number(
+                          summary.modules?.[
+                            section === "management"
+                              ? "MANAGEMENT"
+                              : section === "finance"
+                                ? "FINANCE"
+                                : section === "admin"
+                                  ? "WORKSPACE"
+                                  : ""
+                          ] || 0
+                        )}
+                      </span>
+                    ) : null}
                   <ChevronDownIcon
                     className={`h-3.5 w-3.5 transition-transform ${expandedSections[section] ? "" : "-rotate-90"}`}
                   />
+                  </span>
                 </button>
               ) : null}
 
@@ -118,6 +145,11 @@ export function StaffSidebar({ permissions, enabledModules = {}, isOpen, onToggl
                             {module.description}
                           </div>
                         </div>
+                        {Number(summary.subModules?.[module.notificationSubModule] || 0) > 0 ? (
+                          <span className={`ml-auto inline-flex min-w-6 justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${active ? "bg-white/20 text-white" : "bg-rose-500 text-white"}`}>
+                            {Number(summary.subModules?.[module.notificationSubModule] || 0)}
+                          </span>
+                        ) : null}
                       </Link>
                     );
                   })}

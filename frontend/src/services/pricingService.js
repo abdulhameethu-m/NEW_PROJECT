@@ -137,6 +137,13 @@ export async function updatePricingRule(ruleId, updates) {
   return data;
 }
 
+export async function togglePricingRuleActive(ruleId, isActive) {
+  const { data } = await adminHttp.patch(`/api/admin/pricing-rules/${ruleId}/active`, {
+    isActive,
+  });
+  return data;
+}
+
 /**
  * Delete/archive a pricing rule (admin)
  * @param {string} ruleId - Rule ID
