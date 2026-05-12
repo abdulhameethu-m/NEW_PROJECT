@@ -44,6 +44,10 @@ const pageMeta = {
     title: "Ledger",
     subtitle: "Inspect wallet credits, debits, and balance snapshots line by line.",
   },
+  "/vendor/finance/commission": {
+    title: "Commission Summary",
+    subtitle: "See platform deductions, per-order commission, and vendor net settlement clarity.",
+  },
   "/vendor/finance/account": {
     title: "Payout Account",
     subtitle: "Manage the verified bank or UPI details used for vendor withdrawals.",

@@ -175,6 +175,9 @@ class CODService {
           paymentStatus: order.paymentStatus,
           subtotal: order.subtotal,
           totalAmount: order.totalAmount,
+          grossAmount: roundMoney(order.totalAmount || order.subtotal || 0),
+          commissionAmount: roundMoney(order.platformCommissionAmount || 0),
+          vendorNetAmount: roundMoney(order.vendorEarning || 0),
           codAmount: order.paymentMethod === "COD" ? roundMoney(order.totalAmount || 0) : 0,
           shipmentId: order.shipmentId || "",
           settlementStatus:

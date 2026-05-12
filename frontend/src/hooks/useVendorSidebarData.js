@@ -50,6 +50,7 @@ export function useVendorSidebarData({ unreadCount = 0, summary = { modules: {},
       const existingPaths = new Set(financeItems.map((item) => item.path));
 
       [
+        { name: "Commission", path: "/vendor/finance/commission", notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
         { name: "Payout History", path: "/vendor/finance/payouts", notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
         { name: "Ledger", path: "/vendor/finance/ledger", notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
         { name: "Payout Account", path: "/vendor/finance/account", notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },

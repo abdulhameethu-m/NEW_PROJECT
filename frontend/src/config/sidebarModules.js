@@ -77,6 +77,7 @@ export const ADMIN_SECTION_ITEMS = [
       { name: "Refunds", path: "/admin/refunds", permission: "payments.read", icon: RotateCcw, notificationModule: "MANAGEMENT", notificationSubModule: "RETURNS" },
       { name: "Invoices", path: "/admin/finance/invoices", permission: "orders.read", icon: FileSearch, notificationModule: "FINANCE", notificationSubModule: "PAYMENTS" },
       { name: "Payout Management", path: "/admin/finance/payouts", permission: "payouts.read", icon: Wallet, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
+      { name: "Commission", path: "/admin/commission", permission: "settings.update", icon: Percent, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
       { name: "Influencers", path: "/admin/influencers", permission: "dashboard.read", icon: Clapperboard },
     ],
   },

@@ -71,6 +71,16 @@ const ledgerSchema = new mongoose.Schema(
 
 ledgerSchema.index({ vendorId: 1, createdAt: -1 });
 ledgerSchema.index({ vendorId: 1, source: 1, createdAt: -1 });
+ledgerSchema.index(
+  { type: 1, source: 1, referenceId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      type: "CREDIT",
+      source: { $in: ["ORDER", "COD_SETTLEMENT"] },
+    },
+  }
+);
 
 module.exports = {
   Ledger: mongoose.model("Ledger", ledgerSchema),

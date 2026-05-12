@@ -103,6 +103,10 @@ const pageMeta = {
     title: "Pricing Configuration",
     subtitle: "Manage platform-wide pricing rules, fees, and discounts.",
   },
+  "/admin/commission": {
+    title: "Commission Management",
+    subtitle: "Configure dynamic commission rules and track platform commission revenue.",
+  },
   "/admin/pricing-categories": {
     title: "Pricing Categories",
     subtitle: "Create and manage pricing categories to organize your fees and charges.",

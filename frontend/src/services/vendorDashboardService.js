@@ -115,6 +115,11 @@ export async function updateVendorPayoutAccount(payload) {
   return data;
 }
 
+export async function getVendorCommissionSummary(params = {}) {
+  const { data } = await api.get("/api/vendor/commission/summary", { params });
+  return data;
+}
+
 export async function getVendorDelivery(params) {
   const { data } = await api.get("/api/vendor/delivery", { params });
   return data;

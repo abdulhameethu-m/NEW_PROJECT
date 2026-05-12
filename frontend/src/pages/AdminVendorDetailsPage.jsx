@@ -101,6 +101,7 @@ export function AdminVendorDetailsPage() {
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Business profile</h2>
           <div className="mt-4 grid gap-3 text-sm text-slate-600 dark:text-slate-300">
+            <div>Vendor ID: {vendor.vendorCode || vendor._id}</div>
             <div>Owner: {vendor.userId?.name || "Unknown"}</div>
             <div>Email: {vendor.userId?.email || "No email"}</div>
             <div>Phone: {vendor.userId?.phone || "No phone"}</div>

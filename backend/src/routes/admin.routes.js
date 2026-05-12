@@ -45,6 +45,7 @@ const { roleSchema } = require("../modules/staff/validators");
 const adminPayoutController = require("../controllers/adminPayout.controller");
 const pricingController = require("../controllers/pricing.controller");
 const codController = require("../controllers/cod.controller");
+const commissionController = require("../controllers/commission.controller");
 const shippingConfigRoutes = require("./shippingConfig.routes");
 
 const router = express.Router();
@@ -290,6 +291,35 @@ router.get(
   "/pricing-categories",
   requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
   pricingController.getPricingCategories
+);
+
+router.get(
+  "/commission/rules",
+  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
+  commissionController.listRules
+);
+router.post(
+  "/commission/rules",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  commissionController.createRule
+);
+router.put(
+  "/commission/rules/:id",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  commissionController.updateRule
+);
+router.patch(
+  "/commission/rules/:id/active",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  commissionController.toggleRule
+);
+router.get(
+  "/commission/analytics",
+  requireWorkspacePermission("analytics.read", { legacyPermission: "dashboard:read" }),
+  commissionController.getAdminAnalytics
 );
 router.post(
   "/pricing-categories",

@@ -14,6 +14,7 @@ const checkoutService = require("./checkout.service");
 const commissionService = require("../modules/commission/service");
 const walletService = require("./wallet.service");
 const ledgerService = require("./ledger.service");
+const platformLedgerService = require("./platform-ledger.service");
 const VendorWallet = require("../models/VendorWallet");
 const VendorOrder = require("../models/VendorOrder");
 const { emitDomainEvent } = require("../modules/events/event-bus");
@@ -940,6 +941,7 @@ class PaymentService {
     const refundableBase = roundMoney(order.totalAmount || 0);
     const ratio = refundableBase > 0 ? Math.min(1, roundMoney(refundAmount / refundableBase)) : 0;
     const reversalAmount = roundMoney(vendorEarning * ratio);
+    const platformCommissionReversalAmount = roundMoney(Number(order.platformCommissionAmount || 0) * ratio);
 
     if (reversalAmount <= 0) {
       return { skipped: true, reason: "ZERO_REVERSAL" };
@@ -971,7 +973,9 @@ class PaymentService {
       session,
     });
 
-    return { reversalAmount, ledgerEntry };
+    await platformLedgerService.recordRefundCommissionReversal(order, platformCommissionReversalAmount, refundRef, { session });
+
+    return { reversalAmount, platformCommissionReversalAmount, ledgerEntry };
   }
 
   async processRefund({ orderId, paymentId, amount, reason, actorRole = "system", notes }) {

@@ -35,6 +35,17 @@ const orderItemSchema = new mongoose.Schema(
       value: { type: Number, min: 0 },
       unit: { type: String, trim: true, default: "kg" },
     },
+    commissionSnapshot: {
+      ruleId: { type: mongoose.Schema.Types.ObjectId, ref: "CommissionRule" },
+      ruleName: { type: String, trim: true, default: "" },
+      appliesTo: { type: String, enum: ["global", "category", "vendor", "product"], default: "global" },
+      commissionType: { type: String, enum: ["percentage", "fixed"], default: "percentage" },
+      commissionValue: { type: Number, min: 0, default: 0 },
+      commissionAmount: { type: Number, min: 0, default: 0 },
+      vendorNetAmount: { type: Number, min: 0, default: 0 },
+      categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
+      calculatedAt: { type: Date, default: Date.now },
+    },
   },
   { _id: false }
 );
@@ -130,6 +141,12 @@ const orderSchema = new mongoose.Schema(
     platformCommissionRate: { type: Number, min: 0, default: 0 },
     platformCommissionAmount: { type: Number, min: 0, default: 0 },
     vendorEarning: { type: Number, min: 0, default: 0 },
+    commissionSummary: {
+      totalItemSubtotal: { type: Number, min: 0, default: 0 },
+      totalCommissionAmount: { type: Number, min: 0, default: 0 },
+      totalVendorNetAmount: { type: Number, min: 0, default: 0 },
+      appliedRuleIds: { type: [mongoose.Schema.Types.ObjectId], ref: "CommissionRule", default: [] },
+    },
     currency: {
       type: String,
       default: "INR",

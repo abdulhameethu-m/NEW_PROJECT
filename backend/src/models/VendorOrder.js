@@ -39,6 +39,9 @@ const vendorOrderSchema = new mongoose.Schema(
     },
     subtotal: { type: Number, min: 0, default: 0 },
     totalAmount: { type: Number, min: 0, default: 0 },
+    grossAmount: { type: Number, min: 0, default: 0 },
+    commissionAmount: { type: Number, min: 0, default: 0 },
+    vendorNetAmount: { type: Number, min: 0, default: 0 },
     codAmount: { type: Number, min: 0, default: 0 },
     shipmentId: { type: String, trim: true, default: "" },
     settlementStatus: {

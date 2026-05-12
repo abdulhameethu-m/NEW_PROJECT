@@ -3,6 +3,12 @@ const mongoose = require("mongoose");
 const VENDOR_STATUS = ["draft", "pending", "approved", "rejected"];
 const SHIPPING_MODE = ["SELF", "PLATFORM"];
 
+function buildVendorCodeFromId(id) {
+  const raw = String(id || "").replace(/[^a-fA-F0-9]/g, "");
+  const suffix = raw.slice(-8).toUpperCase().padStart(8, "0");
+  return `VND-${suffix}`;
+}
+
 const pickupLocationSchema = new mongoose.Schema(
   {
     name: { type: String, trim: true, maxlength: 120 },
@@ -27,6 +33,14 @@ const vendorSchema = new mongoose.Schema(
       ref: "User",
       required: true,
       unique: true,
+      index: true,
+    },
+    vendorCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      unique: true,
+      sparse: true,
       index: true,
     },
 
@@ -121,6 +135,13 @@ const vendorSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+vendorSchema.pre("validate", function ensureVendorCode(next) {
+  if (!this.vendorCode) {
+    this.vendorCode = buildVendorCodeFromId(this._id);
+  }
+  next();
+});
 
 module.exports = {
   Vendor: mongoose.model("Vendor", vendorSchema),

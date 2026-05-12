@@ -3,6 +3,7 @@ const VendorWallet = require("../models/VendorWallet");
 const { Order } = require("../models/Order");
 const vendorRepo = require("../repositories/vendor.repository");
 const ledgerService = require("./ledger.service");
+const platformLedgerService = require("./platform-ledger.service");
 const { logger } = require("../utils/logger");
 const { AppError } = require("../utils/AppError");
 const {
@@ -95,26 +96,33 @@ class WalletService {
       const wallet = await this.getOrCreateWallet(order.sellerId, { session });
       const settlementAmount = calculateOrderSettlementAmount(order);
       const walletSnapshot = applyOrderCredit(wallet, settlementAmount);
+      let ledgerEntry;
+      try {
+        ledgerEntry = await ledgerService.createEntry({
+          vendorId: order.sellerId,
+          type: "CREDIT",
+          amount: settlementAmount,
+          source: "ORDER",
+          referenceId: order._id,
+          walletSnapshot,
+          meta: {
+            orderNumber: order.orderNumber,
+            payoutEligibleAt: order.payoutEligibleAt,
+          },
+          session,
+        });
+      } catch (error) {
+        if (error?.code === 11000) {
+          return { orderId, skipped: true, reason: "ALREADY_SETTLED" };
+        }
+        throw error;
+      }
 
       const updatedWallet = await VendorWallet.findOneAndUpdate(
         { _id: wallet._id },
         { $set: walletSnapshot },
         { new: true, session: session || undefined, runValidators: true }
       );
-
-      const ledgerEntry = await ledgerService.createEntry({
-        vendorId: order.sellerId,
-        type: "CREDIT",
-        amount: settlementAmount,
-        source: "ORDER",
-        referenceId: order._id,
-        walletSnapshot,
-        meta: {
-          orderNumber: order.orderNumber,
-          payoutEligibleAt: order.payoutEligibleAt,
-        },
-        session,
-      });
 
       await Order.updateOne(
         {
@@ -129,6 +137,8 @@ class WalletService {
         },
         { session: session || undefined }
       );
+
+      await platformLedgerService.recordOrderCommission(order, { session });
 
       return {
         orderId: order._id,

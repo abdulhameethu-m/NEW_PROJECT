@@ -20,6 +20,7 @@ const {
 } = require("../utils/validators/payout.validation");
 const vendorDashboardController = require("../modules/vendorDashboard/vendor-dashboard.controller");
 const vendorPayoutController = require("../controllers/vendorPayout.controller");
+const commissionController = require("../controllers/commission.controller");
 
 const router = express.Router();
 
@@ -69,6 +70,7 @@ router.get("/analytics", requireVendorModule("analytics"), vendorDashboardContro
 router.get("/payouts", requireVendorModule("payments"), vendorDashboardController.getPayouts);
 router.get("/wallet", requireVendorModule("payments"), vendorPayoutController.getWallet);
 router.get("/ledger", requireVendorModule("payments"), vendorPayoutController.getLedger);
+router.get("/commission/summary", requireVendorModule("payments"), commissionController.getVendorSummary);
 router.get("/payout-requests", requireVendorModule("payments"), vendorPayoutController.listPayoutRequests);
 router.post("/payouts/request", requireVendorPermission("payments.update"), validate(payoutRequestSchema), vendorPayoutController.requestPayout);
 router.get("/payout-account", requireVendorModule("payments"), vendorPayoutController.getPayoutAccount);

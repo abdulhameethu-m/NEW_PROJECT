@@ -392,3 +392,28 @@ export async function forceLogoutStaffAccount(id) {
   const { data } = await adminHttp.post(`/api/staff/admin/accounts/${id}/force-logout`);
   return data;
 }
+
+export async function listCommissionRules(params = {}) {
+  const { data } = await adminHttp.get("/api/admin/commission/rules", { params });
+  return data;
+}
+
+export async function createCommissionRule(payload) {
+  const { data } = await adminHttp.post("/api/admin/commission/rules", payload);
+  return data;
+}
+
+export async function updateCommissionRule(id, payload) {
+  const { data } = await adminHttp.put(`/api/admin/commission/rules/${id}`, payload);
+  return data;
+}
+
+export async function toggleCommissionRuleActive(id, active) {
+  const { data } = await adminHttp.patch(`/api/admin/commission/rules/${id}/active`, { active });
+  return data;
+}
+
+export async function getCommissionAnalytics(params = {}) {
+  const { data } = await adminHttp.get("/api/admin/commission/analytics", { params });
+  return data;
+}

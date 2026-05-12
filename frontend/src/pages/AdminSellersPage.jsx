@@ -151,6 +151,7 @@ export function AdminSellersPage() {
               </div>
 
               <div className="mt-4 grid gap-2 text-sm text-slate-600 dark:text-slate-300">
+                <div>Vendor ID: {seller.vendorCode || seller._id}</div>
                 <div>Step completed: {seller.stepCompleted || 0}/4</div>
                 <div>Shop: {seller.shopName || "Not submitted yet"}</div>
                 <div>GST: {seller.noGst ? "No GST" : seller.gstNumber || "Not provided"}</div>
@@ -168,6 +169,12 @@ export function AdminSellersPage() {
                   className="w-full rounded-xl border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto"
                 >
                   View details
+                </Link>
+                <Link
+                  to={`/admin/vendors/${seller._id}/finance`}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto"
+                >
+                  Finance details
                 </Link>
                 <button
                   type="button"

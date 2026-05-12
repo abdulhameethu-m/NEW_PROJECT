@@ -8,7 +8,6 @@ const payoutRepo = require("../repositories/payout.repository");
 const paymentRepo = require("../repositories/payment.repository");
 const userRepo = require("../repositories/user.repository");
 const vendorRepo = require("../repositories/vendor.repository");
-const { getCommissionPercentage } = require("./finance-config.service");
 const { resolveVendorShippingModes } = require("./shipping.service");
 const pricingService = require("./pricing.service");
 const { getItemWeight } = require("../utils/cartWeightCalculator");
@@ -23,6 +22,7 @@ const { buildOrderSnapshot, generateInvoiceNumber } = require("./order-document.
 const codService = require("./cod.service");
 const { Order } = require("../models/Order");
 const { Payment } = require("../models/Payment");
+const commissionRuleService = require("./commission-rule.service");
 
 const PREPARED_CHECKOUT_CACHE_TTL_MS = 2 * 60 * 1000;
 const preparedCheckoutCache = new Map();
@@ -475,7 +475,6 @@ class CheckoutService {
       calculatedAt: summary.calculatedAt || new Date().toISOString(),
     };
 
-    const commissionPercentage = await getCommissionPercentage();
     const resolvedGroupId = orderGroupId || generateOrderGroupId();
     const shippingCharge = chargesBreakdown.find((c) => c.key === "shipping_cost");
     const platformFeeCharge = chargesBreakdown.find((c) => c.key === "platform_fee");
@@ -494,18 +493,38 @@ class CheckoutService {
       const vendor = await vendorRepo.findById(sellerData.sellerId);
       const vendorShipping = await resolveVendorShippingModes(vendor);
       const items = Array.isArray(sellerData.items) ? sellerData.items : [];
-      const cleanedItems = items.map((it) => ({
-        productId: it.productId,
-        name: it.name,
-        price: it.price,
-        quantity: it.quantity,
-        image: it.image,
-        variantId: it.variantId,
-        variantSku: it.variantSku,
-        variantTitle: it.variantTitle,
-        variantAttributes: it.variantAttributes,
-        weight: it.weight || undefined,
-      }));
+      const cleanedItems = await Promise.all(
+        items.map(async (it) => {
+          const itemSubtotal = roundMoney(Number(it.price || 0) * Number(it.quantity || 0));
+          const commissionCalc = await commissionRuleService.calculateForOrderItem({
+            productId: it.productId,
+            vendorId: sellerData.sellerId,
+            subtotal: itemSubtotal,
+          });
+          return {
+            productId: it.productId,
+            name: it.name,
+            price: it.price,
+            quantity: it.quantity,
+            image: it.image,
+            variantId: it.variantId,
+            variantSku: it.variantSku,
+            variantTitle: it.variantTitle,
+            variantAttributes: it.variantAttributes,
+            weight: it.weight || undefined,
+            commissionSnapshot: {
+              ruleId: commissionCalc.appliedRule?.ruleId || undefined,
+              ruleName: commissionCalc.appliedRule?.name || "",
+              appliesTo: commissionCalc.appliedRule?.appliesTo || "global",
+              commissionType: commissionCalc.commissionType,
+              commissionValue: commissionCalc.commissionValue,
+              commissionAmount: commissionCalc.commissionAmount,
+              vendorNetAmount: commissionCalc.vendorNetAmount,
+              calculatedAt: new Date(),
+            },
+          };
+        })
+      );
 
       const subtotal = roundMoney(
         items.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0), 0)
@@ -514,7 +533,10 @@ class CheckoutService {
       const sellerWeight = overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / sellers.length;
       const sellerChargeShare = chargesBreakdown.length > 0 ? roundMoney(pricingBreakdown.chargesTotal * sellerWeight) : 0;
       const totalAmount = roundMoney(subtotal + sellerChargeShare);
-      const commission = Number(((totalAmount * commissionPercentage) / 100).toFixed(2));
+      const commission = roundMoney(
+        cleanedItems.reduce((sum, item) => sum + Number(item.commissionSnapshot?.commissionAmount || 0), 0)
+      );
+      const effectiveCommissionRate = subtotal > 0 ? roundMoney((commission / subtotal) * 100) : 0;
       let sellerAmount = Number((totalAmount - commission).toFixed(2));
       let attribution = undefined;
 
@@ -580,9 +602,19 @@ class CheckoutService {
         },
         chargesTotal: sellerChargeShare,
         totalAmount,
-        platformCommissionRate: commissionPercentage,
+        platformCommissionRate: effectiveCommissionRate,
         platformCommissionAmount: commission,
         vendorEarning: sellerAmount,
+        commissionSummary: {
+          totalItemSubtotal: subtotal,
+          totalCommissionAmount: commission,
+          totalVendorNetAmount: roundMoney(
+            cleanedItems.reduce((sum, item) => sum + Number(item.commissionSnapshot?.vendorNetAmount || 0), 0)
+          ),
+          appliedRuleIds: cleanedItems
+            .map((item) => item.commissionSnapshot?.ruleId)
+            .filter(Boolean),
+        },
         currency: summary.currency || "INR",
         status: "Placed",
         paymentStatus,
@@ -893,7 +925,6 @@ class CheckoutService {
 
       const bySeller = groupBySeller(validated);
       const orderPayloads = [];
-      const commissionPercentage = await getCommissionPercentage();
       const resolvedGroupId = orderGroupId || generateOrderGroupId();
       const resolvedPaymentStatus = paymentStatus || (paymentMethod === "ONLINE" ? "Paid" : "Pending");
       const totalItemCount = validated.reduce((sum, item) => sum + item.quantity, 0);
@@ -961,18 +992,38 @@ class CheckoutService {
       const vendor = await vendorRepo.findById(sellerData.sellerId);
       const vendorShipping = await resolveVendorShippingModes(vendor);
       const items = sellerData.items;
-      const cleanedItems = items.map((it) => ({
-        productId: it.productId,
-        name: it.name,
-        price: it.price,
-        quantity: it.quantity,
-        image: it.image,
-        variantId: it.variantId,
-        variantSku: it.variantSku,
-        variantTitle: it.variantTitle,
-        variantAttributes: it.variantAttributes,
-        weight: it.weight || undefined,
-      }));
+      const cleanedItems = await Promise.all(
+        items.map(async (it) => {
+          const itemSubtotal = roundMoney(Number(it.price || 0) * Number(it.quantity || 0));
+          const commissionCalc = await commissionRuleService.calculateForOrderItem({
+            productId: it.productId,
+            vendorId: sellerData.sellerId,
+            subtotal: itemSubtotal,
+          });
+          return {
+            productId: it.productId,
+            name: it.name,
+            price: it.price,
+            quantity: it.quantity,
+            image: it.image,
+            variantId: it.variantId,
+            variantSku: it.variantSku,
+            variantTitle: it.variantTitle,
+            variantAttributes: it.variantAttributes,
+            weight: it.weight || undefined,
+            commissionSnapshot: {
+              ruleId: commissionCalc.appliedRule?.ruleId || undefined,
+              ruleName: commissionCalc.appliedRule?.name || "",
+              appliesTo: commissionCalc.appliedRule?.appliesTo || "global",
+              commissionType: commissionCalc.commissionType,
+              commissionValue: commissionCalc.commissionValue,
+              commissionAmount: commissionCalc.commissionAmount,
+              vendorNetAmount: commissionCalc.vendorNetAmount,
+              calculatedAt: new Date(),
+            },
+          };
+        })
+      );
 
       const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
       const sellerShippingFee = shippingShares.get(String(sellerData.sellerId)) || 0;
@@ -983,7 +1034,10 @@ class CheckoutService {
         : 0;
       
       const totalAmount = subtotal + sellerChargeShare;
-      const commission = Number(((totalAmount * commissionPercentage) / 100).toFixed(2));
+      const commission = roundMoney(
+        cleanedItems.reduce((sum, item) => sum + Number(item.commissionSnapshot?.commissionAmount || 0), 0)
+      );
+      const effectiveCommissionRate = subtotal > 0 ? roundMoney((commission / subtotal) * 100) : 0;
       let sellerAmount = Number((totalAmount - commission).toFixed(2));
       let attribution = undefined;
 
@@ -1045,9 +1099,19 @@ class CheckoutService {
         }),
         chargesTotal: Math.round(sellerChargeShare * 100) / 100,
         totalAmount,
-        platformCommissionRate: commissionPercentage,
+        platformCommissionRate: effectiveCommissionRate,
         platformCommissionAmount: commission,
         vendorEarning: sellerAmount,
+        commissionSummary: {
+          totalItemSubtotal: roundMoney(subtotal),
+          totalCommissionAmount: commission,
+          totalVendorNetAmount: roundMoney(
+            cleanedItems.reduce((sum, item) => sum + Number(item.commissionSnapshot?.vendorNetAmount || 0), 0)
+          ),
+          appliedRuleIds: cleanedItems
+            .map((item) => item.commissionSnapshot?.ruleId)
+            .filter(Boolean),
+        },
         currency: "INR",
         status: "Placed",
         paymentStatus: resolvedPaymentStatus,
