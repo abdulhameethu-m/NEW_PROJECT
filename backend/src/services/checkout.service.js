@@ -24,6 +24,9 @@ const codService = require("./cod.service");
 const { Order } = require("../models/Order");
 const { Payment } = require("../models/Payment");
 
+const PREPARED_CHECKOUT_CACHE_TTL_MS = 2 * 60 * 1000;
+const preparedCheckoutCache = new Map();
+
 function asObjectId(id, fieldName) {
   if (!mongoose.isValidObjectId(id)) throw new AppError(`Invalid ${fieldName}`, 400, "VALIDATION_ERROR");
   return id;
@@ -63,6 +66,47 @@ function generateOrderGroupId() {
 
 function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function normalizeAddressForCache(address = {}) {
+  if (!address || typeof address !== "object") return {};
+  return {
+    fullName: String(address.fullName || "").trim(),
+    phone: String(address.phone || "").trim(),
+    line1: String(address.line1 || "").trim(),
+    line2: String(address.line2 || "").trim(),
+    city: String(address.city || "").trim(),
+    state: String(address.state || "").trim(),
+    postalCode: String(address.postalCode || "").trim(),
+    country: String(address.country || "").trim(),
+  };
+}
+
+function buildPreparedCheckoutCacheKey(userId, { shippingAddress, paymentMethod = "ONLINE" } = {}) {
+  return JSON.stringify({
+    userId: String(userId || ""),
+    paymentMethod: String(paymentMethod || "ONLINE").toUpperCase(),
+    shippingAddress: normalizeAddressForCache(shippingAddress),
+  });
+}
+
+function getCachedPreparedCheckout(userId, { shippingAddress, paymentMethod = "ONLINE" } = {}) {
+  const cacheKey = buildPreparedCheckoutCacheKey(userId, { shippingAddress, paymentMethod });
+  const cached = preparedCheckoutCache.get(cacheKey);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    preparedCheckoutCache.delete(cacheKey);
+    return null;
+  }
+  return cached.summary;
+}
+
+function setCachedPreparedCheckout(userId, { shippingAddress, paymentMethod = "ONLINE" } = {}, summary) {
+  const cacheKey = buildPreparedCheckoutCacheKey(userId, { shippingAddress, paymentMethod });
+  preparedCheckoutCache.set(cacheKey, {
+    expiresAt: Date.now() + PREPARED_CHECKOUT_CACHE_TTL_MS,
+    summary,
+  });
 }
 
 function getChargeAmount(charges = [], predicate) {
@@ -245,16 +289,17 @@ async function resolveSellerIdForProduct(product) {
 
 class CheckoutService {
   async prepare(userId, { currency, shippingAddress, paymentMethod } = {}) {
+    const cachedSummary = getCachedPreparedCheckout(userId, { shippingAddress, paymentMethod });
+    if (cachedSummary) {
+      return cachedSummary;
+    }
+
     const cart = await cartRepo.findByUserId(userId);
     if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
       throw new AppError("Cart is empty", 400, "EMPTY_CART");
     }
-    const user = await userRepo.findById(userId);
 
-    const validated = [];
-    const validatedWithProducts = []; // Keep full product data for shipping calculation
-
-    for (const item of cart.items) {
+    const validatedItems = await Promise.all(cart.items.map(async (item) => {
       asObjectId(item.productId, "productId");
       const product = await productRepo.findById(item.productId);
       if (!product) throw new AppError("Product not found", 404, "NOT_FOUND");
@@ -288,15 +333,14 @@ class CheckoutService {
         variantAttributes: variant?.attributes || item.variantAttributes || {},
         weight: getProductWeightSnapshot(product, variant),
       };
-
-      validated.push(itemData);
-
-      // For shipping calculation, include product data
-      validatedWithProducts.push({
+      return {
         ...itemData,
-        product, // Include full product for weight extraction
-      });
-    }
+        product,
+      };
+    }));
+
+    const validated = validatedItems.map(({ product, ...itemData }) => itemData);
+    const validatedWithProducts = validatedItems;
 
     const bySeller = groupBySeller(validated);
     const sellers = Array.from(bySeller.values()).map((sellerData) => {
@@ -365,7 +409,7 @@ class CheckoutService {
       }
     }
 
-    return {
+    const summary = {
       ...buildSummaryShape({
       currency: currency || cart.currency || "INR",
       sellers,
@@ -384,6 +428,9 @@ class CheckoutService {
           }
         : undefined,
     };
+
+    setCachedPreparedCheckout(userId, { shippingAddress, paymentMethod }, summary);
+    return summary;
   }
 
   async createOrderFromPreparedCheckout(

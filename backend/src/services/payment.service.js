@@ -147,6 +147,15 @@ async function recordPaymentAttempt({
   }
 }
 
+function buildOrderSnapshotFromSession(paymentSession) {
+  return {
+    id: paymentSession.razorpayOrderId,
+    amount: Math.round(Number(paymentSession.amount || 0) * 100),
+    currency: paymentSession.currency || "INR",
+    receipt: paymentSession.metadata?.receipt || "",
+  };
+}
+
 class PaymentService {
   async getGatewayConfig() {
     let config = await PaymentGatewayConfig.findOne({ provider: "RAZORPAY" });
@@ -199,6 +208,70 @@ class PaymentService {
       throw new AppError("Razorpay is not configured", 500, "RAZORPAY_NOT_CONFIGURED");
     }
     return new Razorpay({ key_id: keyId, key_secret: keySecret });
+  }
+
+  async ensurePaymentRecordForSession(paymentSession) {
+    if (!paymentSession) {
+      throw new AppError("Payment session not found", 404, "PAYMENT_SESSION_NOT_FOUND");
+    }
+
+    const existingPaymentByOrder = await paymentRepo.findByRazorpayOrderId(paymentSession.razorpayOrderId);
+    if (existingPaymentByOrder) {
+      if (
+        !paymentSession.paymentRecordId ||
+        String(paymentSession.paymentRecordId) !== String(existingPaymentByOrder._id)
+      ) {
+        await PaymentSession.updateOne(
+          { _id: paymentSession._id },
+          { $set: { paymentRecordId: existingPaymentByOrder._id } }
+        ).catch(() => {});
+      }
+      return existingPaymentByOrder;
+    }
+
+    const summary = paymentSession.checkoutSnapshot || {};
+    const amountBreakdown = buildAmountBreakdown(summary);
+
+    try {
+      const paymentRecord = await paymentRepo.create({
+        userId: paymentSession.userId,
+        amount: roundMoney(paymentSession.amount || summary.total || 0),
+        currency: paymentSession.currency || summary.currency || "INR",
+        method: "ONLINE",
+        status: "PENDING",
+        fulfillmentStatus: "PENDING",
+        receipt: paymentSession.metadata?.receipt || buildReceipt(paymentSession.userId),
+        razorpayOrderId: paymentSession.razorpayOrderId,
+        idempotencyKey: buildPaymentIdempotencyKey(paymentSession.razorpayOrderId),
+        cartSnapshot: Array.isArray(paymentSession.cartSnapshot) ? paymentSession.cartSnapshot : [],
+        shippingAddress: paymentSession.shippingAddress,
+        trackingToken: paymentSession.metadata?.trackingToken || undefined,
+        amountBreakdown,
+        gatewayFeeAmount: amountBreakdown.gatewayFee,
+        fraudChecks: {
+          priceValidated: true,
+          duplicateAttemptCount: 0,
+          riskScore: 5,
+          flaggedReasons: [],
+        },
+        gatewayResponse: {
+          order: buildOrderSnapshotFromSession(paymentSession),
+        },
+      });
+
+      await PaymentSession.updateOne(
+        { _id: paymentSession._id },
+        { $set: { paymentRecordId: paymentRecord._id } }
+      ).catch(() => {});
+
+      return paymentRecord;
+    } catch (error) {
+      if (error?.code === 11000) {
+        const concurrentPayment = await paymentRepo.findByRazorpayOrderId(paymentSession.razorpayOrderId);
+        if (concurrentPayment) return concurrentPayment;
+      }
+      throw error;
+    }
   }
 
   async createRazorpayOrder({ userId, cartId, shippingAddress, trackingToken }) {
@@ -257,36 +330,8 @@ class PaymentService {
       }
 
       const amountBreakdown = buildAmountBreakdown(summary);
-      const paymentRecord = await paymentRepo.create({
-        userId,
-        amount: roundMoney(summary.total || 0),
-        currency,
-        method: "ONLINE",
-        status: "PENDING",
-        fulfillmentStatus: "PENDING",
-        receipt,
-        razorpayOrderId: order.id,
-        idempotencyKey: buildPaymentIdempotencyKey(order.id),
-        cartSnapshot: summary.sellers.flatMap((seller) => seller.items || []),
-        cartId: cartId && cartId !== "current" ? cartId : undefined,
-        shippingAddress,
-        trackingToken: trackingToken || undefined,
-        amountBreakdown,
-        gatewayFeeAmount: amountBreakdown.gatewayFee,
-        fraudChecks: {
-          priceValidated: true,
-          duplicateAttemptCount: 0,
-          riskScore: 5,
-          flaggedReasons: [],
-        },
-        gatewayResponse: {
-          order,
-        },
-      });
-
       const paymentSession = await PaymentSession.create({
         userId,
-        paymentRecordId: paymentRecord._id,
         razorpayOrderId: order.id,
         paymentMethod: "ONLINE",
         currency,
@@ -313,13 +358,8 @@ class PaymentService {
         },
       });
 
-      await paymentRepo.updateById(paymentRecord._id, {
-        paymentSessionId: paymentSession._id,
-      });
-
       await recordPaymentAttempt({
         userId,
-        paymentRecordId: paymentRecord._id,
         razorpayOrderId: order.id,
         status: "CREATED",
         stage: "create-order",
@@ -330,21 +370,29 @@ class PaymentService {
           currency,
         },
         responsePayload: {
-          paymentRecordId: paymentRecord._id,
           paymentSessionId: paymentSession._id,
         },
       });
 
-      await emitDomainEvent("PAYMENT_INITIATED", {
-        paymentRecordId: paymentRecord._id,
-        paymentSessionId: paymentSession._id,
-        razorpayOrderId: order.id,
-        amount: paymentRecord.amount,
-        currency,
-      }).catch(() => {});
+      this.ensurePaymentRecordForSession(paymentSession)
+        .then((paymentRecord) =>
+          emitDomainEvent("PAYMENT_INITIATED", {
+            paymentRecordId: paymentRecord._id,
+            paymentSessionId: paymentSession._id,
+            razorpayOrderId: order.id,
+            amount: paymentRecord.amount,
+            currency,
+          }).catch(() => {})
+        )
+        .catch((error) => {
+          logger.warn("Deferred payment record creation failed after Razorpay order creation", {
+            userId: String(userId),
+            razorpayOrderId: order.id,
+            message: error.message,
+          });
+        });
 
       return {
-        paymentRecordId: paymentRecord._id,
         paymentSessionId: paymentSession._id,
         razorpayOrderId: order.id,
         orderId: order.id,
@@ -388,16 +436,14 @@ class PaymentService {
   }
 
   async getPaymentAndSessionByOrder(razorpayOrderId) {
-    const payment = await paymentRepo.findByRazorpayOrderId(razorpayOrderId);
-    if (!payment) {
-      throw new AppError("Payment record not found", 404, "PAYMENT_NOT_FOUND");
-    }
-    const paymentSession = payment.paymentSessionId
-      ? await PaymentSession.findById(payment.paymentSessionId)
+    const directPayment = await paymentRepo.findByRazorpayOrderId(razorpayOrderId);
+    const paymentSession = directPayment?.paymentSessionId
+      ? await PaymentSession.findById(directPayment.paymentSessionId)
       : await PaymentSession.findOne({ razorpayOrderId });
     if (!paymentSession) {
       throw new AppError("Payment session not found", 404, "PAYMENT_SESSION_NOT_FOUND");
     }
+    const payment = directPayment || (await this.ensurePaymentRecordForSession(paymentSession));
     return { payment, paymentSession };
   }
 

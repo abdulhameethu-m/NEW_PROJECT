@@ -28,6 +28,9 @@ import { loadTrackingContext } from "../utils/influencerTracking";
 const CHECKOUT_SUCCESS_STORAGE_KEY = "checkoutSuccessPayload";
 
 function normalizeError(err) {
+  if (err?.code === "ECONNABORTED" || /timeout/i.test(String(err?.message || ""))) {
+    return "Payment request timed out before Razorpay opened. Please try again.";
+  }
   const firstIssue = err?.response?.data?.details?.issues?.[0];
   if (firstIssue?.path?.length) {
     return `${firstIssue.path.join(".")}: ${firstIssue.message}`;
@@ -56,17 +59,37 @@ function ensureRazorpay() {
   }
 
   return new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-razorpay-sdk="true"]');
+    const resolveWhenReady = () => {
+      if (typeof window !== "undefined" && typeof window.Razorpay === "function") {
+        resolve();
+        return true;
+      }
+      return false;
+    };
+
+    if (resolveWhenReady()) return;
+
+    const existing = document.querySelector(
+      'script[data-razorpay-sdk="true"], script[src*="checkout.razorpay.com/v1/checkout.js"]'
+    );
     if (existing) {
       const timeoutId = setTimeout(() => {
         reject(new Error("Razorpay SDK loading timeout. Please check your internet connection."));
       }, 30000); // 30 second timeout
+      const intervalId = window.setInterval(() => {
+        if (resolveWhenReady()) {
+          clearTimeout(timeoutId);
+          window.clearInterval(intervalId);
+        }
+      }, 250);
       existing.addEventListener("load", () => {
         clearTimeout(timeoutId);
+        window.clearInterval(intervalId);
         resolve();
       }, { once: true });
       existing.addEventListener("error", () => {
         clearTimeout(timeoutId);
+        window.clearInterval(intervalId);
         reject(new Error("Failed to load Razorpay checkout."));
       }, { once: true });
       return;
@@ -91,6 +114,10 @@ function ensureRazorpay() {
     };
     document.body.appendChild(script);
   });
+}
+
+function delay(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function persistCheckoutSuccessPayload(payload) {
@@ -125,6 +152,51 @@ export function CheckoutPage() {
   const [codAvailability, setCodAvailability] = useState(null);
   const mapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const didMountPaymentMethodRef = useRef(false);
+
+  async function verifyPaymentWithRetry(payload, maxAttempts = 4) {
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await paymentService.verifyRazorpayPayment(payload);
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxAttempts) {
+          await delay(1500 * attempt);
+          continue;
+        }
+      }
+    }
+
+    throw lastError || new Error("Payment verification failed.");
+  }
+
+  async function recoverLatestOrderRedirect(maxAttempts = 4) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const response = await userService.getUserOrders({ page: 1, limit: 5 });
+        const orders = response?.data?.orders || [];
+        const latestOrder = orders[0] || null;
+        if (latestOrder?._id) {
+          const successPayload = { orders, payment: null };
+          persistCheckoutSuccessPayload(successPayload);
+          navigate(`/orders/${latestOrder._id}`, {
+            replace: true,
+            state: successPayload,
+          });
+          return true;
+        }
+      } catch {
+        // Keep retrying briefly because the order may have been created server-side just before navigation.
+      }
+
+      if (attempt < maxAttempts) {
+        await delay(1500 * attempt);
+      }
+    }
+
+    return false;
+  }
 
   async function loadPreparedCheckout(shippingAddress, selectedPaymentMethod = paymentMethod) {
     const trackingContext = loadTrackingContext();
@@ -179,6 +251,10 @@ export function CheckoutPage() {
 
   useEffect(() => {
     refresh();
+  }, []);
+
+  useEffect(() => {
+    ensureRazorpay().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -372,28 +448,25 @@ export function CheckoutPage() {
         return;
       }
 
-      const orderRes = await paymentService.createRazorpayOrder({
-        cartId: "current",
-        shippingAddress,
-        trackingToken: trackingContext?.trackingToken,
-      });
+      const [orderRes] = await Promise.all([
+        paymentService.createRazorpayOrder({
+          cartId: "current",
+          shippingAddress,
+          trackingToken: trackingContext?.trackingToken,
+        }),
+        ensureRazorpay(),
+      ]);
       const razorpayData = orderRes || {};
       
       if (!razorpayData.key || !razorpayData.orderId) {
         throw new Error("Invalid Razorpay configuration. Please contact support or try again.");
       }
-      
-      try {
-        await ensureRazorpay();
-      } catch (err) {
-        setToast({ type: "error", message: err.message || "Failed to load Razorpay. Please check your internet connection." });
-        setPlacing(false);
-        return;
-      }
 
       if (typeof window === "undefined" || typeof window.Razorpay !== "function") {
         throw new Error("Razorpay checkout is not available.");
       }
+
+      setError("");
 
       const options = {
         key: razorpayData.key,
@@ -420,13 +493,32 @@ export function CheckoutPage() {
           max_count: 2,
         },
         handler: async (response) => {
+          const verificationPayload = {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            shippingAddress,
+            trackingToken: trackingContext?.trackingToken,
+          };
+          navigate("/checkout/success", {
+            replace: true,
+            state: {
+              orders: [],
+              payment: {
+                method: "ONLINE",
+                status: "PROCESSING",
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+              },
+              processing: true,
+              verificationPayload,
+            },
+          });
+
           try {
             setVerifyingPayment(true);
-            const verified = await paymentService.verifyRazorpayPayment({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
+            setError("");
+            const verified = await verifyPaymentWithRetry(verificationPayload);
             const successPayload = {
               orders: verified?.orders || [],
               payment: verified?.payment || null,
@@ -437,8 +529,11 @@ export function CheckoutPage() {
               state: successPayload,
             });
           } catch (verifyError) {
-            setError(normalizeError(verifyError));
-            setToast({ type: "error", message: "Payment verification failed. Please retry or open your orders." });
+            const recovered = await recoverLatestOrderRedirect();
+            if (!recovered) {
+              setError(normalizeError(verifyError));
+              setToast({ type: "error", message: "Payment verification failed. Please retry or open your orders." });
+            }
           } finally {
             setVerifyingPayment(false);
             setPlacing(false);

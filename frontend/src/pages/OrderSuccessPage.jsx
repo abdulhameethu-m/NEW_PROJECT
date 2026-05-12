@@ -1,8 +1,21 @@
+import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
+import * as paymentService from "../services/paymentService";
+import * as userService from "../services/userService";
 import { formatCurrency } from "../utils/formatCurrency";
 
 const CHECKOUT_SUCCESS_STORAGE_KEY = "checkoutSuccessPayload";
+
+function persistCheckoutSuccessPayload(payload) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(CHECKOUT_SUCCESS_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // Ignore session storage failures.
+  }
+}
 
 function loadPersistedCheckoutSuccessPayload() {
   if (typeof window === "undefined") return null;
@@ -21,13 +34,66 @@ function loadPersistedCheckoutSuccessPayload() {
 
 export function OrderSuccessPage() {
   const location = useLocation();
-  const state = location.state || loadPersistedCheckoutSuccessPayload() || {};
+  const baseState = location.state || loadPersistedCheckoutSuccessPayload() || {};
+  const [state, setState] = useState(baseState);
   const orders = state.orders || [];
   const payment = state.payment || null;
+  const processing = Boolean(state.processing);
   const isCod = (orders[0]?.paymentMethod || payment?.method || "ONLINE") === "COD";
   const codPayable = orders.reduce((sum, order) => sum + Number(order?.totalAmount || 0), 0);
 
-  if (!orders.length) {
+  useEffect(() => {
+    if (!processing) return undefined;
+
+    let active = true;
+
+    async function settleSuccessState() {
+      const verificationPayload = state.verificationPayload || null;
+
+      if (verificationPayload) {
+        for (let attempt = 1; attempt <= 4 && active; attempt += 1) {
+          try {
+            const verified = await paymentService.verifyRazorpayPayment(verificationPayload);
+            const nextState = {
+              orders: verified?.orders || [],
+              payment: verified?.payment || null,
+            };
+            persistCheckoutSuccessPayload(nextState);
+            if (active) setState(nextState);
+            return;
+          } catch {
+            await new Promise((resolve) => window.setTimeout(resolve, 1500 * attempt));
+          }
+        }
+      }
+
+      for (let attempt = 1; attempt <= 4 && active; attempt += 1) {
+        try {
+          const response = await userService.getUserOrders({ page: 1, limit: 5 });
+          const nextOrders = response?.data?.orders || [];
+          if (nextOrders.length) {
+            const nextState = {
+              orders: nextOrders,
+              payment: payment || null,
+            };
+            persistCheckoutSuccessPayload(nextState);
+            if (active) setState(nextState);
+            return;
+          }
+        } catch {
+          // Keep retrying briefly while backend finishes settling the order state.
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 1500 * attempt));
+      }
+    }
+
+    settleSuccessState();
+    return () => {
+      active = false;
+    };
+  }, [payment, processing, state.verificationPayload]);
+
+  if (!orders.length && !processing) {
     return <Navigate to="/orders" replace />;
   }
 
@@ -37,7 +103,9 @@ export function OrderSuccessPage() {
         <div className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Order confirmed</div>
         <h1 className="mt-2 text-3xl font-bold text-slate-950">Your order is in the system.</h1>
         <p className="mt-2 text-sm text-slate-600">
-          {isCod
+          {processing
+            ? "Payment was successful. We are finishing verification and loading your order summary now."
+            : isCod
             ? `Please keep ${formatCurrency(codPayable)} ready for delivery. You can track every vendor shipment from your orders page.`
             : "Payment status and order routing have been recorded. You can track every vendor shipment from your orders page."}
         </p>
@@ -48,6 +116,12 @@ export function OrderSuccessPage() {
         <StatCard label="Payment method" value={orders[0]?.paymentMethod || payment?.method || "ONLINE"} />
         <StatCard label={isCod ? "Payable on delivery" : "Payment status"} value={isCod ? formatCurrency(codPayable) : (orders[0]?.paymentStatus || payment?.status || "Pending")} />
       </section>
+
+      {processing && !orders.length ? (
+        <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm text-sm text-slate-600">
+          Loading your order summary...
+        </section>
+      ) : null}
 
       {isCod ? (
         <section className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
