@@ -119,6 +119,17 @@ class CommissionRuleService {
     return current;
   }
 
+  async deleteRule(ruleId) {
+    if (!mongoose.isValidObjectId(ruleId)) throw new AppError("Invalid rule id", 400, "VALIDATION_ERROR");
+    const deleted = await CommissionRule.findByIdAndDelete(ruleId);
+    if (!deleted) throw new AppError("Commission rule not found", 404, "NOT_FOUND");
+    return {
+      id: String(deleted._id),
+      name: deleted.name,
+      deleted: true,
+    };
+  }
+
   async listRules(query = {}) {
     const filter = {};
     if (query.active != null) filter.active = String(query.active) === "true";

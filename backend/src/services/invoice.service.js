@@ -36,6 +36,9 @@ function sanitizeSettingsPayload(payload = {}) {
     invoicePrefix: trimOrEmpty(payload.invoicePrefix) || "INV",
     footerNotes: trimOrEmpty(payload.footerNotes),
     companyWebsite: trimOrEmpty(payload.companyWebsite),
+    logoRemoved: payload.logoRemoved === true || String(payload.logoRemoved || "").toLowerCase() === "true",
+    signatureRemoved:
+      payload.signatureRemoved === true || String(payload.signatureRemoved || "").toLowerCase() === "true",
     bankDetails: {
       accountName: bankField("accountName"),
       accountNumber: bankField("accountNumber"),
@@ -110,6 +113,9 @@ class InvoiceService {
         publicId: uploaded?.publicId || "",
         originalName: uploaded?.originalName || "",
       };
+    } else if (nextValues.logoRemoved) {
+      nextValues.logoUrl = "";
+      nextValues.logoAsset = { publicId: "", originalName: "" };
     } else if (payload.logoUrl !== undefined) {
       nextValues.logoUrl = payload.logoUrl;
       // When setting URL from payload, we don't have asset info, so reset asset
@@ -124,11 +130,17 @@ class InvoiceService {
         publicId: uploaded?.publicId || "",
         originalName: uploaded?.originalName || "",
       };
+    } else if (nextValues.signatureRemoved) {
+      nextValues.signatureUrl = "";
+      nextValues.signatureAsset = { publicId: "", originalName: "" };
     } else if (payload.signatureUrl !== undefined) {
       nextValues.signatureUrl = payload.signatureUrl;
       // When setting URL from payload, we don't have asset info, so reset asset
       nextValues.signatureAsset = { publicId: "", originalName: "" };
     }
+
+    delete nextValues.logoRemoved;
+    delete nextValues.signatureRemoved;
 
     Object.assign(settings, nextValues, {
       updatedBy: String(actor?._id || actor?.sub || ""),

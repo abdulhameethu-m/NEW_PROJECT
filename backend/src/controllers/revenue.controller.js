@@ -7,6 +7,7 @@ const getRevenueSummary = asyncHandler(async (req, res) => {
   const data = await revenueService.getRevenueSummary({
     startDate: req.query.startDate,
     endDate: req.query.endDate,
+    vendorId: req.query.vendorId,
   });
 
   return ok(res, data, "Revenue summary loaded");
@@ -16,6 +17,7 @@ const getVendorRevenue = asyncHandler(async (req, res) => {
   const data = await revenueService.getVendorRevenueBreakdown({
     startDate: req.query.startDate,
     endDate: req.query.endDate,
+    vendorId: req.query.vendorId,
     page: Number(req.query.page || 1),
     limit: Number(req.query.limit || 20),
   });
@@ -33,6 +35,7 @@ const exportRevenue = asyncHandler(async (req, res) => {
     format,
     startDate: req.query.startDate,
     endDate: req.query.endDate,
+    vendorId: req.query.vendorId,
   });
 
   res.setHeader("Content-Type", result.contentType);

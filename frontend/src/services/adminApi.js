@@ -41,10 +41,11 @@ export async function getVendorRevenue(params = {}) {
   return data;
 }
 
-export async function exportRevenueReport({ format, startDate, endDate }) {
+export async function exportRevenueReport({ format, startDate, endDate, vendorId }) {
   const response = await adminHttp.get("/api/admin/revenue/export", {
     params: {
       format,
+      ...(vendorId ? { vendorId } : {}),
       ...buildDateRangeParams(startDate, endDate),
     },
     responseType: "blob",
@@ -410,6 +411,11 @@ export async function updateCommissionRule(id, payload) {
 
 export async function toggleCommissionRuleActive(id, active) {
   const { data } = await adminHttp.patch(`/api/admin/commission/rules/${id}/active`, { active });
+  return data;
+}
+
+export async function deleteCommissionRule(id) {
+  const { data } = await adminHttp.delete(`/api/admin/commission/rules/${id}`);
   return data;
 }
 

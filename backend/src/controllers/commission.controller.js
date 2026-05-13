@@ -24,6 +24,11 @@ const toggleRule = asyncHandler(async (req, res) => {
   return ok(res, rule, "Commission rule status updated");
 });
 
+const deleteRule = asyncHandler(async (req, res) => {
+  const result = await commissionRuleService.deleteRule(req.params.id);
+  return ok(res, result, "Commission rule deleted");
+});
+
 const getAdminAnalytics = asyncHandler(async (req, res) => {
   const data = await commissionRuleService.getAdminAnalytics(req.query);
   return ok(res, data, "Commission analytics loaded");
@@ -61,6 +66,7 @@ module.exports = {
   createRule,
   updateRule,
   toggleRule,
+  deleteRule,
   getAdminAnalytics,
   getVendorSummary,
 };

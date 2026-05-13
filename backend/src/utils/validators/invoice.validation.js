@@ -13,6 +13,8 @@ const invoiceSettingsSchema = Joi.object({
   invoicePrefix: Joi.string().trim().allow("").max(20),
   footerNotes: Joi.string().trim().allow("").max(1200),
   companyWebsite: Joi.string().trim().allow("").max(200),
+  logoRemoved: Joi.boolean().default(false),
+  signatureRemoved: Joi.boolean().default(false),
   bankDetails: Joi.object({
     accountName: Joi.string().trim().allow("").max(120),
     accountNumber: Joi.string().trim().allow("").max(80),

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   createCommissionRule,
+  deleteCommissionRule,
   getCommissionAnalytics,
   listCategories,
   listProducts,
@@ -39,6 +40,7 @@ export function AdminCommissionManagementPage() {
   const [editId, setEditId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [busyRuleId, setBusyRuleId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -127,6 +129,45 @@ export function AdminCommissionManagementPage() {
       startDate: rule.startDate ? String(rule.startDate).slice(0, 10) : "",
       endDate: rule.endDate ? String(rule.endDate).slice(0, 10) : "",
     });
+  }
+
+  async function handleToggleRule(rule) {
+    setBusyRuleId(rule._id);
+    setError("");
+    setSuccess("");
+    try {
+      await toggleCommissionRuleActive(rule._id, !rule.active);
+      setSuccess(`Commission rule ${rule.active ? "deactivated" : "activated"}.`);
+      await load();
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setBusyRuleId("");
+    }
+  }
+
+  async function handleDeleteRule(rule) {
+    const confirmed = window.confirm(
+      `Delete commission rule "${rule.name}" permanently? This will remove it from the backend database.`
+    );
+    if (!confirmed) return;
+
+    setBusyRuleId(rule._id);
+    setError("");
+    setSuccess("");
+    try {
+      await deleteCommissionRule(rule._id);
+      if (editId === rule._id) {
+        setEditId("");
+        setForm(initialForm);
+      }
+      setSuccess("Commission rule deleted permanently.");
+      await load();
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setBusyRuleId("");
+    }
   }
 
   return (
@@ -257,8 +298,30 @@ export function AdminCommissionManagementPage() {
                 <td className="px-3 py-2">{rule.priority}</td>
                 <td className="px-3 py-2">{rule.active ? "Active" : "Inactive"}</td>
                 <td className="px-3 py-2 space-x-2">
-                  <button className="rounded border px-2 py-1" onClick={() => startEdit(rule)}>Edit</button>
-                  <button className="rounded border px-2 py-1" onClick={() => toggleCommissionRuleActive(rule._id, !rule.active).then(load)}>{rule.active ? "Deactivate" : "Activate"}</button>
+                  <button
+                    type="button"
+                    disabled={busyRuleId === rule._id}
+                    className="rounded border px-2 py-1 disabled:opacity-50"
+                    onClick={() => startEdit(rule)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyRuleId === rule._id}
+                    className="rounded border px-2 py-1 disabled:opacity-50"
+                    onClick={() => handleToggleRule(rule)}
+                  >
+                    {rule.active ? "Deactivate" : "Activate"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyRuleId === rule._id}
+                    className="rounded border border-rose-300 px-2 py-1 text-rose-700 disabled:opacity-50"
+                    onClick={() => handleDeleteRule(rule)}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}

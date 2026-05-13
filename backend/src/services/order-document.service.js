@@ -1,3 +1,6 @@
+const fs = require("fs");
+const path = require("path");
+const axios = require("axios");
 const PDFDocument = require("pdfkit");
 
 const SUPPORT_EMAIL = process.env.ORDER_SUPPORT_EMAIL || "support@uchooseme.com";
@@ -357,7 +360,41 @@ function writeKeyValue(doc, label, value, x, y, width = 220) {
     .text(value || "-", x, y + 12, { width });
 }
 
+async function resolvePdfImageSource(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+
+  if (raw.startsWith("data:image/")) {
+    const [, base64Payload = ""] = raw.split(",");
+    return base64Payload ? Buffer.from(base64Payload, "base64") : null;
+  }
+
+  if (/^https?:\/\//i.test(raw)) {
+    const response = await axios.get(raw, {
+      responseType: "arraybuffer",
+      timeout: 15000,
+      maxContentLength: 5 * 1024 * 1024,
+    });
+    return Buffer.from(response.data);
+  }
+
+  const normalizedPath = raw.startsWith("/uploads/")
+    ? path.join(process.cwd(), raw.replace(/^\//, "").replace(/\//g, path.sep))
+    : path.isAbsolute(raw)
+      ? raw
+      : path.join(process.cwd(), raw);
+
+  if (fs.existsSync(normalizedPath)) {
+    return normalizedPath;
+  }
+
+  return null;
+}
+
 async function generateInvoicePdf(summary) {
+  const logoSource = await resolvePdfImageSource(summary?.organization?.logoUrl);
+  const signatureSource = await resolvePdfImageSource(summary?.organization?.signatureUrl);
+
   return await new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 50 });
     const chunks = [];
@@ -381,10 +418,10 @@ async function generateInvoicePdf(summary) {
 
     // Determine starting x for text content (logo + margin or just margin)
     let textStartX = 50;
-    if (org.logoUrl) {
+    if (logoSource) {
       try {
         // Draw logo: 36x36 points, with 10pt margin to the right of logo
-        doc.image(org.logoUrl, 50, 20, { width: 36, height: 36, fit: [36, 36] });
+        doc.image(logoSource, 50, 20, { width: 36, height: 36, fit: [36, 36] });
         textStartX = 50 + 36 + 10; // 50 (logo x) + 36 (logo width) + 10 (margin)
       } catch (error) {
         // If logo fails to load, proceed without it
@@ -528,6 +565,15 @@ async function generateInvoicePdf(summary) {
       772,
       { width: 495 }
     );
+
+    if (signatureSource) {
+      try {
+        doc.image(signatureSource, 430, 728, { width: 80, height: 32, fit: [80, 32] });
+      } catch (error) {
+        console.warn("Failed to load invoice signature for PDF:", error);
+      }
+    }
+
     doc.text(
       summary.metadata?.footerText || `Need help? Contact ${supportEmail} or ${supportPhone}`,
       50,

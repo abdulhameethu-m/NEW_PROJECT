@@ -172,13 +172,15 @@ class VendorDashboardService {
         .select("name status stock analytics price discountPrice"),
     ]);
 
-    return {
-      vendor: {
-        id: vendor._id,
-        shopName: vendor.shopName,
-        status: vendor.status,
-        payoutSchedule: vendor.payoutSchedule,
-      },
+      return {
+        vendor: {
+          id: vendor._id,
+          vendorCode: vendor.vendorCode,
+          shopName: vendor.shopName,
+          companyName: vendor.companyName,
+          status: vendor.status,
+          payoutSchedule: vendor.payoutSchedule,
+        },
       stats: {
         ordersToday: todayOrders,
         pendingOrders,

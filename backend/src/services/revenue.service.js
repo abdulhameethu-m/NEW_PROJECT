@@ -1,20 +1,24 @@
+const mongoose = require("mongoose");
 const { Order } = require("../models/Order");
 const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
 const { buildExportFile } = require("./export.service");
 
-function buildRevenueMatch({ startDate, endDate } = {}) {
+function buildRevenueMatch({ startDate, endDate, vendorId } = {}) {
   const match = {
     isActive: true,
     paymentStatus: "Paid",
     status: "Delivered",
   };
+  if (vendorId && mongoose.Types.ObjectId.isValid(String(vendorId))) {
+    match.sellerId = new mongoose.Types.ObjectId(String(vendorId));
+  }
   applyDateRange(match, normalizeDateRange({ startDate, endDate }));
   return match;
 }
 
-function buildRevenueBasePipeline({ startDate, endDate } = {}) {
+function buildRevenueBasePipeline({ startDate, endDate, vendorId } = {}) {
   return [
-    { $match: buildRevenueMatch({ startDate, endDate }) },
+    { $match: buildRevenueMatch({ startDate, endDate, vendorId }) },
     {
       $lookup: {
         from: "payouts",
@@ -75,8 +79,8 @@ function buildDateRangeLabel(startDate, endDate) {
   return `${left} - ${right}`;
 }
 
-async function getRevenueSummary({ startDate, endDate } = {}) {
-  const basePipeline = buildRevenueBasePipeline({ startDate, endDate });
+async function getRevenueSummary({ startDate, endDate, vendorId } = {}) {
+  const basePipeline = buildRevenueBasePipeline({ startDate, endDate, vendorId });
 
   const [summary] = await Order.aggregate([
     ...basePipeline,
@@ -156,11 +160,11 @@ async function getRevenueSummary({ startDate, endDate } = {}) {
   };
 }
 
-async function getVendorRevenueBreakdown({ startDate, endDate, page = 1, limit = 20 } = {}) {
+async function getVendorRevenueBreakdown({ startDate, endDate, vendorId, page = 1, limit = 20 } = {}) {
   const safePage = Math.max(Number(page) || 1, 1);
   const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
   const skip = (safePage - 1) * safeLimit;
-  const basePipeline = buildRevenueBasePipeline({ startDate, endDate });
+  const basePipeline = buildRevenueBasePipeline({ startDate, endDate, vendorId });
 
   const vendorAggregation = [
     ...basePipeline,
@@ -205,6 +209,7 @@ async function getVendorRevenueBreakdown({ startDate, endDate, page = 1, limit =
             ],
           },
         },
+        vendorCode: { $first: "$vendor.vendorCode" },
         totalOrders: { $sum: 1 },
         totalSales: { $sum: "$totalAmount" },
         commission: { $sum: "$computedCommission" },
@@ -216,6 +221,7 @@ async function getVendorRevenueBreakdown({ startDate, endDate, page = 1, limit =
         _id: 0,
         vendorId: "$_id",
         vendorName: { $ifNull: ["$vendorName", "Unknown Vendor"] },
+        vendorCode: 1,
         totalOrders: 1,
         totalSales: 1,
         commission: 1,
@@ -248,10 +254,11 @@ async function getVendorRevenueBreakdown({ startDate, endDate, page = 1, limit =
   };
 }
 
-async function exportRevenueReport({ format, startDate, endDate } = {}) {
+async function exportRevenueReport({ format, startDate, endDate, vendorId } = {}) {
   const breakdown = await getVendorRevenueBreakdown({
     startDate,
     endDate,
+    vendorId,
     page: 1,
     limit: 5000,
   });

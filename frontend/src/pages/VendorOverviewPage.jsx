@@ -67,7 +67,13 @@ export function VendorOverviewPage() {
           description="Store status, payout cadence, and fulfillment pulse."
           action={<StatusBadge value={dashboard.vendor.status} />}
         >
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl bg-slate-50 px-4 py-4 dark:bg-slate-800/60">
+              <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Vendor ID</div>
+              <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">
+                {dashboard.vendor.vendorCode || dashboard.vendor.id}
+              </div>
+            </div>
             <div className="rounded-2xl bg-slate-50 px-4 py-4 dark:bg-slate-800/60">
               <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Payout schedule</div>
               <div className="mt-2 text-lg font-semibold capitalize text-slate-950 dark:text-white">{dashboard.vendor.payoutSchedule}</div>

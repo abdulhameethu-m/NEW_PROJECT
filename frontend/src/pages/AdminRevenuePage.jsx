@@ -4,7 +4,7 @@ import { DailyRevenueChart } from "../components/DailyRevenueChart";
 import { ReportingToolbar } from "../components/ReportingToolbar";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
-import { exportRevenueReport, getRevenueSummary, getVendorRevenue } from "../services/adminApi";
+import { exportRevenueReport, getRevenueSummary, getVendorRevenue, listSellers } from "../services/adminApi";
 import { formatCurrency } from "../utils/formatCurrency";
 
 function normalizeError(error) {
@@ -14,29 +14,80 @@ function normalizeError(error) {
 export function AdminRevenuePage() {
   const [summary, setSummary] = useState(null);
   const [vendors, setVendors] = useState([]);
+  const [vendorOptions, setVendorOptions] = useState([]);
+  const [selectedVendorId, setSelectedVendorId] = useState("");
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0, limit: 10 });
   const [loading, setLoading] = useState(true);
+  const [vendorsLoading, setVendorsLoading] = useState(true);
   const [error, setError] = useState("");
   const reporting = useReporting({
     module: "revenue",
     onApply: () => setPagination((current) => ({ ...current, page: 1 })),
-    exporter: ({ format, startDate, endDate }) => exportRevenueReport({ format, startDate, endDate }),
+    exporter: ({ format, startDate, endDate }) => exportRevenueReport({ format, startDate, endDate, vendorId: selectedVendorId }),
   });
+
+  const appliedFilters = useMemo(
+    () => ({
+      ...reporting.appliedParams,
+      ...(selectedVendorId ? { vendorId: selectedVendorId } : {}),
+    }),
+    [reporting.appliedParams, selectedVendorId]
+  );
 
   const query = useMemo(
     () => ({
       page: pagination.page,
       limit: pagination.limit,
-      ...reporting.appliedParams,
+      ...appliedFilters,
     }),
-    [pagination.limit, pagination.page, reporting.appliedParams]
+    [appliedFilters, pagination.limit, pagination.page]
   );
+
+  const selectedVendor = useMemo(
+    () => vendorOptions.find((vendor) => vendor.value === selectedVendorId) || null,
+    [selectedVendorId, vendorOptions]
+  );
+
+  const loadVendorOptions = useCallback(async () => {
+    try {
+      setVendorsLoading(true);
+      const vendorsRes = await listSellers({ status: "approved" });
+      const rawVendors = Array.isArray(vendorsRes?.data) ? vendorsRes.data : [];
+      const normalizedVendors = rawVendors
+        .map((vendor) => {
+          const vendorMongoId = String(vendor?._id || "");
+          if (!vendorMongoId) return null;
+          const vendorName =
+            vendor?.shopName?.trim() ||
+            vendor?.companyName?.trim() ||
+            vendor?.userId?.name?.trim() ||
+            "Unnamed Vendor";
+          const vendorCode = String(vendor?.vendorCode || vendorMongoId);
+
+          return {
+            value: vendorMongoId,
+            label: `${vendorCode} - ${vendorName}`,
+            name: vendorName,
+            code: vendorCode,
+            mongoId: vendorMongoId,
+          };
+        })
+        .filter(Boolean)
+        .sort((left, right) => left.name.localeCompare(right.name));
+
+      setVendorOptions(normalizedVendors);
+    } catch (loadError) {
+      setError(normalizeError(loadError));
+    } finally {
+      setVendorsLoading(false);
+    }
+  }, []);
 
   const loadRevenue = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const [summaryRes, vendorsRes] = await Promise.all([getRevenueSummary(reporting.appliedParams), getVendorRevenue(query)]);
+      const [summaryRes, vendorsRes] = await Promise.all([getRevenueSummary(appliedFilters), getVendorRevenue(query)]);
       setSummary(summaryRes.data);
       setVendors(vendorsRes.data.vendors || []);
       setPagination((current) => ({
@@ -48,11 +99,19 @@ export function AdminRevenuePage() {
     } finally {
       setLoading(false);
     }
-  }, [query, reporting.appliedParams]);
+  }, [appliedFilters, query]);
 
   useEffect(() => {
     loadRevenue();
   }, [loadRevenue]);
+
+  useEffect(() => {
+    loadVendorOptions();
+  }, [loadVendorOptions]);
+
+  useEffect(() => {
+    setPagination((current) => ({ ...current, page: 1 }));
+  }, [selectedVendorId]);
 
   return (
     <div className="grid gap-4">
@@ -65,6 +124,41 @@ export function AdminRevenuePage() {
         exportingFormat={reporting.exportingFormat}
         isDirty={reporting.hasPendingChanges}
       />
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-slate-950 dark:text-white sm:text-lg">Vendor Revenue Filter</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Choose a vendor to isolate revenue, commission, payout, and order totals for that seller.
+            </p>
+          </div>
+          <div className="w-full max-w-xl">
+            <label htmlFor="revenue-vendor-filter" className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              Vendor Name + ID
+            </label>
+            <select
+              id="revenue-vendor-filter"
+              value={selectedVendorId}
+              onChange={(event) => setSelectedVendorId(event.target.value)}
+              disabled={vendorsLoading}
+              className="h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+            >
+              <option value="">All vendors</option>
+              {vendorOptions.map((vendor) => (
+                <option key={vendor.value} value={vendor.value}>
+                  {vendor.label}
+                </option>
+              ))}
+            </select>
+            <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {selectedVendor
+                ? `Showing revenue for ${selectedVendor.name} with vendor ID ${selectedVendor.code}.`
+                : "Showing combined revenue across all vendors."}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
@@ -101,10 +195,14 @@ export function AdminRevenuePage() {
           <div>
             <h2 className="text-base font-semibold text-slate-950 dark:text-white sm:text-lg">Vendor-wise Revenue</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Commission, sales, and vendor earnings grouped by seller.
+              {selectedVendor
+                ? `Revenue breakdown for ${selectedVendor.name}.`
+                : "Commission, sales, and vendor earnings grouped by seller."}
             </p>
           </div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Total vendors: {pagination.total || 0}</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            {selectedVendor ? `Selected vendor: ${selectedVendor.code}` : `Total vendors: ${pagination.total || 0}`}
+          </div>
         </div>
 
         {loading ? (
@@ -127,6 +225,7 @@ export function AdminRevenuePage() {
               <tr key={vendor.vendorId || vendor.vendorName} className="hover:bg-slate-50 dark:hover:bg-slate-950">
                 <td className="px-4 py-3">
                   <div className="font-semibold text-slate-950 dark:text-white">{vendor.vendorName}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{selectedVendor?.code || vendor.vendorCode || vendor.vendorId}</div>
                 </td>
                 <td className="px-4 py-3 text-right text-sm text-slate-700 dark:text-slate-200">{vendor.totalOrders}</td>
                 <td className="px-4 py-3 text-right text-sm font-semibold text-slate-950 dark:text-white">{formatCurrency(vendor.totalSales)}</td>

@@ -282,6 +282,10 @@ export function VendorSettingsPage() {
       {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
 
       <VendorSection title="Store Profile" description="Public storefront information for your vendor account.">
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/40">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Vendor ID</div>
+          <div className="mt-1 text-base font-semibold text-slate-950 dark:text-white">{form.vendorCode || "Will be assigned automatically"}</div>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <input value={form.companyName || ""} onChange={(e) => setField("companyName", e.target.value)} placeholder="Company name" className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950" />
           <div>

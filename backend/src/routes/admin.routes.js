@@ -316,6 +316,11 @@ router.patch(
   express.json(),
   commissionController.toggleRule
 );
+router.delete(
+  "/commission/rules/:id",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  commissionController.deleteRule
+);
 router.get(
   "/commission/analytics",
   requireWorkspacePermission("analytics.read", { legacyPermission: "dashboard:read" }),

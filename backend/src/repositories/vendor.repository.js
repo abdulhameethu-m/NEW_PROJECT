@@ -25,16 +25,30 @@ async function ensureVendorCodes(vendors = []) {
   }));
 }
 
+async function ensureVendorCodeDocument(vendor) {
+  if (!vendor) return vendor;
+  if (vendor.vendorCode || !vendor._id) return vendor;
+  const vendorCode = buildVendorCodeFromId(vendor._id);
+  await Vendor.updateOne(
+    { _id: vendor._id, $or: [{ vendorCode: { $exists: false } }, { vendorCode: null }, { vendorCode: "" }] },
+    { $set: { vendorCode } }
+  ).exec();
+  vendor.vendorCode = vendorCode;
+  return vendor;
+}
+
 async function findByUserId(userId) {
-  return await Vendor.findOne({ userId }).exec();
+  const vendor = await Vendor.findOne({ userId }).exec();
+  return await ensureVendorCodeDocument(vendor);
 }
 
 async function upsertByUserId(userId, update) {
-  return await Vendor.findOneAndUpdate(
+  const vendor = await Vendor.findOneAndUpdate(
     { userId },
     { $set: update, $setOnInsert: { userId } },
     { new: true, upsert: true }
   ).exec();
+  return await ensureVendorCodeDocument(vendor);
 }
 
 async function listVendors({ status, startDate, endDate } = {}) {
@@ -60,9 +74,10 @@ async function findById(id) {
 }
 
 async function updateById(id, update) {
-  return await Vendor.findByIdAndUpdate(id, { $set: update }, { new: true })
+  const vendor = await Vendor.findByIdAndUpdate(id, { $set: update }, { new: true })
     .populate("userId", "name email phone role status createdAt")
     .exec();
+  return await ensureVendorCodeDocument(vendor);
 }
 
 async function deleteById(id) {
@@ -74,7 +89,8 @@ async function countVendors(query = {}) {
 }
 
 async function listAll() {
-  return await Vendor.find().exec();
+  const vendors = await Vendor.find().exec();
+  return await Promise.all(vendors.map((vendor) => ensureVendorCodeDocument(vendor)));
 }
 
 module.exports = {
