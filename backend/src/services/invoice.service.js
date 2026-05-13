@@ -102,22 +102,32 @@ class InvoiceService {
     const settings = await this.getSettings();
     const nextValues = sanitizeSettingsPayload(payload);
 
+    // Handle logo upload or URL update
     if (files?.logo?.[0]) {
       const [uploaded] = await uploadMany([files.logo[0]], { folder: "invoice_branding" });
-      nextValues.logoUrl = uploaded?.url || settings.logoUrl || "";
+      nextValues.logoUrl = uploaded?.url || "";
       nextValues.logoAsset = {
         publicId: uploaded?.publicId || "",
         originalName: uploaded?.originalName || "",
       };
+    } else if (payload.logoUrl !== undefined) {
+      nextValues.logoUrl = payload.logoUrl;
+      // When setting URL from payload, we don't have asset info, so reset asset
+      nextValues.logoAsset = { publicId: "", originalName: "" };
     }
 
+    // Handle signature upload or URL update
     if (files?.signature?.[0]) {
       const [uploaded] = await uploadMany([files.signature[0]], { folder: "invoice_branding" });
-      nextValues.signatureUrl = uploaded?.url || settings.signatureUrl || "";
+      nextValues.signatureUrl = uploaded?.url || "";
       nextValues.signatureAsset = {
         publicId: uploaded?.publicId || "",
         originalName: uploaded?.originalName || "",
       };
+    } else if (payload.signatureUrl !== undefined) {
+      nextValues.signatureUrl = payload.signatureUrl;
+      // When setting URL from payload, we don't have asset info, so reset asset
+      nextValues.signatureAsset = { publicId: "", originalName: "" };
     }
 
     Object.assign(settings, nextValues, {

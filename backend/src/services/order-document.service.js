@@ -376,17 +376,42 @@ async function generateInvoicePdf(summary) {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
+    // Draw the blue background bar
     doc.rect(0, 0, 595, 110).fill("#0f172a");
+
+    // Determine starting x for text content (logo + margin or just margin)
+    let textStartX = 50;
+    if (org.logoUrl) {
+      try {
+        // Draw logo: 36x36 points, with 10pt margin to the right of logo
+        doc.image(org.logoUrl, 50, 20, { width: 36, height: 36, fit: [36, 36] });
+        textStartX = 50 + 36 + 10; // 50 (logo x) + 36 (logo width) + 10 (margin)
+      } catch (error) {
+        // If logo fails to load, proceed without it
+        console.warn('Failed to load invoice logo for PDF:', error);
+      }
+    }
+
+    // Company name
     doc
       .fillColor("#ffffff")
       .font("Helvetica-Bold")
       .fontSize(24)
-      .text(companyName, 50, 38);
+      .text(companyName, textStartX, 38);
+
+    // Website, email, phone on next line
     doc
       .font("Helvetica")
       .fontSize(10)
       .fillColor("#cbd5e1")
-      .text(`${companyWebsite} | ${supportEmail} | ${supportPhone}`, 50, 72);
+      .text(`${companyWebsite} | ${supportEmail} | ${supportPhone}`, textStartX, 72);
+
+    // Payment Status
+    doc
+      .font("Helvetica")
+      .fontSize(10)
+      .fillColor("#cbd5e1")
+      .text(`Payment: ${summary.payment?.status || "-"}`, textStartX, 72 + 18);
 
     doc
       .fillColor("#0f172a")

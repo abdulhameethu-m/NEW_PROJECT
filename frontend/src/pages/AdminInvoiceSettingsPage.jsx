@@ -40,17 +40,35 @@ export function AdminInvoiceSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState({ ...EMPTY_FORM, logoUrl: "", signatureUrl: "" });
   const [logoFile, setLogoFile] = useState(null);
   const [signatureFile, setSignatureFile] = useState(null);
 
   useEffect(() => {
     setLoading(true);
     getInvoiceSettings()
-      .then((settings) => setForm({ ...EMPTY_FORM, ...settings, bankDetails: { ...EMPTY_FORM.bankDetails, ...(settings?.bankDetails || {}) } }))
+      .then((settings) => setForm({ ...EMPTY_FORM, ...settings, logoUrl: settings.logoUrl || "", signatureUrl: settings.signatureUrl || "", bankDetails: { ...EMPTY_FORM.bankDetails, ...(settings?.bankDetails || {}) } }))
       .catch((err) => setError(normalizeError(err)))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleLogoChange = (e) => {
+    setLogoFile(e.target.files?.[0] || null);
+  };
+
+  const handleSignatureChange = (e) => {
+    setSignatureFile(e.target.files?.[0] || null);
+  };
+
+  const handleRemoveLogo = () => {
+    setForm((prev) => ({ ...prev, logoUrl: "" }));
+    setLogoFile(null);
+  };
+
+  const handleRemoveSignature = () => {
+    setForm((prev) => ({ ...prev, signatureUrl: "" }));
+    setSignatureFile(null);
+  };
 
   const previewInvoice = useMemo(
     () => ({
@@ -130,8 +148,36 @@ export function AdminInvoiceSettingsPage() {
             <div className="sm:col-span-2"><FinanceField label="Billing Address"><FinanceTextarea rows={3} value={form.billingAddress} onChange={(e) => setForm((c) => ({ ...c, billingAddress: e.target.value }))} /></FinanceField></div>
             <div className="sm:col-span-2"><FinanceField label="Registered Address"><FinanceTextarea rows={3} value={form.registeredAddress} onChange={(e) => setForm((c) => ({ ...c, registeredAddress: e.target.value }))} /></FinanceField></div>
             <div className="sm:col-span-2"><FinanceField label="Footer Notes"><FinanceTextarea rows={4} value={form.footerNotes} onChange={(e) => setForm((c) => ({ ...c, footerNotes: e.target.value }))} /></FinanceField></div>
-            <FinanceField label="Logo Upload"><input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} className="block w-full text-sm" /></FinanceField>
-            <FinanceField label="Signature Upload"><input type="file" accept="image/*" onChange={(e) => setSignatureFile(e.target.files?.[0] || null)} className="block w-full text-sm" /></FinanceField>
+            <FinanceField label="Logo Upload">
+              <div className="space-y-2">
+                <input type="file" accept="image/*" onChange={handleLogoChange} className="block w-full text-sm" />
+                {form.logoUrl ? (
+                  <img src={form.logoUrl} alt="Logo preview" className="max-w-xs h-auto mb-2" />
+                ) : logoFile ? (
+                  <img src={URL.createObjectURL(logoFile)} alt="Logo preview" className="max-w-xs h-auto mb-2" />
+                ) : null}
+                {(form.logoUrl || logoFile) && (
+                  <button type="button" onClick={handleRemoveLogo} className="text-sm text-rose-600 hover:text-rose-800">
+                    Remove Logo
+                  </button>
+                )}
+              </div>
+            </FinanceField>
+            <FinanceField label="Signature Upload">
+              <div className="space-y-2">
+                <input type="file" accept="image/*" onChange={handleSignatureChange} className="block w-full text-sm" />
+                {form.signatureUrl ? (
+                  <img src={form.signatureUrl} alt="Signature preview" className="max-w-xs h-auto mb-2" />
+                ) : signatureFile ? (
+                  <img src={URL.createObjectURL(signatureFile)} alt="Signature preview" className="max-w-xs h-auto mb-2" />
+                ) : null}
+                {(form.signatureUrl || signatureFile) && (
+                  <button type="button" onClick={handleRemoveSignature} className="text-sm text-rose-600 hover:text-rose-800">
+                    Remove Signature
+                  </button>
+                )}
+              </div>
+            </FinanceField>
           </div>
 
           <h3 className="mt-6 text-base font-semibold text-slate-950">Bank Details</h3>

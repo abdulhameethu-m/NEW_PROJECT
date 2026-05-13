@@ -22,16 +22,39 @@ export function InvoicePreviewCard({ invoice, actionBar = null, printId = "invoi
   return (
     <div id={printId} className="grid gap-5 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Tax Invoice</div>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{invoice.invoiceNumber}</h1>
-          <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-500">
-            <span>Order: {invoice.orderNumber}</span>
-            <span>Issued: {formatDate(invoice.invoiceIssuedAt || invoice.orderDate)}</span>
-            <span>Version: v{invoice.metadata?.version || 1}</span>
+        <div className="flex flex-col md:flex-row items-start gap-4 w-full">
+          <div className="flex items-center justify-center md:justify-start md:flex-shrink-0 md:mr-6">
+            {invoice.organization?.logoUrl ? (
+              <img
+                src={invoice.organization.logoUrl}
+                alt="Organization logo"
+                className="h-12 w-12 object-contain rounded-md"
+              />
+            ) : (
+              <div className="h-12 w-12 border border-dashed rounded-md flex items-center justify-center bg-slate-100 text-slate-500 text-sm font-semibold">
+                {invoice.organization?.organizationName
+                  ? invoice.organization.organizationName
+                      .match(/\b\w/g)
+                      ?.join('')
+                      .toUpperCase()
+                      .substring(0, 2) || 'GRM'
+                : 'GRM'
+              }
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Tax Invoice</div>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{invoice.invoiceNumber}</h1>
+            <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-500">
+              <span>Order: {invoice.orderNumber}</span>
+              <span>Issued: {formatDate(invoice.invoiceIssuedAt || invoice.orderDate)}</span>
+              <span>Version: v{invoice.metadata?.version || 1}</span>
+              <span>Payment: {invoice.payment?.status}</span>
+            </div>
           </div>
         </div>
-        {actionBar ? <div className="print:hidden">{actionBar}</div> : null}
+        {actionBar ? <div className="print:hidden ml-4 md:ml-0">{actionBar}</div> : null}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
