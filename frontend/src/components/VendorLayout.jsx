@@ -129,6 +129,11 @@ function VendorLayoutInner() {
   const meta =
     (location.pathname.startsWith("/vendor/finance/invoices")
       ? pageMeta["/vendor/finance/invoices"]
+      : location.pathname.startsWith("/vendor/analytics/products/")
+        ? {
+            title: "Product Performance",
+            subtitle: "Drill into one product's revenue, inventory, and return behavior.",
+          }
       : pageMeta[location.pathname]) || pageMeta["/vendor/dashboard"];
 
   if (!user || user.role !== "vendor") {

@@ -34,6 +34,7 @@ import { AdminOrdersPage } from "./pages/AdminOrdersPage";
 import { AdminOrderDetailsPage } from "./pages/AdminOrderDetailsPage";
 import { AdminOrderCreatePage } from "./pages/AdminOrderCreatePage";
 import { AdminAnalyticsPage } from "./pages/AdminAnalyticsPage";
+import { AdminProductAnalyticsDetailPage } from "./pages/AdminProductAnalyticsDetailPage";
 import { AdminRevenuePage } from "./pages/AdminRevenuePage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
@@ -69,6 +70,7 @@ import { VendorProductsPage } from "./pages/VendorProductsPage";
 import { VendorOrdersPage } from "./pages/VendorOrdersPage";
 import { VendorInventoryPage } from "./pages/VendorInventoryPage";
 import { VendorAnalyticsPage } from "./pages/VendorAnalyticsPage";
+import { VendorProductAnalyticsDetailPage } from "./pages/VendorProductAnalyticsDetailPage";
 import { VendorPayoutsPage } from "./pages/VendorPayoutsPage";
 import { VendorFinancePage } from "./pages/VendorFinancePage";
 import { VendorFinancePayoutsPage } from "./pages/VendorFinancePayoutsPage";
@@ -203,6 +205,7 @@ export default function App() {
               <Route path="inventory" element={<VendorModuleRoute moduleKey="inventory"><InventoryPage /></VendorModuleRoute>} />
               <Route path="inventory/:productId" element={<VendorModuleRoute moduleKey="inventory"><InventoryDetailsPage /></VendorModuleRoute>} />
               <Route path="analytics" element={<VendorModuleRoute moduleKey="analytics"><VendorAnalyticsPage /></VendorModuleRoute>} />
+              <Route path="analytics/products/:productId" element={<VendorModuleRoute moduleKey="analytics"><VendorProductAnalyticsDetailPage /></VendorModuleRoute>} />
               <Route path="earnings" element={<VendorModuleRoute moduleKey="payments"><VendorEarningsPage /></VendorModuleRoute>} />
               <Route path="payouts" element={<VendorModuleRoute moduleKey="payments"><VendorPayoutsPage /></VendorModuleRoute>} />
               <Route path="finance" element={<VendorModuleRoute moduleKey="payments"><VendorFinancePage /></VendorModuleRoute>} />
@@ -263,6 +266,7 @@ export default function App() {
               <Route path="orders/create" element={<AdminOrderCreatePage />} />
               <Route path="orders/:id" element={<AdminOrderDetailsPage />} />
               <Route path="analytics" element={<AdminAnalyticsPage />} />
+              <Route path="analytics/products/:productId" element={<AdminProductAnalyticsDetailPage />} />
               <Route path="revenue" element={<AdminRevenuePage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />

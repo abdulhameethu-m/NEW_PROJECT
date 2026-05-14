@@ -58,6 +58,7 @@ router.get(
   adminController.dashboard
 );
 router.get("/analytics", requireWorkspacePermission("analytics.read"), adminController.analytics);
+router.get("/analytics/products/:id", requireWorkspacePermission("analytics.read"), adminController.productAnalyticsDetail);
 router.get("/revenue", requireLegacyAdminPermission("analytics:read"), revenueController.getRevenueSummary);
 router.get("/revenue/vendors", requireLegacyAdminPermission("analytics:read"), revenueController.getVendorRevenue);
 router.get("/revenue/export", requireLegacyAdminPermission("analytics:read"), revenueController.exportRevenue);

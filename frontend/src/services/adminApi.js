@@ -26,6 +26,11 @@ export async function getAnalytics(params = {}) {
   return data;
 }
 
+export async function getProductAnalyticsDetail(id, params = {}) {
+  const { data } = await adminHttp.get(`/api/admin/analytics/products/${id}`, { params });
+  return data;
+}
+
 export async function getDailyRevenue(days = 7) {
   const { data } = await adminHttp.get("/api/admin/daily-revenue", { params: { days } });
   return data;

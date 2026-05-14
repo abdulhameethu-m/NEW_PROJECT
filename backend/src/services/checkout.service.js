@@ -23,6 +23,7 @@ const codService = require("./cod.service");
 const { Order } = require("../models/Order");
 const { Payment } = require("../models/Payment");
 const commissionRuleService = require("./commission-rule.service");
+const productAnalyticsService = require("./product-analytics.service");
 
 const PREPARED_CHECKOUT_CACHE_TTL_MS = 2 * 60 * 1000;
 const preparedCheckoutCache = new Map();
@@ -1286,6 +1287,10 @@ class CheckoutService {
       });
 
       runDeferred(`checkout follow-up for group ${resolvedGroupId}`, async () => {
+        await runNonBlocking("refresh product analytics after checkout", () =>
+          Promise.all(orders.map((order) => productAnalyticsService.refreshForOrder(order._id)))
+        );
+
         for (const order of orders) {
           const payout = await runNonBlocking(`create payout for order ${order.orderNumber}`, () =>
             payoutRepo.create({

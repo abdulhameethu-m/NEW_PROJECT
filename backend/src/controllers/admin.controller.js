@@ -10,10 +10,26 @@ const dashboard = asyncHandler(async (req, res) => {
 
 const analytics = asyncHandler(async (req, res) => {
   const result = await adminService.getAnalytics({
+    range: req.query.range,
     startDate: req.query.startDate,
     endDate: req.query.endDate,
+    vendorId: req.query.vendorId,
+    categoryId: req.query.categoryId,
+    paymentMethod: req.query.paymentMethod,
+    orderStatus: req.query.orderStatus,
   });
   return ok(res, result, "Analytics loaded");
+});
+
+const productAnalyticsDetail = asyncHandler(async (req, res) => {
+  const result = await adminService.getProductAnalyticsDetail(req.params.id, {
+    range: req.query.range,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate,
+    paymentMethod: req.query.paymentMethod,
+    orderStatus: req.query.orderStatus,
+  });
+  return ok(res, result, "Product analytics loaded");
 });
 
 const listVendors = asyncHandler(async (req, res) => {
@@ -261,6 +277,7 @@ const dailyRevenue = asyncHandler(async (req, res) => {
 module.exports = {
   dashboard,
   analytics,
+  productAnalyticsDetail,
   dailyRevenue,
   listVendors,
   getVendorDetails,

@@ -18,6 +18,7 @@ const {
   normalizeDynamicFilterQuery,
   validateAndNormalizeFilterAttributes,
 } = require("./product-filter.service");
+const productAnalyticsService = require("./product-analytics.service");
 
 function normalizeImage(image = {}) {
   return {
@@ -399,6 +400,7 @@ class ProductService {
     };
 
     const product = await productRepo.create(productPayload);
+    await productAnalyticsService.ensureProductAnalyticsSeed(product);
     return product;
   }
 
@@ -482,6 +484,7 @@ class ProductService {
     }
 
     const updatedProduct = await productRepo.updateById(productId, updateData);
+    await productAnalyticsService.ensureProductAnalyticsSeed(updatedProduct);
     return updatedProduct;
   }
 
@@ -507,6 +510,7 @@ class ProductService {
 
     // Admin and vendor deletes permanently remove the product.
     const deletedProduct = await productRepo.deleteById(productId);
+    await productAnalyticsService.markProductDeleted(productId);
     return deletedProduct;
   }
 

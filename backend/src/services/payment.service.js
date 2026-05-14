@@ -19,6 +19,7 @@ const VendorWallet = require("../models/VendorWallet");
 const VendorOrder = require("../models/VendorOrder");
 const { emitDomainEvent } = require("../modules/events/event-bus");
 const { logger } = require("../utils/logger");
+const productAnalyticsService = require("./product-analytics.service");
 
 function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
@@ -1100,6 +1101,8 @@ class PaymentService {
       gateway,
     }).catch(() => {});
 
+    await productAnalyticsService.refreshForRefund(refund._id);
+
     return {
       refund,
       payment: await paymentRepo.findById(resolvedPayment._id),
@@ -1140,6 +1143,8 @@ class PaymentService {
         orderId: refund.orderId?._id || refund.orderId,
         amount: refund.amount,
       }).catch(() => {});
+
+      await productAnalyticsService.refreshForRefund(updated._id);
 
       return updated;
     }

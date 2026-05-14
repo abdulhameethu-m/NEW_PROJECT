@@ -15,6 +15,7 @@ const requestOrderPickup = asyncHandler(async (req, res) => ok(res, await vendor
 const getInventory = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getInventory(req.user.sub, req.query), "Inventory retrieved"));
 const updateInventory = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateInventory(req.user.sub, req.params.id, req.body), "Inventory updated"));
 const getAnalytics = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getAnalytics(req.user.sub, req.query), "Analytics retrieved"));
+const getProductAnalyticsDetail = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getProductAnalyticsDetail(req.user.sub, req.params.id, req.query), "Product analytics retrieved"));
 const getPayouts = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getPayouts(req.user.sub, req.query), "Payouts retrieved"));
 const getDelivery = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getDelivery(req.user.sub, req.query), "Delivery records retrieved"));
 const updateDelivery = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateDelivery(req.user.sub, req.params.id, req.body), "Delivery updated"));
@@ -49,6 +50,7 @@ module.exports = {
   getInventory,
   updateInventory,
   getAnalytics,
+  getProductAnalyticsDetail,
   getPayouts,
   getDelivery,
   updateDelivery,

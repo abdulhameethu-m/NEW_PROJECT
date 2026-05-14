@@ -23,6 +23,7 @@ const {
   resolveVendorShippingModes,
 } = require("../../services/shipping.service");
 const notificationService = require("../../services/notification.service");
+const productAnalyticsService = require("../../services/product-analytics.service");
 
 const VENDOR_ORDER_FLOW = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 
@@ -323,6 +324,7 @@ class VendorDashboardService {
     });
 
     const updated = await order.save();
+    await productAnalyticsService.refreshForOrder(orderId);
 
     if (status === "Delivered") {
       await payoutService.markOrderDelivered(updated._id);
@@ -462,61 +464,14 @@ class VendorDashboardService {
   }
 
   async getAnalytics(userId, query = {}) {
-    const vendor = await this.getVendorContext(userId);
-    const orderDateRange = normalizeDateRange({
-      startDate: query.startDate,
-      endDate: query.endDate,
+    return await productAnalyticsService.getVendorDashboard(userId, query);
+  }
+
+  async getProductAnalyticsDetail(userId, productId, query = {}) {
+    return await productAnalyticsService.getProductDetail(productId, query, {
+      vendorScoped: true,
+      userId,
     });
-    const orderMatch = { sellerId: vendor._id };
-    applyDateRange(orderMatch, orderDateRange);
-
-    const [salesTrend, topProducts, statusBreakdown] = await Promise.all([
-      Order.aggregate([
-        { $match: orderMatch },
-        {
-          $group: {
-            _id: {
-              year: { $year: "$createdAt" },
-              month: { $month: "$createdAt" },
-            },
-            revenue: { $sum: "$totalAmount" },
-            orders: { $sum: 1 },
-          },
-        },
-        { $sort: { "_id.year": 1, "_id.month": 1 } },
-        {
-          $project: {
-            _id: 0,
-            label: {
-              $concat: [
-                { $toString: "$_id.year" },
-                "-",
-                {
-                  $cond: [
-                    { $lt: ["$_id.month", 10] },
-                    { $concat: ["0", { $toString: "$_id.month" }] },
-                    { $toString: "$_id.month" },
-                  ],
-                },
-              ],
-            },
-            revenue: 1,
-            orders: 1,
-          },
-        },
-      ]),
-      Product.find({ sellerId: vendor._id })
-        .sort({ "analytics.totalRevenue": -1, "analytics.salesCount": -1 })
-        .limit(10)
-        .select("name analytics stock status"),
-      Order.aggregate([
-        { $match: orderMatch },
-        { $group: { _id: "$status", count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-      ]),
-    ]);
-
-    return { salesTrend, topProducts, statusBreakdown };
   }
 
   async getPayouts(userId, query = {}) {
@@ -842,6 +797,8 @@ class VendorDashboardService {
         notes: "Refund initiated from vendor return workflow.",
       });
     }
+
+    await productAnalyticsService.refreshForReturn(request._id);
 
     await notificationService.notifyOperations(
       {

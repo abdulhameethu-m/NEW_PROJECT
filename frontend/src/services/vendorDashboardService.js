@@ -80,6 +80,11 @@ export async function getVendorAnalytics(params = {}) {
   return data;
 }
 
+export async function getVendorProductAnalyticsDetail(id, params = {}) {
+  const { data } = await api.get(`/api/vendor/analytics/products/${id}`, { params });
+  return data;
+}
+
 export async function getVendorPayouts(params = {}) {
   const { data } = await api.get("/api/vendor/payouts", { params });
   return data;

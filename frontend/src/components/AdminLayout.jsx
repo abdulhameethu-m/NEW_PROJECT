@@ -170,6 +170,11 @@ export function AdminLayout() {
       title: "Seller Details",
       subtitle: "Inspect onboarding details and decision history.",
     };
+  } else if (location.pathname.startsWith("/admin/analytics/products/")) {
+    meta = {
+      title: "Product Analytics Detail",
+      subtitle: "Inspect revenue, returns, refunds, and inventory velocity for a single product.",
+    };
   } else if (location.pathname.startsWith("/admin/vendors/") && location.pathname.endsWith("/finance")) {
     meta = {
       title: "Vendor Finance",

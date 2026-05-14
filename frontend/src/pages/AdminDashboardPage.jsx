@@ -49,8 +49,8 @@ export function AdminDashboardPage() {
 
   const totals = dashboard?.totals || {};
   const queues = dashboard?.queues || {};
-  const salesOverview = analytics?.salesOverview || [];
-  const topProducts = analytics?.topProducts || [];
+  const salesOverview = analytics?.categoryPerformance || [];
+  const topProducts = analytics?.highestRevenueProducts || [];
 
   return (
     <div className="grid min-w-0 max-w-full gap-4 sm:gap-6">
@@ -116,9 +116,9 @@ export function AdminDashboardPage() {
               <div className="h-56 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
             ) : salesOverview.length ? (
               salesOverview.map((entry) => (
-                <div key={entry.label} className="grid min-w-0 grid-cols-[4.25rem_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3">
+                <div key={entry.categoryId || entry.categoryName} className="grid min-w-0 grid-cols-[4.25rem_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3">
                   <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    {entry.label}
+                    {entry.categoryName}
                   </div>
                   <div className="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                     <div
@@ -165,13 +165,13 @@ export function AdminDashboardPage() {
                 ))
               ) : topProducts.length ? (
                 topProducts.map((product) => (
-                  <div key={product._id} className="rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
+                  <div key={product.productId} className="rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{product.name}</div>
-                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{product.category}</div>
+                        <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{product.productName}</div>
+                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{product.categoryName}</div>
                       </div>
-                      <StatusBadge value={product.status} />
+                      <StatusBadge value={product.productStatus} />
                     </div>
                     <div className="mt-2 text-xs text-slate-600 dark:text-slate-300">
                       Revenue: {formatCurrency(product.analytics?.totalRevenue || 0)} • Sales: {product.analytics?.salesCount || 0}

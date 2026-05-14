@@ -15,6 +15,7 @@ const { AuditLog } = require("../models/AuditLog");
 const vendorRepo = require("../repositories/vendor.repository");
 const adminService = require("./admin.service");
 const vendorDashboardService = require("../modules/vendorDashboard/vendor-dashboard.service");
+const productAnalyticsService = require("./product-analytics.service");
 
 function toCurrency(value) {
   return `Rs. ${Number(value || 0).toFixed(2)}`;
@@ -344,48 +345,25 @@ async function getRowsForModule(moduleName, user, query) {
       }));
     },
     analytics: async () => {
-      if (vendor) {
-        const analytics = await vendorDashboardService.getAnalytics(user.sub, query);
-        return [
-          ...analytics.salesTrend.map((item) => ({
-            Section: "Sales Trend",
-            Label: item.label,
-            MetricA: item.orders,
-            MetricB: toCurrency(item.revenue),
-          })),
-          ...analytics.statusBreakdown.map((item) => ({
-            Section: "Status Breakdown",
-            Label: item._id,
-            MetricA: item.count,
-            MetricB: "",
-          })),
-        ];
-      }
-
-      const analytics = await adminService.getAnalytics({
-        startDate: query.startDate,
-        endDate: query.endDate,
+      const rows = await productAnalyticsService.buildExportRows({
+        scope: vendor ? "vendor" : "admin",
+        userId: user.sub,
+        filters: {
+          range: query.range,
+          startDate: query.startDate,
+          endDate: query.endDate,
+          vendorId: query.vendorId,
+          categoryId: query.categoryId,
+          paymentMethod: query.paymentMethod,
+          orderStatus: query.orderStatus,
+        },
       });
-      return [
-        {
-          Section: "Summary",
-          Label: "Revenue",
-          MetricA: toCurrency(analytics.stats?.revenue || 0),
-          MetricB: "",
-        },
-        {
-          Section: "Summary",
-          Label: "Total Orders",
-          MetricA: analytics.stats?.totalOrders || 0,
-          MetricB: "",
-        },
-        ...analytics.salesOverview.map((item) => ({
-          Section: "Sales Overview",
-          Label: item.label,
-          MetricA: item.orders,
-          MetricB: toCurrency(item.revenue),
-        })),
-      ];
+      return rows.map((row) => ({
+        ...row,
+        Revenue: toCurrency(row.Revenue),
+        NetRevenue: toCurrency(row.NetRevenue),
+        RefundAmount: toCurrency(row.RefundAmount),
+      }));
     },
     earnings: async () => {
       if (!vendor) throw new AppError("Forbidden", 403, "FORBIDDEN");

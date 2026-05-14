@@ -18,6 +18,7 @@ const payoutService = require("./payout.service");
 const { getShippingModesConfig, updateShippingModesConfig } = require("./shipping-config.service");
 const { normalizeShippingMode } = require("./shipping.service");
 const notificationService = require("./notification.service");
+const productAnalyticsService = require("./product-analytics.service");
 
 function resolveGlobalShippingModes(configValue = {}) {
   const modes = [];
@@ -52,34 +53,20 @@ async function getDashboardOverview() {
 
 const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
 
-async function getAnalytics({ startDate, endDate } = {}) {
-  const orderDateRange = normalizeDateRange({ startDate, endDate });
-  const orderMatch = {};
-  applyDateRange(orderMatch, orderDateRange);
+async function getAnalytics({ range, startDate, endDate, vendorId, categoryId, paymentMethod, orderStatus } = {}) {
+  return await productAnalyticsService.getAdminDashboard({
+    range,
+    startDate,
+    endDate,
+    vendorId,
+    categoryId,
+    paymentMethod,
+    orderStatus,
+  });
+}
 
-  const [salesOverview, topProducts, orderCount, deliveredOrders, approvedProducts, users, sellers, revenue] = await Promise.all([
-    orderRepo.getMonthlyRevenue(6, orderMatch),
-    productRepo.getTopProducts(5),
-    orderRepo.countDocuments(orderMatch),
-    orderRepo.countDocuments({ ...orderMatch, status: "Delivered" }),
-    productRepo.countDocuments({ status: "APPROVED", isActive: true }),
-    userRepo.countUsers({ role: "user" }),
-    vendorRepo.countVendors({ status: "approved" }),
-    orderRepo.sumRevenue(orderMatch),
-  ]);
-
-  return {
-    salesOverview,
-    topProducts,
-    stats: {
-      totalOrders: orderCount,
-      deliveredOrders,
-      approvedProducts,
-      users,
-      sellers,
-      revenue,
-    },
-  };
+async function getProductAnalyticsDetail(productId, filters = {}) {
+  return await productAnalyticsService.getProductDetail(productId, filters);
 }
 
 async function getDailyRevenue(days = 7) {
@@ -614,6 +601,7 @@ async function createOrder(payload, actor, meta) {
       })
     )
   );
+  await Promise.all(created.map((order) => productAnalyticsService.refreshForOrder(order._id)));
   return { orders: created };
 }
 
@@ -669,6 +657,7 @@ async function updateOrder(orderId, patch, actor, meta) {
   }
 
   const updated = await orderRepo.updateById(orderId, updateData);
+  await productAnalyticsService.refreshForOrder(orderId);
   if (updated?.status === "Delivered") {
     await payoutService.markOrderDelivered(updated._id);
   }
@@ -833,6 +822,7 @@ async function updateOrderStatus(orderId, status, actor, meta) {
   if (status === "Out for Delivery") shippingUpdate.shippingStatus = "OUT_FOR_DELIVERY";
   if (status === "Delivered") shippingUpdate.shippingStatus = "DELIVERED";
   const updated = await orderRepo.updateById(orderId, { status, ...shippingUpdate });
+  await productAnalyticsService.refreshForOrder(orderId);
   if (status === "Delivered") {
     await payoutService.markOrderDelivered(updated._id);
   }
@@ -957,6 +947,7 @@ async function deleteReview(reviewId, actor, meta) {
 module.exports = {
   getDashboardOverview,
   getAnalytics,
+  getProductAnalyticsDetail,
   getDailyRevenue,
   getAdminInventorySummary,
   getAdminInventoryProduct,

@@ -65,6 +65,7 @@ router.patch("/inventory/:id", requireVendorPermission("inventory.update"), vend
 
 // 🔥 ANALYTICS MODULE - Protected by vendorModuleAccess
 router.get("/analytics", requireVendorModule("analytics"), vendorDashboardController.getAnalytics);
+router.get("/analytics/products/:id", requireVendorModule("analytics"), vendorDashboardController.getProductAnalyticsDetail);
 
 // 🔥 PAYMENTS MODULE - Protected by vendorModuleAccess
 router.get("/payouts", requireVendorModule("payments"), vendorDashboardController.getPayouts);

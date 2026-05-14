@@ -7,6 +7,7 @@ const productService = require("./product.service");
 const { ORDER_STATUS, PAYMENT_STATUS } = require("../models/Order");
 const checkoutService = require("./checkout.service");
 const inventoryService = require("./inventory.service");
+const productAnalyticsService = require("./product-analytics.service");
 
 function normalizeAddress(address) {
   const a = address || {};
@@ -127,6 +128,7 @@ class OrderService {
       inventoryReservationReleasedAt: order.inventoryCommittedAt ? order.inventoryReservationReleasedAt : new Date(),
       inventoryRestoredAt: order.inventoryCommittedAt ? new Date() : order.inventoryRestoredAt,
     });
+    await productAnalyticsService.refreshForOrder(orderId);
     return cancelled;
   }
 
@@ -190,10 +192,12 @@ class OrderService {
         )
     );
 
-    return await orderRepo.updateById(orderId, {
+    const updated = await orderRepo.updateById(orderId, {
       status: "Returned",
       inventoryRestoredAt: new Date(),
     });
+    await productAnalyticsService.refreshForOrder(orderId);
+    return updated;
   }
 
   async listForSeller(userId, { page, limit, status } = {}) {
@@ -216,7 +220,9 @@ class OrderService {
     if (!order) throw new AppError("Order not found", 404, "NOT_FOUND");
 
     if (actor.role === "admin") {
-      return await orderRepo.updateStatus(orderId, status);
+      const updated = await orderRepo.updateStatus(orderId, status);
+      await productAnalyticsService.refreshForOrder(orderId);
+      return updated;
     }
 
     if (actor.role === "vendor") {
@@ -225,7 +231,9 @@ class OrderService {
       if (String(order.sellerId) !== String(vendor._id)) {
         throw new AppError("Forbidden", 403, "FORBIDDEN");
       }
-      return await orderRepo.updateStatus(orderId, status);
+      const updated = await orderRepo.updateStatus(orderId, status);
+      await productAnalyticsService.refreshForOrder(orderId);
+      return updated;
     }
 
     throw new AppError("Forbidden", 403, "FORBIDDEN");
