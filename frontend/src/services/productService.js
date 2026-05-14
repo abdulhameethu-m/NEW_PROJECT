@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { uploadMarketplaceProductImages } from "./productMediaService";
 
 /**
  * Get all public products (for storefront)
@@ -48,6 +49,10 @@ export async function createProduct(productData) {
 export async function updateProduct(id, updateData) {
   const response = await api.patch(`/api/products/${id}`, updateData);
   return response.data;
+}
+
+export async function uploadProductImages(files, metadata = {}, onUploadProgress) {
+  return uploadMarketplaceProductImages(files, metadata, onUploadProgress);
 }
 
 /**

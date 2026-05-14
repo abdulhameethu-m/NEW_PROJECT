@@ -67,7 +67,7 @@ const paymentSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
-    razorpayOrderId: { type: String, sparse: true, unique: true },
+    razorpayOrderId: { type: String, trim: true },
     razorpayPaymentId: { type: String },
     razorpaySignature: { type: String },
     idempotencyKey: {
@@ -153,10 +153,62 @@ const paymentSchema = new mongoose.Schema(
 paymentSchema.index({ userId: 1, createdAt: -1 });
 paymentSchema.index({ method: 1, status: 1, createdAt: -1 });
 paymentSchema.index({ orderGroupId: 1, createdAt: -1 });
+paymentSchema.index(
+  { razorpayOrderId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      method: "ONLINE",
+      razorpayOrderId: { $type: "string" },
+    },
+  }
+);
+
+paymentSchema.pre("validate", function normalizeGatewayFields() {
+  if (this.razorpayOrderId !== undefined && this.razorpayOrderId !== null) {
+    const normalizedOrderId = String(this.razorpayOrderId).trim();
+    this.razorpayOrderId = normalizedOrderId || undefined;
+  }
+
+  if (this.razorpayPaymentId !== undefined && this.razorpayPaymentId !== null) {
+    const normalizedPaymentId = String(this.razorpayPaymentId).trim();
+    this.razorpayPaymentId = normalizedPaymentId || undefined;
+  }
+
+  if (this.razorpaySignature !== undefined && this.razorpaySignature !== null) {
+    const normalizedSignature = String(this.razorpaySignature).trim();
+    this.razorpaySignature = normalizedSignature || undefined;
+  }
+
+  if (this.method === "COD") {
+    this.razorpayOrderId = undefined;
+    this.razorpayPaymentId = undefined;
+    this.razorpaySignature = undefined;
+  }
+});
+
+async function ensurePaymentIndexes() {
+  const PaymentModel = mongoose.models.Payment || mongoose.model("Payment", paymentSchema);
+  const indexes = await PaymentModel.collection.indexes();
+  const razorpayOrderIndex = indexes.find((index) => index.name === "razorpayOrderId_1");
+
+  const hasExpectedPartialIndex = Boolean(
+    razorpayOrderIndex?.unique &&
+      razorpayOrderIndex?.partialFilterExpression?.method === "ONLINE" &&
+      razorpayOrderIndex?.partialFilterExpression?.razorpayOrderId?.$type === "string"
+  );
+
+  if (!hasExpectedPartialIndex && razorpayOrderIndex) {
+    await PaymentModel.collection.dropIndex("razorpayOrderId_1").catch(() => {});
+  }
+
+  await PaymentModel.syncIndexes();
+}
 
 module.exports = {
   Payment: mongoose.model("Payment", paymentSchema),
   PAYMENT_METHODS,
   PAYMENT_STATUS,
   FULFILLMENT_STATUS,
+  ensurePaymentIndexes,
 };

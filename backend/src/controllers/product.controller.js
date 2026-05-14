@@ -277,6 +277,18 @@ const generateProductNumber = asyncHandler(async (req, res) => {
   return ok(res, { productNumber }, "Product number generated");
 });
 
+const uploadProductImages = asyncHandler(async (req, res) => {
+  const context = String(req.body?.context || "product").trim().toLowerCase();
+  const folder = context === "variant" ? "product_variants" : "products";
+  const images = await productService.uploadProductImages(req.files || [], {
+    folder,
+    productName: String(req.body?.productName || "").trim(),
+    variantTitle: String(req.body?.variantTitle || "").trim(),
+  });
+
+  return ok(res, images, "Product images uploaded");
+});
+
 module.exports = {
   createProduct,
   getProducts,
@@ -290,4 +302,5 @@ module.exports = {
   rejectProduct,
   getProductStats,
   generateProductNumber,
+  uploadProductImages,
 };

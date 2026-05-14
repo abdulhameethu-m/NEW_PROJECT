@@ -17,6 +17,7 @@ const variantImageSchema = new mongoose.Schema(
     url: { type: String, required: true },
     altText: String,
     isPrimary: { type: Boolean, default: false },
+    sortOrder: { type: Number, default: 0, min: 0 },
   },
   { _id: false }
 );
@@ -98,6 +99,16 @@ const productVariantSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+  },
+  { _id: false }
+);
+
+const productImageSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true },
+    altText: String,
+    isPrimary: { type: Boolean, default: false },
+    sortOrder: { type: Number, default: 0, min: 0 },
   },
   { _id: false }
 );
@@ -195,13 +206,10 @@ const productSchema = new mongoose.Schema(
     },
 
     // Media
-    images: [
-      {
-        url: { type: String, required: true },
-        altText: String,
-        isPrimary: { type: Boolean, default: false },
-      },
-    ],
+    images: {
+      type: [productImageSchema],
+      default: [],
+    },
     thumbnail: String,
 
     // Vendor Info
@@ -326,6 +334,17 @@ const productSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+productSchema.set("toJSON", { virtuals: true });
+productSchema.set("toObject", { virtuals: true });
+
+productSchema.virtual("genericImages").get(function getGenericImages() {
+  return Array.isArray(this.images) ? this.images : [];
+});
+
+productSchema.virtual("genericImages").set(function setGenericImages(value) {
+  this.images = Array.isArray(value) ? value : [];
+});
 
 // Pre-save validation for weight
 productSchema.pre("save", async function () {

@@ -4,6 +4,7 @@ const http = require("http");
 const { createApp } = require("./app");
 const { connectDb } = require("./config/db");
 const { logger } = require("./utils/logger");
+const { ensurePaymentIndexes } = require("./models/Payment");
 const { ensurePredefinedStaffRoles } = require("./modules/staff/services/role.service");
 const { initializeSettlementScheduler, shutdown } = require("./jobs/settlement.job");
 const { ensureDefaultPricingCategories } = require("./services/pricing-category.service");
@@ -16,6 +17,7 @@ const {
 
 async function start() {
   await connectDb();
+  await ensurePaymentIndexes();
   await ensurePredefinedStaffRoles();
   await ensureDefaultPricingCategories();
   initializeEventBus();

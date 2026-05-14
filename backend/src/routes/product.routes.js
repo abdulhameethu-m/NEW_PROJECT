@@ -1,5 +1,6 @@
 const express = require("express");
 const { authRequired, requireRole } = require("../middleware/auth");
+const { upload } = require("../middleware/upload");
 const { validate } = require("../middleware/validate");
 const { requireVendorPermission } = require("../middleware/vendorModuleAccess");
 const productController = require("../controllers/product.controller");
@@ -34,6 +35,13 @@ router.get("/filters", productController.getProductFilters);
  * Preview next product number for category + subcategory
  */
 router.get("/generate-number", authRequired, requireVendorPermission("products.create"), productController.generateProductNumber);
+router.post(
+  "/media",
+  authRequired,
+  requireVendorPermission("products.create"),
+  upload.array("images", 10),
+  productController.uploadProductImages
+);
 
 /**
  * GET /products/:id

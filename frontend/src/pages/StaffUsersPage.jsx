@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PasswordField } from "../components/PasswordField";
 import { createUser, deleteUser, listUsers, toggleUserBlock } from "../services/adminApi";
 import { useStaffPermission } from "../hooks/useStaffAuth";
 
@@ -170,8 +171,7 @@ export function StaffUsersPage() {
           </label>
           <label className="grid gap-2 text-sm text-slate-700">
             <span>Password</span>
-            <input
-              type="password"
+            <PasswordField
               value={form.password}
               onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
               className="rounded-xl border border-slate-200 px-4 py-3 text-sm"

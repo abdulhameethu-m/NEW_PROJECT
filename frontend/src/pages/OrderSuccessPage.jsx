@@ -32,6 +32,61 @@ function loadPersistedCheckoutSuccessPayload() {
   }
 }
 
+function getCurrency(order) {
+  return order?.pricing?.currency || order?.priceBreakdown?.currency || order?.currency || "INR";
+}
+
+function getItemUnitPrice(item) {
+  return Number(item?.unitPrice ?? item?.price ?? 0);
+}
+
+function getItemTotal(item) {
+  if (item?.total !== undefined && item?.total !== null) {
+    return Number(item.total || 0);
+  }
+  return getItemUnitPrice(item) * Number(item?.quantity || 0);
+}
+
+function getOrderSubtotal(order) {
+  return Number(
+    order?.pricing?.subtotal ??
+      order?.priceBreakdown?.subtotal ??
+      order?.pricingSnapshot?.subtotal ??
+      order?.subtotal ??
+      0
+  );
+}
+
+function getOrderTax(order) {
+  return Number(
+    order?.pricing?.tax ??
+      order?.pricing?.taxes ??
+      order?.priceBreakdown?.taxAmount ??
+      order?.taxAmount ??
+      0
+  );
+}
+
+function getOrderShipping(order) {
+  return Number(
+    order?.pricing?.shipping ??
+      order?.pricing?.deliveryFee ??
+      order?.priceBreakdown?.shippingFee ??
+      order?.shippingFee ??
+      0
+  );
+}
+
+function getOrderDiscount(order) {
+  return Number(
+    order?.pricing?.discount ??
+      order?.pricing?.discounts ??
+      order?.priceBreakdown?.discountAmount ??
+      order?.discountAmount ??
+      0
+  );
+}
+
 export function OrderSuccessPage() {
   const location = useLocation();
   const baseState = location.state || loadPersistedCheckoutSuccessPayload() || {};
@@ -41,6 +96,7 @@ export function OrderSuccessPage() {
   const processing = Boolean(state.processing);
   const isCod = (orders[0]?.paymentMethod || payment?.method || "ONLINE") === "COD";
   const codPayable = orders.reduce((sum, order) => sum + Number(order?.totalAmount || 0), 0);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState("");
 
   useEffect(() => {
     if (!processing) return undefined;
@@ -95,6 +151,15 @@ export function OrderSuccessPage() {
 
   if (!orders.length && !processing) {
     return <Navigate to="/orders" replace />;
+  }
+
+  async function handleDownloadInvoice(orderId) {
+    setDownloadingInvoiceId(orderId);
+    try {
+      await userService.downloadUserInvoice(orderId);
+    } finally {
+      setDownloadingInvoiceId("");
+    }
   }
 
   return (
@@ -174,11 +239,11 @@ export function OrderSuccessPage() {
                       )}
                       <div className="mt-2 flex items-center gap-4 text-sm text-slate-600">
                         <span>Qty: {item.quantity}</span>
-                        <span>Unit: {formatCurrency(item.unitPrice || 0)}</span>
+                        <span>Unit: {formatCurrency(getItemUnitPrice(item), { currency: getCurrency(order) })}</span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-slate-950">{formatCurrency(item.total || 0)}</div>
+                      <div className="font-semibold text-slate-950">{formatCurrency(getItemTotal(item), { currency: getCurrency(order) })}</div>
                     </div>
                   </div>
                 ))}
@@ -212,29 +277,29 @@ export function OrderSuccessPage() {
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between text-slate-600">
                   <span>Subtotal</span>
-                  <span>{formatCurrency(order.pricing?.subtotal || 0)}</span>
+                  <span>{formatCurrency(getOrderSubtotal(order), { currency: getCurrency(order) })}</span>
                 </div>
-                {order.pricing?.tax > 0 && (
+                {getOrderTax(order) > 0 && (
                   <div className="flex justify-between text-slate-600">
                     <span>Tax</span>
-                    <span>{formatCurrency(order.pricing.tax)}</span>
+                    <span>{formatCurrency(getOrderTax(order), { currency: getCurrency(order) })}</span>
                   </div>
                 )}
-                {order.pricing?.shipping > 0 && (
+                {getOrderShipping(order) > 0 && (
                   <div className="flex justify-between text-slate-600">
                     <span>Shipping</span>
-                    <span>{formatCurrency(order.pricing.shipping)}</span>
+                    <span>{formatCurrency(getOrderShipping(order), { currency: getCurrency(order) })}</span>
                   </div>
                 )}
-                {order.pricing?.discount > 0 && (
+                {getOrderDiscount(order) > 0 && (
                   <div className="flex justify-between text-emerald-600">
                     <span>Discount</span>
-                    <span>-{formatCurrency(order.pricing.discount)}</span>
+                    <span>-{formatCurrency(getOrderDiscount(order), { currency: getCurrency(order) })}</span>
                   </div>
                 )}
                 <div className="border-t border-slate-200 pt-2 flex justify-between font-semibold text-slate-950">
                   <span>Total</span>
-                  <span>{formatCurrency(order.totalAmount || 0)}</span>
+                  <span>{formatCurrency(order.totalAmount || 0, { currency: getCurrency(order) })}</span>
                 </div>
               </div>
             </div>
@@ -247,14 +312,14 @@ export function OrderSuccessPage() {
               >
                 View full details
               </Link>
-              <a
-                href={`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/user/orders/${order._id}/invoice`}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() => handleDownloadInvoice(order._id)}
+                disabled={downloadingInvoiceId === order._id}
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
-                Download invoice
-              </a>
+                {downloadingInvoiceId === order._id ? "Downloading..." : "Download invoice"}
+              </button>
             </div>
           </div>
         </section>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PasswordField } from "../components/PasswordField";
 import {
   createStaffAccount,
   deleteStaffAccount,
@@ -272,8 +273,7 @@ export function AdminStaffPage() {
 
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
             {editingId ? "New password (optional)" : "Temporary password"}
-            <input
-              type="password"
+            <PasswordField
               value={form.password}
               onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
               className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-3"

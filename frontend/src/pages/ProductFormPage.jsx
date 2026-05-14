@@ -21,6 +21,7 @@ export function ProductFormPage() {
       fetchProduct={productService.getProductById}
       createProduct={isAdmin ? productService.createProduct : vendorDashboardService.createVendorProduct}
       updateProduct={isAdmin ? productService.updateProduct : vendorDashboardService.updateVendorProduct}
+      uploadImages={isAdmin ? productService.uploadProductImages : vendorDashboardService.uploadVendorImages}
     />
   );
 }

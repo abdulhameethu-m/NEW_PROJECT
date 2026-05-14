@@ -30,11 +30,15 @@ function isAllowedPrimaryTarget(target) {
   if (!pathname || isAuthPageTarget(pathname)) return false;
 
   return (
+    pathname === "/" ||
     pathname.startsWith("/admin") ||
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/user") ||
     pathname.startsWith("/vendor") ||
     pathname.startsWith("/seller") ||
+    pathname.startsWith("/product/") ||
+    pathname.startsWith("/products") ||
+    pathname.startsWith("/shop") ||
     pathname.startsWith("/profile") ||
     pathname.startsWith("/orders") ||
     pathname.startsWith("/wishlist") ||
@@ -46,6 +50,15 @@ function isAllowedPrimaryTarget(target) {
     pathname.startsWith("/cart") ||
     pathname.startsWith("/checkout")
   );
+}
+
+function isShopperRole(role) {
+  return role === "user";
+}
+
+function clearPendingCheckoutState() {
+  pendingActionManager.clearPendingAction();
+  pendingCheckoutManager.clear();
 }
 
 export async function continueAfterPrimaryAuth({ result, attemptedFrom, nav }) {
@@ -80,20 +93,34 @@ export async function continueAfterPrimaryAuth({ result, attemptedFrom, nav }) {
     }
   }
 
+  const redirect = consumeRedirectAfterLogin();
+  const role = result.data.user.role;
+
+  if (!isShopperRole(role)) {
+    clearPendingCheckoutState();
+  }
+
   const checkoutRedirect = pendingCheckout?.redirectAfterAuth || pendingCheckout?.redirectAfterLogin;
-  if (checkoutRedirect === "/checkout") {
+  if (isShopperRole(role) && checkoutRedirect === "/checkout") {
     return nav("/checkout", { replace: true });
   }
 
-  if (pendingAction?.type === "buy_now" || pendingAction?.type === "checkout") {
+  if (isShopperRole(role) && (pendingAction?.type === "buy_now" || pendingAction?.type === "checkout")) {
     pendingActionManager.clearPendingAction();
     return nav("/checkout", { replace: true });
   }
 
-  const redirect = consumeRedirectAfterLogin();
-  const role = result.data.user.role;
-  if (redirect && isAllowedPrimaryTarget(redirect)) return window.location.assign(redirect);
-  if (attemptedFrom && isAllowedPrimaryTarget(attemptedFrom)) return nav(attemptedFrom, { replace: true });
+  if (redirect && isAllowedPrimaryTarget(redirect)) {
+    if (isShopperRole(role) || !getPathnameFromTarget(redirect).startsWith("/checkout")) {
+      return nav(redirect, { replace: true });
+    }
+  }
+
+  if (attemptedFrom && isAllowedPrimaryTarget(attemptedFrom)) {
+    if (isShopperRole(role) || !getPathnameFromTarget(attemptedFrom).startsWith("/checkout")) {
+      return nav(attemptedFrom, { replace: true });
+    }
+  }
 
   if (["admin", "super_admin", "support_admin", "finance_admin"].includes(role)) {
     return nav("/dashboard/admin", { replace: true });

@@ -83,7 +83,7 @@ export function SearchBar({ className = "" }) {
       </div>
 
       {showResults && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-3 max-h-[28rem] overflow-y-auto rounded-[1.75rem] border border-slate-200/80 bg-white/95 p-2 shadow-[0_35px_100px_-45px_rgba(15,23,42,0.5)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
+        <div className="absolute left-0 right-0 top-full z-50 mt-[5.25rem] max-h-[28rem] overflow-y-auto rounded-[1.75rem] border border-slate-200/80 bg-white/95 p-2 shadow-[0_35px_100px_-45px_rgba(15,23,42,0.5)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
           {loading && (
             <div className="p-4 text-center text-sm text-slate-500">
               Searching...

@@ -15,6 +15,7 @@ export {
   generateAdminProductNumber,
   createProduct,
   updateProduct,
+  uploadAdminProductImages,
   deleteProduct,
   approveProduct,
   rejectProduct,

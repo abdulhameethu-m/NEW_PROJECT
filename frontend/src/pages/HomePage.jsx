@@ -11,18 +11,15 @@ import {
   Truck,
 } from "lucide-react";
 import { AnimatePresence, motion as Motion, useReducedMotion } from "framer-motion";
-import { CategoryCarousel } from "../components/CategoryCarousel";
 import { HomepageContentCMS } from "../components/HomepageContentCMS";
 import { ProductCard } from "../components/ProductCard";
 import { PromoBanner } from "../components/PromoBanner";
 import { MotionItem, MotionStagger, AnimatedSection } from "../components/home/AnimatedSection";
 import { RippleButton } from "../components/home/RippleButton";
 import { ReelFeed } from "../components/reel/ReelFeed";
-import { useCategories } from "../hooks/useCategories";
 import * as productService from "../services/productService";
 import { trackClick } from "../services/contentService";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
-import { usePresentedCategories } from "../utils/categoryPresentation.jsx";
 import { usePlatformFeatures } from "../context/PlatformFeaturesContext";
 
 const trustItems = [
@@ -61,8 +58,6 @@ export function HomePage() {
   const [popularPicks, setPopularPicks] = useState([]);
   const [trending, setTrending] = useState([]);
   const [recommended, setRecommended] = useState([]);
-  const { categories, loading: categoriesLoading } = useCategories();
-  const presentedCategories = usePresentedCategories(categories);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,15 +123,6 @@ export function HomePage() {
           <ReelFeed />
         </AnimatedSection>
       ) : null}
-
-      <AnimatedSection y={30}>
-        <CategoryCarousel
-          title="Curated categories"
-          categories={presentedCategories}
-          loading={categoriesLoading}
-          onSelect={(cat) => navigate(`/shop?category=${encodeURIComponent(cat.name)}`)}
-        />
-      </AnimatedSection>
 
       <AnimatedSection x={-24}>
         <ManagedPromoSection promos={homepageContent.promo} />

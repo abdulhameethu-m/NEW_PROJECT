@@ -14,6 +14,7 @@ const {
   validateAndNormalizeModulesData,
   flattenModulesDataToAttributes,
 } = require("./attribute.service");
+const { uploadMany } = require("../utils/upload");
 const {
   normalizeDynamicFilterQuery,
   validateAndNormalizeFilterAttributes,
@@ -25,7 +26,17 @@ function normalizeImage(image = {}) {
     url: String(image.url || "").trim(),
     altText: String(image.altText || "").trim(),
     isPrimary: Boolean(image.isPrimary),
+    sortOrder: Number.isFinite(Number(image.sortOrder)) ? Number(image.sortOrder) : 0,
   };
+}
+
+function buildDefaultAltText({ originalName = "", productName = "", variantTitle = "" } = {}) {
+  const baseName = String(originalName || "")
+    .replace(/\.[^.]+$/, "")
+    .replace(/[-_]+/g, " ")
+    .trim();
+
+  return [productName, variantTitle, baseName].filter(Boolean).join(" ").trim();
 }
 
 function buildVariantTitle(options = []) {
@@ -221,6 +232,7 @@ async function prepareDynamicProductData({
   attributes = {},
   variants = [],
   images = [],
+  genericImages = [],
   extraDetails = {},
   productWeight,
 }) {
@@ -242,7 +254,11 @@ async function prepareDynamicProductData({
     subCategoryId,
     attributes,
   });
-  const normalizedImages = (Array.isArray(images) ? images : []).map(normalizeImage).filter((item) => item.url);
+  // Prefer the incoming canonical gallery payload on save/update.
+  // Falling back to genericImages first caused edit flows to keep the stale
+  // persisted gallery instead of the newly submitted images array.
+  const sourceImages = Array.isArray(images) && images.length ? images : genericImages;
+  const normalizedImages = (Array.isArray(sourceImages) ? sourceImages : []).map(normalizeImage).filter((item) => item.url);
   const variantState = await normalizeProductVariants({
     categoryId,
     subCategoryId,
@@ -353,6 +369,7 @@ class ProductService {
         attributes: productData.attributes || {},
         variants: productData.variants || [],
         images: productData.images || [],
+        genericImages: productData.genericImages || [],
         extraDetails: productData.extraDetails || {},
         productWeight: normalizeProductWeight(productData.weight, { required: true }),
       });
@@ -465,6 +482,10 @@ class ProductService {
             attributes: hasAttributeUpdate ? updateData.attributes || {} : product.attributes || {},
             variants: hasVariantUpdate ? updateData.variants || [] : product.variants || [],
             images: updateData.images !== undefined ? updateData.images || [] : product.images || [],
+            genericImages:
+              updateData.genericImages !== undefined
+                ? updateData.genericImages || []
+                : product.genericImages || product.images || [],
             extraDetails: hasExtraDetailsUpdate ? updateData.extraDetails || {} : product.extraDetails || {},
             productWeight: updateData.weight || product.weight,
           });
@@ -674,6 +695,25 @@ class ProductService {
     }
 
     return await productRepo.restoreSale(productId, quantity, amount, variantId);
+  }
+
+  async uploadProductImages(files = [], { folder = "products", productName = "", variantTitle = "" } = {}) {
+    const uploaded = await uploadMany(files, { folder });
+
+    return uploaded.map((item, index) => ({
+      url: item.url,
+      altText: buildDefaultAltText({
+        originalName: item.originalName,
+        productName,
+        variantTitle,
+      }),
+      isPrimary: false,
+      sortOrder: index,
+      originalName: item.originalName,
+      mimeType: item.mimeType,
+      size: item.size,
+      publicId: item.publicId,
+    }));
   }
 }
 

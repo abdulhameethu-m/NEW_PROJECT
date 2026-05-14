@@ -1,5 +1,5 @@
 import { ProductEditor } from "../components/ProductEditor";
-import { createProduct, generateAdminProductNumber, getProductById, updateProduct } from "../services/adminService";
+import { createProduct, generateAdminProductNumber, getProductById, updateProduct, uploadAdminProductImages } from "../services/adminService";
 
 export function AdminProductCreate() {
   return (
@@ -14,6 +14,7 @@ export function AdminProductCreate() {
       generateProductNumber={generateAdminProductNumber}
       createProduct={createProduct}
       updateProduct={updateProduct}
+      uploadImages={uploadAdminProductImages}
     />
   );
 }

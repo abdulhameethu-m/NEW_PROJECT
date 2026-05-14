@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { uploadVendorProductImages } from "./productMediaService";
 
 export async function getVendorDashboard(params = {}) {
   const { data } = await api.get("/api/vendor/dashboard", { params });
@@ -18,6 +19,10 @@ export async function createVendorProduct(payload) {
 export async function updateVendorProduct(id, payload) {
   const { data } = await api.patch(`/api/vendor/products/${id}`, payload);
   return data;
+}
+
+export async function uploadVendorImages(files, metadata = {}, onUploadProgress) {
+  return uploadVendorProductImages(files, metadata, onUploadProgress);
 }
 
 export async function deleteVendorProduct(id) {

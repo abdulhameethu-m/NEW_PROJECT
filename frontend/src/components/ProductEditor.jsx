@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BackButton } from "./BackButton";
 import { DynamicAttributeField } from "./DynamicAttributeField";
+import { ProductImageUploader } from "./product-images/ProductImageUploader";
+import { VariantImageUploader } from "./product-images/VariantImageUploader";
 import { useCategories } from "../hooks/useCategories";
 import { getSubcategoriesByCategory } from "../services/subcategoryService";
 import { getAttributes } from "../services/attributeService";
@@ -13,6 +15,7 @@ import {
   normalizeVariantPayloadRows,
   parseCommaSeparatedValues,
 } from "../utils/productVariants";
+import { buildImagePayload, hydrateManagedImages } from "../utils/productImages";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
@@ -97,6 +100,13 @@ function mergeLegacyModulesData(moduleSections = [], currentModulesData = {}, le
   return nextModulesData;
 }
 
+function normalizeEditorImages(images = [], fallbackAlt = "", prefix = "image") {
+  return hydrateManagedImages(images, {
+    fallbackAlt,
+    idPrefix: prefix,
+  });
+}
+
 export function ProductEditor({
   mode = "vendor",
   productId = "",
@@ -109,6 +119,7 @@ export function ProductEditor({
   generateProductNumber = productService.generateProductNumber,
   createProduct,
   updateProduct,
+  uploadImages = productService.uploadProductImages,
 }) {
   const navigate = useNavigate();
   const isEditing = Boolean(productId);
@@ -119,8 +130,6 @@ export function ProductEditor({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState(getInitialForm);
-  const [imageUrl, setImageUrl] = useState("");
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [subcategories, setSubcategories] = useState([]);
   const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
   const [attributeGroups, setAttributeGroups] = useState({});
@@ -188,7 +197,7 @@ export function ProductEditor({
           SKU: product.productNumber || product.SKU || "",
           productNumber: product.productNumber || product.SKU || "",
           lowStockThreshold: product.lowStockThreshold || 10,
-          images: product.images || [],
+          images: normalizeEditorImages(product.images || [], product.name || "Product image", "product-image"),
           tags: product.tags?.join(", ") || "",
           weight:
             product.weight && typeof product.weight === "object"
@@ -200,7 +209,6 @@ export function ProductEditor({
           modulesData: product.modulesData || product.extraDetails || {},
           attributes: product.attributes || {},
         });
-        setSelectedImageIndex(0);
 
         setVariantRows(
           (product.variants || []).map((variant) => ({
@@ -213,7 +221,11 @@ export function ProductEditor({
               (product.weight && typeof product.weight === "object"
                 ? product.weight.value?.toString?.() || ""
                 : product.weight?.toString?.() || ""),
-            imageUrlsText: Array.isArray(variant.images) ? variant.images.map((image) => image.url).join(", ") : "",
+            images: normalizeEditorImages(
+              variant.images || [],
+              variant.title ? `${product.name} ${variant.title}` : product.name || "Variant image",
+              `variant-${variant.variantId}`
+            ),
           }))
         );
         setLoadedVariantSnapshot(product.variants || []);
@@ -366,7 +378,7 @@ export function ProductEditor({
         productNumber: formData.productNumber,
       })
     );
-  }, [variantDefs, variantSelections, formData.price, formData.discountPrice, formData.stock, formData.productNumber]);
+  }, [variantDefs, variantSelections, formData.price, formData.discountPrice, formData.stock, formData.weight, formData.productNumber]);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -407,55 +419,11 @@ export function ProductEditor({
     setFormData((prev) => ({ ...prev, [name]: value }));
   }
 
-  function handleAddImage() {
-    if (!imageUrl.trim()) return;
-    setFormData((prev) => {
-      const nextIndex = prev.images.length;
-      setSelectedImageIndex(nextIndex);
-      return {
-        ...prev,
-        images: [
-          ...prev.images,
-          {
-            url: imageUrl.trim(),
-            altText: `${prev.name || "Product"} image ${prev.images.length + 1}`,
-            isPrimary: prev.images.length === 0,
-          },
-        ],
-      };
-    });
-    setImageUrl("");
-  }
-
-  function handleRemoveImage(index) {
-    setFormData((prev) => {
-      const nextImages = prev.images.filter((_, currentIndex) => currentIndex !== index);
-      const hasPrimary = nextImages.some((image) => image.isPrimary);
-      return {
-        ...prev,
-        images: nextImages.map((image, imageIndex) => ({
-          ...image,
-          isPrimary: hasPrimary ? image.isPrimary : imageIndex === 0,
-        })),
-      };
-    });
-    setSelectedImageIndex((current) => {
-      const nextLength = Math.max(formData.images.length - 1, 0);
-      if (current > index) return current - 1;
-      if (current >= nextLength) return Math.max(nextLength - 1, 0);
-      return current;
-    });
-  }
-
-  function handleSelectPrimaryImage(index) {
+  function handleImagesChange(newImages) {
     setFormData((prev) => ({
       ...prev,
-      images: prev.images.map((image, imageIndex) => ({
-        ...image,
-        isPrimary: imageIndex === index,
-      })),
+      images: normalizeEditorImages(newImages, prev.name || "Product image", "product-image"),
     }));
-    setSelectedImageIndex(index);
   }
 
   function handleVariantSelectionChange(def, rawValue) {
@@ -473,10 +441,34 @@ export function ProductEditor({
     }));
   }
 
+  function handleVariantCheckboxToggle(def, optionValue, checked) {
+    setVariantSelections((prev) => {
+      const currentValues = Array.isArray(prev?.[def.key]) ? prev[def.key] : [];
+      const nextValues = checked
+        ? Array.from(new Set([...currentValues, optionValue]))
+        : currentValues.filter((value) => value !== optionValue);
+
+      return {
+        ...prev,
+        [def.key]: nextValues,
+      };
+    });
+  }
+
   function updateVariantRow(variantId, patch) {
     setVariantRows((prev) =>
       prev.map((row) => (row.variantId === variantId ? { ...row, ...patch } : row))
     );
+  }
+
+  function handleVariantImagesChange(variant, images) {
+    updateVariantRow(variant.variantId, {
+      images: normalizeEditorImages(
+        images,
+        variant.title ? `${formData.name} ${variant.title}` : formData.name || "Variant image",
+        `variant-${variant.variantId}`
+      ),
+    });
   }
 
   async function handleSubmit(event) {
@@ -488,6 +480,7 @@ export function ProductEditor({
     if (!formData.categoryId) return setError("Category is required");
     if (!formData.subCategoryId) return setError("Subcategory is required");
     if (formData.images.length === 0) return setError("At least one product image is required");
+    if (formData.images.some((image) => image?.status === "uploading")) return setError("Wait for product image uploads to finish");
     if (!formData.productNumber.trim()) return setError("Product number is required");
     if (!formData.weight || Number(formData.weight) <= 0) return setError("Product weight is required");
 
@@ -512,6 +505,9 @@ export function ProductEditor({
     }
 
     for (const variant of normalizedVariantRows) {
+      if ((variantRows.find((row) => row.variantId === variant.variantId)?.images || []).some((image) => image?.status === "uploading")) {
+        return setError(`Wait for ${variant.title || "variant"} image uploads to finish`);
+      }
       if (!variant.sku) return setError("Each variant requires a SKU");
       if (!Number.isFinite(variant.price) || variant.price < 0) return setError("Each variant requires a valid price");
       if (
@@ -529,6 +525,8 @@ export function ProductEditor({
     setSubmitting(true);
 
     try {
+      const processedImages = buildImagePayload(formData.images, formData.name || "Product image");
+
       const payload = {
         name: formData.name,
         description: formData.description,
@@ -555,7 +553,7 @@ export function ProductEditor({
         ),
         variants: normalizedVariantRows,
         lowStockThreshold: Number(formData.lowStockThreshold || 10),
-        images: formData.images,
+        images: processedImages,
         tags: formData.tags
           .split(",")
           .map((tag) => tag.trim().toLowerCase())
@@ -677,74 +675,18 @@ export function ProductEditor({
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Product images</h2>
-          <div className="mt-4 flex gap-2">
-            <input type="url" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://example.com/image.jpg" className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
-            <button type="button" onClick={handleAddImage} className="rounded bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-950">Add image</button>
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Generic product gallery</h2>
+          <div className="mt-4">
+            <ProductImageUploader
+              images={formData.images}
+              onChange={handleImagesChange}
+              uploadImages={uploadImages}
+              productName={formData.name}
+              maxImages={10}
+              title="Drag & drop generic product images"
+              description="These images act as the fallback gallery for every variant and appear after variant-specific media."
+            />
           </div>
-          {formData.images.length ? (
-            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(16rem,.8fr)]">
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/50">
-                <div className="flex h-[22rem] items-center justify-center p-4">
-                  <img
-                    src={formData.images[selectedImageIndex]?.url}
-                    alt={formData.images[selectedImageIndex]?.altText || formData.name}
-                    className="h-full w-full object-contain"
-                  />
-                </div>
-                <div className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
-                  {formData.images[selectedImageIndex]?.isPrimary ? "Primary image" : `Previewing image ${selectedImageIndex + 1}`}
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                {formData.images.map((image, index) => (
-                  <div
-                    key={`${image.url}-${index}`}
-                    className={`overflow-hidden rounded-2xl border bg-white dark:bg-slate-900 ${
-                      selectedImageIndex === index
-                        ? "border-slate-900 ring-2 ring-slate-200 dark:border-white dark:ring-slate-700"
-                        : "border-slate-200 dark:border-slate-800"
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedImageIndex(index)}
-                      className="flex w-full items-center gap-3 p-3 text-left"
-                    >
-                      <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl bg-slate-50 dark:bg-slate-950">
-                        <img src={image.url} alt={image.altText || formData.name} className="h-full w-full object-contain" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
-                          {image.isPrimary ? "Primary image" : `Image ${index + 1}`}
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          Click to preview full image
-                        </div>
-                      </div>
-                    </button>
-                    <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 text-xs dark:border-slate-800">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectPrimaryImage(index)}
-                        className="rounded-lg border border-slate-200 px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                      >
-                        {image.isPrimary ? "Primary" : "Make primary"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(index)}
-                        className="rounded-lg border border-rose-200 px-2.5 py-1 font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/30"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </section>
 
         {moduleSections.length ? (
@@ -833,21 +775,31 @@ export function ProductEditor({
                 <div key={def.key}>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{def.name}</label>
                   {def.options?.length ? (
-                    <select
-                      multiple
-                      value={variantSelections?.[def.key] || []}
-                      onChange={(event) =>
-                        handleVariantSelectionChange(
-                          def,
-                          Array.from(event.target.selectedOptions).map((option) => option.value)
-                        )
-                      }
-                      className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                    >
-                      {def.options.map((option) => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </select>
+                    <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+                      <div className="flex flex-wrap gap-2">
+                        {def.options.map((option) => {
+                          const checked = (variantSelections?.[def.key] || []).includes(option);
+                          return (
+                            <label
+                              key={option}
+                              className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                                checked
+                                  ? "border-slate-950 bg-slate-950 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950"
+                                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-current accent-[color:var(--commerce-accent)]"
+                                checked={checked}
+                                onChange={(event) => handleVariantCheckboxToggle(def, option, event.target.checked)}
+                              />
+                              <span>{option}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
                   ) : (
                     <input
                       type="text"
@@ -861,38 +813,59 @@ export function ProductEditor({
               ))}
             </div>
 
-            <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
-              <div className="grid min-w-[980px] grid-cols-[minmax(220px,1.4fr)_110px_140px_110px_110px_160px_1fr] gap-3 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950 dark:text-slate-400">
-                <div>Variant</div>
-                <div>Price</div>
-                <div>Discount price</div>
-                <div>Stock</div>
-                <div>Weight(kg)</div>
-                <div>SKU</div>
-                <div>Variant images</div>
-              </div>
-              <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                {variantRows.length ? (
-                  variantRows.map((variant) => (
-                    <div key={variant.variantId} className="grid min-w-[980px] grid-cols-[minmax(220px,1.4fr)_110px_140px_110px_110px_160px_1fr] gap-3 px-4 py-3">
-                      <div>
-                        <div className="font-medium text-slate-950 dark:text-white">{variant.title}</div>
-                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          {variant.options?.map((item) => `${item.name}: ${item.value}`).join(" | ")}
+            <div className="mt-6 space-y-4">
+              {variantRows.length ? (
+                variantRows.map((variant) => (
+                  <article key={variant.variantId} className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/50">
+                    <div className="grid gap-5 xl:grid-cols-[minmax(240px,1fr)_minmax(380px,1.5fr)]">
+                      <div className="space-y-4">
+                        <div>
+                          <div className="font-semibold text-slate-950 dark:text-white">{variant.title}</div>
+                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            {variant.options?.map((item) => `${item.name}: ${item.value}`).join(" | ")}
+                          </div>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Price</label>
+                            <input type="number" min="0" step="0.01" value={variant.price} onChange={(event) => updateVariantRow(variant.variantId, { price: event.target.value })} className="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Discount Price</label>
+                            <input type="number" min="0" step="0.01" value={variant.discountPrice ?? ""} onChange={(event) => updateVariantRow(variant.variantId, { discountPrice: event.target.value })} className="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Stock</label>
+                            <input type="number" min="0" value={variant.stock} onChange={(event) => updateVariantRow(variant.variantId, { stock: event.target.value })} className="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Weight (kg)</label>
+                            <input type="number" min="0.01" step="0.01" value={variant.weight || ""} onChange={(event) => updateVariantRow(variant.variantId, { weight: event.target.value })} className="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">SKU</label>
+                            <input type="text" value={variant.sku} onChange={(event) => updateVariantRow(variant.variantId, { sku: event.target.value.toUpperCase() })} className="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm uppercase dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
+                          </div>
                         </div>
                       </div>
-                      <input type="number" min="0" step="0.01" value={variant.price} onChange={(event) => updateVariantRow(variant.variantId, { price: event.target.value })} className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
-                      <input type="number" min="0" step="0.01" value={variant.discountPrice ?? ""} onChange={(event) => updateVariantRow(variant.variantId, { discountPrice: event.target.value })} className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
-                      <input type="number" min="0" value={variant.stock} onChange={(event) => updateVariantRow(variant.variantId, { stock: event.target.value })} className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
-                      <input type="number" min="0.01" step="0.01" value={variant.weight || ""} onChange={(event) => updateVariantRow(variant.variantId, { weight: event.target.value })} className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
-                      <input type="text" value={variant.sku} onChange={(event) => updateVariantRow(variant.variantId, { sku: event.target.value.toUpperCase() })} className="rounded border border-slate-300 px-2 py-2 text-sm uppercase dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
-                      <input type="text" value={variant.imageUrlsText || ""} onChange={(event) => updateVariantRow(variant.variantId, { imageUrlsText: event.target.value })} placeholder="Comma-separated image URLs" className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
+
+                      <VariantImageUploader
+                        images={variant.images || []}
+                        onChange={(images) => handleVariantImagesChange(variant, images)}
+                        uploadImages={uploadImages}
+                        productName={formData.name}
+                        title={`${variant.title} images`}
+                        description="Upload the gallery that should appear when shoppers select this variant."
+                      />
                     </div>
-                  ))
-                ) : (
-                  <div className="px-4 py-6 text-sm text-slate-500 dark:text-slate-400">Select variant values above to generate combinations automatically.</div>
-                )}
-              </div>
+                  </article>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  Select variant values above to generate combinations automatically.
+                </div>
+              )}
             </div>
           </section>
         ) : null}

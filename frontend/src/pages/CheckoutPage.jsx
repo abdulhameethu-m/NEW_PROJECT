@@ -22,7 +22,6 @@ import {
   getShippingAddressFromForm,
   getShippingAddressFromSavedAddress,
   getSummaryItems,
-  isAddressFormValid,
 } from "../utils/checkout";
 import { loadTrackingContext } from "../utils/influencerTracking";
 import { saveRedirectAfterLogin } from "../utils/loginRedirect";
@@ -161,7 +160,6 @@ export function CheckoutPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const {
     cart,
-    isGuest,
     updateItem,
     removeItem,
     validateCart,
@@ -397,19 +395,19 @@ export function CheckoutPage() {
           const pendingShippingAddress =
             pendingCheckout?.selectedAddress || pendingCheckout?.shippingAddress || null;
           const shouldPreferPendingAddress =
-            pendingShippingAddress && !pendingSavedAddress && !defaultAddress && !preserveGuestAddress;
+            pendingShippingAddress && !pendingSavedAddress && !preserveGuestAddress;
 
           setAddresses(nextAddresses);
 
           if (pendingSavedAddress && !preserveGuestAddress) {
             setSelectedAddressId(pendingSavedAddress._id);
             setAddressForm(getAddressFormFromSavedAddress(pendingSavedAddress));
-          } else if (defaultAddress && !shouldPreferPendingAddress) {
-            setSelectedAddressId(defaultAddress._id);
-            setAddressForm(getAddressFormFromSavedAddress(defaultAddress));
-          } else if (pendingShippingAddress) {
+          } else if (shouldPreferPendingAddress) {
             setSelectedAddressId("");
             setAddressForm(getAddressFormFromShippingAddress(pendingShippingAddress));
+          } else if (defaultAddress) {
+            setSelectedAddressId(defaultAddress._id);
+            setAddressForm(getAddressFormFromSavedAddress(defaultAddress));
           } else {
             setSelectedAddressId("");
           }

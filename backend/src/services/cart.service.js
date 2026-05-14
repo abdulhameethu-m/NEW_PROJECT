@@ -46,6 +46,15 @@ async function resolveSellerIdForProduct(product) {
   return null;
 }
 
+function invalidatePreparedCheckoutCacheForUser(userId) {
+  try {
+    const checkoutService = require("./checkout.service");
+    checkoutService.invalidatePreparedCheckoutCacheForUser?.(userId);
+  } catch {
+    // Ignore cache invalidation failures and still persist the cart change.
+  }
+}
+
 class CartService {
   async getCart(userId) {
     await cartRepo.upsertEmpty(userId);
@@ -115,6 +124,7 @@ class CartService {
 
     cart.totalAmount = computeTotal(cart.items);
     await cartRepo.save(cart);
+    invalidatePreparedCheckoutCacheForUser(userId);
     return await cartRepo.findByUserId(userId);
   }
 
@@ -161,6 +171,7 @@ class CartService {
 
     cart.totalAmount = computeTotal(cart.items);
     await cartRepo.save(cart);
+    invalidatePreparedCheckoutCacheForUser(userId);
     return await cartRepo.findByUserId(userId);
   }
 
@@ -174,12 +185,15 @@ class CartService {
 
     cart.totalAmount = computeTotal(cart.items);
     await cartRepo.save(cart);
+    invalidatePreparedCheckoutCacheForUser(userId);
     return await cartRepo.findByUserId(userId);
   }
 
   async clearCart(userId) {
     await cartRepo.upsertEmpty(userId);
-    return await cartRepo.clear(userId);
+    const clearedCart = await cartRepo.clear(userId);
+    invalidatePreparedCheckoutCacheForUser(userId);
+    return clearedCart;
   }
 }
 

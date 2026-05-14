@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { ProductEditor } from "../components/ProductEditor";
-import { createProduct, generateAdminProductNumber, getProductById, updateProduct } from "../services/adminService";
+import { createProduct, generateAdminProductNumber, getProductById, updateProduct, uploadAdminProductImages } from "../services/adminService";
 
 export function StaffProductEdit() {
   const { id } = useParams();
@@ -18,6 +18,7 @@ export function StaffProductEdit() {
       generateProductNumber={generateAdminProductNumber}
       createProduct={createProduct}
       updateProduct={updateProduct}
+      uploadImages={uploadAdminProductImages}
     />
   );
 }

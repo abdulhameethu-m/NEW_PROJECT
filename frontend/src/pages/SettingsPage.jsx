@@ -13,6 +13,7 @@ import {
 import { formatCurrency } from "../utils/formatCurrency";
 import { useAuthStore } from "../context/authStore";
 import { useDarkMode } from "../hooks/useDarkMode";
+import { PasswordField } from "../components/PasswordField";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Unable to save settings.";
@@ -167,8 +168,7 @@ export function SettingsPage() {
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Current password</span>
-                <input
-                  type="password"
+                <PasswordField
                   value={passwords.currentPassword}
                   onChange={(event) => setPasswords((current) => ({ ...current, currentPassword: event.target.value }))}
                   className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
@@ -176,8 +176,7 @@ export function SettingsPage() {
               </label>
               <label className="grid gap-2">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-200">New password</span>
-                <input
-                  type="password"
+                <PasswordField
                   value={passwords.newPassword}
                   onChange={(event) => setPasswords((current) => ({ ...current, newPassword: event.target.value }))}
                   className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"

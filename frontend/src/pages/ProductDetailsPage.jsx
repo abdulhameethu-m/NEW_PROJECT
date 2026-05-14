@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { BackButton } from "../components/BackButton";
-import { ProductImage } from "../components/ProductImage";
+import { ProductImageGallery } from "../components/ProductImageGallery";
 import * as productService from "../services/productService";
 import { getAttributes } from "../services/attributeService";
 import { getProductModules } from "../services/productModuleService";
@@ -65,6 +65,43 @@ function buildModulesData(product, moduleSections = []) {
     }
   }
   return next;
+}
+
+function resolveSwatchColor(value = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized.startsWith("#")) return normalized;
+
+  const swatchMap = {
+    black: "#111827",
+    white: "#f8fafc",
+    red: "#dc2626",
+    blue: "#2563eb",
+    green: "#16a34a",
+    yellow: "#facc15",
+    orange: "#f97316",
+    purple: "#7c3aed",
+    violet: "#8b5cf6",
+    pink: "#ec4899",
+    gray: "#6b7280",
+    grey: "#6b7280",
+    silver: "#cbd5e1",
+    gold: "#d4af37",
+    navy: "#1e3a8a",
+    brown: "#92400e",
+    beige: "#d6d3d1",
+    cream: "#f5f5dc",
+    maroon: "#7f1d1d",
+    teal: "#0f766e",
+  };
+
+  return swatchMap[normalized] || null;
+}
+
+function isVisualSwatchGroup(group, displayType) {
+  const key = String(group?.key || "").toLowerCase();
+  const name = String(group?.name || "").toLowerCase();
+  return displayType === "swatch" || displayType === "image-swatch" || key.includes("color") || name.includes("color");
 }
 
 export function ProductDetailsPage() {
@@ -211,15 +248,35 @@ export function ProductDetailsPage() {
   );
 
   const media = useMemo(() => {
-    const sourceImages = activeVariant?.images?.length ? activeVariant.images : product?.images || [];
-    return sourceImages
-      .map((image) => ({
+    const variantImages = Array.isArray(activeVariant?.images) ? activeVariant.images : [];
+    const productImages = Array.isArray(product?.images) ? product.images : [];
+
+    const mergedImages = [];
+    const seenUrls = new Set();
+
+    for (const image of [...variantImages, ...productImages]) {
+      const url = String(image?.url || "").trim();
+      if (!url || seenUrls.has(url)) continue;
+      seenUrls.add(url);
+      mergedImages.push(image);
+    }
+
+    return mergedImages
+      .map((image, index) => ({
         type: "image",
         url: image?.url || "",
         altText: image?.altText || product?.name || "Product image",
+        sortOrder: Number.isFinite(Number(image?.sortOrder)) ? Number(image.sortOrder) : index,
       }))
       .filter((image) => image.url);
   }, [activeVariant, product]);
+
+  const galleryKey = useMemo(() => {
+    if (activeVariant?.variantId) {
+      return `${activeVariant.variantId}:${media.map((item) => item.url).join("|")}`;
+    }
+    return `generic:${media.map((item) => item.url).join("|")}`;
+  }, [activeVariant?.variantId, media]);
 
   const pricing = useMemo(() => {
     const price = Number(activeVariant?.price ?? product?.price ?? 0);
@@ -229,6 +286,7 @@ export function ProductDetailsPage() {
       price,
       salePrice,
       hasDiscount,
+      discountPercent: hasDiscount ? Math.round(((price - salePrice) / price) * 100) : 0,
       amountSaved: hasDiscount ? price - salePrice : 0,
     };
   }, [activeVariant, product]);
@@ -274,7 +332,7 @@ export function ProductDetailsPage() {
         await addCartItem(product._id, quantity, variantId);
         pendingActionManager.initiateGuestBuyNow(product._id, quantity, variantId);
         saveRedirectAfterLogin(`${window.location.origin}/checkout`);
-        navigate("/login");
+        navigate("/login", { state: { from: { pathname: "/checkout" } } });
         return;
       }
 
@@ -361,7 +419,7 @@ export function ProductDetailsPage() {
 
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.95fr)]">
         <div className="space-y-8">
-          <ProductImage media={media} productName={product?.name} />
+          <ProductImageGallery media={media} productName={product?.name} galleryKey={galleryKey} />
 
           <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex flex-wrap items-center gap-3">
@@ -410,21 +468,32 @@ export function ProductDetailsPage() {
         <aside className="xl:sticky xl:top-24 xl:self-start">
           <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="border-b border-slate-200 bg-[linear-gradient(135deg,_rgba(14,165,233,0.14),_rgba(251,191,36,0.12))] p-6 dark:border-slate-800">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">{product.category}</span>
-                {stock > 0 ? (
-                  <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">In stock</span>
-                ) : (
-                  <span className="rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white">Out of stock</span>
-                )}
-              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">{product.category}</span>
+                    {stock > 0 ? (
+                      <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">In stock</span>
+                    ) : (
+                      <span className="rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white">Out of stock</span>
+                    )}
+                  </div>
 
-              <div className="mt-4 space-y-2">
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="text-4xl font-black tracking-tight text-slate-950 dark:text-white">{formatCurrency(pricing.salePrice)}</div>
-                  {pricing.hasDiscount ? <div className="pb-1 text-lg text-slate-500 line-through dark:text-slate-400">{formatCurrency(pricing.price)}</div> : null}
+                  <div className="mt-4 space-y-2">
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div className="text-4xl font-black tracking-tight text-slate-950 dark:text-white">{formatCurrency(pricing.salePrice)}</div>
+                      {pricing.hasDiscount ? <div className="pb-1 text-lg text-slate-500 line-through dark:text-slate-400">{formatCurrency(pricing.price)}</div> : null}
+                    </div>
+                    {pricing.hasDiscount ? <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">You save {formatCurrency(pricing.amountSaved)}</div> : null}
+                  </div>
                 </div>
-                {pricing.hasDiscount ? <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">You save {formatCurrency(pricing.amountSaved)}</div> : null}
+
+                {pricing.hasDiscount ? (
+                  <div className="shrink-0 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-2 text-center shadow-lg shadow-orange-500/30">
+                    <div className="text-lg font-black text-white">{pricing.discountPercent}%</div>
+                    <div className="text-xs font-semibold text-white">OFF</div>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -444,6 +513,8 @@ export function ProductDetailsPage() {
                             );
                           });
                           const displayType = variantDefsByKey[group.key]?.variantConfig?.displayType || "button";
+                          const showSwatch = isVisualSwatchGroup(group, displayType);
+                          const swatchColor = resolveSwatchColor(option.value);
                           const disabled = !hasMatchingVariant;
                           return (
                             <button
@@ -453,14 +524,18 @@ export function ProductDetailsPage() {
                               onClick={() => selectVariantValue(group.key, option.value)}
                               className={`rounded-2xl border px-4 py-2 text-sm font-medium transition ${
                                 isSelected
-                                  ? "border-slate-950 bg-slate-950 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950"
-                                  : "border-slate-300 text-slate-700 hover:border-slate-950 dark:border-slate-700 dark:text-slate-200"
+                                  ? "border-slate-950 bg-slate-950 text-white shadow-sm dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950"
+                                  : "border-slate-300 text-slate-700 hover:border-slate-950 hover:shadow-sm dark:border-slate-700 dark:text-slate-200"
                               } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
                               title={option.inStock ? option.value : `${option.value} is out of stock`}
                             >
-                              {displayType !== "button" ? (
+                              {showSwatch ? (
                                 <span className="inline-flex items-center gap-2">
-                                  <span className="h-4 w-4 rounded-full border border-slate-300" style={{ backgroundColor: option.value.startsWith("#") ? option.value : undefined }} />
+                                  <span
+                                    className={`h-4 w-4 rounded-full border ${swatchColor && swatchColor.toLowerCase() === "#f8fafc" ? "border-slate-300" : "border-white/50"}`}
+                                    style={{ backgroundColor: swatchColor || "#e2e8f0" }}
+                                    aria-hidden="true"
+                                  />
                                   {option.value}
                                 </span>
                               ) : (

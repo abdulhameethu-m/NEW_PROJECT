@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../context/authStore";
 import { useStaffAuthStore } from "../context/staffAuthStore";
+import { PasswordField } from "../components/PasswordField";
 import * as authService from "../services/authService";
 import * as staffAuthService from "../services/staffAuthService";
 import { validateAuthForm } from "../utils/authValidation";
@@ -67,7 +68,7 @@ export function LoginPage() {
     if (Object.keys(nextErrors).length > 0) return;
     setLoading(true);
     const normalizedIdentifier = identifier.trim();
-    const normalizedPassword = password.trim();
+    const normalizedPassword = password;
 
     try {
       const primaryResponse = await authService.login({
@@ -134,14 +135,13 @@ export function LoginPage() {
 
         <label className="mt-4 block text-sm font-medium">
           Password
-          <input
+          <PasswordField
             className="mt-1 w-full rounded-lg border px-3 py-2"
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
               setFieldErrors((current) => ({ ...current, password: "" }));
             }}
-            type="password"
             autoComplete="current-password"
             required
           />

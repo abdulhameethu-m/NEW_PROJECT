@@ -87,11 +87,9 @@ export function ProductCard({ product }) {
 
           <div className="absolute left-4 top-4 flex flex-wrap items-center gap-2">
             {discountPercent > 0 ? (
-              <div className="opacity-0 transition duration-300 group-hover:opacity-100">
-                <div className="rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-2 text-center shadow-lg shadow-orange-500/30">
-                  <div className="text-lg font-black text-white">{discountPercent}%</div>
-                  <div className="text-xs font-semibold text-white">OFF</div>
-                </div>
+              <div className="rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-2 text-center shadow-lg shadow-orange-500/30">
+                <div className="text-lg font-black text-white">{discountPercent}%</div>
+                <div className="text-xs font-semibold text-white">OFF</div>
               </div>
             ) : null}
             {product?.ratings?.averageRating > 0 ? (

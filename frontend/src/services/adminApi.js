@@ -1,5 +1,6 @@
 import { adminHttp } from "./adminHttp";
 import { buildDateRangeParams } from "../utils/reporting";
+import { uploadAdminProductImages as uploadAdminProductImagesRequest } from "./productMediaService";
 
 function triggerBlobDownload(response, fallbackName) {
   const blob = new Blob([response.data], { type: response.headers["content-type"] || "application/octet-stream" });
@@ -127,6 +128,10 @@ export async function createProduct(productData) {
 export async function updateProduct(id, productData) {
   const { data } = await adminHttp.patch(`/api/admin/products/${id}`, productData);
   return data;
+}
+
+export async function uploadAdminProductImages(files, metadata = {}, onUploadProgress) {
+  return uploadAdminProductImagesRequest(files, metadata, onUploadProgress);
 }
 
 export async function deleteProduct(id) {

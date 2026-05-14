@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../context/authStore";
+import { PasswordField } from "../components/PasswordField";
 import * as authService from "../services/authService";
 import { validateAuthForm } from "../utils/authValidation";
 import { usePlatformFeatures } from "../context/PlatformFeaturesContext";
 import { continueAfterPrimaryAuth } from "../utils/postAuthContinuation";
+import pendingActionManager from "../utils/pendingActionManager";
 import pendingCheckoutManager from "../utils/pendingCheckoutManager";
 
 function normalizeError(err) {
@@ -48,7 +50,7 @@ export function RegisterPage() {
     try {
       const res = await authService.register({ name, email, phone, password, role });
       setAuth(res.data);
-      if (pendingCheckoutManager.has() || from) {
+      if (pendingCheckoutManager.has() || pendingActionManager.hasPendingAction() || from) {
         return continueAfterPrimaryAuth({ result: res, attemptedFrom: from, nav });
       }
       if (role === "vendor") return nav("/vendor/onboarding", { replace: true });
@@ -124,14 +126,13 @@ export function RegisterPage() {
 
         <label className="mt-4 block text-sm font-medium">
           Password
-          <input
+          <PasswordField
             className="mt-1 w-full rounded-lg border px-3 py-2"
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
               setFieldErrors((current) => ({ ...current, password: "" }));
             }}
-            type="password"
             minLength={6}
             required
           />

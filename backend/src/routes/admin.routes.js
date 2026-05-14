@@ -1,4 +1,5 @@
 const express = require("express");
+const { upload } = require("../middleware/upload");
 const {
   adminWorkspaceAuthRequired,
   requireWorkspacePermission,
@@ -126,6 +127,7 @@ router.get("/products", requireWorkspacePermission("products.read"), productCont
 router.get("/products/stats", requireWorkspacePermission("products.read"), productController.getProductStats);
 router.get("/products/pending", requireWorkspacePermission("products.read"), productController.getPendingProducts);
 router.get("/products/generate-number", requireWorkspacePermission("products.create"), productController.generateProductNumber);
+router.post("/products/media", requireWorkspacePermission("products.create"), upload.array("images", 10), productController.uploadProductImages);
 router.post("/products", requireWorkspacePermission("products.create"), validate(createProductSchema), productController.createProduct);
 router.get("/reviews", requireWorkspacePermission("reviews.read"), adminController.listReviews);
 router.delete("/reviews/:id", requireWorkspacePermission("reviews.delete"), adminController.deleteReview);

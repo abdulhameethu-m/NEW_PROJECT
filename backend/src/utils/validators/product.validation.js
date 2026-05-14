@@ -1,10 +1,29 @@
 const Joi = require("joi");
 const objectId = Joi.string().hex().length(24);
 
+const relativeOrAbsoluteUrlSchema = Joi.string()
+  .trim()
+  .custom((value, helpers) => {
+    if (!value) return helpers.error("string.empty");
+    if (value.startsWith("/")) return value;
+
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        return value;
+      }
+    } catch {
+      // fall through
+    }
+
+    return helpers.error("string.uri");
+  }, "relative or absolute URL validation");
+
 const productImageSchema = Joi.object({
-  url: Joi.string().uri().required(),
+  url: relativeOrAbsoluteUrlSchema.required(),
   altText: Joi.string().trim().max(255).allow(""),
   isPrimary: Joi.boolean(),
+  sortOrder: Joi.number().integer().min(0),
 });
 
 const productVariantSchema = Joi.object({
@@ -106,6 +125,14 @@ const productSchema = Joi.object({
       "array.min": "At least one image is required",
       "array.max": "Maximum 10 images allowed",
     }),
+  genericImages: Joi.array()
+    .items(productImageSchema)
+    .min(1)
+    .max(10)
+    .messages({
+      "array.min": "At least one generic image is required",
+      "array.max": "Maximum 10 generic images allowed",
+    }),
 
   thumbnail: Joi.string().uri(),
 
@@ -159,6 +186,9 @@ const updateProductSchema = Joi.object({
   productNumber: Joi.string().trim().uppercase().regex(/^[A-Z0-9]+$/).allow(""),
   lowStockThreshold: Joi.number().integer().min(0),
   images: Joi.array()
+    .items(productImageSchema)
+    .max(10),
+  genericImages: Joi.array()
     .items(productImageSchema)
     .max(10),
   thumbnail: Joi.string().uri(),

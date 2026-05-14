@@ -111,6 +111,20 @@ function setCachedPreparedCheckout(userId, { shippingAddress, paymentMethod = "O
   });
 }
 
+function invalidatePreparedCheckoutCache(userId) {
+  const normalizedUserId = String(userId || "");
+  for (const cacheKey of preparedCheckoutCache.keys()) {
+    try {
+      const parsedKey = JSON.parse(cacheKey);
+      if (String(parsedKey?.userId || "") === normalizedUserId) {
+        preparedCheckoutCache.delete(cacheKey);
+      }
+    } catch {
+      preparedCheckoutCache.delete(cacheKey);
+    }
+  }
+}
+
 function getChargeAmount(charges = [], predicate) {
   const charge = Array.isArray(charges) ? charges.find(predicate) : null;
   return roundMoney(charge?.amount || 0);
@@ -290,6 +304,10 @@ async function resolveSellerIdForProduct(product) {
 }
 
 class CheckoutService {
+  invalidatePreparedCheckoutCacheForUser(userId) {
+    invalidatePreparedCheckoutCache(userId);
+  }
+
   async prepareGuestCheckout(guestCartItems = [], { currency, shippingAddress, paymentMethod } = {}) {
     if (!Array.isArray(guestCartItems) || guestCartItems.length === 0) {
       throw new AppError("Cart is empty", 400, "EMPTY_CART");

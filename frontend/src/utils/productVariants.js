@@ -94,7 +94,6 @@ export function mergeVariantRows({
       images: Array.isArray(existing?.images) ? existing.images : [],
       isDefault: Boolean(existing?.isDefault) || index === 0,
       isActive: existing?.isActive !== false,
-      imageUrlsText: Array.isArray(existing?.images) ? existing.images.map((image) => image.url).join(", ") : "",
     };
   });
 }
@@ -118,10 +117,11 @@ export function normalizeVariantPayloadRows(rows = [], productName = "") {
       unit: "kg",
     },
     sku: String(row.sku || "").trim().toUpperCase(),
-    images: parseCommaSeparatedValues(row.imageUrlsText).map((url, imageIndex) => ({
-      url,
-      altText: row.title ? `${productName} ${row.title}` : productName,
-      isPrimary: imageIndex === 0,
+    images: (Array.isArray(row.images) ? row.images : []).map((image, imageIndex) => ({
+      url: image.url,
+      altText: image.altText || (row.title ? `${productName} ${row.title}` : productName),
+      isPrimary: image.isPrimary ?? imageIndex === 0,
+      sortOrder: image.sortOrder ?? imageIndex,
     })),
     isDefault: index === fallbackDefaultIndex,
     isActive: row.isActive !== false,

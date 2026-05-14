@@ -21,6 +21,7 @@ const {
 const vendorDashboardController = require("../modules/vendorDashboard/vendor-dashboard.controller");
 const vendorPayoutController = require("../controllers/vendorPayout.controller");
 const commissionController = require("../controllers/commission.controller");
+const productController = require("../controllers/product.controller");
 
 const router = express.Router();
 
@@ -48,6 +49,7 @@ router.get("/dashboard", vendorDashboardController.getDashboard);
 router.route("/products")
   .get(requireVendorModule("products"), vendorDashboardController.listProducts)
   .post(requireVendorPermission("products.create"), validate(createProductSchema), vendorDashboardController.createProduct);
+router.post("/products/media", requireVendorPermission("products.create"), upload.array("images", 10), productController.uploadProductImages);
 router.route("/products/:id")
   .patch(requireVendorPermission("products.update"), validate(updateProductSchema), vendorDashboardController.updateProduct)
   .delete(requireVendorPermission("products.delete"), vendorDashboardController.deleteProduct);
