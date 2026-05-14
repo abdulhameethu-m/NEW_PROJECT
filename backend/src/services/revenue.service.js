@@ -104,6 +104,24 @@ async function getRevenueSummary({ startDate, endDate, vendorId } = {}) {
     },
   ]);
 
+  // Calculate wallet totals (available balance and withdrawn amount)
+  const VendorWallet = require("../models/VendorWallet");
+  const walletMatch = {};
+  if (vendorId && mongoose.Types.ObjectId.isValid(String(vendorId))) {
+    walletMatch.vendorId = new mongoose.Types.ObjectId(String(vendorId));
+  }
+
+  const [walletSummary] = await VendorWallet.aggregate([
+    { $match: walletMatch },
+    {
+      $group: {
+        _id: null,
+        totalAvailableBalance: { $sum: "$availableBalance" },
+        totalWithdrawnAmount: { $sum: "$withdrawnAmount" },
+      },
+    },
+  ]);
+
   const revenueTrend = await Order.aggregate([
     ...basePipeline,
     {
@@ -150,11 +168,16 @@ async function getRevenueSummary({ startDate, endDate, vendorId } = {}) {
     },
   ]);
 
+  const availableBalance = walletSummary?.totalAvailableBalance || 0;
+  const withdrawnAmount = walletSummary?.totalWithdrawnAmount || 0;
+
   return {
     totalSales: summary?.totalSales || 0,
     platformRevenue: summary?.platformRevenue || 0,
     totalVendorPayout: summary?.totalVendorPayout || 0,
     totalOrders: summary?.totalOrders || 0,
+    availableBalance,
+    withdrawnAmount,
     dateRange: buildDateRangeLabel(startDate, endDate),
     revenueTrend,
   };
@@ -217,6 +240,20 @@ async function getVendorRevenueBreakdown({ startDate, endDate, vendorId, page = 
       },
     },
     {
+      $lookup: {
+        from: "vendorwallets",
+        localField: "_id",
+        foreignField: "vendorId",
+        as: "wallet",
+      },
+    },
+    {
+      $unwind: {
+        path: "$wallet",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
       $project: {
         _id: 0,
         vendorId: "$_id",
@@ -226,6 +263,10 @@ async function getVendorRevenueBreakdown({ startDate, endDate, vendorId, page = 
         totalSales: 1,
         commission: 1,
         earnings: 1,
+        availableBalance: { $ifNull: ["$wallet.availableBalance", 0] },
+        pendingBalance: { $ifNull: ["$wallet.pendingBalance", 0] },
+        totalEarnings: { $ifNull: ["$wallet.totalEarnings", 0] },
+        withdrawnAmount: { $ifNull: ["$wallet.withdrawnAmount", 0] },
       },
     },
   ];

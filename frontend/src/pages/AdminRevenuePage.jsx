@@ -166,11 +166,13 @@ export function AdminRevenuePage() {
         </div>
       ) : null}
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <RevenueCard label="Total Sales" value={loading ? "..." : formatCurrency(summary?.totalSales || 0)} tone="blue" />
         <RevenueCard label="Platform Revenue" value={loading ? "..." : formatCurrency(summary?.platformRevenue || 0)} tone="emerald" />
         <RevenueCard label="Vendor Payout" value={loading ? "..." : formatCurrency(summary?.totalVendorPayout || 0)} tone="amber" />
         <RevenueCard label="Valid Orders" value={loading ? "..." : summary?.totalOrders || 0} tone="slate" />
+        <RevenueCard label="Available Balance" value={loading ? "..." : formatCurrency(summary?.availableBalance || 0)} tone="purple" />
+        <RevenueCard label="Withdrawn Amount" value={loading ? "..." : formatCurrency(summary?.withdrawnAmount || 0)} tone="rose" />
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
@@ -219,6 +221,10 @@ export function AdminRevenuePage() {
               { key: "totalSales", label: "Total Sales", align: "right" },
               { key: "commission", label: "Commission", align: "right" },
               { key: "earnings", label: "Vendor Earnings", align: "right" },
+              { key: "availableBalance", label: "Available Balance", align: "right" },
+              { key: "pendingBalance", label: "Pending Balance", align: "right" },
+              { key: "totalEarnings", label: "Total Earnings", align: "right" },
+              { key: "withdrawnAmount", label: "Withdrawn Amount", align: "right" },
             ]}
           >
             {vendors.map((vendor) => (
@@ -231,6 +237,10 @@ export function AdminRevenuePage() {
                 <td className="px-4 py-3 text-right text-sm font-semibold text-slate-950 dark:text-white">{formatCurrency(vendor.totalSales)}</td>
                 <td className="px-4 py-3 text-right text-sm text-emerald-700 dark:text-emerald-300">{formatCurrency(vendor.commission)}</td>
                 <td className="px-4 py-3 text-right text-sm text-slate-700 dark:text-slate-200">{formatCurrency(vendor.earnings)}</td>
+                <td className="px-4 py-3 text-right text-sm text-blue-700 dark:text-blue-300 font-medium">{formatCurrency(vendor.availableBalance)}</td>
+                <td className="px-4 py-3 text-right text-sm text-amber-700 dark:text-amber-300 font-medium">{formatCurrency(vendor.pendingBalance)}</td>
+                <td className="px-4 py-3 text-right text-sm text-purple-700 dark:text-purple-300 font-medium">{formatCurrency(vendor.totalEarnings)}</td>
+                <td className="px-4 py-3 text-right text-sm text-rose-700 dark:text-rose-300 font-medium">{formatCurrency(vendor.withdrawnAmount)}</td>
               </tr>
             ))}
           </AdminTable>
@@ -281,6 +291,8 @@ function RevenueCard({ label, value, tone }) {
     blue: "from-blue-600 to-cyan-500 text-white",
     amber: "from-amber-500 to-orange-500 text-white",
     emerald: "from-emerald-500 to-green-500 text-white",
+    purple: "from-purple-600 to-violet-500 text-white",
+    rose: "from-rose-500 to-pink-500 text-white",
   };
 
   return (
