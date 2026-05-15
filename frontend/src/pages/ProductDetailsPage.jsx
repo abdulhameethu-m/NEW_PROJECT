@@ -12,6 +12,7 @@ import { saveRedirectAfterLogin } from "../utils/loginRedirect";
 import { getFormattedWeight } from "../utils/weight";
 import { loadTrackingContext, saveTrackingContext } from "../utils/influencerTracking";
 import { useCart } from "../hooks/useCart";
+import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useWishlist } from "../hooks/useWishlist";
 import pendingActionManager from "../utils/pendingActionManager";
 
@@ -110,6 +111,7 @@ export function ProductDetailsPage() {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { addItem: addCartItem } = useCart();
+  const { openDrawer } = useCartDrawer();
   const {
     addItem: addWishlistItem,
     removeItem: removeWishlistItem,
@@ -321,7 +323,8 @@ export function ProductDetailsPage() {
     }
   }, [activeTab, tabs]);
 
-  async function handleAddToCart(redirectTo = "/cart") {
+  async function handleAddToCart(redirectTo = null) {
+    if (adding) return;
     setAdding(true);
     setError("");
     try {
@@ -329,15 +332,25 @@ export function ProductDetailsPage() {
       const variantId = activeVariant?.variantId || "";
 
       if (!isAuthenticated && redirectTo === "/checkout") {
-        await addCartItem(product._id, quantity, variantId);
-        pendingActionManager.initiateGuestBuyNow(product._id, quantity, variantId);
-        saveRedirectAfterLogin(`${window.location.origin}/checkout`);
-        navigate("/login", { state: { from: { pathname: "/checkout" } } });
+        const added = await addCartItem(product._id, quantity, variantId);
+        if (added) {
+          pendingActionManager.initiateGuestBuyNow(product._id, quantity, variantId);
+          saveRedirectAfterLogin(`${window.location.origin}/checkout`);
+          navigate("/login", { state: { from: { pathname: "/checkout" } } });
+        }
         return;
       }
 
-      await addCartItem(product._id, quantity, variantId);
-      navigate(redirectTo);
+      const added = await addCartItem(product._id, quantity, variantId);
+      if (!added) {
+        return;
+      }
+
+      if (!redirectTo) {
+        openDrawer(product, activeVariant, quantity);
+      } else if (redirectTo === "/checkout") {
+        navigate(redirectTo);
+      }
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to add to cart");
     } finally {
@@ -561,7 +574,7 @@ export function ProductDetailsPage() {
               </div>
 
               <div className="grid gap-3">
-                <button type="button" disabled={stock === 0 || adding} onClick={() => handleAddToCart("/cart")} className="rounded-2xl bg-[color:var(--commerce-accent)] px-5 py-4 text-sm font-semibold text-white shadow-sm transition hover:translate-y-[-1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60">
+                <button type="button" disabled={stock === 0 || adding} onClick={() => handleAddToCart()} className="rounded-2xl bg-[color:var(--commerce-accent)] px-5 py-4 text-sm font-semibold text-white shadow-sm transition hover:translate-y-[-1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60">
                   {adding ? "Adding to cart..." : "Add to Cart"}
                 </button>
                 <button type="button" disabled={stock === 0 || adding} onClick={() => handleAddToCart("/checkout")} className="rounded-2xl bg-[color:var(--commerce-accent-warm)] px-5 py-4 text-sm font-semibold text-slate-950 shadow-sm transition hover:translate-y-[-1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60">

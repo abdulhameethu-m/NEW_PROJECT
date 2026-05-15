@@ -1,43 +1,39 @@
 import { api } from "./api";
-
-function extractCartPayload(data) {
-  return data?.data || data;
-}
-
-function notifyCartChanged(detail) {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("cart:changed", { detail }));
-}
+import { emitCartChanged, normalizeCartPayload } from "../utils/cartState";
 
 // ===== AUTHENTICATED USER ENDPOINTS =====
 
 export async function getCart() {
   const { data } = await api.get("/api/cart");
-  return data;
+  return normalizeCartPayload(data);
 }
 
 export async function addToCart(productId, quantity = 1, variantId = "") {
   const { data } = await api.post("/api/cart/add", { productId, quantity, variantId });
-  notifyCartChanged(extractCartPayload(data));
-  return data;
+  const cart = normalizeCartPayload(data);
+  emitCartChanged(cart);
+  return cart;
 }
 
 export async function updateCartItem(productId, quantity, variantId = "") {
   const { data } = await api.patch("/api/cart/update", { productId, quantity, variantId });
-  notifyCartChanged(extractCartPayload(data));
-  return data;
+  const cart = normalizeCartPayload(data);
+  emitCartChanged(cart);
+  return cart;
 }
 
 export async function removeCartItem(productId, variantId = "") {
   const { data } = await api.delete("/api/cart/remove", { data: { productId, variantId } });
-  notifyCartChanged(extractCartPayload(data));
-  return data;
+  const cart = normalizeCartPayload(data);
+  emitCartChanged(cart);
+  return cart;
 }
 
 export async function clearCart() {
   const { data } = await api.delete("/api/cart/clear");
-  notifyCartChanged(extractCartPayload(data));
-  return data;
+  const cart = normalizeCartPayload(data);
+  emitCartChanged(cart);
+  return cart;
 }
 
 // ===== GUEST CART VALIDATION ENDPOINTS =====
@@ -87,8 +83,9 @@ export async function getCartSummary(items = []) {
  */
 export async function mergeGuestCart(guestCartItems = []) {
   const { data } = await api.post("/api/cart/merge", { guestCartItems });
-  const payload = extractCartPayload(data);
-  notifyCartChanged(payload?.userCart || payload);
+  const payload = data?.data || data;
+  const userCart = normalizeCartPayload(payload?.userCart);
+  emitCartChanged(userCart);
   return payload;
 }
 
@@ -99,7 +96,7 @@ export async function mergeGuestCart(guestCartItems = []) {
  */
 export async function getMergeSummary(guestCartItems = []) {
   const { data } = await api.post("/api/cart/merge-summary", { guestCartItems });
-  return extractCartPayload(data);
+  return data?.data || data;
 }
 
 export const cartService = {

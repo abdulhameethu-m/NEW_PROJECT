@@ -4,6 +4,7 @@ import { resetDarkModePreference } from "../hooks/useDarkMode";
 const STORAGE_KEY = "amazon_like_auth";
 
 function load() {
+  if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -14,6 +15,7 @@ function load() {
 }
 
 function save(state) {
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(
       STORAGE_KEY,
@@ -50,10 +52,12 @@ export const useAuthStore = create((set, get) => ({
   
   logout: () => {
     set({ token: null, refreshToken: null, user: null, isAuthenticated: false });
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // ignore
+      }
     }
     resetDarkModePreference();
   },

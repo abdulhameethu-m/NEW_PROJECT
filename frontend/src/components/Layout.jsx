@@ -9,11 +9,14 @@ import {
   UserRound,
 } from "lucide-react";
 import { useAuthStore } from "../context/authStore";
+import { CartDrawerProvider } from "../context/CartDrawerContext";
 import { UserMenu } from "./UserMenu";
 import { Footer } from "./Footer";
 import { SearchBar } from "./SearchBar";
 import { LocationSelector } from "./LocationSelector";
 import { CategoryNavigation } from "./CategoryNavigation";
+import { CartDrawer } from "./CartDrawer";
+import { CartDrawerOverlay } from "./CartDrawerOverlay";
 import { useDarkMode } from "../hooks/useDarkMode";
 import { useCategories } from "../hooks/useCategories";
 import { usePresentedCategories } from "../utils/categoryPresentation";
@@ -22,6 +25,7 @@ import * as cartService from "../services/cartService";
 import * as wishlistService from "../services/wishlistService";
 import useGuestCartStore from "../context/guestCartStore";
 import useGuestWishlistStore from "../context/guestWishlistStore";
+import { normalizeCartPayload } from "../utils/cartState";
 
 export function Layout() {
   const navigate = useNavigate();
@@ -85,8 +89,8 @@ export function Layout() {
 
       try {
         const response = await cartService.getCart();
-        const items = Array.isArray(response?.data?.items) ? response.data.items : [];
-        const nextCount = items.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
+        const normalized = normalizeCartPayload(response);
+        const nextCount = normalized.totalQuantity;
         if (!cancelled) {
           setCartCount(nextCount);
         }
@@ -100,9 +104,7 @@ export function Layout() {
     loadCartCount();
 
     function handleCartChanged(event) {
-      const items = Array.isArray(event?.detail?.items) ? event.detail.items : [];
-      const nextCount = items.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
-      setCartCount(nextCount);
+      setCartCount(normalizeCartPayload(event?.detail).totalQuantity);
     }
 
     window.addEventListener("cart:changed", handleCartChanged);
@@ -110,7 +112,7 @@ export function Layout() {
       cancelled = true;
       window.removeEventListener("cart:changed", handleCartChanged);
     };
-  }, [location.pathname, showShopActions, token, guestCartCount]);
+  }, [guestCartCount, showShopActions, token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,10 +153,11 @@ export function Layout() {
       cancelled = true;
       window.removeEventListener("wishlist:changed", handleWishlistChanged);
     };
-  }, [location.pathname, showShopActions, token, guestWishlistCount]);
+  }, [guestWishlistCount, showShopActions, token]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.16),_transparent_34%),linear-gradient(to_bottom,_#ffffff,_#f8fafc_32%,_#eef2ff_100%)] text-slate-900 transition-colors dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_30%),linear-gradient(to_bottom,_#020617,_#020617_28%,_#0f172a_100%)] dark:text-white">
+    <CartDrawerProvider>
+      <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.16),_transparent_34%),linear-gradient(to_bottom,_#ffffff,_#f8fafc_32%,_#eef2ff_100%)] text-slate-900 transition-colors dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_30%),linear-gradient(to_bottom,_#020617,_#020617_28%,_#0f172a_100%)] dark:text-white">
       {!isAdminRoute && !isVendorWorkspace && !isStaffWorkspace && !isInfluencerWorkspace ? (
         <header className="sticky top-0 z-30 border-b border-white/50 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60">
           <div className="w-full px-3 py-3 sm:px-4 lg:px-8">
@@ -332,7 +335,12 @@ export function Layout() {
       </main>
 
       {!isAdminRoute && !isVendorWorkspace && !isStaffWorkspace && !isInfluencerWorkspace ? <Footer /> : null}
+
+      {/* Cart Drawer System */}
+      <CartDrawerOverlay />
+      <CartDrawer />
     </div>
+    </CartDrawerProvider>
   );
 }
 

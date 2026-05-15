@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuthStore } from "../context/authStore";
 import useGuestCartStore from "../context/guestCartStore";
 import { cartService } from "../services/cartService";
+import { normalizeCartPayload, getCartItemKey } from "../utils/cartState";
+
+const pendingAddItemRequests = new Map();
 
 /**
  * Unified Cart Hook
@@ -16,10 +19,6 @@ export const useCart = () => {
   const [authCart, setAuthCart] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  const normalizeAuthCart = useCallback((response) => {
-    return response?.data || response || { items: [], totalAmount: 0, itemCount: 0, totalQuantity: 0 };
-  }, []);
 
   /**
    * Determine which cart to use
@@ -38,18 +37,9 @@ export const useCart = () => {
         totalQuantity: guestCart.getTotalQuantity(),
       };
     } else {
-      const current = authCart || { items: [], totalAmount: 0, itemCount: 0, totalQuantity: 0 };
-      return {
-        ...current,
-        itemCount: current.itemCount ?? current.items?.length ?? 0,
-        totalQuantity:
-          current.totalQuantity ??
-          (Array.isArray(current.items)
-            ? current.items.reduce((sum, item) => sum + Number(item?.quantity || 0), 0)
-            : 0),
-      };
+      return normalizeCartPayload(authCart);
     }
-  }, [isGuest, guestCart, authCart]);
+  }, [authCart, guestCart, isGuest]);
 
   /**
    * Fetch authenticated user's cart
@@ -61,7 +51,7 @@ export const useCart = () => {
     setError(null);
     try {
       const cart = await cartService.getCart();
-      const normalized = normalizeAuthCart(cart);
+      const normalized = normalizeCartPayload(cart);
       setAuthCart(normalized);
       return normalized;
     } catch (err) {
@@ -71,7 +61,7 @@ export const useCart = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, normalizeAuthCart]);
+  }, [isAuthenticated]);
 
   /**
    * Initialize cart on mount (fetch if authenticated)
@@ -88,23 +78,28 @@ export const useCart = () => {
   const addItem = useCallback(
     async (productId, quantity = 1, variantId = "") => {
       setError(null);
+      const requestKey = `${isGuest ? "guest" : "auth"}:${getCartItemKey(productId, variantId)}`;
 
-      if (isGuest) {
-        // For guest: validate item first, then add
-        try {
-          const enrichedItem = await cartService.validateItem(productId, quantity, variantId);
-          guestCart.addItem(enrichedItem);
-          return enrichedItem;
-        } catch (err) {
-          setError(err.message);
-          throw err;
+      if (pendingAddItemRequests.has(requestKey)) {
+        return null;
+      }
+
+      const request = (async () => {
+        if (isGuest) {
+          try {
+            const enrichedItem = await cartService.validateItem(productId, quantity, variantId);
+            guestCart.addItem(enrichedItem);
+            return enrichedItem;
+          } catch (err) {
+            setError(err.message);
+            throw err;
+          }
         }
-      } else {
-        // For auth: use backend API
+
         try {
           setLoading(true);
           const updatedCart = await cartService.addToCart(productId, quantity, variantId);
-          const normalized = normalizeAuthCart(updatedCart);
+          const normalized = normalizeCartPayload(updatedCart);
           setAuthCart(normalized);
           return normalized;
         } catch (err) {
@@ -113,9 +108,16 @@ export const useCart = () => {
         } finally {
           setLoading(false);
         }
+      })();
+
+      pendingAddItemRequests.set(requestKey, request);
+      try {
+        return await request;
+      } finally {
+        pendingAddItemRequests.delete(requestKey);
       }
     },
-    [isGuest, guestCart, normalizeAuthCart]
+    [guestCart, isGuest]
   );
 
   /**
@@ -134,7 +136,7 @@ export const useCart = () => {
         try {
           setLoading(true);
           const updatedCart = await cartService.updateCartItem(productId, quantity, variantId);
-          const normalized = normalizeAuthCart(updatedCart);
+          const normalized = normalizeCartPayload(updatedCart);
           setAuthCart(normalized);
           return normalized;
         } catch (err) {
@@ -145,7 +147,7 @@ export const useCart = () => {
         }
       }
     },
-    [isGuest, guestCart, normalizeAuthCart]
+    [guestCart, isGuest]
   );
 
   /**
@@ -164,7 +166,7 @@ export const useCart = () => {
         try {
           setLoading(true);
           const updatedCart = await cartService.removeCartItem(productId, variantId);
-          const normalized = normalizeAuthCart(updatedCart);
+          const normalized = normalizeCartPayload(updatedCart);
           setAuthCart(normalized);
           return normalized;
         } catch (err) {
@@ -175,7 +177,7 @@ export const useCart = () => {
         }
       }
     },
-    [isGuest, guestCart, normalizeAuthCart]
+    [guestCart, isGuest]
   );
 
   /**
@@ -191,7 +193,7 @@ export const useCart = () => {
       try {
         setLoading(true);
         const result = await cartService.clearCart();
-        const normalized = normalizeAuthCart(result);
+        const normalized = normalizeCartPayload(result);
         setAuthCart(normalized);
         return normalized;
       } catch (err) {
@@ -201,7 +203,7 @@ export const useCart = () => {
         setLoading(false);
       }
     }
-  }, [isGuest, guestCart, normalizeAuthCart]);
+  }, [guestCart, isGuest]);
 
   /**
    * Validate cart (recheck inventory, pricing)
@@ -247,7 +249,7 @@ export const useCart = () => {
       const mergeResult = await cartService.mergeGuestCart(guestItems);
 
       // Update auth cart with merged result
-      setAuthCart(normalizeAuthCart(mergeResult.userCart));
+      setAuthCart(normalizeCartPayload(mergeResult.userCart));
 
       // Clear guest cart
       guestCart.clearCart();
@@ -260,7 +262,7 @@ export const useCart = () => {
     } finally {
       setLoading(false);
     }
-  }, [isGuest, guestCart, normalizeAuthCart]);
+  }, [guestCart, isGuest]);
 
   return {
     // State

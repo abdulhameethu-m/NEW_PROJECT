@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { Heart, ShoppingCart } from "lucide-react";
 import * as productService from "../services/productService";
 import { formatCurrency } from "../utils/formatCurrency";
+import { useCart } from "../hooks/useCart";
+import { useCartDrawer } from "../hooks/useCartDrawer";
 
 export function ProductSection({ title, icon, sortBy = "createdAt", limit = 8 }) {
   const [products, setProducts] = useState([]);
@@ -92,6 +94,8 @@ export function ProductSection({ title, icon, sortBy = "createdAt", limit = 8 })
 }
 
 function ProductCard({ product }) {
+  const { addItem: addCartItem } = useCart();
+  const { openDrawer, showToast } = useCartDrawer();
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -107,11 +111,22 @@ function ProductCard({ product }) {
     setTimeout(() => setIsSubmitting(false), 300);
   };
 
-  const handleAddToCart = (e) => {
+  const handleAddToCart = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsSubmitting(true);
-    setTimeout(() => setIsSubmitting(false), 300);
+    if (isSubmitting) return;
+    try {
+      setIsSubmitting(true);
+      const added = await addCartItem(product._id, 1);
+      if (added) {
+        openDrawer(product, null, 1);
+      }
+    } catch (err) {
+      console.error("Failed to add to cart:", err);
+      showToast(err?.response?.data?.message || err?.message || "Failed to add item to cart.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

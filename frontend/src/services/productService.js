@@ -22,6 +22,21 @@ export async function getProductById(id) {
   return response.data;
 }
 
+export async function getRelatedProducts(productId, limit = 4, categoryId = "") {
+  const response = await api.get("/api/products/public", {
+    params: {
+      page: 1,
+      limit: Math.max(Number(limit || 4) + 1, 4),
+      ...(categoryId ? { categoryId } : {}),
+    },
+  });
+
+  const products = Array.isArray(response?.data?.data?.products) ? response.data.data.products : [];
+  return {
+    data: products.filter((product) => String(product?._id) !== String(productId)).slice(0, limit),
+  };
+}
+
 /**
  * Get products list (authenticated - role-based)
  */

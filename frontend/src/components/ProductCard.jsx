@@ -5,11 +5,13 @@ import { Heart, ShoppingCart, Star } from "lucide-react";
 import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import { useCart } from "../hooks/useCart";
+import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useWishlist } from "../hooks/useWishlist";
 
 export function ProductCard({ product }) {
   const navigate = useNavigate();
   const { addItem: addCartItem } = useCart();
+  const { openDrawer, showToast } = useCartDrawer();
   const { addItem: addWishlistItem } = useWishlist();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
@@ -33,9 +35,16 @@ export function ProductCard({ product }) {
   const handleAddToCart = async (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (isSubmitting) return;
     try {
       setIsSubmitting(true);
-      await addCartItem(product._id, 1);
+      const added = await addCartItem(product._id, 1);
+      if (added) {
+        openDrawer(product, null, 1);
+      }
+    } catch (err) {
+      console.error("Failed to add to cart:", err);
+      showToast(err?.response?.data?.message || err?.message || "Failed to add item to cart.");
     } finally {
       setIsSubmitting(false);
     }

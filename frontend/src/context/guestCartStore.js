@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { emitCartChanged } from "../utils/cartState";
 
 /**
  * Guest Cart Store
@@ -68,6 +69,7 @@ const useGuestCartStore = create(
             0
           );
 
+          emitCartChanged({ items: newItems, totalAmount });
           return { items: newItems, totalAmount };
         });
       },
@@ -95,6 +97,7 @@ const useGuestCartStore = create(
             0
           );
 
+          emitCartChanged({ items: newItems, totalAmount });
           return { items: newItems, totalAmount };
         });
       },
@@ -113,6 +116,7 @@ const useGuestCartStore = create(
             0
           );
 
+          emitCartChanged({ items: newItems, totalAmount });
           return { items: newItems, totalAmount };
         });
       },
@@ -121,6 +125,7 @@ const useGuestCartStore = create(
        * Clear entire cart
        */
       clearCart: () => {
+        emitCartChanged({ items: [], totalAmount: 0 });
         set({ items: [], totalAmount: 0 });
       },
 
@@ -154,6 +159,7 @@ const useGuestCartStore = create(
           (sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0),
           0
         );
+        emitCartChanged({ items, totalAmount });
         set({ items, totalAmount });
       },
 
@@ -162,12 +168,13 @@ const useGuestCartStore = create(
        * Updates prices from backend to prevent manipulation
        */
       setValidatedItems: (validatedItems) => {
-        set((state) => {
+        set(() => {
           const totalAmount = validatedItems.reduce(
             (sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0),
             0
           );
 
+          emitCartChanged({ items: validatedItems, totalAmount });
           return { items: validatedItems, totalAmount };
         });
       },
