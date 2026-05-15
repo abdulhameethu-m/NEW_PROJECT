@@ -15,6 +15,7 @@ import { useCart } from "../hooks/useCart";
 import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useWishlist } from "../hooks/useWishlist";
 import pendingActionManager from "../utils/pendingActionManager";
+import { getCartErrorMessage } from "../utils/cartErrors";
 
 function buildVariantMatch(variants = [], selectedAttributes = {}) {
   return (
@@ -352,7 +353,7 @@ export function ProductDetailsPage() {
         navigate(redirectTo);
       }
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to add to cart");
+      setError(getCartErrorMessage(err, "Failed to add to cart"));
     } finally {
       setAdding(false);
     }

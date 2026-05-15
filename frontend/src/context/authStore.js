@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { resetDarkModePreference } from "../hooks/useDarkMode";
+import useAuthCartStore from "./authCartStore";
 
 const STORAGE_KEY = "amazon_like_auth";
 
@@ -52,6 +53,7 @@ export const useAuthStore = create((set, get) => ({
   
   logout: () => {
     set({ token: null, refreshToken: null, user: null, isAuthenticated: false });
+    useAuthCartStore.getState().clearCart();
     if (typeof window !== "undefined") {
       try {
         localStorage.removeItem(STORAGE_KEY);

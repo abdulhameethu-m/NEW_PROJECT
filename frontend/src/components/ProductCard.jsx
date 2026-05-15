@@ -7,6 +7,7 @@ import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import { useCart } from "../hooks/useCart";
 import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useWishlist } from "../hooks/useWishlist";
+import { getCartErrorMessage } from "../utils/cartErrors";
 
 export function ProductCard({ product }) {
   const navigate = useNavigate();
@@ -44,7 +45,7 @@ export function ProductCard({ product }) {
       }
     } catch (err) {
       console.error("Failed to add to cart:", err);
-      showToast(err?.response?.data?.message || err?.message || "Failed to add item to cart.");
+      showToast(getCartErrorMessage(err, "Failed to add item to cart."));
     } finally {
       setIsSubmitting(false);
     }

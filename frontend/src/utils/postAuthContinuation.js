@@ -5,6 +5,7 @@ import useGuestWishlistStore from "../context/guestWishlistStore";
 import { consumeRedirectAfterLogin } from "./loginRedirect";
 import pendingActionManager from "./pendingActionManager";
 import pendingCheckoutManager from "./pendingCheckoutManager";
+import useAuthCartStore from "../context/authCartStore";
 
 function getPathnameFromTarget(target) {
   if (!target) return "";
@@ -72,6 +73,7 @@ export async function continueAfterPrimaryAuth({ result, attemptedFrom, nav }) {
       const mergeResult = await mergeGuestData(guestCartItems, guestWishlistItems);
 
       if (mergeResult?.cartMerge?.success) {
+        useAuthCartStore.getState().setCart(mergeResult.cartMerge.userCart || { items: [] });
         useGuestCartStore.getState().clearCart();
         window.dispatchEvent(
           new CustomEvent("cart:changed", {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuthStore } from "../context/authStore";
+import useAuthCartStore from "../context/authCartStore";
 import useGuestCartStore from "../context/guestCartStore";
 import { cartService } from "../services/cartService";
 import { normalizeCartPayload, getCartItemKey } from "../utils/cartState";
@@ -15,8 +16,10 @@ const pendingAddItemRequests = new Map();
  */
 export const useCart = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const authCart = useAuthCartStore((state) => state.cart);
+  const setAuthCart = useAuthCartStore((state) => state.setCart);
+  const clearAuthCart = useAuthCartStore((state) => state.clearCart);
   const guestCart = useGuestCartStore();
-  const [authCart, setAuthCart] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -69,8 +72,10 @@ export const useCart = () => {
   useEffect(() => {
     if (isAuthenticated) {
       fetchAuthCart();
+    } else {
+      clearAuthCart();
     }
-  }, [isAuthenticated, fetchAuthCart]);
+  }, [clearAuthCart, isAuthenticated, fetchAuthCart]);
 
   /**
    * Add item to cart

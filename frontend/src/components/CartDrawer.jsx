@@ -24,8 +24,6 @@ export function CartDrawer() {
     isAnimating,
     openCount,
     lastAddedProduct,
-    lastAddedVariant,
-    lastAddedQuantity,
     closeDrawer,
     toast,
     showToast,
@@ -110,13 +108,6 @@ export function CartDrawer() {
     [normalizedCart]
   );
 
-  const lastAddedVariantId = extractVariantId(lastAddedVariant);
-  const lastAddedCartKey = getCartItemKey(extractProductId(lastAddedProduct), lastAddedVariantId);
-  const isLastAddedAlreadyInCartList = useMemo(
-    () => cartItems.some((item) => getCartItemKey(extractProductId(item?.productId || item), extractVariantId(item)) === lastAddedCartKey),
-    [cartItems, lastAddedCartKey]
-  );
-
   const handleDeleteItem = async (productId, variantId) => {
     if (!productId) {
       showToast("Unable to remove this item right now.");
@@ -129,7 +120,7 @@ export function CartDrawer() {
     setDeletingItems((prev) => new Set(prev).add(itemKey));
     try {
       await removeItem(productId, variantId);
-      if (itemKey === lastAddedCartKey || productId === extractProductId(lastAddedProduct)) {
+      if (productId === extractProductId(lastAddedProduct)) {
         clearLastAddedItem();
       }
     } catch (error) {
@@ -258,63 +249,6 @@ export function CartDrawer() {
                       </div>
                     );
                   })}
-                </div>
-              </div>
-            ) : null}
-
-            {lastAddedProduct && !isLastAddedAlreadyInCartList ? (
-              <div className="border-b border-slate-200 p-4 dark:border-slate-800 sm:p-6">
-                <p className="mb-3 text-xs font-medium text-slate-500 dark:text-slate-400">JUST ADDED</p>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
-                    {(() => {
-                      const rawImage = Array.isArray(lastAddedProduct?.images)
-                        ? typeof lastAddedProduct.images[0] === "string"
-                          ? lastAddedProduct.images[0]
-                          : lastAddedProduct.images[0]?.url
-                        : "";
-                      const imageUrl = resolveApiAssetUrl(rawImage || "");
-                      return imageUrl ? (
-                        <img src={imageUrl} alt={lastAddedProduct?.name || "Added product"} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="text-slate-400 dark:text-slate-600">
-                          <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <h3 className="mb-1 line-clamp-2 text-sm font-semibold text-slate-900 dark:text-white">
-                      {lastAddedProduct?.name || "Product"}
-                    </h3>
-                    {lastAddedVariant ? (
-                      <p className="mb-2 line-clamp-1 text-xs text-slate-500 dark:text-slate-400">
-                        {lastAddedVariant?.title || Object.values(lastAddedVariant?.attributes || {}).join(" / ")}
-                      </p>
-                    ) : null}
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Qty: {lastAddedQuantity}</p>
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                          {formatCurrency(
-                            Number(lastAddedVariant?.discountPrice ?? lastAddedVariant?.price ?? lastAddedProduct?.discountPrice ?? lastAddedProduct?.price ?? 0) *
-                              Number(lastAddedQuantity || 1)
-                          )}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteItem(extractProductId(lastAddedProduct), lastAddedVariantId)}
-                        disabled={deletingItems.has(lastAddedCartKey)}
-                        className="rounded-lg p-2 text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-900/30"
-                        aria-label="Remove newly added item from cart"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
             ) : null}
