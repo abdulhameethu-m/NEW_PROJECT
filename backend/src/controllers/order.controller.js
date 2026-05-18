@@ -1,6 +1,7 @@
 const { ok } = require("../utils/apiResponse");
 const { asyncHandler } = require("../utils/asyncHandler");
 const orderService = require("../services/order.service");
+const cancellationRefundService = require("../services/cancellation-refund.service");
 
 const create = asyncHandler(async (req, res) => {
   const orders = await orderService.createFromCart(req.user.sub, req.body || {});
@@ -41,7 +42,17 @@ const track = asyncHandler(async (req, res) => {
 });
 
 const cancel = asyncHandler(async (req, res) => {
-  const order = await orderService.cancelForUser(req.user.sub, req.params.id);
+  const order = await cancellationRefundService.processOrderCancellation({
+    orderId: req.params.id,
+    actor: req.user,
+    meta: {
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    },
+    reason: req.body?.reason,
+    notes: req.body?.notes,
+    previewOnly: Boolean(req.body?.previewOnly),
+  });
   return ok(res, order, "Order cancelled");
 });
 

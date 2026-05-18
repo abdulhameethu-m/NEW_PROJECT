@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { CancelOrderModal } from "../components/CancelOrderModal";
 import { StatusBadge } from "../components/StatusBadge";
 import {
+  confirmUserOrderCancellation,
   downloadUserInvoice,
   getUserOrder,
   getUserOrderTracking,
+  previewUserOrderCancellation,
   requestUserReturn,
 } from "../services/userService";
 import { formatCurrency } from "../utils/formatCurrency";
@@ -44,6 +47,8 @@ export function OrderDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelPreview, setCancelPreview] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +77,8 @@ export function OrderDetailsPage() {
   }, [orderId]);
 
   const canReturn = order?.status === "Delivered";
+  const cancellationLocked = ["REQUESTED", "APPROVED", "CANCELLED"].includes(order?.cancellation?.status);
+  const canCancel = ["Pending", "Placed", "Packed", "Shipped", "Out for Delivery"].includes(order?.status) && !cancellationLocked;
   const timelineSteps = useMemo(() => order?.timeline?.steps || [], [order]);
   const timelineEvents = useMemo(() => tracking?.timeline || order?.timeline?.events || [], [order, tracking]);
 
@@ -104,16 +111,47 @@ export function OrderDetailsPage() {
     }
   }
 
+  async function loadCancelPreview(payload = {}) {
+    setActionBusy(true);
+    try {
+      const response = await previewUserOrderCancellation(orderId, payload);
+      setCancelPreview(response.data || response);
+      setError("");
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleConfirmCancellation(payload = {}) {
+    setActionBusy(true);
+    try {
+      await confirmUserOrderCancellation(orderId, payload);
+      const [orderResponse, trackingResponse] = await Promise.all([getUserOrder(orderId), getUserOrderTracking(orderId)]);
+      setOrder(orderResponse.data);
+      setTracking(trackingResponse.data);
+      setCancelOpen(false);
+      setCancelPreview(null);
+      setError("");
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
   if (loading) {
     return <div className="h-80 animate-pulse rounded-3xl bg-slate-100 dark:bg-slate-800" />;
   }
 
-  if (error || !order) {
+  if (!order) {
     return <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error || "Order not found."}</div>;
   }
 
   return (
     <div className="print-order-page grid gap-6 print:gap-3">
+      {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       <style>
         {`
           @page {
@@ -289,6 +327,17 @@ export function OrderDetailsPage() {
               >
                 Return Order
               </button>
+              <button
+                type="button"
+                disabled={!canCancel || actionBusy}
+                onClick={() => {
+                  setCancelOpen(true);
+                  void loadCancelPreview();
+                }}
+                className="rounded-xl border border-white/30 px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel Order
+              </button>
             </div>
           </div>
         </div>
@@ -418,7 +467,15 @@ export function OrderDetailsPage() {
                 <KeyValue label="Method" value={order.payment?.method} />
                 <KeyValue label="Transaction ID" value={order.payment?.transactionId || "COD"} />
                 <KeyValue label="Payment Timestamp" value={order.payment?.timestamp ? formatDateTime(order.payment.timestamp) : "Awaiting payment"} />
+                <KeyValue label="Refund Status" value={order.refundSummary?.status || "NONE"} />
+                <KeyValue label="Refund Amount" value={formatCurrency(order.refundSummary?.amount || 0, { currency: order.pricing?.currency })} />
+                <KeyValue label="Deduction Amount" value={formatCurrency(order.refundSummary?.deductionAmount || 0, { currency: order.pricing?.currency })} />
               </div>
+              {order.refundSummary?.status === "PENDING" ? (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Refund is being processed by finance team.
+                </div>
+              ) : null}
             </section>
 
             <section className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
@@ -447,6 +504,18 @@ export function OrderDetailsPage() {
           Print summary
         </button>
       </div>
+
+      <CancelOrderModal
+        open={cancelOpen}
+        loading={actionBusy}
+        preview={cancelPreview}
+        onClose={() => {
+          setCancelOpen(false);
+          setCancelPreview(null);
+        }}
+        onPreview={loadCancelPreview}
+        onConfirm={handleConfirmCancellation}
+      />
     </div>
   );
 }

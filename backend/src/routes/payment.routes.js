@@ -25,6 +25,7 @@ router.post("/refund", adminWorkspaceAuthRequired, requireWorkspacePermission("p
 router.get("/", adminWorkspaceAuthRequired, requireWorkspacePermission("payments.read"), paymentController.listPayments);
 router.get("/refunds", adminWorkspaceAuthRequired, requireWorkspacePermission("payments.read"), paymentController.listRefunds);
 router.patch("/refunds/:id", adminWorkspaceAuthRequired, requireWorkspacePermission("payments.refund"), paymentController.reviewRefund);
+router.get("/refund-status/:id", authRequired, paymentController.getRefundStatus);
 router.get("/:id", adminWorkspaceAuthRequired, requireWorkspacePermission("payments.read"), paymentController.getPaymentDetails);
 
 module.exports = router;

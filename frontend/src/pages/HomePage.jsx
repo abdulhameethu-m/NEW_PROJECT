@@ -18,7 +18,7 @@ import { PromoBanner } from "../components/PromoBanner";
 import { MotionItem, MotionStagger, AnimatedSection } from "../components/home/AnimatedSection";
 import { RippleButton } from "../components/home/RippleButton";
 import { ReelFeed } from "../components/reel/ReelFeed";
-import * as productService from "../services/productService";
+import { getHomepageContainers } from "../services/homepageContainerService";
 import { trackClick } from "../services/contentService";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import { usePlatformFeatures } from "../context/PlatformFeaturesContext";
@@ -56,9 +56,7 @@ export function HomePage() {
     promo: [],
     collection: [],
   });
-  const [popularPicks, setPopularPicks] = useState([]);
-  const [trending, setTrending] = useState([]);
-  const [recommended, setRecommended] = useState([]);
+  const [productContainers, setProductContainers] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,17 +66,14 @@ export function HomePage() {
       setError("");
 
       try {
-        const [popularRes, trendingRes, recommendedRes] = await Promise.all([
-          productService.getPublicProducts({ limit: 8, sortBy: "analytics.views", sortOrder: "desc" }),
-          productService.getPublicProducts({ limit: 8, sortBy: "createdAt", sortOrder: "desc" }),
-          productService.getPublicProducts({ limit: 8, sortBy: "ratings.averageRating", sortOrder: "desc" }),
-        ]);
+        const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
+        const containersRes = await getHomepageContainers({
+          device: isMobile ? "mobile" : "desktop",
+        });
 
         if (cancelled) return;
 
-        setPopularPicks(popularRes?.data?.products || []);
-        setTrending(trendingRes?.data?.products || []);
-        setRecommended(recommendedRes?.data?.products || []);
+        setProductContainers(Array.isArray(containersRes?.data) ? containersRes.data : []);
       } catch (e) {
         if (!cancelled) {
           setError(e?.response?.data?.message || "Failed to load storefront");
@@ -99,11 +94,12 @@ export function HomePage() {
 
   const spotlightProducts = useMemo(
     () =>
-      [...popularPicks, ...trending, ...recommended]
+      productContainers
+        .flatMap((container) => container?.products || [])
         .filter(Boolean)
         .filter((product, index, items) => index === items.findIndex((candidate) => candidate?._id === product?._id))
         .slice(0, 6),
-    [popularPicks, trending, recommended]
+    [productContainers]
   );
 
   return (
@@ -139,29 +135,19 @@ export function HomePage() {
         </div>
       ) : null}
 
-      <ProductShowcaseSection
-        title="Popular picks"
-        subtitle="Most viewed products with elevated merchandising, subtle depth, and quick actions."
-        items={popularPicks}
-        loading={loading}
-        viewAllHref="/shop?sortBy=analytics.views&sortOrder=desc"
-      />
-
-      <ProductShowcaseSection
-        title="Trending now"
-        subtitle="Fresh arrivals and fast movers surfaced with premium visual hierarchy and motion."
-        items={trending}
-        loading={loading}
-        viewAllHref="/shop?sortBy=createdAt&sortOrder=desc"
-      />
-
-      <ProductShowcaseSection
-        title="Top rated"
-        subtitle="Highly loved products presented in a responsive, high-conversion product experience."
-        items={recommended}
-        loading={loading}
-        viewAllHref="/shop?sortBy=ratings.averageRating&sortOrder=desc"
-      />
+      {(loading ? [null, null] : productContainers).map((container, index) => (
+        <ProductShowcaseSection
+          key={container?._id || `loading-${index}`}
+          title={container?.title || "Curated products"}
+          subtitle={
+            container?.description ||
+            "Dynamic merchandising curated from live vendor inventory, discount rules, and storefront demand."
+          }
+          items={container?.products || []}
+          loading={loading}
+          viewAllHref={container?.slug ? `/collections/${container.slug}` : undefined}
+        />
+      ))}
 
       <AnimatedSection className="w-full px-3 py-8 sm:px-4 lg:px-8 lg:py-10" x={20}>
         <BottomPromoSection

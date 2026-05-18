@@ -2,6 +2,8 @@ const { ok } = require("../utils/apiResponse");
 const { asyncHandler } = require("../utils/asyncHandler");
 const adminService = require("../services/admin.service");
 const { AppError } = require("../utils/AppError");
+const cancellationPolicyService = require("../services/cancellation-policy.service");
+const cancellationRefundService = require("../services/cancellation-refund.service");
 
 const dashboard = asyncHandler(async (req, res) => {
   const summary = await adminService.getDashboardOverview();
@@ -250,11 +252,75 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 });
 
 const cancelOrder = asyncHandler(async (req, res) => {
-  const order = await adminService.updateOrderStatus(req.params.id, "Cancelled", req.user, {
+  const order = await cancellationRefundService.processOrderCancellation({
+    orderId: req.params.id,
+    actor: req.user,
+    reason: req.body?.reason,
+    notes: req.body?.notes,
+    previewOnly: Boolean(req.body?.previewOnly),
+    meta: {
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    },
+  });
+  return ok(res, order, "Order cancelled");
+});
+
+const listCancellationPolicies = asyncHandler(async (req, res) => {
+  const result = await cancellationPolicyService.listPolicies();
+  return ok(res, result, "Cancellation policies loaded");
+});
+
+const createCancellationPolicy = asyncHandler(async (req, res) => {
+  const result = await cancellationPolicyService.createPolicy(req.body || {}, req.user?.sub || req.user?._id || null);
+  return ok(res, result, "Cancellation policy created");
+});
+
+const updateCancellationPolicy = asyncHandler(async (req, res) => {
+  const result = await cancellationPolicyService.updatePolicy(req.params.id, req.body || {}, req.user?.sub || req.user?._id || null);
+  return ok(res, result, "Cancellation policy updated");
+});
+
+const listRefundCases = asyncHandler(async (req, res) => {
+  const result = await cancellationRefundService.listRefunds(req.query);
+  return ok(res, result, "Refunds loaded");
+});
+
+const getRefundCase = asyncHandler(async (req, res) => {
+  const result = await cancellationRefundService.getRefundDetails(req.params.id);
+  return ok(res, result, "Refund details loaded");
+});
+
+const processRefundCase = asyncHandler(async (req, res) => {
+  const result = await cancellationRefundService.processRefundAction(req.params.id, req.user, { action: "approve", ...(req.body || {}) }, {
     ipAddress: req.ip,
     userAgent: req.get("user-agent"),
   });
-  return ok(res, order, "Order cancelled");
+  return ok(res, result, "Refund processed");
+});
+
+const markManualRefundCase = asyncHandler(async (req, res) => {
+  const result = await cancellationRefundService.markManualRefund(req.params.id, req.user, req.body || {}, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, result, "Manual refund marked");
+});
+
+const markWalletRefundCase = asyncHandler(async (req, res) => {
+  const result = await cancellationRefundService.markWalletRefund(req.params.id, req.user, req.body || {}, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, result, "Wallet refund processed");
+});
+
+const retryRefundCase = asyncHandler(async (req, res) => {
+  const result = await cancellationRefundService.retryRefund(req.params.id, req.user, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  return ok(res, result, "Refund retry triggered");
 });
 
 const deleteReview = asyncHandler(async (req, res) => {
@@ -297,6 +363,15 @@ module.exports = {
   adjustAdminInventory,
   updateAdminInventoryThreshold,
   cancelOrder,
+  listCancellationPolicies,
+  createCancellationPolicy,
+  updateCancellationPolicy,
+  listRefundCases,
+  getRefundCase,
+  processRefundCase,
+  markManualRefundCase,
+  markWalletRefundCase,
+  retryRefundCase,
   listPayouts,
   listReviews,
   getOrderById,

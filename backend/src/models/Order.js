@@ -11,6 +11,8 @@ const PICKUP_STATUS = ["NOT_REQUESTED", "REQUESTED", "SCHEDULED", "COMPLETED", "
 
 const ORDER_STATUS_NORMALIZED = ["PLACED", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"];
 const PAYMENT_STATUS_NORMALIZED = ["PENDING", "PAID", "FAILED"];
+const CANCELLATION_WORKFLOW_STATUS = ["NONE", "REQUESTED", "APPROVED", "REJECTED", "CANCELLED"];
+const REFUND_WORKFLOW_STATUS = ["NONE", "PENDING", "PROCESSING", "REFUNDED", "FAILED"];
 
 const orderItemSchema = new mongoose.Schema(
   {
@@ -297,6 +299,58 @@ const orderSchema = new mongoose.Schema(
       ref: "Refund",
       index: true,
     },
+    cancellation: {
+      status: {
+        type: String,
+        enum: CANCELLATION_WORKFLOW_STATUS,
+        default: "NONE",
+        index: true,
+      },
+      reason: { type: String, trim: true, default: "" },
+      requestedAt: { type: Date },
+      requestedByRole: { type: String, trim: true, default: "" },
+      requestedById: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      approvedAt: { type: Date },
+      approvedByRole: { type: String, trim: true, default: "" },
+      approvedById: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      rejectedAt: { type: Date },
+      rejectedReason: { type: String, trim: true, default: "" },
+      currentStageKey: { type: String, trim: true, default: "" },
+      policyId: { type: mongoose.Schema.Types.ObjectId, ref: "CancellationPolicy" },
+      autoApproved: { type: Boolean, default: false },
+      preview: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null,
+      },
+      idempotencyKey: { type: String, trim: true, default: "" },
+      cancellationProcessedAt: { type: Date },
+      inventoryRestored: { type: Boolean, default: false },
+      inventoryRestoredAt: { type: Date },
+      shipmentCancellationAttemptedAt: { type: Date },
+      shipmentCancelledAt: { type: Date },
+    },
+    refundSummary: {
+      status: {
+        type: String,
+        enum: REFUND_WORKFLOW_STATUS,
+        default: "NONE",
+        index: true,
+      },
+      method: {
+        type: String,
+        enum: ["RAZORPAY", "MANUAL", "WALLET", ""],
+        default: "",
+      },
+      amount: { type: Number, min: 0, default: 0 },
+      deductionAmount: { type: Number, min: 0, default: 0 },
+      grossAmount: { type: Number, min: 0, default: 0 },
+      pendingSince: { type: Date },
+      processedAt: { type: Date },
+      failedAt: { type: Date },
+      lastAttemptAt: { type: Date },
+      failureReason: { type: String, trim: true, default: "" },
+      retryCount: { type: Number, min: 0, default: 0 },
+    },
     shipmentRecordId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Shipment",
@@ -357,6 +411,8 @@ orderSchema.index({ trackingId: 1 });
 orderSchema.index({ isActive: 1, status: 1, createdAt: -1 });
 orderSchema.index({ status: 1, paymentStatus: 1, payoutEligibleAt: 1 });
 orderSchema.index({ "attribution.influencerId": 1, createdAt: -1 });
+orderSchema.index({ "cancellation.status": 1, createdAt: -1 });
+orderSchema.index({ "refundSummary.status": 1, createdAt: -1 });
 
 orderSchema.pre("findOneAndUpdate", async function preventLockedAttributionMutation() {
   const update = this.getUpdate() || {};
@@ -384,4 +440,6 @@ module.exports = {
   PICKUP_STATUS,
   ORDER_STATUS_NORMALIZED,
   PAYMENT_STATUS_NORMALIZED,
+  CANCELLATION_WORKFLOW_STATUS,
+  REFUND_WORKFLOW_STATUS,
 };

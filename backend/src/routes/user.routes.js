@@ -34,6 +34,7 @@ router.get("/orders", userController.listOrders);
 router.get("/orders/:id", userController.getOrder);
 router.get("/orders/:id/tracking", userController.getOrderTracking);
 router.get("/orders/:id/invoice", userController.downloadInvoice);
+router.post("/orders/:id/cancel", userController.cancelOrder);
 router.patch("/orders/:id/cancel", userController.cancelOrder);
 router.post("/orders/:id/return", validate(returnRequestSchema), userController.requestReturn);
 

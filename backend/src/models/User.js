@@ -40,6 +40,29 @@ const userSchema = new mongoose.Schema(
         promotions: { type: Boolean, default: false },
       },
     },
+    wallet: {
+      balance: { type: Number, min: 0, default: 0 },
+      totalCredited: { type: Number, min: 0, default: 0 },
+      totalDebited: { type: Number, min: 0, default: 0 },
+      lastUpdatedAt: { type: Date },
+      transactions: {
+        type: [
+          {
+            type: {
+              type: String,
+              enum: ["CREDIT", "DEBIT"],
+              required: true,
+            },
+            amount: { type: Number, min: 0, required: true },
+            source: { type: String, trim: true, default: "SYSTEM" },
+            referenceId: { type: String, trim: true, default: "" },
+            note: { type: String, trim: true, default: "" },
+            createdAt: { type: Date, default: Date.now },
+          },
+        ],
+        default: [],
+      },
+    },
   },
   { timestamps: true }
 );

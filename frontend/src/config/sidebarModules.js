@@ -64,6 +64,7 @@ export const ADMIN_SECTION_ITEMS = [
       { name: "Attributes", path: "/admin/attributes", permission: "categories.read", icon: Tags, legacyOnly: true },
       { name: "Product Modules", path: "/admin/product-modules", permission: "categories.read", icon: Boxes, legacyOnly: true },
       { name: "Homepage Content", path: "/admin/content", permission: "dashboard.read", icon: Image, legacyOnly: true },
+      { name: "Homepage Containers", path: "/admin/homepage-containers", permission: "settings.read", icon: Image },
       { name: "Vendor Access", path: "/admin/vendor-access", permission: "dashboard.read", icon: ShieldCheck, legacyOnly: true },
       { name: "Shipping Access", path: "/admin/vendor-access/shipping", permission: "settings.update", icon: Truck, legacyOnly: true },
     ],
@@ -75,6 +76,7 @@ export const ADMIN_SECTION_ITEMS = [
     items: [
       { name: "Payments", path: "/admin/payments", permission: "payments.read", icon: CreditCard, notificationModule: "FINANCE", notificationSubModule: "PAYMENTS" },
       { name: "Refunds", path: "/admin/refunds", permission: "payments.read", icon: RotateCcw, notificationModule: "MANAGEMENT", notificationSubModule: "RETURNS" },
+      { name: "Cancellation Policies", path: "/admin/finance/cancellation-policies", permission: "settings.read", icon: ShieldCheck, notificationModule: "FINANCE", notificationSubModule: "SETTINGS" },
       { name: "Invoices", path: "/admin/finance/invoices", permission: "orders.read", icon: FileSearch, notificationModule: "FINANCE", notificationSubModule: "PAYMENTS" },
       { name: "Payout Management", path: "/admin/finance/payouts", permission: "payouts.read", icon: Wallet, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
       { name: "Commission", path: "/admin/commission", permission: "settings.update", icon: Percent, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },

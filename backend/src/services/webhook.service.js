@@ -135,8 +135,17 @@ class WebhookService {
               },
             });
           }
-          if (order && payment) {
-            await paymentService.applyRefundWalletReversal(order, refund.amount, refund.refundId);
+          if (order) {
+            await orderRepo.updateById(order._id, {
+              paymentStatus:
+                payment && Number(payment.refundedAmount || 0) >= Number(payment.amount || 0)
+                  ? "Refunded"
+                  : "Partially Refunded",
+              "refundSummary.status": "REFUNDED",
+              "refundSummary.processedAt": new Date(),
+              "refundSummary.failureReason": "",
+              refundId: refund._id,
+            });
           }
         }
       }

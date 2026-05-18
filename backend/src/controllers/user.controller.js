@@ -22,7 +22,9 @@ const deleteAddress = asyncHandler(async (req, res) => ok(res, await userService
 const listOrders = asyncHandler(async (req, res) => ok(res, await userService.listOrders(req.user.sub, req.query), "Orders loaded"));
 const getOrder = asyncHandler(async (req, res) => ok(res, await userService.getOrder(req.user.sub, req.params.id), "Order loaded"));
 const getOrderTracking = asyncHandler(async (req, res) => ok(res, await userService.getOrderTracking(req.user.sub, req.params.id), "Tracking loaded"));
-const cancelOrder = asyncHandler(async (req, res) => ok(res, await userService.cancelOrder(req.user.sub, req.params.id, getMeta(req)), "Order cancelled"));
+const cancelOrder = asyncHandler(async (req, res) =>
+  ok(res, await userService.cancelOrder(req.user.sub, req.params.id, { ...(req.body || {}), ...getMeta(req) }), "Order cancelled")
+);
 const requestReturn = asyncHandler(async (req, res) => ok(res, await userService.requestReturn(req.user.sub, req.params.id, req.body, getMeta(req)), "Return requested"));
 const downloadInvoice = asyncHandler(async (req, res) => {
   const invoice = await userService.getInvoice(req.user.sub, req.params.id);

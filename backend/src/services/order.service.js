@@ -8,6 +8,7 @@ const { ORDER_STATUS, PAYMENT_STATUS } = require("../models/Order");
 const checkoutService = require("./checkout.service");
 const inventoryService = require("./inventory.service");
 const productAnalyticsService = require("./product-analytics.service");
+const cancellationRefundService = require("./cancellation-refund.service");
 
 function normalizeAddress(address) {
   const a = address || {};
@@ -60,76 +61,12 @@ class OrderService {
   }
 
   async cancelForUser(userId, orderId) {
-    asObjectId(orderId, "orderId");
-    const order = await orderRepo.findByIdForUser(orderId, userId);
-    if (!order) throw new AppError("Order not found", 404, "NOT_FOUND");
-    if (!["Pending", "Placed"].includes(order.status)) {
-      throw new AppError("Order cannot be cancelled at this stage", 400, "INVALID_OPERATION");
-    }
-    if (order.paymentStatus === "Partially Refunded") {
-      throw new AppError("This order already has a partial refund and needs manual review", 400, "MANUAL_REVIEW_REQUIRED");
-    }
-
-    if (order.paymentStatus === "Paid" && order.paymentRecordId) {
-      const paymentService = require("./payment.service");
-      await paymentService.processRefund({
-        orderId: order._id,
-        paymentId: order.paymentRecordId._id || order.paymentRecordId,
-        amount: Number(order.totalAmount || 0),
-        reason: "Order cancelled by customer before dispatch",
-        actorRole: "system",
-        notes: "Auto-refund triggered during order cancellation.",
-      });
-    }
-
-    if (!order.inventoryCommittedAt) {
-      for (const item of order.items || []) {
-        await inventoryService.unreserveStock(
-          item.productId?._id || item.productId,
-          item.variantId || "",
-          Number(item.quantity || 0),
-          order._id,
-          order.sellerId?._id || order.sellerId,
-          userId
-        );
-      }
-    } else if (!order.inventoryRestoredAt) {
-      for (const item of order.items || []) {
-        await inventoryService.restoreStock(
-          item.productId?._id || item.productId,
-          item.variantId || "",
-          Number(item.quantity || 0),
-          null,
-          order._id,
-          order.sellerId?._id || order.sellerId,
-          userId,
-          "Order cancelled after inventory commit"
-        );
-      }
-    }
-
-    const payouts = await payoutRepo.findByOrderId(order._id);
-    await Promise.all(
-      payouts
-        .filter((payout) => ["ON_HOLD", "PENDING", "QUEUED"].includes(payout.status))
-        .map((payout) =>
-          payoutRepo.updateById(payout._id, {
-            $set: {
-              status: "CANCELLED",
-              notes: "Cancelled because the order was cancelled before fulfillment.",
-            },
-          })
-        )
-    );
-
-    const cancelled = await orderRepo.updateById(orderId, {
-      status: "Cancelled",
-      cancelledAt: new Date(),
-      inventoryReservationReleasedAt: order.inventoryCommittedAt ? order.inventoryReservationReleasedAt : new Date(),
-      inventoryRestoredAt: order.inventoryCommittedAt ? new Date() : order.inventoryRestoredAt,
+    return await cancellationRefundService.processOrderCancellation({
+      orderId,
+      actor: { sub: userId, role: "user" },
+      meta: {},
+      reason: "Order cancelled by customer",
     });
-    await productAnalyticsService.refreshForOrder(orderId);
-    return cancelled;
   }
 
   async requestReturnForUser(userId, orderId) {

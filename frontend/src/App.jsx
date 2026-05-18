@@ -25,6 +25,7 @@ import { AdminVendorDetailsPage } from "./pages/AdminVendorDetailsPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { AdminSellersPage } from "./pages/AdminSellersPage";
 import { ProductsPage } from "./pages/ProductsPage";
+import { HomepageContainerProductsPage } from "./pages/HomepageContainerProductsPage";
 import { AdminProductsPage } from "./pages/AdminProductsPage";
 import { AdminInventoryPage } from "./pages/AdminInventoryPage";
 import { AdminInventoryDetailsPage } from "./pages/AdminInventoryDetailsPage";
@@ -42,6 +43,7 @@ import { AdminSubcategoriesPage } from "./pages/AdminSubcategoriesPage";
 import { AdminAttributesPage } from "./pages/AdminAttributesPage";
 import { AdminProductModulesPage } from "./pages/AdminProductModulesPage";
 import { AdminContentPage } from "./pages/AdminContentPage";
+import { AdminHomepageContainersPage } from "./pages/AdminHomepageContainersPage";
 import AdminVendorAccessPage from "./pages/AdminVendorAccessPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminRolesPage } from "./pages/AdminRolesPage";
@@ -104,7 +106,9 @@ import { StaffProductEdit } from "./pages/StaffProductEdit";
 import { StaffPayoutsPage } from "./pages/StaffPayoutsPage";
 import { StaffPaymentsPage } from "./pages/StaffPaymentsPage";
 import { AdminPaymentsPage } from "./pages/AdminPaymentsPage";
+import { AdminCancellationPoliciesPage } from "./pages/AdminCancellationPoliciesPage";
 import { AdminRefundsPage } from "./pages/AdminRefundsPage";
+import { AdminRefundDetailsPage } from "./pages/AdminRefundDetailsPage";
 import { AdminPayoutsPage } from "./pages/AdminPayoutsPage";
 import { AdminFinancePayoutManagementPage } from "./pages/AdminFinancePayoutManagementPage";
 import { AdminVendorFinancePage } from "./pages/AdminVendorFinancePage";
@@ -146,6 +150,7 @@ export default function App() {
         <Route path="/staff/login" element={<Navigate to="/login" replace />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/shop" element={<ProductsPage />} />
+        <Route path="/collections/:slug" element={<HomepageContainerProductsPage />} />
         <Route path="/product/:productId" element={<ProductDetailsPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/wishlist" element={<WishlistPage />} />
@@ -246,6 +251,7 @@ export default function App() {
               <Route path="attributes" element={<AdminAttributesPage />} />
               <Route path="product-modules" element={<AdminProductModulesPage />} />
               <Route path="content" element={<AdminContentPage />} />
+              <Route path="homepage-containers" element={<AdminHomepageContainersPage />} />
               <Route path="vendor-access" element={<AdminVendorAccessPage />} />
               <Route path="vendor-access/shipping" element={<AdminShippingModesPage />} />
               <Route path="shipping" element={<AdminShippingConfigPage />} />
@@ -256,7 +262,9 @@ export default function App() {
               <Route path="pickups" element={<AdminPickupsPage />} />
               <Route path="payments" element={<AdminPaymentsPage />} />
               <Route path="refunds" element={<AdminRefundsPage />} />
+              <Route path="refunds/:id" element={<AdminRefundDetailsPage />} />
               <Route path="payouts" element={<AdminPayoutsPage />} />
+              <Route path="finance/cancellation-policies" element={<AdminCancellationPoliciesPage />} />
               <Route path="finance/payouts" element={<AdminFinancePayoutManagementPage />} />
               <Route path="finance/invoices" element={<AdminInvoicesPage />} />
               <Route path="finance/invoices/settings" element={<AdminInvoiceSettingsPage />} />

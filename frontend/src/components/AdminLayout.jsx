@@ -71,6 +71,10 @@ const pageMeta = {
     title: "Homepage Content",
     subtitle: "Create and manage dynamic banners, promo cards, and collection content for the homepage.",
   },
+  "/admin/homepage-containers": {
+    title: "Homepage Containers",
+    subtitle: "Configure dynamic merchandising rails, scheduling, and container-driven storefront discovery.",
+  },
   "/admin/vendor-access": {
     title: "Vendor Module Access",
     subtitle: "Control which modules are accessible to vendors globally.",

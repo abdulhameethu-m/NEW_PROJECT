@@ -316,6 +316,9 @@ function buildOrderSummary(order, options = {}) {
       logisticsProvider: order?.deliveryPartner || snapshot.shipping?.logisticsProvider || "",
       shipmentId: order?.shipmentId || snapshot.shipping?.shipmentId || "",
     },
+    cancellation: order?.cancellation || null,
+    refundSummary: order?.refundSummary || null,
+    refundId: order?.refundId || null,
     timeline: buildTimeline(order),
     support: snapshot.support,
     rawStatus: {

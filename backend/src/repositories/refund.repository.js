@@ -14,14 +14,28 @@ class RefundRepository {
 
   async findById(id) {
     return await Refund.findById(id)
-      .populate("orderId", "orderNumber totalAmount paymentStatus paymentMethod status createdAt")
+      .populate({
+        path: "orderId",
+        select: "orderNumber totalAmount paymentStatus paymentMethod status createdAt userId sellerId items cancellation refundSummary shippingAddress billingAddress",
+        populate: [
+          { path: "userId", select: "name email phone" },
+          { path: "sellerId", select: "companyName shopName supportPhone" },
+        ],
+      })
       .populate("paymentId", "amount status method razorpayPaymentId refundedAmount refundStatus")
       .exec();
   }
 
   async findByRefundId(refundId) {
     return await Refund.findOne({ refundId })
-      .populate("orderId", "orderNumber totalAmount paymentStatus paymentMethod status createdAt")
+      .populate({
+        path: "orderId",
+        select: "orderNumber totalAmount paymentStatus paymentMethod status createdAt userId sellerId items cancellation refundSummary shippingAddress billingAddress",
+        populate: [
+          { path: "userId", select: "name email phone" },
+          { path: "sellerId", select: "companyName shopName supportPhone" },
+        ],
+      })
       .populate("paymentId", "amount status method razorpayPaymentId refundedAmount refundStatus")
       .exec();
   }
@@ -36,7 +50,14 @@ class RefundRepository {
     }
 
     return await Refund.find(query)
-      .populate("orderId", "orderNumber totalAmount paymentStatus paymentMethod status createdAt")
+      .populate({
+        path: "orderId",
+        select: "orderNumber totalAmount paymentStatus paymentMethod status createdAt userId sellerId items cancellation refundSummary shippingAddress billingAddress",
+        populate: [
+          { path: "userId", select: "name email phone" },
+          { path: "sellerId", select: "companyName shopName supportPhone" },
+        ],
+      })
       .populate("paymentId", "amount status method razorpayPaymentId refundedAmount refundStatus")
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -45,7 +66,14 @@ class RefundRepository {
 
   async updateById(id, updateData = {}) {
     return await Refund.findByIdAndUpdate(id, asUpdateDocument(updateData), { new: true })
-      .populate("orderId", "orderNumber totalAmount paymentStatus paymentMethod status createdAt")
+      .populate({
+        path: "orderId",
+        select: "orderNumber totalAmount paymentStatus paymentMethod status createdAt userId sellerId items cancellation refundSummary shippingAddress billingAddress",
+        populate: [
+          { path: "userId", select: "name email phone" },
+          { path: "sellerId", select: "companyName shopName supportPhone" },
+        ],
+      })
       .populate("paymentId", "amount status method razorpayPaymentId refundedAmount refundStatus")
       .exec();
   }

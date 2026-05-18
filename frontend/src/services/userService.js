@@ -62,8 +62,23 @@ export async function cancelUserOrder(id) {
   return data;
 }
 
+export async function previewUserOrderCancellation(id, payload = {}) {
+  const { data } = await api.post(`/api/user/orders/${id}/cancel`, { ...payload, previewOnly: true });
+  return data;
+}
+
+export async function confirmUserOrderCancellation(id, payload = {}) {
+  const { data } = await api.post(`/api/user/orders/${id}/cancel`, payload);
+  return data;
+}
+
 export async function requestUserReturn(id, payload) {
   const { data } = await api.post(`/api/user/orders/${id}/return`, payload);
+  return data;
+}
+
+export async function getRefundStatus(id) {
+  const { data } = await api.get(`/api/payments/refund-status/${id}`);
   return data;
 }
 

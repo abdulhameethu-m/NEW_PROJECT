@@ -19,6 +19,7 @@ const { getShippingModesConfig, updateShippingModesConfig } = require("./shippin
 const { normalizeShippingMode } = require("./shipping.service");
 const notificationService = require("./notification.service");
 const productAnalyticsService = require("./product-analytics.service");
+const cancellationRefundService = require("./cancellation-refund.service");
 
 function resolveGlobalShippingModes(configValue = {}) {
   const modes = [];
@@ -610,6 +611,17 @@ async function updateOrder(orderId, patch, actor, meta) {
   if (!oldOrder) throw new AppError("Order not found", 404, "NOT_FOUND");
 
   const nextStatus = patch?.orderStatus ? toStoredOrderStatus(patch.orderStatus) : null;
+  if (nextStatus === "Cancelled") {
+    const result = await cancellationRefundService.processOrderCancellation({
+      orderId,
+      actor,
+      meta,
+      reason: patch?.reason || "Cancelled by admin",
+      notes: patch?.notes,
+      previewOnly: false,
+    });
+    return result.order;
+  }
   const deliveryDetails = patch?.deliveryDetails;
   const nextShippingMode = patch?.shippingMode ? normalizeShippingMode(patch.shippingMode, oldOrder.shippingMode || "SELF") : null;
 
@@ -810,6 +822,15 @@ async function softDeleteOrder(orderId, actor, meta) {
 async function updateOrderStatus(orderId, status, actor, meta) {
   if (!ORDER_STATUS.includes(status)) {
     throw new AppError("Invalid order status", 400, "VALIDATION_ERROR");
+  }
+  if (status === "Cancelled") {
+    const result = await cancellationRefundService.processOrderCancellation({
+      orderId,
+      actor,
+      meta,
+      reason: "Cancelled by admin",
+    });
+    return result.order;
   }
 
   const order = await orderRepo.findById(orderId);

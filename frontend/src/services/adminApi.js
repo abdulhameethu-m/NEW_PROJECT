@@ -284,6 +284,16 @@ export async function cancelOrder(id) {
   return data;
 }
 
+export async function previewAdminOrderCancellation(id, payload = {}) {
+  const { data } = await adminHttp.post(`/api/admin/orders/${id}/cancel`, { ...payload, previewOnly: true });
+  return data;
+}
+
+export async function confirmAdminOrderCancellation(id, payload = {}) {
+  const { data } = await adminHttp.post(`/api/admin/orders/${id}/cancel`, payload);
+  return data;
+}
+
 export async function getOrderById(id) {
   const { data } = await adminHttp.get(`/api/admin/orders/${id}`);
   return data;
@@ -306,6 +316,51 @@ export async function deleteOrder(id) {
 
 export async function getAuditLogs(params = {}) {
   const { data } = await adminHttp.get("/api/admin/audit-logs", { params });
+  return data;
+}
+
+export async function listCancellationPolicies() {
+  const { data } = await adminHttp.get("/api/admin/cancellation-policies");
+  return data;
+}
+
+export async function createCancellationPolicy(payload) {
+  const { data } = await adminHttp.post("/api/admin/cancellation-policy", payload);
+  return data;
+}
+
+export async function updateCancellationPolicy(id, payload) {
+  const { data } = await adminHttp.put(`/api/admin/cancellation-policy/${id}`, payload);
+  return data;
+}
+
+export async function listRefundCases(params = {}) {
+  const { data } = await adminHttp.get("/api/admin/refunds", { params });
+  return data;
+}
+
+export async function getRefundCase(id) {
+  const { data } = await adminHttp.get(`/api/admin/refunds/${id}`);
+  return data;
+}
+
+export async function processRefundCase(id, payload = {}) {
+  const { data } = await adminHttp.post(`/api/admin/refunds/${id}/process`, payload);
+  return data;
+}
+
+export async function markManualRefundCase(id, payload = {}) {
+  const { data } = await adminHttp.post(`/api/admin/refunds/${id}/manual`, payload);
+  return data;
+}
+
+export async function markWalletRefundCase(id, payload = {}) {
+  const { data } = await adminHttp.post(`/api/admin/refunds/${id}/wallet`, payload);
+  return data;
+}
+
+export async function retryRefundCase(id, payload = {}) {
+  const { data } = await adminHttp.post(`/api/admin/refunds/${id}/retry`, payload);
   return data;
 }
 

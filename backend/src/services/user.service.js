@@ -7,6 +7,7 @@ const cartService = require("./cart.service");
 const orderRepo = require("../repositories/order.repository");
 const sessionRepo = require("../repositories/session.repository");
 const auditService = require("./audit.service");
+const cancellationRefundService = require("./cancellation-refund.service");
 const { UserAddress } = require("../models/UserAddress");
 const { UserNotification } = require("../models/UserNotification");
 const { UserSupportTicket } = require("../models/UserSupportTicket");
@@ -418,31 +419,19 @@ class UserService {
   }
 
   async cancelOrder(userId, orderId, meta) {
-    const order = await this.getOrder(userId, orderId);
-    if (!["Pending", "Placed"].includes(order.status)) {
-      throw new AppError("Only placed orders can be cancelled", 400, "INVALID_OPERATION");
+    const result = await cancellationRefundService.processOrderCancellation({
+      orderId,
+      actor: { sub: userId, role: "user" },
+      meta,
+      reason: meta?.reason,
+      notes: meta?.notes,
+      previewOnly: Boolean(meta?.previewOnly),
+    });
+    if (!meta?.previewOnly) {
+      const order = result.order || (await this.getOrder(userId, orderId));
+      await logUserAction(userId, "user.order.cancelled", "Order", orderId, { orderNumber: order.orderNumber }, meta);
     }
-
-    const updated = await orderLifecycleService.cancelForUser(userId, orderId);
-    await logUserAction(userId, "user.order.cancelled", "Order", orderId, { orderNumber: order.orderNumber }, meta);
-    await createNotification(userId, {
-      type: "ORDER",
-      title: "Order cancelled",
-      message: `Order ${order.orderNumber} was cancelled successfully.`,
-      entityType: "Order",
-      entityId: orderId,
-    });
-    await notificationService.notifyVendorAndOperations({
-      vendorId: order.sellerId?._id || order.sellerId,
-      permissionKey: "orders.read",
-      module: "MANAGEMENT",
-      subModule: "ORDERS",
-      type: "ORDER_CANCELLED",
-      title: "Order cancelled",
-      message: `Order ${order.orderNumber} was cancelled by the customer.`,
-      referenceId: orderId,
-    });
-    return updated;
+    return result;
   }
 
   async requestReturn(userId, orderId, payload, meta) {

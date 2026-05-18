@@ -1,6 +1,7 @@
 const { ok } = require("../utils/apiResponse");
 const { asyncHandler } = require("../utils/asyncHandler");
 const paymentService = require("../services/payment.service");
+const cancellationRefundService = require("../services/cancellation-refund.service");
 
 const createRazorpayOrder = asyncHandler(async (req, res) => {
   const { cartId, shippingAddress, trackingToken } = req.body;
@@ -67,13 +68,21 @@ const getPaymentDetails = asyncHandler(async (req, res) => {
 });
 
 const listRefunds = asyncHandler(async (req, res) => {
-  const result = await paymentService.listRefunds(req.query);
+  const result = await cancellationRefundService.listRefunds(req.query);
   return ok(res, result, "Refunds loaded");
 });
 
 const reviewRefund = asyncHandler(async (req, res) => {
-  const result = await paymentService.updateRefundStatus(req.params.id, req.body || {});
+  const result = await cancellationRefundService.processRefundAction(req.params.id, req.user, req.body || {}, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
   return ok(res, result, "Refund updated");
+});
+
+const getRefundStatus = asyncHandler(async (req, res) => {
+  const result = await cancellationRefundService.getRefundStatus(req.params.id, req.user);
+  return ok(res, result, "Refund status loaded");
 });
 
 module.exports = {
@@ -86,5 +95,6 @@ module.exports = {
   getPaymentDetails,
   listRefunds,
   reviewRefund,
+  getRefundStatus,
 };
 

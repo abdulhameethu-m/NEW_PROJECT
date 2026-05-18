@@ -2,6 +2,7 @@ const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const { AppError } = require("../utils/AppError");
 const { Payment } = require("../models/Payment");
+const { Refund } = require("../models/Refund");
 const { PaymentSession } = require("../models/PaymentSession");
 const PaymentGatewayConfig = require("../models/PaymentGatewayConfig");
 const orderRepo = require("../repositories/order.repository");
@@ -1003,9 +1004,36 @@ class PaymentService {
       throw new AppError("Invalid refund amount", 400, "VALIDATION_ERROR");
     }
 
+    if (resolvedPayment.refundStatus === "FULL" || resolvedOrder.refundSummary?.status === "REFUNDED") {
+      throw new AppError("Refund already completed for this order", 409, "REFUND_ALREADY_PROCESSED");
+    }
+
     const remainingRefundable = Number(resolvedPayment.amount || 0) - Number(resolvedPayment.refundedAmount || 0);
     if (refundAmount > remainingRefundable) {
       throw new AppError("Refund amount exceeds captured amount", 400, "INVALID_REFUND_AMOUNT");
+    }
+
+    const idempotencyKey = crypto
+      .createHash("sha256")
+      .update(
+        JSON.stringify({
+          orderId: String(resolvedOrder._id),
+          paymentId: String(resolvedPayment._id),
+          refundAmount: roundMoney(refundAmount),
+          reason: String(reason || ""),
+          gateway: resolvedPayment.method === "ONLINE" && resolvedPayment.razorpayPaymentId ? "RAZORPAY" : "MANUAL",
+        })
+      )
+      .digest("hex");
+
+    const existingRefund = await Refund.findOne({ idempotencyKey });
+    if (existingRefund) {
+      return {
+        refund: existingRefund,
+        payment: await paymentRepo.findById(resolvedPayment._id),
+        order: await orderRepo.findById(resolvedOrder._id),
+        duplicate: true,
+      };
     }
 
     let refundResponse = null;
@@ -1036,12 +1064,30 @@ class PaymentService {
       orderId: resolvedOrder._id,
       paymentId: resolvedPayment._id,
       refundId: refundResponse.id,
+      idempotencyKey,
       amount: refundAmount,
+      grossAmount: refundAmount,
+      deductionAmount: 0,
       status: gateway === "MANUAL" ? "PROCESSED" : "PENDING",
       reason: reason || "Refund requested",
       gateway,
+      refundMethod: gateway,
+      refundType: "ADJUSTMENT",
       requestedByRole: actorRole,
+      paymentMethod: resolvedOrder.paymentMethod,
       gatewayResponse: refundResponse,
+      breakdown: {
+        subtotal: roundMoney(resolvedOrder.subtotal || 0),
+        shipping: roundMoney(resolvedOrder.shippingFee || 0),
+        taxes: roundMoney(resolvedOrder.taxAmount || 0),
+        couponDiscount: roundMoney(resolvedOrder.discountAmount || 0),
+        platformFee: roundMoney(resolvedOrder.platformFee || 0),
+        gatewayFee: roundMoney(resolvedPayment.gatewayFeeAmount || 0),
+        cancellationDeduction: 0,
+        shippingDeduction: 0,
+        vendorCompensation: 0,
+        refundAmount,
+      },
       notes,
       processedAt: gateway === "MANUAL" ? new Date() : undefined,
     });
@@ -1062,6 +1108,18 @@ class PaymentService {
     await orderRepo.updateById(resolvedOrder._id, {
       paymentStatus: nextOrderPaymentStatus,
       refundId: refund._id,
+      refundSummary: {
+        status: gateway === "MANUAL" ? "REFUNDED" : "PROCESSING",
+        method: gateway,
+        amount: refundAmount,
+        deductionAmount: 0,
+        grossAmount: refundAmount,
+        pendingSince: new Date(),
+        processedAt: gateway === "MANUAL" ? new Date() : null,
+        lastAttemptAt: new Date(),
+        retryCount: Number(refund.attemptCount || 0),
+        failureReason: "",
+      },
       fraudFlags: resolvedOrder.fraudFlags,
     });
 
