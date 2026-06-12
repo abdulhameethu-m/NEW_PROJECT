@@ -4,11 +4,47 @@ const productRepo = require("../../repositories/product.repository");
 const influencerService = require("../influencer/service");
 const influencerCommerceEngine = require("../../services/influencer-commerce-engine.service");
 const influencerRateCardService = require("../../services/influencer-rate-card.service");
+const auditService = require("../../services/audit.service");
+const notificationService = require("../../services/notification.service");
 const { emitDomainEvent } = require("../events/event-bus");
 const { INFLUENCER_EVENTS } = require("../shared/constants");
 const { CommissionRecord } = require("../commission/models");
-const { Campaign } = require("./model");
+const {
+  Campaign,
+  CampaignAcceptance,
+  CampaignInvitation,
+  CampaignStatusHistory,
+} = require("./model");
+const { VendorInfluencerRelationship } = require("../influencerCommerce/model");
 const { InfluencerProductAssignment } = require("../influencer/model");
+
+const WORKFLOW = Object.freeze({
+  DRAFT: "draft",
+  PROPOSED: "proposed",
+  INVITATION_SENT: "invitation_sent",
+  PENDING_REVIEW: "pending_review",
+  ACCEPTED: "accepted",
+  REJECTED: "rejected",
+  ACTIVE: "active",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+  EXPIRED: "expired",
+});
+
+const INVITATION_OPEN_STATES = [WORKFLOW.PROPOSED, WORKFLOW.INVITATION_SENT, WORKFLOW.PENDING_REVIEW];
+const ACCEPTED_STATES = [
+  WORKFLOW.ACCEPTED,
+  WORKFLOW.ACTIVE,
+  "product_shipped",
+  "content_in_progress",
+  "content_submitted",
+  "under_review",
+  "revision_requested",
+  "approved",
+  "published",
+  "tracking_active",
+];
+const TERMINAL_STATES = [WORKFLOW.COMPLETED, WORKFLOW.CANCELLED, WORKFLOW.EXPIRED, WORKFLOW.REJECTED];
 
 async function ensureVendorOwnsProducts(vendorId, productIds = []) {
   const products = await Promise.all(productIds.map((productId) => productRepo.findById(productId)));
@@ -19,6 +55,139 @@ async function ensureVendorOwnsProducts(vendorId, productIds = []) {
   if (invalid) {
     throw new AppError("Campaign products must belong to the vendor", 403, "FORBIDDEN");
   }
+}
+
+function profileUserId(profile = {}) {
+  return profile.userId?._id || profile.userId || null;
+}
+
+function campaignDeadline(campaign = {}) {
+  return campaign.marketplace?.applicationDeadline || campaign.deadline || null;
+}
+
+function ensureDeadlineOpen(campaign = {}) {
+  const deadline = campaignDeadline(campaign);
+  if (deadline && new Date(deadline).getTime() < Date.now()) {
+    throw new AppError("Campaign invitation deadline has passed", 409, "CAMPAIGN_INVITATION_EXPIRED");
+  }
+}
+
+async function notifyInfluencerProfile(profile, payload) {
+  const userId = profileUserId(profile);
+  if (!userId) return null;
+  return notificationService.createNotification({
+    userId,
+    role: "INFLUENCER",
+    module: "GROWTH",
+    subModule: "INFLUENCER_COMMERCE",
+    type: "INFLUENCER_COMMERCE",
+    ...payload,
+  }).catch(() => null);
+}
+
+async function notifyVendorUser(vendorId, payload) {
+  return notificationService.notifyVendorUser(vendorId, {
+    module: "GROWTH",
+    subModule: "INFLUENCER_COMMERCE",
+    type: "INFLUENCER_COMMERCE",
+    ...payload,
+  }).catch(() => null);
+}
+
+async function recordStatusChange({ campaign, oldStatus, newStatus, actorId, actorRole, reason = "", metadata = {} }) {
+  await CampaignStatusHistory.create({
+    campaignId: campaign._id,
+    oldStatus: oldStatus || WORKFLOW.DRAFT,
+    newStatus,
+    changedBy: actorId,
+    changedByRole: actorRole,
+    reason,
+    metadata,
+  });
+  await auditService.log({
+    actor: { _id: actorId, role: actorRole },
+    action: "campaign.status.changed",
+    entityType: "Campaign",
+    entityId: campaign._id,
+    metadata: { oldStatus, newStatus, reason, ...metadata },
+  }).catch(() => {});
+}
+
+async function createInvitationRecord({ campaign, influencerId, actorId }) {
+  const now = new Date();
+  const invitation = await CampaignInvitation.findOneAndUpdate(
+    { campaignId: campaign._id, influencerId },
+    {
+      $setOnInsert: {
+        campaignId: campaign._id,
+        vendorId: campaign.vendorId,
+        influencerId,
+        invitedAt: now,
+      },
+      $set: {
+        status: WORKFLOW.INVITATION_SENT,
+        metadata: { title: campaign.title || "", paymentType: campaign.paymentType || "" },
+      },
+    },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+  );
+  await recordStatusChange({
+    campaign,
+    oldStatus: null,
+    newStatus: WORKFLOW.INVITATION_SENT,
+    actorId,
+    actorRole: "vendor",
+    reason: "Campaign invitation sent",
+    metadata: { invitationId: invitation._id, influencerId },
+  });
+  return invitation;
+}
+
+async function ensureAcceptedWorkflowArtifacts({ campaign, profile, userId }) {
+  const now = new Date();
+  await Promise.all([
+    CampaignInvitation.findOneAndUpdate(
+      { campaignId: campaign._id, influencerId: profile._id },
+      {
+        $setOnInsert: {
+          campaignId: campaign._id,
+          vendorId: campaign.vendorId,
+          influencerId: profile._id,
+          invitedAt: campaign.createdAt || now,
+        },
+        $set: { status: WORKFLOW.ACCEPTED, acceptedAt: now },
+      },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    ),
+    CampaignAcceptance.findOneAndUpdate(
+      { campaignId: campaign._id, influencerId: profile._id },
+      {
+        $setOnInsert: {
+          campaignId: campaign._id,
+          vendorId: campaign.vendorId,
+          influencerId: profile._id,
+          acceptedAt: now,
+        },
+        $set: { status: WORKFLOW.ACCEPTED, metadata: { paymentType: campaign.paymentType || "" } },
+      },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    ),
+    VendorInfluencerRelationship.findOneAndUpdate(
+      { vendorId: campaign.vendorId, influencerId: profile._id },
+      {
+        $set: { status: "active", source: "campaign_acceptance", lastActivityAt: now },
+        $addToSet: { activeCampaignIds: campaign._id },
+      },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    ),
+  ]);
+  await auditService.log({
+    actor: { _id: userId, role: "influencer" },
+    action: "campaign.acceptance.confirmed",
+    entityType: "Campaign",
+    entityId: campaign._id,
+    metadata: { campaignId: String(campaign._id), influencerId: String(profile._id), vendorId: String(campaign.vendorId) },
+  }).catch(() => {});
 }
 
 function pushHistory(state, actorId, note = "") {
@@ -88,10 +257,22 @@ function presentCampaign(campaign, profileId) {
     name: product?.name || "Product",
     image: productImage(product),
     category: product?.category || "",
+    description: product?.description || "",
     price: Number(product?.discountPrice || product?.price || 0),
+    storeLink: product?.slug ? `/product/${product.slug}` : product?._id ? `/product/${product._id}` : "",
+    collectionLink: product?.collectionSlug ? `/collections/${product.collectionSlug}` : "",
+    storefrontLink: product?.sellerId?.storeSlug ? `/store/${product.sellerId.storeSlug}` : "",
   }));
   const clicks = Number(campaign.analytics?.clicks || 0);
   const orders = Number(campaign.analytics?.orders || 0);
+  const invitation = campaign.invitation || null;
+  const acceptance = campaign.acceptance || null;
+  const paymentModel = campaign.paymentModelSnapshot || campaign.contractSnapshot?.paymentModel || {};
+  const pricing = campaign.pricing || {};
+  const campaignState = campaign.state || "";
+  const visibleStatus = INVITATION_OPEN_STATES.includes(campaignState)
+    ? invitation?.status || application?.status || campaignState
+    : application?.status || campaignState || invitation?.status;
   return {
     id: campaign._id,
     _id: campaign._id,
@@ -100,11 +281,13 @@ function presentCampaign(campaign, profileId) {
     banner: campaign.banner || products[0]?.image || "",
     brandName: vendorName(campaign.vendorId),
     vendorId: campaign.vendorId,
+    influencerId: campaign.influencerId,
+    marketplacePublic: Boolean(campaign.marketplace?.public),
     campaignType: campaign.campaignType || "affiliate",
     category: campaign.category || products[0]?.category || "General",
     country: campaign.country || "",
     language: campaign.language || "en",
-    budget: Number(campaign.fixedFee || 0),
+    budget: Number(pricing.totalBudget || campaign.fixedFee || 0),
     fixedFee: Number(campaign.fixedFee || 0),
     commissionType: Number(campaign.fixedFee || 0) > 0 ? "hybrid" : "percentage",
     commissionRate: Number(campaign.commissionPercent || 0),
@@ -112,7 +295,7 @@ function presentCampaign(campaign, profileId) {
     productIds: products,
     products,
     state: campaign.state,
-    status: application?.status || campaign.state,
+    status: visibleStatus,
     applicationStatus: application?.status || (String(campaign.influencerId || "") === String(profileId || "") ? campaign.state : ""),
     applicationDate: application?.submittedAt || null,
     expectedEarnings: Number(application?.expectedEarnings || campaign.fixedFee || 0),
@@ -121,6 +304,27 @@ function presentCampaign(campaign, profileId) {
     availableSlots: Number(campaign.marketplace?.availableSlots || 0),
     requiredDeliverables: campaign.marketplace?.requiredDeliverables || [],
     requirements: campaign.marketplace?.requirements || {},
+    paymentType: campaign.paymentType,
+    paymentModel,
+    pricing,
+    influencerRateSnapshot: campaign.influencerRateSnapshot || campaign.contractSnapshot?.influencerRateCard || {},
+    requirementsSnapshot: campaign.requirementsSnapshot || campaign.contractSnapshot?.requirements || {},
+    invitationStatus: invitation?.status || "",
+    invitationDate: invitation?.invitedAt || campaign.createdAt,
+    invitedAt: invitation?.invitedAt || campaign.createdAt,
+    acceptedAt: invitation?.acceptedAt || acceptance?.acceptedAt || null,
+    rejectedAt: invitation?.rejectedAt || null,
+    rejectionReason: invitation?.rejectionReason || "",
+    timeline: {
+      campaignStart: campaign.startDate || campaign.createdAt,
+      contentSubmissionDeadline: campaign.marketplace?.requirements?.contentSubmissionDeadline || campaign.deadline || null,
+      revisionDeadline: campaign.marketplace?.requirements?.revisionDeadline || null,
+      publishingDeadline: campaign.marketplace?.requirements?.publishingDeadline || null,
+      campaignEndDate: campaign.deadline || campaign.marketplace?.applicationDeadline || null,
+      attributionEndDate: campaign.deadline && campaign.attributionWindowDays
+        ? new Date(new Date(campaign.deadline).getTime() + Number(campaign.attributionWindowDays || 0) * 24 * 60 * 60 * 1000)
+        : null,
+    },
     saved: Boolean((campaign.marketplace?.savedBy || []).some((id) => String(id) === String(profileId))),
     analytics: {
       views: Number(campaign.analytics?.views || 0),
@@ -151,17 +355,27 @@ function buildMarketplaceQuery(profileId, query = {}) {
   and.push(scope);
 
   if (tab === "available" || tab === "recommended") {
-    and.push({ state: { $nin: ["completed", "cancelled"] } });
+    and.push({ "marketplace.public": true });
+    and.push({ influencerId: { $ne: profileId } });
+    and.push({ state: { $nin: TERMINAL_STATES } });
     and.push({ applications: { $not: { $elemMatch: { influencerId: profileId } } } });
   }
-  if (tab === "applied") {
-    and.push({ "applications.influencerId": profileId });
+  if (tab === "invitations" || tab === "invitation" || tab === "applied") {
+    and.push({ influencerId: profileId, state: { $in: INVITATION_OPEN_STATES } });
   }
-  if (tab === "active") {
+  if (tab === "accepted" || tab === "active") {
     and.push({
       $or: [
-        { state: "active", influencerId: profileId },
-        { state: "active", applications: { $elemMatch: { influencerId: profileId, status: "approved" } } },
+        { influencerId: profileId, state: { $in: ACCEPTED_STATES } },
+        { state: { $in: [WORKFLOW.ACTIVE, ...ACCEPTED_STATES] }, applications: { $elemMatch: { influencerId: profileId, status: "approved" } } },
+      ],
+    });
+  }
+  if (tab === "rejected") {
+    and.push({
+      $or: [
+        { influencerId: profileId, state: WORKFLOW.REJECTED },
+        { applications: { $elemMatch: { influencerId: profileId, status: "rejected" } } },
       ],
     });
   }
@@ -240,10 +454,24 @@ class CampaignService {
       influencerRateSnapshot: pricing.influencerSnapshot,
       requirementsSnapshot: pricing.influencerSnapshot?.requirements || {},
       deadline: payload.deadline,
-      state: "proposed",
-      history: [pushHistory("proposed", userId, "Campaign proposed by vendor")],
+      state: WORKFLOW.INVITATION_SENT,
+      history: [pushHistory(WORKFLOW.INVITATION_SENT, userId, "Campaign invitation sent by vendor")],
     });
     await influencerRateCardService.attachCampaignPricing(campaign, pricing);
+    await createInvitationRecord({ campaign, influencerId: influencer._id, actorId: userId });
+    await notifyInfluencerProfile(influencer, {
+      title: "Campaign invitation",
+      message: `${vendorName(vendor)} invited you to review ${campaign.title || "a campaign"}.`,
+      referenceId: campaign._id,
+      meta: { campaignId: String(campaign._id), vendorId: String(vendor._id), invitationStatus: WORKFLOW.INVITATION_SENT },
+    });
+    await auditService.log({
+      actor: { _id: userId, role: "vendor" },
+      action: "campaign.invitation.sent",
+      entityType: "CampaignInvitation",
+      entityId: campaign._id,
+      metadata: { campaignId: String(campaign._id), influencerId: String(influencer._id), vendorId: String(vendor._id) },
+    }).catch(() => {});
     await influencerCommerceEngine.ensureCampaignBudgetControl(campaign, pricing.budgetValue || payload.budget || campaign.fixedFee || 0);
     return campaign;
   }
@@ -255,11 +483,21 @@ class CampaignService {
     if (String(campaign.influencerId) !== String(profile._id)) {
       throw new AppError("Forbidden", 403, "FORBIDDEN");
     }
-    if (!["proposed", "accepted"].includes(campaign.state)) {
+    if (ACCEPTED_STATES.includes(campaign.state)) {
+      await ensureAcceptedWorkflowArtifacts({ campaign, profile, userId });
+      return campaign;
+    }
+    if (!INVITATION_OPEN_STATES.includes(campaign.state)) {
       throw new AppError("Campaign cannot be accepted in the current state", 400, "INVALID_STATE");
     }
+    ensureDeadlineOpen(campaign);
+    const subscription = await influencerCommerceEngine.getVendorSubscription(campaign.vendorId);
+    if (!subscription) {
+      throw new AppError("Vendor subscription must be active before accepting this campaign", 403, "SUBSCRIPTION_REQUIRED");
+    }
 
-    const state = "active";
+    const oldStatus = campaign.state;
+    const state = WORKFLOW.ACCEPTED;
     const updated = await Campaign.findByIdAndUpdate(
       campaignId,
       {
@@ -270,23 +508,70 @@ class CampaignService {
             fixedFee: campaign.fixedFee,
             productIds: campaign.productIds,
             deadline: campaign.deadline,
+            paymentType: campaign.paymentType,
+            attributionWindowDays: campaign.attributionWindowDays,
+            pricing: campaign.pricing,
+            paymentModelSnapshot: campaign.paymentModelSnapshot,
+            influencerRateSnapshot: campaign.influencerRateSnapshot,
+            requirementsSnapshot: campaign.requirementsSnapshot,
             frozenAt: new Date(),
           },
         },
         $push: {
           history: {
-            $each: [pushHistory("accepted", userId, "Influencer accepted"), pushHistory(state, userId, "Campaign activated")],
+            $each: [pushHistory(state, userId, "Influencer accepted the campaign invitation")],
           },
         },
       },
       { returnDocument: "after" }
     );
 
+    const acceptance = await CampaignAcceptance.findOneAndUpdate(
+      { campaignId: updated._id, influencerId: profile._id },
+      {
+        $setOnInsert: {
+          campaignId: updated._id,
+          vendorId: updated.vendorId,
+          influencerId: profile._id,
+          acceptedAt: new Date(),
+        },
+        $set: { status: state, metadata: { subscriptionId: subscription._id, paymentType: updated.paymentType } },
+      },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    );
+    await CampaignInvitation.findOneAndUpdate(
+      { campaignId: updated._id, influencerId: profile._id },
+      { $set: { status: state, acceptedAt: new Date() } },
+      { upsert: false }
+    );
+    await VendorInfluencerRelationship.findOneAndUpdate(
+      { vendorId: updated.vendorId, influencerId: profile._id },
+      {
+        $set: { status: "active", source: "campaign_acceptance", lastActivityAt: new Date() },
+        $addToSet: { activeCampaignIds: updated._id },
+      },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    );
     await upsertProductAssignments({ campaign: updated, influencerId: updated.influencerId, status: "accepted", source: "influencer_acceptance", actorId: userId });
     const locked = await influencerRateCardService.lockCampaignContract(updated._id, {
       influencerId: updated.influencerId,
       actorId: userId,
       source: "influencer_acceptance",
+    });
+    await recordStatusChange({
+      campaign: updated,
+      oldStatus,
+      newStatus: state,
+      actorId: userId,
+      actorRole: "influencer",
+      reason: "Influencer accepted campaign invitation",
+      metadata: { acceptanceId: acceptance._id, influencerId: String(profile._id), vendorId: String(updated.vendorId) },
+    });
+    await notifyVendorUser(updated.vendorId, {
+      title: "Campaign accepted",
+      message: `${profile.displayName || profile.userId?.name || "Creator"} accepted ${updated.title || "your campaign"}.`,
+      referenceId: updated._id,
+      meta: { campaignId: String(updated._id), influencerId: String(profile._id), status: state },
     });
 
     await emitDomainEvent(INFLUENCER_EVENTS.CAMPAIGN_ACTIVATED, {
@@ -305,22 +590,49 @@ class CampaignService {
     if (String(campaign.influencerId) !== String(profile._id)) {
       throw new AppError("Forbidden", 403, "FORBIDDEN");
     }
-    if (!["proposed"].includes(campaign.state)) {
-      throw new AppError("Only proposed campaigns can be declined", 400, "INVALID_STATE");
+    if (!INVITATION_OPEN_STATES.includes(campaign.state)) {
+      throw new AppError("Only open campaign invitations can be declined", 400, "INVALID_STATE");
     }
 
-    return await Campaign.findByIdAndUpdate(
+    const oldStatus = campaign.state;
+    const updated = await Campaign.findByIdAndUpdate(
       campaignId,
       {
-        $set: { state: "cancelled" },
+        $set: { state: WORKFLOW.REJECTED },
         $push: {
           history: {
-            $each: [pushHistory("cancelled", userId, note || "Influencer declined the proposal")],
+            $each: [pushHistory(WORKFLOW.REJECTED, userId, note || "Influencer rejected the campaign invitation")],
           },
         },
       },
       { returnDocument: "after" }
     );
+    await CampaignInvitation.findOneAndUpdate(
+      { campaignId: updated._id, influencerId: profile._id },
+      { $set: { status: WORKFLOW.REJECTED, rejectedAt: new Date(), rejectionReason: note || "" } },
+      { upsert: false }
+    );
+    await VendorInfluencerRelationship.findOneAndUpdate(
+      { vendorId: updated.vendorId, influencerId: profile._id },
+      { $set: { status: "invited", source: "campaign_rejection", lastActivityAt: new Date() } },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    );
+    await recordStatusChange({
+      campaign: updated,
+      oldStatus,
+      newStatus: WORKFLOW.REJECTED,
+      actorId: userId,
+      actorRole: "influencer",
+      reason: note || "Influencer rejected campaign invitation",
+      metadata: { influencerId: String(profile._id), vendorId: String(updated.vendorId) },
+    });
+    await notifyVendorUser(updated.vendorId, {
+      title: "Campaign rejected",
+      message: `${profile.displayName || profile.userId?.name || "Creator"} rejected ${updated.title || "your campaign"}.`,
+      referenceId: updated._id,
+      meta: { campaignId: String(updated._id), influencerId: String(profile._id), status: WORKFLOW.REJECTED, reason: note || "" },
+    });
+    return updated;
   }
 
   async listForVendor(userId) {
@@ -350,7 +662,7 @@ class CampaignService {
 
     const [items, total] = await Promise.all([
       Campaign.find(filter)
-        .populate("productIds", "name category price discountPrice images thumbnail")
+        .populate({ path: "productIds", select: "name slug description category price discountPrice images thumbnail sellerId", populate: { path: "sellerId", select: "storeSlug shopName companyName" } })
         .populate("vendorId", "shopName companyName logoUrl")
         .sort(marketplaceSort(query.sort || tab))
         .skip(skip)
@@ -358,8 +670,19 @@ class CampaignService {
         .lean(),
       Campaign.countDocuments(filter),
     ]);
+    const campaignIds = items.map((campaign) => campaign._id);
+    const [invitations, acceptances] = campaignIds.length
+      ? await Promise.all([
+        CampaignInvitation.find({ campaignId: { $in: campaignIds }, influencerId: profile._id }).lean(),
+        CampaignAcceptance.find({ campaignId: { $in: campaignIds }, influencerId: profile._id }).lean(),
+      ])
+      : [[], []];
+    const invitationMap = new Map(invitations.map((row) => [String(row.campaignId), row]));
+    const acceptanceMap = new Map(acceptances.map((row) => [String(row.campaignId), row]));
 
     const rows = items.map((item) => {
+      item.invitation = invitationMap.get(String(item._id)) || null;
+      item.acceptance = acceptanceMap.get(String(item._id)) || null;
       const row = presentCampaign(item, profile._id);
       if (tab === "recommended") {
         const categoryMatch = profile.categories?.some((category) => String(category).toLowerCase() === String(row.category).toLowerCase());

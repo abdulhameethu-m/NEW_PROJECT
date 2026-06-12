@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 import {
   applyCampaignMarketplace,
+  acceptCampaign,
   acceptFixedCampaign,
+  rejectCampaign,
   rejectFixedCampaign,
   generateAffiliateProductLinks,
   getCampaignMarketplaceAnalytics,
@@ -38,8 +40,9 @@ const TABS = [
   { id: "services", label: "My Services" },
   { id: "available", label: "Available Campaigns" },
   { id: "recommended", label: "Recommended Campaigns" },
-  { id: "applied", label: "Applied Campaigns" },
-  { id: "active", label: "Active Campaigns" },
+  { id: "invitations", label: "Campaign Invitations" },
+  { id: "accepted", label: "Accepted Campaigns" },
+  { id: "rejected", label: "Rejected Campaigns" },
   { id: "completed", label: "Completed Campaigns" },
   { id: "fixed", label: "Fixed Campaigns" },
   { id: "analytics", label: "Campaign Analytics" },
@@ -67,12 +70,24 @@ function campaignProductIds(campaign) {
     .map(String);
 }
 
-function CampaignCard({ campaign, onApply, onSave, onSubmitDeliverable, onGenerateLink, busyId }) {
+function formatDate(value) {
+  return value ? new Date(value).toLocaleDateString() : "Not set";
+}
+
+function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, onSave, onSubmitDeliverable, onGenerateLink, busyId }) {
   const busy = busyId === campaign.id;
   const applicationStatus = campaign.applicationStatus || "";
-  const isApplied = ["submitted", "pending_review", "shortlisted", "approved", "active", "completed"].includes(applicationStatus);
-  const isActive = ["approved", "active", "completed"].includes(applicationStatus);
+  const openInvitationStatuses = ["invitation_sent", "proposed", "pending_review"];
+  const campaignState = campaign.state || "";
+  const workflowStatus = campaignState && !openInvitationStatuses.includes(campaignState)
+    ? campaignState
+    : applicationStatus || campaign.status || campaignState || "";
+  const canAccept = openInvitationStatuses.includes(workflowStatus) && (!campaignState || openInvitationStatuses.includes(campaignState));
+  const canReject = canAccept;
+  const isApplied = ["submitted", "pending_review", "shortlisted", "approved", "accepted", "active", "completed"].includes(applicationStatus);
+  const isActive = ["approved", "accepted", "active", "product_shipped", "content_in_progress", "content_submitted", "under_review", "revision_requested", "published", "tracking_active", "completed"].includes(workflowStatus);
   const isWaiting = ["submitted", "pending_review", "shortlisted"].includes(applicationStatus);
+  const canApply = campaign.marketplacePublic && !isApplied && !canAccept;
   const deadline = campaign.applicationDeadline || campaign.deadline;
   const productIds = campaignProductIds(campaign);
   const contentHref = `/influencer/content?campaignId=${campaign.id}${productIds.length ? `&productIds=${encodeURIComponent(productIds.join(","))}` : ""}`;
@@ -96,7 +111,7 @@ function CampaignCard({ campaign, onApply, onSave, onSubmitDeliverable, onGenera
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{campaign.category || "General"} - {statusLabel(campaign.campaignType)}</p>
           </div>
           <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-            {statusLabel(campaign.applicationStatus || campaign.state)}
+            {statusLabel(workflowStatus)}
           </span>
         </div>
 
@@ -119,7 +134,7 @@ function CampaignCard({ campaign, onApply, onSave, onSubmitDeliverable, onGenera
           </div>
           <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950/60">
             <p className="text-xs text-slate-500 dark:text-slate-400">Deadline</p>
-            <p className="mt-1 font-semibold text-slate-950 dark:text-white">{deadline ? new Date(deadline).toLocaleDateString() : "Open"}</p>
+            <p className="mt-1 font-semibold text-slate-950 dark:text-white">{deadline ? formatDate(deadline) : "Open"}</p>
           </div>
         </div>
 
@@ -130,7 +145,28 @@ function CampaignCard({ campaign, onApply, onSave, onSubmitDeliverable, onGenera
         ) : null}
 
         <div className="mt-auto flex flex-wrap gap-2">
-          {!isApplied ? (
+          {canAccept ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onAccept(campaign)}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Accept
+            </button>
+          ) : null}
+          {canReject ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onReject(campaign)}
+              className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-300 dark:hover:bg-rose-950/30"
+            >
+              Reject
+            </button>
+          ) : null}
+          {canApply ? (
             <button
               type="button"
               disabled={busy}
@@ -141,6 +177,14 @@ function CampaignCard({ campaign, onApply, onSave, onSubmitDeliverable, onGenera
               Apply
             </button>
           ) : null}
+          <button
+            type="button"
+            onClick={() => onViewDetails(campaign)}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <ExternalLink className="h-4 w-4" />
+            View Details
+          </button>
           {isActive ? (
             <button
               type="button"
@@ -197,6 +241,257 @@ function CampaignCard({ campaign, onApply, onSave, onSubmitDeliverable, onGenera
         ) : null}
       </div>
     </article>
+  );
+}
+
+function detailValue(value) {
+  if (value === null || value === undefined || value === "") return "Not provided";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) {
+    const values = value.map((item) => detailValue(item)).filter((item) => item !== "Not provided");
+    return values.length ? values.join(", ") : "Not provided";
+  }
+  if (typeof value === "object") {
+    const values = Object.values(value).filter((item) => item !== null && item !== undefined && item !== "");
+    return values.length ? values.join(", ") : "Not provided";
+  }
+  return String(value);
+}
+
+function hasDetailValue(value) {
+  if (value === null || value === undefined || value === "") return false;
+  if (Array.isArray(value)) return value.some(hasDetailValue);
+  if (typeof value === "object") return Object.values(value).some(hasDetailValue);
+  return true;
+}
+
+function firstDetailValue(...values) {
+  return values.find(hasDetailValue);
+}
+
+function formatDays(value) {
+  if (!hasDetailValue(value)) return "Not provided";
+  const days = Number(value);
+  return Number.isFinite(days) ? `${days} ${days === 1 ? "day" : "days"}` : detailValue(value);
+}
+
+function formatPercent(value) {
+  if (!hasDetailValue(value)) return "Not provided";
+  const percent = Number(value);
+  return Number.isFinite(percent) ? `${percent}%` : detailValue(value);
+}
+
+function formatRequirementCurrency(value) {
+  if (!hasDetailValue(value)) return "Not provided";
+  return formatCurrency(value);
+}
+
+function formatLocation(value) {
+  if (!hasDetailValue(value)) return "Not provided";
+  if (typeof value === "string") return value;
+  if (typeof value !== "object") return detailValue(value);
+  const parts = [value.city, value.state, value.country].filter(Boolean);
+  return parts.length ? parts.join(", ") : "Not provided";
+}
+
+function selectedServiceLabel(service = {}) {
+  const name = service.packageName || service.serviceName || statusLabel(service.serviceTypeKey || "Service");
+  const quantity = Number(service.quantity || service.units || 0);
+  const pieces = [];
+  if (quantity) pieces.push(`${quantity} ${quantity === 1 ? "unit" : "units"}`);
+  if (service.deliveryDays) pieces.push(`${service.deliveryDays}d delivery`);
+  if (service.revisionCount) pieces.push(`${service.revisionCount} rev`);
+  const price = service.price || service.packagePrice;
+  if (price) pieces.push(formatCurrency(price));
+  return pieces.length ? `${name} - ${pieces.join(" - ")}` : name;
+}
+
+function dynamicRequirementFields(requirements = {}) {
+  return requirements.dynamicFields && typeof requirements.dynamicFields === "object" && !Array.isArray(requirements.dynamicFields)
+    ? requirements.dynamicFields
+    : {};
+}
+
+function selectedServicesFromRequirements(requirements = {}) {
+  const services = dynamicRequirementFields(requirements).selectedServices;
+  return Array.isArray(services) ? services.map(selectedServiceLabel).filter(Boolean) : [];
+}
+
+function campaignRequirementRows(requirements = {}) {
+  const dynamicFields = dynamicRequirementFields(requirements);
+  const rows = [];
+  const add = (label, value, formatter = detailValue) => {
+    if (!hasDetailValue(value)) return;
+    const display = formatter(value);
+    if (display !== "Not provided") rows.push([label, display]);
+  };
+
+  add("Minimum budget", requirements.minimumBudget, formatRequirementCurrency);
+  add("Minimum attribution", firstDetailValue(requirements.minimumAttributionDays, dynamicFields.attributionDays), formatDays);
+  add("Commission", firstDetailValue(dynamicFields.commissionPercent, requirements.commissionPercent), formatPercent);
+  add("Languages", requirements.languages);
+  add("Preferred categories", firstDetailValue(requirements.preferredCategories, requirements.categories));
+  add("Location", requirements.location, formatLocation);
+  add("Target audience", requirements.targetAudience);
+  add("Delivery time", requirements.deliveryTime);
+  add("Communication", requirements.communicationPreferences);
+  add("Notes", requirements.notes);
+  add("Product required", requirements.productRequired);
+  add("Sample required", requirements.sampleRequired);
+  add("Product return", requirements.productReturnRequired);
+  add("Shipping required", requirements.shippingRequired);
+  add("Brand guidelines", requirements.brandGuidelinesRequired);
+  add("Creative approval", requirements.creativeApprovalRequired);
+  add("Content approval", requirements.contentApprovalRequired);
+  add("Milestone payment", dynamicFields.milestonePayment);
+
+  return rows;
+}
+
+function DetailBlock({ title, children }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h3>
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+function KeyValueGrid({ rows }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {rows.map(([label, value]) => (
+        <div key={label} className="rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-950/60">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+          <p className="mt-1 break-words font-semibold text-slate-950 dark:text-white">{value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CampaignDetailsPanel({ campaign, onClose, onAccept, onReject, busyId }) {
+  if (!campaign) return null;
+  const openInvitationStatuses = ["invitation_sent", "proposed", "pending_review"];
+  const campaignState = campaign.state || "";
+  const status = campaignState && !openInvitationStatuses.includes(campaignState)
+    ? campaignState
+    : campaign.applicationStatus || campaign.status || campaignState || "";
+  const canAct = openInvitationStatuses.includes(status) && (!campaignState || openInvitationStatuses.includes(campaignState));
+  const products = campaign.products || campaign.productIds || [];
+  const paymentModel = campaign.paymentModel || {};
+  const pricing = campaign.pricing || {};
+  const requirements = { ...(campaign.requirementsSnapshot || {}), ...(campaign.requirements || {}) };
+  const requirementRows = campaignRequirementRows(requirements);
+  const deliverables = [
+    ...(campaign.requiredDeliverables || []),
+    ...selectedServicesFromRequirements(requirements),
+    ...((paymentModel.selectedServices || paymentModel.services || []).map((service) => `${service.serviceName || service.serviceTypeKey || "Service"}: ${service.quantity || service.units || 1}`)),
+  ].filter(Boolean);
+  const timeline = campaign.timeline || {};
+
+  return (
+    <div className="grid gap-4 rounded-3xl border border-indigo-200 bg-indigo-50/40 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/10">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">Campaign details</p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">{campaign.title || "Campaign"}</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{campaign.description || "No campaign description provided."}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {canAct ? (
+            <>
+              <button type="button" disabled={busyId === campaign.id} onClick={() => onAccept(campaign)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                <CheckCircle2 className="h-4 w-4" />
+                Accept
+              </button>
+              <button type="button" disabled={busyId === campaign.id} onClick={() => onReject(campaign)} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-300">
+                Reject
+              </button>
+            </>
+          ) : null}
+          <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">
+            Close
+          </button>
+        </div>
+      </div>
+
+      <DetailBlock title="Campaign information">
+        <KeyValueGrid rows={[
+          ["Campaign type", statusLabel(campaign.campaignType)],
+          ["Payment model", statusLabel(campaign.paymentType || paymentModel.paymentType)],
+          ["Campaign budget", formatCurrency(campaign.budget || pricing.totalBudget || 0)],
+          ["Campaign status", statusLabel(status)],
+          ["Brand", campaign.brandName || "Brand"],
+          ["Vendor", campaign.brandName || "Vendor"],
+          ["Category", campaign.category || "General"],
+          ["Invitation date", formatDate(campaign.invitedAt || campaign.invitationDate)],
+          ["Start date", formatDate(timeline.campaignStart)],
+          ["End date", formatDate(timeline.campaignEndDate || campaign.deadline)],
+          ["Application deadline", formatDate(campaign.applicationDeadline || campaign.deadline)],
+        ]} />
+      </DetailBlock>
+
+      <DetailBlock title="Products to promote">
+        <div className="grid gap-3 md:grid-cols-2">
+          {products.length ? products.map((product) => (
+            <div key={product.id || product._id || product.name} className="grid grid-cols-[72px_1fr] gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+              <div className="h-16 w-16 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+                {product.image ? <img src={product.image} alt="" className="h-full w-full object-cover" /> : null}
+              </div>
+              <div className="min-w-0 text-sm">
+                <p className="font-semibold text-slate-950 dark:text-white">{product.name || "Product"}</p>
+                <p className="text-slate-500">{product.category || "General"} - {formatCurrency(product.price || 0)}</p>
+                <p className="mt-1 line-clamp-2 text-slate-600 dark:text-slate-300">{product.description || "No product description provided."}</p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-300">
+                  {product.storeLink ? <Link to={product.storeLink}>Store link</Link> : null}
+                  {product.collectionLink ? <Link to={product.collectionLink}>Collection link</Link> : null}
+                  {product.storefrontLink ? <Link to={product.storefrontLink}>Storefront link</Link> : null}
+                </div>
+              </div>
+            </div>
+          )) : <p className="text-sm text-slate-500">No products attached.</p>}
+        </div>
+      </DetailBlock>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <DetailBlock title="Deliverables">
+          {deliverables.length ? (
+            <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
+              {deliverables.map((item, index) => <li key={`${item}-${index}`} className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-950/60">{item}</li>)}
+            </ul>
+          ) : <p className="text-sm text-slate-500">No deliverables configured.</p>}
+        </DetailBlock>
+        <DetailBlock title="Timeline">
+          <KeyValueGrid rows={[
+            ["Campaign start", formatDate(timeline.campaignStart)],
+            ["Content submission", formatDate(timeline.contentSubmissionDeadline)],
+            ["Revision deadline", formatDate(timeline.revisionDeadline)],
+            ["Publishing deadline", formatDate(timeline.publishingDeadline)],
+            ["Campaign end", formatDate(timeline.campaignEndDate)],
+            ["Attribution end", formatDate(timeline.attributionEndDate)],
+          ]} />
+        </DetailBlock>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <DetailBlock title="Payment model">
+          <KeyValueGrid rows={[
+            ["Fixed fee", formatCurrency(campaign.fixedFee || paymentModel.fixedFee || 0)],
+            ["Commission", `${campaign.commissionPercent || paymentModel.commissionPercentage || 0}%`],
+            ["Attribution window", `${campaign.attributionWindowDays || paymentModel.attributionDays || 0} days`],
+            ["Product value", formatCurrency(pricing.productCost || paymentModel.productValue || 0)],
+            ["Shipping", formatCurrency(pricing.shippingCost || paymentModel.shippingCost || 0)],
+            ["Estimated earnings", formatCurrency(campaign.expectedEarnings || campaign.fixedFee || pricing.fixedCost || 0)],
+          ]} />
+        </DetailBlock>
+        <DetailBlock title="Requirements">
+          {requirementRows.length ? (
+            <KeyValueGrid rows={requirementRows} />
+          ) : <p className="text-sm text-slate-500">No extra requirements provided.</p>}
+        </DetailBlock>
+      </div>
+    </div>
   );
 }
 
@@ -697,6 +992,7 @@ export default function InfluencerCampaignsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [filters, setFilters] = useState({ search: "", campaignType: "", sort: "newest" });
+  const [selectedCampaign, setSelectedCampaign] = useState(null);
 
   const tab = useMemo(() => TABS.find((item) => item.id === activeTab) ? activeTab : "available", [activeTab]);
 
@@ -752,6 +1048,39 @@ export default function InfluencerCampaignsPage() {
       await loadCampaigns();
     } catch (err) {
       setError(err?.response?.data?.message || "Application failed.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function handleAcceptCampaign(campaign) {
+    setBusyId(campaign.id);
+    setError("");
+    setMessage("");
+    try {
+      await acceptCampaign(campaign.id);
+      setMessage("Campaign accepted. It moved to Accepted Campaigns.");
+      setSelectedCampaign(null);
+      await loadCampaigns();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Campaign acceptance failed.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function handleRejectCampaign(campaign) {
+    const note = window.prompt("Optional reason: Too Busy, Budget Too Low, Not Relevant, Other", "");
+    setBusyId(campaign.id);
+    setError("");
+    setMessage("");
+    try {
+      await rejectCampaign(campaign.id, note || "");
+      setMessage("Campaign rejected. It moved to Rejected Campaigns.");
+      setSelectedCampaign(null);
+      await loadCampaigns();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Campaign rejection failed.");
     } finally {
       setBusyId("");
     }
@@ -976,6 +1305,14 @@ export default function InfluencerCampaignsPage() {
         </div>
       ) : null}
 
+      <CampaignDetailsPanel
+        campaign={selectedCampaign}
+        onClose={() => setSelectedCampaign(null)}
+        onAccept={handleAcceptCampaign}
+        onReject={handleRejectCampaign}
+        busyId={busyId}
+      />
+
       {tab === "services" ? (
         loading ? (
           <div className="h-80 animate-pulse rounded-2xl bg-slate-200/70 dark:bg-slate-800" />
@@ -1013,6 +1350,9 @@ export default function InfluencerCampaignsPage() {
                 key={campaign.id}
                 campaign={campaign}
                 onApply={handleApply}
+                onAccept={handleAcceptCampaign}
+                onReject={handleRejectCampaign}
+                onViewDetails={setSelectedCampaign}
                 onSave={handleSave}
                 onSubmitDeliverable={handleSubmitDeliverable}
                 onGenerateLink={handleGenerateLink}

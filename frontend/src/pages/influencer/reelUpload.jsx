@@ -13,7 +13,8 @@ export default function InfluencerReelUploadPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
-  const activeCampaigns = campaigns.filter((c) => c.state === "active");
+  const contentReadyStates = new Set(["accepted", "active", "product_shipped", "content_in_progress", "content_submitted", "under_review", "revision_requested", "approved", "published", "tracking_active"]);
+  const activeCampaigns = campaigns.filter((c) => contentReadyStates.has(c.state));
 
   const loadCampaigns = useCallback(async () => {
     try {
@@ -93,7 +94,7 @@ export default function InfluencerReelUploadPage() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
         <h1 className="text-xl font-semibold text-slate-950 dark:text-white">Upload</h1>
         <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-          Campaign (active only)
+          Campaign
           <select
             required
             className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
@@ -109,7 +110,7 @@ export default function InfluencerReelUploadPage() {
           </select>
         </label>
         {!activeCampaigns.length ? (
-          <p className="text-xs text-amber-700 dark:text-amber-300">Accept a campaign first — reels can only attach to active campaigns.</p>
+          <p className="text-xs text-amber-700 dark:text-amber-300">Accept a campaign first. Reels can attach to accepted or active campaigns.</p>
         ) : null}
 
         <div

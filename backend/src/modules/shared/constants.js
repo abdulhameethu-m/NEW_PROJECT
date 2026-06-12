@@ -13,7 +13,30 @@ const INFLUENCER_CATEGORIES = [
 ];
 
 const INFLUENCER_STATES = ["draft", "submitted", "verified", "active", "suspended"];
-const CAMPAIGN_STATES = ["draft", "proposed", "accepted", "active", "paused", "completed", "cancelled"];
+const CAMPAIGN_WORKFLOW_STATUSES = [
+  "draft",
+  "proposed",
+  "invitation_sent",
+  "pending_review",
+  "accepted",
+  "rejected",
+  "active",
+  "paused",
+  "product_shipped",
+  "content_in_progress",
+  "content_submitted",
+  "under_review",
+  "revision_requested",
+  "approved",
+  "published",
+  "tracking_active",
+  "completed",
+  "cancelled",
+  "expired",
+];
+const CAMPAIGN_STATES = CAMPAIGN_WORKFLOW_STATUSES;
+const CAMPAIGN_INVITATION_STATUSES = ["invitation_sent", "viewed", "accepted", "rejected", "expired", "cancelled"];
+const CAMPAIGN_ACCEPTANCE_STATUSES = ["accepted", "active", "completed", "cancelled"];
 const REEL_STATES = ["uploaded", "pending_review", "approved", "published", "rejected"];
 const COMMISSION_STATES = ["HOLD", "SETTLED", "CANCELLED", "REVERSED"];
 
@@ -31,6 +54,9 @@ const INFLUENCER_EVENTS = {
 module.exports = {
   INFLUENCER_CATEGORIES,
   INFLUENCER_STATES,
+  CAMPAIGN_WORKFLOW_STATUSES,
+  CAMPAIGN_INVITATION_STATUSES,
+  CAMPAIGN_ACCEPTANCE_STATUSES,
   CAMPAIGN_STATES,
   REEL_STATES,
   COMMISSION_STATES,

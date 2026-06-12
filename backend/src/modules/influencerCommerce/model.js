@@ -26,7 +26,7 @@ const vendorInfluencerRelationshipSchema = new mongoose.Schema(
     },
     source: {
       type: String,
-      enum: ["discovery", "campaign_invite", "campaign_application", "content", "order_attribution", "manual"],
+      enum: ["discovery", "campaign_invite", "campaign_acceptance", "campaign_rejection", "campaign_application", "content", "order_attribution", "manual"],
       default: "manual",
       index: true,
     },

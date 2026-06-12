@@ -1,5 +1,10 @@
 const mongoose = require("mongoose");
-const { CAMPAIGN_STATES } = require("../shared/constants");
+const {
+  CAMPAIGN_ACCEPTANCE_STATUSES,
+  CAMPAIGN_INVITATION_STATUSES,
+  CAMPAIGN_STATES,
+  CAMPAIGN_WORKFLOW_STATUSES,
+} = require("../shared/constants");
 
 const campaignSchema = new mongoose.Schema(
   {
@@ -164,6 +169,59 @@ campaignSchema.index({ "applications.influencerId": 1, "applications.status": 1 
 campaignSchema.index({ paymentType: 1, attributionWindowDays: 1 });
 campaignSchema.index({ "contractSnapshot.locked": 1, state: 1 });
 
+const campaignInvitationSchema = new mongoose.Schema(
+  {
+    campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", required: true, index: true },
+    vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor", required: true, index: true },
+    influencerId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerProfile", required: true, index: true },
+    status: { type: String, enum: CAMPAIGN_INVITATION_STATUSES, default: "invitation_sent", index: true },
+    invitedAt: { type: Date, default: Date.now, index: true },
+    viewedAt: { type: Date },
+    acceptedAt: { type: Date },
+    rejectedAt: { type: Date },
+    rejectionReason: { type: String, trim: true, maxlength: 500, default: "" },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, collection: "campaign_invitations" }
+);
+
+campaignInvitationSchema.index({ campaignId: 1, influencerId: 1 }, { unique: true });
+campaignInvitationSchema.index({ influencerId: 1, status: 1, invitedAt: -1 });
+
+const campaignAcceptanceSchema = new mongoose.Schema(
+  {
+    campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", required: true, index: true },
+    vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor", required: true, index: true },
+    influencerId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerProfile", required: true, index: true },
+    acceptedAt: { type: Date, default: Date.now, index: true },
+    status: { type: String, enum: CAMPAIGN_ACCEPTANCE_STATUSES, default: "accepted", index: true },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, collection: "campaign_acceptances" }
+);
+
+campaignAcceptanceSchema.index({ campaignId: 1, influencerId: 1 }, { unique: true });
+campaignAcceptanceSchema.index({ influencerId: 1, status: 1, acceptedAt: -1 });
+
+const campaignStatusHistorySchema = new mongoose.Schema(
+  {
+    campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", required: true, index: true },
+    oldStatus: { type: String, enum: CAMPAIGN_WORKFLOW_STATUSES, default: "draft" },
+    newStatus: { type: String, enum: CAMPAIGN_WORKFLOW_STATUSES, required: true, index: true },
+    changedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    changedByRole: { type: String, trim: true, default: "" },
+    changedAt: { type: Date, default: Date.now, index: true },
+    reason: { type: String, trim: true, maxlength: 1000, default: "" },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, collection: "campaign_status_history" }
+);
+
+campaignStatusHistorySchema.index({ campaignId: 1, changedAt: -1 });
+
 module.exports = {
   Campaign: mongoose.models.Campaign || mongoose.model("Campaign", campaignSchema),
+  CampaignInvitation: mongoose.models.CampaignInvitation || mongoose.model("CampaignInvitation", campaignInvitationSchema),
+  CampaignAcceptance: mongoose.models.CampaignAcceptance || mongoose.model("CampaignAcceptance", campaignAcceptanceSchema),
+  CampaignStatusHistory: mongoose.models.CampaignStatusHistory || mongoose.model("CampaignStatusHistory", campaignStatusHistorySchema),
 };

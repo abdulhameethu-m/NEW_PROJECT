@@ -10,7 +10,7 @@ const paymentService = require("../../services/payment.service");
 const influencerCommerceEngine = require("../../services/influencer-commerce-engine.service");
 const influencerRateCardService = require("../../services/influencer-rate-card.service");
 const { AppError } = require("../../utils/AppError");
-const { Campaign } = require("../campaign/model");
+const { Campaign, CampaignStatusHistory } = require("../campaign/model");
 const { CommissionRecord } = require("../commission/models");
 const { InfluencerProfile, InfluencerSocialAccount, InfluencerProductAssignment } = require("../influencer/model");
 const { Reel } = require("../reel/model");
@@ -19,6 +19,7 @@ const { Product } = require("../../models/Product");
 const { Order } = require("../../models/Order");
 const { emitDomainEvent } = require("../events/event-bus");
 const { VendorInfluencerRelationship, InfluencerService } = require("./model");
+const { CAMPAIGN_STATES } = require("../shared/constants");
 const {
   VendorSubscriptionPlan,
   VendorSubscription,
@@ -1279,12 +1280,6 @@ class InfluencerCommerceVendorService {
         source: "campaign_invite",
         campaignId: campaign._id,
       });
-      await notifyInfluencer(campaign.influencerId, {
-        title: "Campaign invitation",
-        message: "A vendor invited you to a campaign.",
-        referenceId: campaign._id,
-        meta: { campaignId: campaign._id, vendorId: vendor._id },
-      });
       await emitDomainEvent(SYNC_EVENTS.CAMPAIGN_INVITED, { campaignId: campaign._id, vendorId: vendor._id, influencerId: campaign.influencerId });
     } else {
       const productIds = Array.isArray(payload.productIds) ? payload.productIds : [];
@@ -1486,7 +1481,7 @@ class InfluencerCommerceVendorService {
     const vendor = await this.getVendor(userId);
     const action = String(payload.action || "").toLowerCase();
     const state = action === "pause" ? "paused" : action === "close" ? "completed" : action === "activate" ? "active" : payload.state;
-    if (!["draft", "proposed", "accepted", "active", "paused", "completed", "cancelled"].includes(state)) {
+    if (!CAMPAIGN_STATES.includes(state)) {
       throw new AppError("Invalid campaign state", 400, "INVALID_STATE");
     }
     const current = await Campaign.findOne({ _id: campaignId, vendorId: vendor._id }).select("state").lean();
@@ -1500,7 +1495,16 @@ class InfluencerCommerceVendorService {
       { $set: { state }, $push: { history: { state, actorId: userId, note: payload.note || `Campaign ${state}`, changedAt: new Date() } } },
       { returnDocument: "after" }
     );
-    await auditService.log({ actor: { _id: userId, role: "vendor" }, action: "campaign.status.update", entityType: "Campaign", entityId: campaign._id, metadata: { state } }).catch(() => {});
+    await CampaignStatusHistory.create({
+      campaignId: campaign._id,
+      oldStatus: current.state,
+      newStatus: state,
+      changedBy: userId,
+      changedByRole: "vendor",
+      reason: payload.note || `Campaign ${state}`,
+      metadata: { action },
+    }).catch(() => {});
+    await auditService.log({ actor: { _id: userId, role: "vendor" }, action: "campaign.status.update", entityType: "Campaign", entityId: campaign._id, metadata: { oldStatus: current.state, newStatus: state } }).catch(() => {});
     return campaign;
   }
 

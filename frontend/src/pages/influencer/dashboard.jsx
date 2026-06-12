@@ -596,7 +596,7 @@ export default function InfluencerDashboardPage() {
                   <p className="text-sm text-slate-500">{item.brand} - {item.commissionPercent}% commission - invited {compactDate(item.startDate)}</p>
                   {item.appliedRuleType ? <p className="mt-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300">Rule type: {item.appliedRuleType}</p> : null}
                 </div>
-                <Link to="/influencer/campaigns" className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">Review</Link>
+                <Link to="/influencer/campaigns?tab=invitations" className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">Review</Link>
               </div>
             )) : <EmptyState label="No pending campaign invitations" />}
           </div>
