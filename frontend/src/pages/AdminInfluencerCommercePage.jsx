@@ -28,7 +28,6 @@ import {
   getAdminCommunicationCenter,
   getAdminCreatorPerformance,
   getAdminInfluencerCommerceDashboard,
-  getAdminFixedCampaignSettings,
   getAdminInfluencerReports,
   getAdminInfluencerSettings,
   getAdminInfluencerVendorMatching,
@@ -69,7 +68,6 @@ import {
   simulateCommissionEngine,
   updateAdminFraudAlert,
   updateAdminInfluencerCommerceCampaign,
-  updateAdminFixedCampaignSettings,
   updateAdminInfluencerCommission,
   updateAdminInfluencerSettings,
   updateAdminInfluencerWithdrawal,
@@ -508,18 +506,7 @@ export function AdminInfluencerCommercePage() {
       ]);
       return { data: { ...(overview?.data || {}), auditLogs: audit?.data?.items || [], auditPagination: audit?.data?.pagination } };
     },
-    settings: async () => {
-      const [settings, fixedSettings] = await Promise.all([
-        getAdminInfluencerSettings(),
-        getAdminFixedCampaignSettings().catch(() => ({ data: {} })),
-      ]);
-      return {
-        data: {
-          settings: unwrap(settings),
-          fixedCampaignSettings: unwrap(fixedSettings),
-        },
-      };
-    },
+    settings: getAdminInfluencerSettings,
   }), []);
 
   const load = useCallback(async (silentOrEvent = false) => {
@@ -2751,56 +2738,9 @@ function ConfigurationEngineView({ data, runAction, busyId }) {
   );
 }
 
-function fixedCampaignSettingsToForm(settings = {}) {
-  return {
-    attributionWindowDays: Number(settings.attributionWindowDays || 30),
-    dedupeMinutes: Number(settings.analyticsSettings?.dedupeMinutes ?? 10),
-    requireVendorApproval: settings.contentApprovalRules?.requireVendorApproval !== false,
-    allowChangeRequests: settings.contentApprovalRules?.allowChangeRequests !== false,
-    requireAcceptedCampaign: settings.paymentReleaseRules?.requireAcceptedCampaign !== false,
-    requireApprovedContent: settings.paymentReleaseRules?.requireApprovedContent !== false,
-    autoReleaseOnApproval: Boolean(settings.paymentReleaseRules?.autoReleaseOnApproval),
-  };
-}
-
 function SettingsView({ data, runAction, busyId }) {
   const settings = data.settings || data || {};
-  const fixedSettings = data.fixedCampaignSettings || {};
-  const [fixedForm, setFixedForm] = useState(() => fixedCampaignSettingsToForm(fixedSettings));
   const enabled = Boolean(settings.enabled ?? settings.influencerCommerceEnabled);
-
-  useEffect(() => {
-    setFixedForm(fixedCampaignSettingsToForm(fixedSettings));
-  }, [fixedSettings]);
-
-  function updateFixedSetting(key, value) {
-    setFixedForm((current) => ({ ...current, [key]: value }));
-  }
-
-  function saveFixedSettings() {
-    return runAction(
-      "save-fixed-campaign-settings",
-      () => updateAdminFixedCampaignSettings({
-        attributionWindowDays: Number(fixedForm.attributionWindowDays || 30),
-        analyticsSettings: {
-          ...(fixedSettings.analyticsSettings || {}),
-          dedupeMinutes: Number(fixedForm.dedupeMinutes || 0),
-        },
-        contentApprovalRules: {
-          ...(fixedSettings.contentApprovalRules || {}),
-          requireVendorApproval: Boolean(fixedForm.requireVendorApproval),
-          allowChangeRequests: Boolean(fixedForm.allowChangeRequests),
-        },
-        paymentReleaseRules: {
-          ...(fixedSettings.paymentReleaseRules || {}),
-          requireAcceptedCampaign: Boolean(fixedForm.requireAcceptedCampaign),
-          requireApprovedContent: Boolean(fixedForm.requireApprovedContent),
-          autoReleaseOnApproval: Boolean(fixedForm.autoReleaseOnApproval),
-        },
-      }),
-      "Fixed campaign settings updated."
-    );
-  }
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
@@ -2832,38 +2772,6 @@ function SettingsView({ data, runAction, busyId }) {
           </ActionButton>
         </div>
       </Section>
-      <div className="xl:col-span-2">
-        <Section title="Fixed Campaign Settings" icon={CheckCircle2}>
-          <div className="grid gap-3 md:grid-cols-3">
-            <ConfigSelect
-              label="Attribution Window"
-              value={String(fixedForm.attributionWindowDays)}
-              onChange={(value) => updateFixedSetting("attributionWindowDays", Number(value))}
-              options={[
-                { value: "30", label: "30 days" },
-                { value: "60", label: "60 days" },
-                { value: "90", label: "90 days" },
-              ]}
-            />
-            <ConfigInput label="Event Dedupe Minutes" value={fixedForm.dedupeMinutes} onChange={(value) => updateFixedSetting("dedupeMinutes", value)} />
-            <div className="rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Payment Basis</p>
-              <p className="mt-2 font-semibold text-slate-950 dark:text-white">Fixed deliverables only</p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Revenue attribution stays analytics-only and payout-excluded.</p>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-2 md:grid-cols-3">
-            <ConfigCheckbox label="Vendor content approval" checked={fixedForm.requireVendorApproval} onChange={(value) => updateFixedSetting("requireVendorApproval", value)} />
-            <ConfigCheckbox label="Allow change requests" checked={fixedForm.allowChangeRequests} onChange={(value) => updateFixedSetting("allowChangeRequests", value)} />
-            <ConfigCheckbox label="Require accepted campaign" checked={fixedForm.requireAcceptedCampaign} onChange={(value) => updateFixedSetting("requireAcceptedCampaign", value)} />
-            <ConfigCheckbox label="Require approved content" checked={fixedForm.requireApprovedContent} onChange={(value) => updateFixedSetting("requireApprovedContent", value)} />
-            <ConfigCheckbox label="Auto release on approval" checked={fixedForm.autoReleaseOnApproval} onChange={(value) => updateFixedSetting("autoReleaseOnApproval", value)} />
-          </div>
-          <div className="mt-4 flex justify-end">
-            <ActionButton icon={CheckCircle2} disabled={busyId === "save-fixed-campaign-settings"} onClick={saveFixedSettings}>Save Fixed Campaign Settings</ActionButton>
-          </div>
-        </Section>
-      </div>
     </div>
   );
 }

@@ -30,6 +30,7 @@ const CAMPAIGN_WORKFLOW_STATUSES = [
   "approved",
   "published",
   "tracking_active",
+  "partially_completed",
   "completed",
   "cancelled",
   "expired",

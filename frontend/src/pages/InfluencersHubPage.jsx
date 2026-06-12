@@ -87,6 +87,9 @@ export function InfluencersHubPage() {
   const params = useParams();
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const userRole = useAuthStore((state) => state.user?.role);
+  const canLoadInfluencerProducts = isAuthenticated && String(userRole || "").toLowerCase() === "influencer";
+  const canLoadFollowedStores = isAuthenticated && String(userRole || "").toLowerCase() === "user";
   const section = params.section || "home";
   const [creators, setCreators] = useState([]);
   const [reels, setReels] = useState([]);
@@ -110,8 +113,8 @@ export function InfluencersHubPage() {
         const [creatorRes, reelRes, productRes, followedRes] = await Promise.allSettled([
           listInfluencers({ search: query, limit: 24, followingOnly: section === "following" ? "true" : undefined }),
           getReelFeed({ tab: section === "trending" ? "trending" : "for_you", limit: 12 }),
-          listAffiliateProducts({ search: query, limit: 12 }),
-          getMyFollowedStores({ limit: 12 }),
+          canLoadInfluencerProducts ? listAffiliateProducts({ search: query, limit: 12 }) : Promise.resolve(null),
+          canLoadFollowedStores ? getMyFollowedStores({ limit: 12 }) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         if (creatorRes.status === "fulfilled") {
@@ -130,7 +133,9 @@ export function InfluencersHubPage() {
           setSavedIds((current) => rows.reduce((next, reel) => ({ ...next, [reel._id]: Boolean(reel.engagement?.viewer?.saved) }), current));
         }
         if (productRes.status === "fulfilled") setProducts(productRes.value?.data?.items || productRes.value?.data || []);
+        else setProducts([]);
         if (followedRes.status === "fulfilled") setFollowedStores(followedRes.value?.data?.followers || followedRes.value?.data?.items || followedRes.value?.data || []);
+        else setFollowedStores([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -139,7 +144,7 @@ export function InfluencersHubPage() {
     return () => {
       cancelled = true;
     };
-  }, [query, section]);
+  }, [canLoadFollowedStores, canLoadInfluencerProducts, query, section]);
 
   const suggestedCreators = useMemo(() => creators.slice(0, 6), [creators]);
   const trendingCreators = useMemo(() => [...creators].sort((a, b) => Number(b.followers || 0) - Number(a.followers || 0)).slice(0, 12), [creators]);

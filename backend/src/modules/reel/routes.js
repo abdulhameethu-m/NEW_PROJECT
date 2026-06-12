@@ -32,7 +32,7 @@ function prepareReelUploadBody(req, _res, next) {
 router.post(
   "/media",
   authRequired,
-  requireRole("influencer"),
+  requireRole("influencer", "admin", "super_admin"),
   optionalReelMediaUpload,
   controller.uploadMedia
 );
@@ -40,7 +40,7 @@ router.post(
 router.post(
   "/upload",
   authRequired,
-  requireRole("influencer"),
+  requireRole("influencer", "admin", "super_admin"),
   optionalReelVideoUpload,
   prepareReelUploadBody,
   validate(

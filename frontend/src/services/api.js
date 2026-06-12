@@ -11,9 +11,20 @@ export const api = axios.create({
 api.interceptors.request.use(attachCsrfHeader);
 
 let refreshPromise = null;
+let refreshUnavailable = false;
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    const requestPath = res?.config?.url || "";
+    if (
+      requestPath.includes("/api/auth/login") ||
+      requestPath.includes("/api/auth/register") ||
+      requestPath.includes("/api/auth/refresh")
+    ) {
+      refreshUnavailable = false;
+    }
+    return res;
+  },
   async (err) => {
     const status = err?.response?.status;
     const originalRequest = err?.config;
@@ -33,6 +44,11 @@ api.interceptors.response.use(
     if (status === 401 && originalRequest && !originalRequest._retry) {
       const { setAuth, logout } = useAuthStore.getState();
 
+      if (refreshUnavailable) {
+        logout();
+        return Promise.reject(err);
+      }
+
       originalRequest._retry = true;
 
       try {
@@ -42,10 +58,12 @@ api.interceptors.response.use(
 
         const response = await refreshPromise;
         refreshPromise = null;
+        refreshUnavailable = false;
         setAuth(response.data.data);
         return api(originalRequest);
       } catch (refreshError) {
         refreshPromise = null;
+        refreshUnavailable = true;
         logout();
         return Promise.reject(refreshError);
       }

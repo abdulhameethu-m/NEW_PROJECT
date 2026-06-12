@@ -1,5 +1,5 @@
 import { logger } from "../services/logger/logger.js";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthStore } from "../context/authStore";
 import useAuthCartStore from "../context/authCartStore";
 import useGuestCartStore from "../context/guestCartStore";
@@ -29,10 +29,7 @@ export const useCart = () => {
    */
   const isGuest = !isAuthenticated;
 
-  /**
-   * Get current cart (either guest or auth)
-   */
-  const getCurrentCart = useCallback(() => {
+  const currentCart = useMemo(() => {
     if (isGuest) {
       return {
         items: guestCart.items,
@@ -40,10 +37,14 @@ export const useCart = () => {
         itemCount: guestCart.getItemCount(),
         totalQuantity: guestCart.getTotalQuantity(),
       };
-    } else {
-      return normalizeCartPayload(authCart);
     }
+    return authCart;
   }, [authCart, guestCart, isGuest]);
+
+  /**
+   * Get current cart (either guest or auth)
+   */
+  const getCurrentCart = useCallback(() => currentCart, [currentCart]);
 
   /**
    * Fetch authenticated user's cart
@@ -311,7 +312,7 @@ export const useCart = () => {
 
   return {
     // State
-    cart: getCurrentCart(),
+    cart: currentCart,
     isGuest,
     loading,
     error,

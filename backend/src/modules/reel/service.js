@@ -96,6 +96,25 @@ function campaignAllowsInfluencerContent(campaign, influencerId) {
   ));
 }
 
+const CONTENT_READY_CAMPAIGN_STATES = new Set([
+  "accepted",
+  "active",
+  "product_shipped",
+  "content_in_progress",
+  "content_submitted",
+  "under_review",
+  "revision_requested",
+  "approved",
+  "published",
+  "tracking_active",
+  "partially_completed",
+  "completed",
+]);
+
+function campaignAcceptsCreatorContent(campaign = {}) {
+  return CONTENT_READY_CAMPAIGN_STATES.has(String(campaign.state || "").toLowerCase());
+}
+
 async function deleteLocalReelAsset(url = "") {
   const value = cleanString(url);
   if (!value.startsWith("/uploads/reels/")) return;
@@ -246,8 +265,8 @@ class ReelService {
       if (!campaignAllowsInfluencerContent(campaign, profile._id)) {
         throw new AppError("Campaign does not belong to this influencer", 403, "FORBIDDEN");
       }
-      if (campaign.state !== "active") {
-        throw new AppError("Reels can only be submitted for active campaigns", 400, "CAMPAIGN_NOT_ACTIVE");
+      if (!campaignAcceptsCreatorContent(campaign)) {
+        throw new AppError("Reels can only be submitted for accepted or active campaigns", 400, "CAMPAIGN_NOT_ACTIVE");
       }
       const allowedProducts = new Set((campaign.productIds || []).map(String));
       const requestedProducts = (payload.productIds || []).map(String);
@@ -309,7 +328,7 @@ class ReelService {
       }
       if (campaignId) {
         const campaign = await Campaign.findById(campaignId).lean();
-        if (!campaign || !campaignAllowsInfluencerContent(campaign, profile._id) || campaign.state !== "active") {
+        if (!campaign || !campaignAllowsInfluencerContent(campaign, profile._id) || !campaignAcceptsCreatorContent(campaign)) {
           throw new AppError("Campaign does not allow product tagging", 403, "FORBIDDEN");
         }
         const allowedProducts = new Set((campaign.productIds || []).map(String));

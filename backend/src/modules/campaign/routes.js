@@ -88,6 +88,42 @@ router.post(
 
 router.get("/vendor", vendorAuth, controller.vendor);
 router.get("/influencer", authRequired, requireRole("influencer"), controller.influencer);
+router.get("/influencer/:campaignId/execution", authRequired, requireRole("influencer"), controller.influencerExecution);
+router.post(
+  "/influencer/:campaignId/check-completion",
+  authRequired,
+  requireRole("influencer"),
+  validate(Joi.object({ campaignId: Joi.string().required() }), "params"),
+  controller.checkCompletion
+);
+router.post(
+  "/influencer/:campaignId/deliverables/:deliverableId/submissions",
+  authRequired,
+  requireRole("influencer"),
+  validate(
+    Joi.object({
+      contentUrl: Joi.string().trim().max(1200).required(),
+      contentType: Joi.string().valid("video", "image", "document", "url", "youtube", "instagram", "facebook", "tiktok", "other").default("url"),
+      notes: Joi.string().trim().max(1000).allow("").default(""),
+    })
+  ),
+  controller.submitExecution
+);
+router.get("/vendor/execution/review-queue", vendorAuth, validate(Joi.object({ campaignId: Joi.string().trim().allow("").optional(), status: Joi.string().trim().allow("").optional(), limit: Joi.number().integer().min(1).max(100).optional() }), "query"), controller.reviewQueue);
+router.get("/vendor/:campaignId/execution", vendorAuth, controller.vendorExecution);
+router.patch(
+  "/vendor/:campaignId/deliverables/:deliverableId/review",
+  vendorAuth,
+  validate(
+    Joi.object({
+      submissionId: Joi.string().trim().allow("").optional(),
+      decision: Joi.string().valid("approve", "reject", "revision_requested", "changes").required(),
+      comments: Joi.string().trim().max(1500).allow("").default(""),
+      note: Joi.string().trim().max(1500).allow("").default(""),
+    })
+  ),
+  controller.reviewExecution
+);
 router.get("/marketplace", authRequired, requireRole("influencer"), controller.marketplace);
 router.get("/marketplace/analytics", authRequired, requireRole("influencer"), controller.analytics);
 router.post(

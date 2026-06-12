@@ -481,73 +481,33 @@ export async function submitCampaignDeliverable(campaignId, payload = {}) {
   return data;
 }
 
+export async function getCampaignExecution(campaignId) {
+  const { data } = await api.get(`/api/campaign/influencer/${campaignId}/execution`);
+  return data;
+}
+
+export async function submitCampaignExecutionDeliverable(campaignId, deliverableId, payload = {}) {
+  const { data } = await api.post(`/api/campaign/influencer/${campaignId}/deliverables/${deliverableId}/submissions`, payload);
+  return data;
+}
+
+export async function getVendorCampaignExecution(campaignId) {
+  const { data } = await api.get(`/api/campaign/vendor/${campaignId}/execution`);
+  return data;
+}
+
+export async function getVendorDeliverableReviewQueue(params = {}) {
+  const { data } = await api.get("/api/campaign/vendor/execution/review-queue", { params: compactParams(params) });
+  return data;
+}
+
+export async function reviewCampaignExecutionDeliverable(campaignId, deliverableId, payload = {}) {
+  const { data } = await api.patch(`/api/campaign/vendor/${campaignId}/deliverables/${deliverableId}/review`, payload);
+  return data;
+}
+
 export async function getCampaignMarketplaceAnalytics(params = {}) {
   const { data } = await api.get("/api/campaign/marketplace/analytics", { params });
-  return data;
-}
-
-export async function previewFixedCampaign(payload = {}) {
-  const { data } = await api.post("/api/fixed-campaigns/preview", payload);
-  return data;
-}
-
-export async function createFixedCampaign(payload = {}) {
-  const { data } = await api.post("/api/fixed-campaigns", payload);
-  return data;
-}
-
-export async function getVendorFixedCampaigns(params = {}) {
-  const { data } = await api.get("/api/fixed-campaigns/vendor", { params: compactParams(params) });
-  return data;
-}
-
-export async function getVendorFixedCampaignAnalytics(params = {}) {
-  const { data } = await api.get("/api/fixed-campaigns/vendor/analytics", { params: compactParams(params) });
-  return data;
-}
-
-export async function reviewFixedCampaignContent(submissionId, payload = {}) {
-  const { data } = await api.patch(`/api/fixed-campaigns/content/${submissionId}/review`, payload);
-  return data;
-}
-
-export async function releaseFixedCampaignPayment(campaignId, payload = {}) {
-  const { data } = await api.post(`/api/fixed-campaigns/${campaignId}/release-payment`, payload);
-  return data;
-}
-
-export async function cancelFixedCampaign(campaignId, payload = {}) {
-  const { data } = await api.post(`/api/fixed-campaigns/${campaignId}/cancel`, payload);
-  return data;
-}
-
-export async function getInfluencerFixedCampaigns(params = {}) {
-  const { data } = await api.get("/api/fixed-campaigns/influencer", { params: compactParams(params) });
-  return data;
-}
-
-export async function getInfluencerFixedCampaignAnalytics(params = {}) {
-  const { data } = await api.get("/api/fixed-campaigns/influencer/analytics", { params: compactParams(params) });
-  return data;
-}
-
-export async function acceptFixedCampaign(campaignId) {
-  const { data } = await api.post(`/api/fixed-campaigns/${campaignId}/accept`);
-  return data;
-}
-
-export async function rejectFixedCampaign(campaignId, note = "") {
-  const { data } = await api.post(`/api/fixed-campaigns/${campaignId}/reject`, { note });
-  return data;
-}
-
-export async function submitFixedCampaignContent(campaignId, payload = {}) {
-  const { data } = await api.post(`/api/fixed-campaigns/${campaignId}/content`, payload);
-  return data;
-}
-
-export async function trackFixedCampaignEvent(payload = {}) {
-  const { data } = await api.post("/api/fixed-campaigns/track", payload);
   return data;
 }
 
@@ -700,6 +660,11 @@ export async function createInfluencerLiveSession(payload) {
 
 export async function clickTracking(payload) {
   const { data } = await api.post("/api/tracking/click", payload);
+  return data;
+}
+
+export async function checkAndCompleteCampaign(campaignId) {
+  const { data } = await api.post(`/api/campaign/influencer/${campaignId}/check-completion`);
   return data;
 }
 

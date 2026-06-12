@@ -45,6 +45,21 @@ function getItemKey(productId, variantId = "") {
   return `${String(productId)}::${String(variantId || "")}`;
 }
 
+function normalizeVariantAttributes(attributes = {}) {
+  const normalized = {};
+  if (!attributes || typeof attributes !== "object" || Array.isArray(attributes)) return normalized;
+
+  for (const [rawKey, rawValue] of Object.entries(attributes)) {
+    const key = String(rawKey || "").trim().replace(/\./g, "_");
+    if (!key || key.startsWith("$") || key === "__proto__" || key === "constructor" || key === "prototype") continue;
+    if (rawValue === null || rawValue === undefined) continue;
+    const value = typeof rawValue === "object" ? JSON.stringify(rawValue) : String(rawValue);
+    normalized[key.slice(0, 80)] = value.slice(0, 200);
+  }
+
+  return normalized;
+}
+
 async function resolveSellerIdForProduct(product) {
   if (product?.sellerId) return product.sellerId;
   if (product?.creatorType === "ADMIN" && product?.createdBy?._id) {
@@ -112,7 +127,7 @@ class GuestCartService {
       variantId: variant?.variantId || "",
       variantSku: variant?.sku || "",
       variantTitle: variant?.title || "",
-      variantAttributes: variant?.attributes || {},
+      variantAttributes: normalizeVariantAttributes(variant?.attributes),
     };
   }
 

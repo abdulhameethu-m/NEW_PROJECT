@@ -16,6 +16,21 @@ function computeTotal(items = []) {
   return items.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0), 0);
 }
 
+function normalizeVariantAttributes(attributes = {}) {
+  const normalized = {};
+  if (!attributes || typeof attributes !== "object" || Array.isArray(attributes)) return normalized;
+
+  for (const [rawKey, rawValue] of Object.entries(attributes)) {
+    const key = String(rawKey || "").trim().replace(/\./g, "_");
+    if (!key || key.startsWith("$") || key === "__proto__" || key === "constructor" || key === "prototype") continue;
+    if (rawValue === null || rawValue === undefined) continue;
+    const value = typeof rawValue === "object" ? JSON.stringify(rawValue) : String(rawValue);
+    normalized[key.slice(0, 80)] = value.slice(0, 200);
+  }
+
+  return normalized;
+}
+
 class CartMergeService {
   /**
    * Merge guest cart items into user cart
@@ -79,7 +94,7 @@ class CartMergeService {
             userCart.items[existingIdx].image = enriched.image;
             userCart.items[existingIdx].variantSku = enriched.variantSku;
             userCart.items[existingIdx].variantTitle = enriched.variantTitle;
-            userCart.items[existingIdx].variantAttributes = enriched.variantAttributes;
+            userCart.items[existingIdx].variantAttributes = normalizeVariantAttributes(enriched.variantAttributes);
             mergeResult.merged++;
           } catch (validationError) {
             // Quantity too high, keep user's current quantity but report conflict
@@ -101,7 +116,7 @@ class CartMergeService {
             variantId: guestItem.variantId,
             variantSku: guestItem.variantSku,
             variantTitle: guestItem.variantTitle,
-            variantAttributes: guestItem.variantAttributes,
+            variantAttributes: normalizeVariantAttributes(guestItem.variantAttributes),
           });
           mergeResult.merged++;
         }

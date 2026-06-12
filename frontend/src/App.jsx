@@ -70,6 +70,7 @@ const InfluencerCollectionsPage = lazyDefault(() => import("./pages/influencer/c
 const InfluencerAffiliateProductsPage = lazyDefault(() => import("./pages/influencer/affiliateProducts.jsx"));
 const InfluencerAffiliateLinksPage = lazyDefault(() => import("./pages/influencer/affiliateLinks.jsx"));
 const InfluencerCampaignsPage = lazyDefault(() => import("./pages/influencer/campaigns.jsx"));
+const InfluencerCampaignExecutionPage = lazyDefault(() => import("./pages/influencer/campaignExecution.jsx"));
 const InfluencerContentCenterPage = lazyDefault(() => import("./pages/influencer/contentCenter.jsx"));
 const InfluencerReelUploadPage = lazyDefault(() => import("./pages/influencer/reelUpload.jsx"));
 const InfluencerReelsPage = lazyDefault(() => import("./pages/influencer/reels.jsx"));
@@ -253,6 +254,7 @@ export default function App() {
               <Route path="/influencer/affiliate-products" element={<InfluencerAffiliateProductsPage />} />
               <Route path="/influencer/affiliate-links" element={<InfluencerAffiliateLinksPage />} />
               <Route path="/influencer/campaigns" element={<InfluencerCampaignsPage />} />
+              <Route path="/influencer/campaigns/:campaignId/content" element={<InfluencerCampaignExecutionPage />} />
               <Route path="/influencer/content" element={<InfluencerContentCenterPage />} />
               <Route path="/influencer/reels/upload" element={<InfluencerReelUploadPage />} />
               <Route path="/influencer/reels" element={<InfluencerReelsPage />} />
@@ -300,7 +302,6 @@ export default function App() {
               <Route path="influencer-commerce/discover" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/relationships" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/campaigns" element={<VendorInfluencerPage />} />
-              <Route path="influencer-commerce/fixed" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/products" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/affiliate" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/content" element={<VendorInfluencerPage />} />
