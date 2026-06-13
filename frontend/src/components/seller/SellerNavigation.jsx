@@ -37,13 +37,13 @@ export function SellerBadge({ seller, compact = false }) {
   );
 }
 
-export function SellerNameLink({ seller, className = "", showPrefix = true, preview = true }) {
+export function SellerNameLink({ seller, className = "", showPrefix = true, preview = true, disableLink = false }) {
   const normalized = normalizeSeller(seller);
   if (!normalized) return null;
   const content = (
     <span className={`group/seller relative inline-flex items-center gap-1.5 ${className}`}>
       {showPrefix ? <span className="text-slate-500 dark:text-slate-400">Sold By:</span> : null}
-      {normalized.storeUrl ? (
+      {normalized.storeUrl && !disableLink ? (
         <Link
           to={normalized.storeUrl}
           onClick={(event) => {
@@ -57,9 +57,13 @@ export function SellerNameLink({ seller, className = "", showPrefix = true, prev
           {normalized.verified ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> : null}
         </Link>
       ) : (
-        <SellerBadge seller={normalized} />
+        <span className="inline-flex items-center gap-1 font-semibold text-blue-700 dark:text-blue-300">
+          <Store className="h-3.5 w-3.5" />
+          {normalized.name}
+          {normalized.verified ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> : null}
+        </span>
       )}
-      {preview && normalized.storeSlug ? <SellerPreviewPopover seller={normalized} /> : null}
+      {preview && normalized.storeSlug && !disableLink ? <SellerPreviewPopover seller={normalized} /> : null}
     </span>
   );
   return content;

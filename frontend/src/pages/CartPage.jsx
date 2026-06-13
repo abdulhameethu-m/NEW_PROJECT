@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BackButton } from "../components/BackButton";
 import { FbtBundleSection } from "../components/FbtBundleSection";
@@ -22,23 +22,28 @@ export function CartPage() {
   const [recommendations, setRecommendations] = useState(null);
   const [fbtBundle, setFbtBundle] = useState(null);
   const { cart, isGuest, loading, refreshCart, addItem, updateItem, removeItem, validateCart } = useCart();
+  const initialFetchDone = useRef(false);
 
-  const refresh = useCallback(async () => {
-    setError("");
-    try {
-      if (isGuest) {
-        await validateCart();
-      } else {
-        await refreshCart();
-      }
-    } catch (e) {
-      setError(normalizeError(e));
-    }
-  }, [isGuest, refreshCart, validateCart]);
-
+  // Only fetch on mount to avoid dependency cycle
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (initialFetchDone.current) return;
+    initialFetchDone.current = true;
+
+    setError("");
+    const performFetch = async () => {
+      try {
+        if (isGuest) {
+          await validateCart();
+        } else {
+          await refreshCart();
+        }
+      } catch (e) {
+        setError(normalizeError(e));
+      }
+    };
+
+    performFetch();
+  }, []); // Empty deps - only run once on mount
 
   const items = useMemo(() => (Array.isArray(cart?.items) ? cart.items : []), [cart]);
   const total = Number(cart?.totalAmount || 0);

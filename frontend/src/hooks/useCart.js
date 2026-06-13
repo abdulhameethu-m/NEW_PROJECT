@@ -1,5 +1,5 @@
 import { logger } from "../services/logger/logger.js";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthStore } from "../context/authStore";
 import useAuthCartStore from "../context/authCartStore";
 import useGuestCartStore from "../context/guestCartStore";
@@ -23,6 +23,7 @@ export const useCart = () => {
   const guestCart = useGuestCartStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const prevAuthStateRef = useRef(null);
 
   /**
    * Determine which cart to use
@@ -69,15 +70,19 @@ export const useCart = () => {
   }, [isAuthenticated, setAuthCart]);
 
   /**
-   * Initialize cart on mount (fetch if authenticated)
+   * Initialize cart on mount or when auth state changes
    */
   useEffect(() => {
+    // Only fetch if auth state actually changed
+    if (prevAuthStateRef.current === isAuthenticated) return;
+    prevAuthStateRef.current = isAuthenticated;
+
     if (isAuthenticated) {
       fetchAuthCart();
     } else {
       clearAuthCart();
     }
-  }, [clearAuthCart, isAuthenticated, fetchAuthCart]);
+  }, [isAuthenticated, fetchAuthCart, clearAuthCart]);
 
   /**
    * Add item to cart
