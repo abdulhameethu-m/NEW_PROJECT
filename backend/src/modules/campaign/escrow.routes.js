@@ -8,6 +8,17 @@ const escrowController = require("./escrow.controller");
 const router = express.Router();
 const vendorAuth = [authRequired, requireRole("vendor"), requireApprovedVendor];
 const adminAuth = [authRequired, requireRole("admin")];
+const feeConfigurationSchema = Joi.object({
+  feeName: Joi.string().trim().max(120).required(),
+  feeCode: Joi.string().valid("platform_fee", "gateway_fee", "gst", "refund_processing_fee", "partial_refund_fee").required(),
+  feeType: Joi.string().valid("percentage", "fixed", "hybrid").required(),
+  percentageValue: Joi.number().min(0).max(100).default(0),
+  fixedValue: Joi.number().min(0).default(0),
+  calculationBase: Joi.string().valid("campaign_budget", "service_fees", "refundable_amount").default("campaign_budget"),
+  isActive: Joi.boolean().default(true),
+  effectiveFrom: Joi.date().required(),
+  effectiveTo: Joi.date().allow(null),
+});
 
 /**
  * ============ VENDOR ROUTES ============
@@ -229,6 +240,33 @@ router.get(
   "/admin/payment-orders",
   adminAuth,
   escrowController.listPaymentOrders
+);
+
+router.get(
+  "/admin/fee-configurations",
+  adminAuth,
+  escrowController.listFeeConfigurations
+);
+
+router.post(
+  "/admin/fee-configurations",
+  adminAuth,
+  validate(feeConfigurationSchema),
+  escrowController.createFeeConfiguration
+);
+
+router.patch(
+  "/admin/fee-configurations/:configId",
+  adminAuth,
+  validate(feeConfigurationSchema),
+  escrowController.updateFeeConfiguration
+);
+
+router.delete(
+  "/admin/fee-configurations/:configId",
+  adminAuth,
+  validate(Joi.object({ configId: Joi.string().required() }), "params"),
+  escrowController.deleteFeeConfiguration
 );
 
 module.exports = router;

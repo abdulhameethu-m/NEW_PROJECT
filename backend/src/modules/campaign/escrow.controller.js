@@ -3,6 +3,7 @@ const { asyncHandler } = require("../../utils/asyncHandler");
 const campaignEscrowService = require("../../services/campaign-escrow.service");
 const campaignPaymentService = require("../../services/campaign-payment.service");
 const campaignRefundService = require("../../services/campaign-refund.service");
+const campaignFeeService = require("../../services/campaign-fee.service");
 const { ApiError } = require("../../utils/ApiError");
 
 /**
@@ -233,6 +234,34 @@ const calculateCost = asyncHandler(async (req, res) => {
   return ok(res, result, "Campaign cost calculated");
 });
 
+const listFeeConfigurations = asyncHandler(async (req, res) => {
+  return ok(res, await campaignFeeService.listConfigurations(), "Campaign fee configurations loaded");
+});
+
+const createFeeConfiguration = asyncHandler(async (req, res) => {
+  return ok(
+    res,
+    await campaignFeeService.createConfiguration(req.body, req.user.sub),
+    "Campaign fee configuration created"
+  );
+});
+
+const updateFeeConfiguration = asyncHandler(async (req, res) => {
+  return ok(
+    res,
+    await campaignFeeService.updateConfiguration(req.params.configId, req.body, req.user.sub),
+    "Campaign fee configuration updated"
+  );
+});
+
+const deleteFeeConfiguration = asyncHandler(async (req, res) => {
+  return ok(
+    res,
+    await campaignFeeService.deleteConfiguration(req.params.configId, req.user.sub),
+    "Campaign fee configuration deleted"
+  );
+});
+
 module.exports = {
   // Vendor endpoints
   createPaymentOrder,
@@ -252,4 +281,8 @@ module.exports = {
   rejectRefund,
   processRefund,
   getRefundStats,
+  listFeeConfigurations,
+  createFeeConfiguration,
+  updateFeeConfiguration,
+  deleteFeeConfiguration,
 };

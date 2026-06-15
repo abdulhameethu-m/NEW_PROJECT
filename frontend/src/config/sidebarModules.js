@@ -72,6 +72,7 @@ export const ADMIN_SECTION_ITEMS = [
         icon: Megaphone,
         children: [
           { name: "Campaign Management", path: "/admin/influencer-commerce/campaigns", permission: "influencerCommerce.read", icon: Megaphone, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
+          { name: "Vendor Campaign Commission", path: "/admin/influencer-commerce/vendor-campaign-commission", permission: "influencerCommerce.read", icon: Percent, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
           { name: "Campaign Applications", path: "/admin/influencer-commerce/applications", permission: "influencerCommerce.read", icon: FileCheck2, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
           { name: "Content Moderation", path: "/admin/influencer-commerce/content", permission: "influencerCommerce.read", icon: FileCheck2, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
         ],

@@ -53,7 +53,32 @@ const campaignRefundSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
+      default: 0,
     },
+    grossRefundAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    processingFeeAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    partialRefundFeeAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    feeConfigurationSnapshot: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: [],
+    },
+    fundingAllocationIds: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CampaignDeliverableFunding",
+    }],
 
     // Fee handling
     refundPlatformFee: {

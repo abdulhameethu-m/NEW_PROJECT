@@ -2,9 +2,13 @@ const Razorpay = require("razorpay");
 const CampaignRefund = require("../models/CampaignRefund");
 const CampaignEscrowWallet = require("../models/CampaignEscrowWallet");
 const CampaignPaymentOrder = require("../models/CampaignPaymentOrder");
+const CampaignDeliverableFunding = require("../models/CampaignDeliverableFunding");
+const CampaignEscrowLedger = require("../models/CampaignEscrowLedger");
 const { Campaign } = require("../modules/campaign/model");
 const campaignEscrowService = require("./campaign-escrow.service");
 const auditService = require("./audit.service");
+const notificationService = require("./notification.service");
+const campaignFeeService = require("./campaign-fee.service");
 const { ApiError } = require("../utils/ApiError");
 
 const razorpay = new Razorpay({
@@ -183,7 +187,7 @@ class CampaignRefundService {
     try {
       const escrow = await CampaignEscrowWallet.findOne({
         _id: refund.escrowWalletId,
-        amountRemaining: { $gte: refund.totalRefundAmount },
+        amountRemaining: { $gte: refund.grossRefundAmount },
         status: { $in: ["funded", "partially_released"] },
       });
       if (!escrow) throw new ApiError(409, "Escrow balance is no longer available for this refund");
@@ -196,12 +200,24 @@ class CampaignRefundService {
       if (!paymentOrder || !paymentOrder.razorpayPaymentId) {
         throw new ApiError(400, "Original payment not found for refund");
       }
+      if (Number(refund.totalRefundAmount || 0) <= 0) {
+        throw new ApiError(409, "Configured refund fees consume the entire refundable amount");
+      }
+      const allocationRows = await CampaignDeliverableFunding.find({
+        _id: { $in: refund.fundingAllocationIds || [] },
+        campaignId: refund.campaignId,
+        remainingAmount: { $gt: 0 },
+      });
+      const allocationGross = allocationRows.reduce((sum, row) => sum + Number(row.remainingAmount || 0), 0);
+      if (Number(allocationGross.toFixed(2)) !== Number(refund.grossRefundAmount.toFixed(2))) {
+        throw new ApiError(409, "Deliverable funding changed while refund was pending");
+      }
 
       // Process refund via Razorpay
       const razorpayRefund = await razorpay.payments.refund(
         paymentOrder.razorpayPaymentId,
         {
-          amount: refund.totalRefundAmount * 100, // Amount in paise
+          amount: Math.round(refund.totalRefundAmount * 100),
           notes: {
             campaignId: refund.campaignId.toString(),
             refundId: refund._id.toString(),
@@ -227,13 +243,20 @@ class CampaignRefundService {
       });
 
       await refund.save();
-      escrow.amountRefunded = Number(escrow.amountRefunded || 0) + refund.totalRefundAmount;
-      escrow.amountRemaining = Math.max(0, Number(escrow.amountRemaining || 0) - refund.totalRefundAmount);
-      escrow.status = "refunded";
+      for (const allocation of allocationRows) {
+        const amount = Number(allocation.remainingAmount || 0);
+        allocation.refundedAmount = Number(allocation.refundedAmount || 0) + amount;
+        allocation.remainingAmount = 0;
+        allocation.status = "refunded";
+        await allocation.save();
+      }
+      escrow.amountRefunded = Number(escrow.amountRefunded || 0) + refund.grossRefundAmount;
+      escrow.amountRemaining = Math.max(0, Number(escrow.amountRemaining || 0) - refund.grossRefundAmount);
+      escrow.status = escrow.amountRemaining === 0 ? "refunded" : escrow.status;
       escrow.campaignStatus = "cancelled";
       escrow.refunds.push({
         refundId: refund._id,
-        amount: refund.totalRefundAmount,
+        amount: refund.grossRefundAmount,
         reason: refund.reason,
         refundedAt: new Date(),
       });
@@ -241,9 +264,32 @@ class CampaignRefundService {
         action: "refund_completed",
         actor: processedBy,
         actorRole: "admin",
-        details: { refundId: refund._id, amount: refund.totalRefundAmount, razorpayRefundId: razorpayRefund.id },
+        details: {
+          refundId: refund._id,
+          grossAmount: refund.grossRefundAmount,
+          paidAmount: refund.totalRefundAmount,
+          razorpayRefundId: razorpayRefund.id,
+        },
       });
       await escrow.save();
+      await CampaignEscrowLedger.create({
+        campaignId: refund.campaignId,
+        escrowWalletId: escrow._id,
+        paymentOrderId: paymentOrder._id,
+        refundId: refund._id,
+        vendorId: refund.vendorId,
+        entryType: "refund",
+        direction: "debit",
+        amount: refund.grossRefundAmount,
+        balanceAfter: escrow.amountRemaining,
+        currency: refund.currency,
+        idempotencyKey: `campaign-refund:${refund._id}`,
+        metadata: {
+          vendorRefundAmount: refund.totalRefundAmount,
+          processingFeeAmount: refund.processingFeeAmount,
+          partialRefundFeeAmount: refund.partialRefundFeeAmount,
+        },
+      });
       await Campaign.findByIdAndUpdate(refund.campaignId, {
         $set: { state: "cancelled" },
         $push: { history: { state: "cancelled", actorId: processedBy, note: "Remaining escrow refunded", changedAt: new Date() } },
@@ -255,6 +301,15 @@ class CampaignRefundService {
         entityId: refund._id,
         metadata: { campaignId: refund.campaignId, amount: refund.totalRefundAmount, razorpayRefundId: razorpayRefund.id },
       }).catch(() => {});
+      await notificationService.notifyVendorUser(refund.vendorId, {
+        module: "FINANCE",
+        subModule: "INFLUENCER_COMMERCE",
+        type: "REFUND_COMPLETED",
+        title: "Campaign refund processed",
+        message: `INR ${refund.totalRefundAmount} was refunded for the unreleased campaign balance.`,
+        referenceId: refund._id,
+        meta: { campaignId: String(refund.campaignId), refundId: String(refund._id) },
+      }).catch(() => null);
 
       return {
         refundId: refund._id,
@@ -358,7 +413,9 @@ class CampaignRefundService {
       eligible: true,
       reason: "Eligible for refund",
       availableAmount: escrow.amountRemaining,
-      totalRefundAmount: escrow.amountRemaining,
+      ...(await campaignFeeService.calculateRefundFees(escrow.amountRemaining, {
+        partial: Number(escrow.amountReleased || 0) > 0,
+      })),
     };
   }
 

@@ -21,6 +21,10 @@ const campaignPaymentOrderSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    razorpayReceipt: {
+      type: String,
+      trim: true,
+    },
     razorpayPaymentId: {
       type: String,
       trim: true,
@@ -54,6 +58,17 @@ const campaignPaymentOrderSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
+      default: 0,
+    },
+    escrowAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    feeConfigurationSnapshot: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: [],
     },
 
     // Payment status
@@ -121,6 +136,12 @@ const campaignPaymentOrderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    webhookEventId: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
 
     // Retry tracking
     retryCount: {
@@ -129,6 +150,17 @@ const campaignPaymentOrderSchema = new mongoose.Schema(
       min: 0,
     },
     lastRetryAt: {
+      type: Date,
+    },
+    gatewayStatusUnknownAt: {
+      type: Date,
+    },
+    orderCreationLock: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    orderCreationLockExpiresAt: {
       type: Date,
     },
 
@@ -155,6 +187,7 @@ campaignPaymentOrderSchema.index({ vendorId: 1, createdAt: -1 });
 campaignPaymentOrderSchema.index({ status: 1, createdAt: -1 });
 campaignPaymentOrderSchema.index({ campaignId: 1, vendorId: 1 }, { unique: true });
 campaignPaymentOrderSchema.index({ razorpayOrderId: 1 }, { sparse: true });
+campaignPaymentOrderSchema.index({ razorpayReceipt: 1 }, { unique: true, sparse: true });
 campaignPaymentOrderSchema.index({ razorpayPaymentId: 1 }, { sparse: true });
 
 module.exports = mongoose.model("CampaignPaymentOrder", campaignPaymentOrderSchema);

@@ -6,6 +6,7 @@ const influencerService = require("../influencer/service");
 const { CommissionRecord } = require("../commission/models");
 const { Campaign, CampaignStatusHistory } = require("./model");
 const { Reel } = require("../reel/model");
+const CampaignDeliverableFunding = require("../../models/CampaignDeliverableFunding");
 const {
   CampaignDeliverable,
   DeliverableSubmission,
@@ -134,12 +135,27 @@ class CampaignExecutionService {
     if (existing.length) return existing;
     const rows = deriveDeliverables(campaign);
     if (!rows.length) return [];
-    return CampaignDeliverable.insertMany(rows.map((row) => ({
+    const allocations = campaign.paymentType === "fixed"
+      ? await CampaignDeliverableFunding.find({ campaignId: campaign._id }).sort({ allocationKey: 1 })
+      : [];
+    const created = await CampaignDeliverable.insertMany(rows.map((row, index) => ({
       ...row,
       campaignId: campaign._id,
       influencerId: campaign.influencerId?._id || campaign.influencerId,
       vendorId: campaign.vendorId?._id || campaign.vendorId,
+      fundingAllocationId: allocations[index]?._id || null,
     })));
+    if (allocations.length) {
+      await Promise.all(created.map((deliverable, index) => {
+        const allocation = allocations[index];
+        if (!allocation) return null;
+        return CampaignDeliverableFunding.updateOne(
+          { _id: allocation._id, deliverableId: null },
+          { $set: { deliverableId: deliverable._id } }
+        );
+      }));
+    }
+    return created;
   }
 
   async influencerExecution(userId, campaignId) {
@@ -226,6 +242,7 @@ class CampaignExecutionService {
         completionStatus: row.completionStatus,
         paymentEligibility: row.paymentEligibility,
         latestSubmissionId: row.latestSubmissionId,
+        fundingAllocationId: row.fundingAllocationId,
         submissions: submissionMap.get(String(row._id)) || [],
         payout: payoutMap.get(String(row._id)) || null,
       })),
@@ -283,7 +300,12 @@ class CampaignExecutionService {
       const allDeliverables = await CampaignDeliverable.find({ campaignId: campaign._id }).lean();
       const totalDeliverableValue = money(allDeliverables.reduce((sum, row) => sum + Number(row.totalPrice || 0), 0));
       const fixedFee = money(campaign.fixedFee || campaign.pricing?.fixedCost || 0);
-      const approvedAmount = campaign.paymentType === "hybrid" && totalDeliverableValue
+      const funding = campaign.paymentType === "fixed"
+        ? await CampaignDeliverableFunding.findOne({ campaignId: campaign._id, deliverableId: deliverable._id }).lean()
+        : null;
+      const approvedAmount = funding
+        ? funding.remainingAmount
+        : campaign.paymentType === "hybrid" && totalDeliverableValue
         ? money((Number(deliverable.totalPrice || 0) / totalDeliverableValue) * (fixedFee || totalDeliverableValue))
         : deliverable.totalPrice;
       submission.status = "approved";

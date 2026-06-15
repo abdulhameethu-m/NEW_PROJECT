@@ -1,5 +1,24 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { AlertCircle, Loader, X } from 'lucide-react';
+
+const RAZORPAY_SCRIPT_ID = 'razorpay-checkout-script';
+
+function loadRazorpayCheckout() {
+  if (window.Razorpay) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const existing = document.getElementById(RAZORPAY_SCRIPT_ID);
+    const script = existing || document.createElement('script');
+    const finish = (ready) => resolve(Boolean(ready && window.Razorpay));
+    script.addEventListener('load', () => finish(true), { once: true });
+    script.addEventListener('error', () => finish(false), { once: true });
+    if (!existing) {
+      script.id = RAZORPAY_SCRIPT_ID;
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  });
+}
 
 /**
  * Campaign Payment Modal
@@ -16,33 +35,37 @@ export function CampaignPaymentModal({
 }) {
   const [error, setError] = useState(null);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+  const [checkoutOpening, setCheckoutOpening] = useState(false);
+  const openedOrderRef = useRef('');
 
-  // Load Razorpay script
   useEffect(() => {
     if (!isOpen) return;
-
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => setRazorpayLoaded(true);
-    script.onerror = () => {
-      setError('Failed to load payment gateway');
-    };
-
-    document.body.appendChild(script);
-
+    let active = true;
+    setError(null);
+    setRazorpayLoaded(Boolean(window.Razorpay));
+    loadRazorpayCheckout().then((ready) => {
+      if (!active) return;
+      setRazorpayLoaded(ready);
+      if (!ready) setError('Razorpay checkout could not load. Check your internet connection and browser content blockers.');
+    });
     return () => {
-      document.body.removeChild(script);
+      active = false;
     };
   }, [isOpen]);
 
   const handlePaymentClick = useCallback(async () => {
-    if (!razorpayLoaded || !window.Razorpay || !paymentData) {
+    if (!paymentData?.orderId || !paymentData?.paymentOrderId || !paymentData?.razorpayKeyId) {
+      setError('Payment order is incomplete. Verify the Razorpay key configuration and create the order again.');
+      return;
+    }
+    if (!razorpayLoaded || !window.Razorpay) {
       setError('Payment gateway not ready. Please try again.');
       return;
     }
 
     try {
+      setCheckoutOpening(true);
+      setError(null);
       const options = {
         key: paymentData.razorpayKeyId,
         order_id: paymentData.orderId,
@@ -71,17 +94,39 @@ export function CampaignPaymentModal({
         modal: {
           ondismiss: () => {
             setError(null);
+            setCheckoutOpening(false);
           },
         },
       };
 
       const rzp1 = new window.Razorpay(options);
+      rzp1.on('payment.failed', (response) => {
+        const message = response?.error?.description || response?.error?.reason || 'Razorpay payment failed.';
+        setError(message);
+        setCheckoutOpening(false);
+        onPaymentError?.(response?.error || new Error(message));
+      });
       rzp1.open();
     } catch (err) {
       setError(err.message || 'Failed to open payment gateway');
+      setCheckoutOpening(false);
       onPaymentError?.(err);
     }
   }, [razorpayLoaded, paymentData, onPaymentSuccess, onClose, onPaymentError]);
+
+  useEffect(() => {
+    const orderId = paymentData?.orderId || '';
+    if (!isOpen || !razorpayLoaded || !orderId || openedOrderRef.current === orderId) return;
+    openedOrderRef.current = orderId;
+    handlePaymentClick();
+  }, [isOpen, razorpayLoaded, paymentData?.orderId, handlePaymentClick]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      openedOrderRef.current = '';
+      setCheckoutOpening(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -170,13 +215,13 @@ export function CampaignPaymentModal({
           </button>
           <button
             onClick={handlePaymentClick}
-            disabled={isLoading || !razorpayLoaded || !paymentData}
+            disabled={isLoading || checkoutOpening || !razorpayLoaded || !paymentData}
             className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
           >
-            {isLoading || !razorpayLoaded ? (
+            {isLoading || checkoutOpening || !razorpayLoaded ? (
               <>
                 <Loader className="w-4 h-4 animate-spin" />
-                <span>Processing...</span>
+                <span>{checkoutOpening ? 'Opening Razorpay...' : 'Processing...'}</span>
               </>
             ) : (
               'Pay Now'

@@ -167,6 +167,10 @@ const pageMeta = {
     title: "Influencer Commerce",
     subtitle: "Review, feature, pause, and audit influencer commerce campaigns.",
   },
+  "/admin/influencer-commerce/vendor-campaign-commission": {
+    title: "Influencer Commerce",
+    subtitle: "Configure fixed campaign platform, gateway, tax, and refund fees with effective dates.",
+  },
   "/admin/influencer-commerce/applications": {
     title: "Influencer Commerce",
     subtitle: "Oversee creator applications and campaign approval workflows.",

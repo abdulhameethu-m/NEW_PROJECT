@@ -33,6 +33,7 @@ const campaignDeliverableSchema = new mongoose.Schema(
     paymentEligibility: { type: String, enum: ["not_eligible", "eligible", "paid"], default: "not_eligible", index: true },
     completedAt: { type: Date },
     latestSubmissionId: { type: mongoose.Schema.Types.ObjectId, ref: "DeliverableSubmission" },
+    fundingAllocationId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignDeliverableFunding", default: null, index: true },
     source: { type: String, trim: true, default: "campaign_snapshot" },
     snapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
   },

@@ -49,6 +49,17 @@ const campaignEscrowWalletSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
+      default: 0,
+    },
+    paidAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    feeConfigurationSnapshot: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: [],
     },
 
     // Amount tracking

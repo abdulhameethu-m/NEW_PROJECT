@@ -845,6 +845,25 @@ class InfluencerCommerceVendorService {
       payload,
       products,
     });
+    const fixedBudget = Number(pricing.pricing?.fixedCost || payload.fixedFee || 0);
+    const fundingSummary = pricing.paymentModel?.key === "fixed" || payload.paymentType === "fixed"
+      ? fixedBudget > 0
+        ? await require("../../services/campaign-fee.service").calculateFundingSummary(
+          fixedBudget,
+          pricing.pricing?.currency || "INR"
+        )
+        : {
+          budgetAmount: 0,
+          escrowAmount: 0,
+          platformFeeAmount: 0,
+          gatewayFeeAmount: 0,
+          taxAmount: 0,
+          totalAmount: 0,
+          currency: pricing.pricing?.currency || "INR",
+          feeLines: [],
+          feeSource: "Configured by Admin",
+        }
+      : null;
     return {
       paymentModel: pricing.paymentModel,
       attributionRule: {
@@ -855,6 +874,7 @@ class InfluencerCommerceVendorService {
       pricing: pricing.pricing,
       influencerSnapshot: pricing.influencerSnapshot,
       campaignFields: pricing.campaignFields,
+      fundingSummary,
     };
   }
 

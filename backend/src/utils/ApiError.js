@@ -1,10 +1,8 @@
-class ApiError extends Error {
+const { AppError } = require("./AppError");
+
+class ApiError extends AppError {
   constructor(statusCode = 500, message = "Internal Server Error", code = "API_ERROR", details) {
-    super(message);
-    this.statusCode = statusCode;
-    this.message = message;
-    this.code = code;
-    this.details = details;
+    super(message, statusCode, code, details);
   }
 }
 

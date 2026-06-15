@@ -756,18 +756,14 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   const selectedPaymentModel = paymentModels.find((model) => model.key === form.paymentType) || paymentModels[0];
   const fixedPaymentSummary = useMemo(() => {
     if (form.paymentType !== "fixed") return null;
-    const budgetAmount = Number(preview?.pricing?.fixedCost || form.fixedFee || 0);
-    const platformFeeAmount = Number((budgetAmount * 0.02).toFixed(2));
-    const gatewayFeeAmount = budgetAmount > 0 ? 50 : 0;
-    const taxAmount = Number(((platformFeeAmount + gatewayFeeAmount) * 0.18).toFixed(2));
-    return {
-      budgetAmount,
-      platformFeeAmount,
-      gatewayFeeAmount,
-      taxAmount,
-      totalAmount: Number((budgetAmount + platformFeeAmount + gatewayFeeAmount + taxAmount).toFixed(2)),
+    return preview?.fundingSummary || {
+      budgetAmount: Number(preview?.pricing?.fixedCost || form.fixedFee || 0),
+      escrowAmount: Number(preview?.pricing?.fixedCost || form.fixedFee || 0),
+      totalAmount: Number(preview?.pricing?.fixedCost || form.fixedFee || 0),
+      feeLines: [],
+      feeSource: "Configured by Admin",
     };
-  }, [form.paymentType, form.fixedFee, preview?.pricing?.fixedCost]);
+  }, [form.paymentType, form.fixedFee, preview?.pricing?.fixedCost, preview?.fundingSummary]);
   const attributionWindows = rules.attributionWindows.length ? rules.attributionWindows : [];
   const dynamicFields = useMemo(() => (
     rules.fieldsByCombination[`${form.campaignType}:${form.paymentType}`] || []
@@ -1345,9 +1341,17 @@ export function VendorInfluencerPage() {
     setBusyId("create-campaign");
     setError("");
     setMessage("");
+    let campaign;
     try {
       const response = await createVendorInfluencerCampaign(payload);
-      const campaign = response?.data || response;
+      campaign = response?.data || response;
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || "Campaign creation failed.");
+      setBusyId("");
+      return false;
+    }
+
+    try {
       if (campaign?.paymentType === "fixed") {
         const paymentOrder = await CampaignEscrowService.createPaymentOrder(campaign._id || campaign.id);
         setCampaignPayment({ campaign, paymentOrder });
@@ -1358,8 +1362,14 @@ export function VendorInfluencerPage() {
       }
       return true;
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "Campaign creation failed.");
-      return false;
+      await Promise.all([loadTab({ silent: true }), loadFoundation()]).catch(() => {});
+      const gatewayMessage = err?.response?.data?.message;
+      setError(
+        `Campaign was created, but secure payment setup is not ready. ${
+          gatewayMessage || "Use Fund Escrow on the campaign to retry safely."
+        }`
+      );
+      return true;
     } finally {
       setBusyId("");
     }
@@ -1369,13 +1379,21 @@ export function VendorInfluencerPage() {
     setBusyId("verify-campaign-payment");
     setError("");
     try {
-      await CampaignEscrowService.verifyPayment(
+      const confirmation = await CampaignEscrowService.verifyPayment(
         verification.paymentOrderId,
         verification.razorpayOrderId,
         verification.razorpayPaymentId,
         verification.razorpaySignature
       );
-      setMessage("Payment verified. Escrow is funded and the campaign is now active.");
+      let funded = confirmation?.status === "paid";
+      for (let attempt = 0; attempt < 5 && !funded; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+        const payment = await CampaignEscrowService.getPaymentDetails(verification.paymentOrderId);
+        funded = payment?.status === "paid" && Boolean(payment?.escrowId);
+      }
+      setMessage(funded
+        ? "Payment verified by Razorpay. Escrow is funded and the campaign is active."
+        : "Payment captured. Escrow funding is waiting for Razorpay webhook verification.");
       setCampaignPayment(null);
       await Promise.all([loadTab({ silent: true }), loadFoundation()]);
     } catch (err) {

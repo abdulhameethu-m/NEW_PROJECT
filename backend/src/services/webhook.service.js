@@ -10,6 +10,7 @@ const { applyShippingLifecycle } = require("./shipping.service");
 const logisticsService = require("./logistics.service");
 const { logger } = require("../utils/logger");
 const { PaymentSession } = require("../models/PaymentSession");
+const campaignPaymentService = require("./campaign-payment.service");
 
 function buildEventId(provider, eventType, rawBody) {
   return `${provider}:${eventType}:${crypto.createHash("sha1").update(String(rawBody || "")).digest("hex")}`;
@@ -86,25 +87,32 @@ class WebhookService {
     const eventId = event.id ? `RAZORPAY:${event.id}` : buildEventId("RAZORPAY", eventType, rawBody);
     const hash = payloadHash(rawBody);
     const existing = await webhookEventRepo.findByEventId(eventId);
-    if (existing) {
+    let webhookRecord;
+    if (existing?.status === "FAILED") {
+      await webhookEventRepo.updateById(existing._id, {
+        $set: { status: "RECEIVED", errorMessage: "", receivedAt: new Date() },
+      });
+      webhookRecord = existing;
+    } else if (existing) {
       return { status: "duplicate_ignored", eventId };
+    } else {
+      webhookRecord = await webhookEventRepo.create({
+        provider: "RAZORPAY",
+        eventType,
+        eventId,
+        providerEventId: event.id || "",
+        payloadHash: hash,
+        receivedAt: new Date(),
+        signatureVerified: true,
+        status: "RECEIVED",
+        payload: event,
+      });
     }
-
-    const webhookRecord = await webhookEventRepo.create({
-      provider: "RAZORPAY",
-      eventType,
-      eventId,
-      providerEventId: event.id || "",
-      payloadHash: hash,
-      receivedAt: new Date(),
-      signatureVerified: true,
-      status: "RECEIVED",
-      payload: event,
-    });
 
     try {
       if (eventType === "payment.captured") {
         const paymentEntity = event.payload?.payment?.entity;
+        await campaignPaymentService.processCapturedCampaignPayment(paymentEntity, eventId);
         const payment = await paymentRepo.findByRazorpayOrderId(paymentEntity?.order_id);
         if (payment) {
           const session = payment.paymentSessionId?._id

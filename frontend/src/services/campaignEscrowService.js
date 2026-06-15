@@ -22,7 +22,7 @@ class CampaignEscrowService {
   static async createPaymentOrder(campaignId) {
     const response = await api.post(`${API_BASE}/payment-order`, {
       campaignId,
-    });
+    }, { timeout: 18000 });
     return response.data.data;
   }
 
@@ -183,6 +183,26 @@ class CampaignEscrowService {
     if (filters.skip) params.append('skip', filters.skip);
 
     const response = await api.get(`${ADMIN_API_BASE}/payment-orders?${params.toString()}`);
+    return response.data.data;
+  }
+
+  static async listFeeConfigurations() {
+    const response = await api.get(`${ADMIN_API_BASE}/fee-configurations`);
+    return response.data.data;
+  }
+
+  static async createFeeConfiguration(payload) {
+    const response = await api.post(`${ADMIN_API_BASE}/fee-configurations`, payload);
+    return response.data.data;
+  }
+
+  static async updateFeeConfiguration(configId, payload) {
+    const response = await api.patch(`${ADMIN_API_BASE}/fee-configurations/${configId}`, payload);
+    return response.data.data;
+  }
+
+  static async deleteFeeConfiguration(configId) {
+    const response = await api.delete(`${ADMIN_API_BASE}/fee-configurations/${configId}`);
     return response.data.data;
   }
 }

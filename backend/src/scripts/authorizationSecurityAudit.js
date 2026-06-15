@@ -114,7 +114,7 @@ const REVIEWED_NON_IDOR_CONTEXTS = [
     proof: "reel route ownership and guest-event controls are enforced in controller/service layers with tracking abuse tests",
   },
   {
-    pattern: /[\\/]services[\\/](cancellation-policy|finance-config|guestWishlist|homepage-layout|influencer-commerce-config|pendingAction|platform-bootstrap|pricing-category|product-number|settlement-metrics|shipping-config|shipping-zone-config|shippingConfigAdmin)\.service\.js$/,
+    pattern: /[\\/]services[\\/](campaign-fee|cancellation-policy|finance-config|guestWishlist|homepage-layout|influencer-commerce-config|pendingAction|platform-bootstrap|pricing-category|product-number|settlement-metrics|shipping-config|shipping-zone-config|shippingConfigAdmin)\.service\.js$/,
     proof: "service is global configuration, anonymous-session scoped, bootstrap-locked, or aggregate metrics logic and is covered by route/policy boundaries",
   },
 ];

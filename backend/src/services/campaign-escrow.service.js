@@ -4,11 +4,17 @@ const CampaignPaymentOrder = require("../models/CampaignPaymentOrder");
 const CampaignEscrowWallet = require("../models/CampaignEscrowWallet");
 const CampaignPaymentRelease = require("../models/CampaignPaymentRelease");
 const CampaignRefund = require("../models/CampaignRefund");
+const CampaignDeliverableFunding = require("../models/CampaignDeliverableFunding");
+const CampaignEscrowLedger = require("../models/CampaignEscrowLedger");
 const { Campaign } = require("../modules/campaign/model");
 const { CampaignDeliverable, DeliverablePayout } = require("../modules/campaign/executionModel");
+const campaignExecutionService = require("../modules/campaign/executionService");
 const { InfluencerWallet, InfluencerLedger } = require("../modules/commission/models");
 const { withOptionalTransaction } = require("../utils/withOptionalTransaction");
 const auditService = require("./audit.service");
+const campaignFeeService = require("./campaign-fee.service");
+const notificationService = require("./notification.service");
+const { InfluencerProfile } = require("../modules/influencer/model");
 const { ApiError } = require("../utils/ApiError");
 
 function money(value) {
@@ -36,19 +42,10 @@ class CampaignEscrowService {
       throw new ApiError(400, "Fixed payment campaign budget must be greater than zero");
     }
 
-    const platformFeeAmount = money(budgetAmount * 0.02);
-    const gatewayFeeAmount = 50;
-    const taxAmount = money((platformFeeAmount + gatewayFeeAmount) * 0.18);
-    const totalAmount = money(budgetAmount + platformFeeAmount + gatewayFeeAmount + taxAmount);
-
-    return {
+    return campaignFeeService.calculateFundingSummary(
       budgetAmount,
-      platformFeeAmount,
-      gatewayFeeAmount,
-      taxAmount,
-      totalAmount,
-      currency: campaign.pricing?.currency || "INR",
-    };
+      campaign.pricing?.currency || "INR"
+    );
   }
 
   async createPaymentOrder(campaignId, vendorId) {
@@ -70,6 +67,8 @@ class CampaignEscrowService {
     const paymentOrder = existingPayment || new CampaignPaymentOrder({ campaignId, vendorId });
     Object.assign(paymentOrder, {
       ...costDetails,
+      escrowAmount: costDetails.escrowAmount,
+      feeConfigurationSnapshot: costDetails.feeConfigurationSnapshot,
       status: "pending",
       razorpayOrderId: undefined,
       razorpayPaymentId: undefined,
@@ -77,6 +76,9 @@ class CampaignEscrowService {
       signatureVerifiedAt: undefined,
       failureReason: "",
       failureCode: "",
+      gatewayStatusUnknownAt: undefined,
+      orderCreationLock: "",
+      orderCreationLockExpiresAt: undefined,
     });
     await paymentOrder.save();
 
@@ -89,9 +91,8 @@ class CampaignEscrowService {
     if (String(paymentOrder.vendorId) !== String(vendorId)) {
       throw new ApiError(403, "Payment order does not belong to this vendor");
     }
-    if (paymentOrder.status === "paid" && paymentOrder.signatureVerified) {
-      await this.createEscrowWallet(paymentOrder);
-      return { success: true, paymentOrderId: paymentOrder._id, status: "paid", idempotent: true };
+    if (["authorized", "paid"].includes(paymentOrder.status) && paymentOrder.signatureVerified) {
+      return { success: true, paymentOrderId: paymentOrder._id, status: paymentOrder.status, idempotent: true };
     }
     if (!paymentOrder.razorpayOrderId || paymentOrder.razorpayOrderId !== razorpayOrderId) {
       throw new ApiError(400, "Razorpay order does not match the payment order");
@@ -99,35 +100,32 @@ class CampaignEscrowService {
     if (!process.env.RAZORPAY_KEY_SECRET) {
       throw new ApiError(503, "Payment gateway is not configured");
     }
-
     const expectedHex = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpayOrderId}|${razorpayPaymentId}`)
       .digest("hex");
     const expected = Buffer.from(expectedHex, "utf8");
     const received = Buffer.from(String(razorpaySignature), "utf8");
-
     if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
-      paymentOrder.status = "failed";
-      paymentOrder.failedAt = new Date();
-      paymentOrder.failureReason = "Signature verification failed";
-      paymentOrder.failureCode = "INVALID_SIGNATURE";
-      await paymentOrder.save();
-      throw new ApiError(400, "Payment signature verification failed");
+      throw new ApiError(400, "Payment checkout signature verification failed");
     }
-
     paymentOrder.razorpayPaymentId = razorpayPaymentId;
-    paymentOrder.status = "paid";
-    paymentOrder.paidAt = new Date();
+    paymentOrder.status = "authorized";
+    paymentOrder.authorizedAt = new Date();
     paymentOrder.signatureVerified = true;
     paymentOrder.signatureVerifiedAt = new Date();
-    paymentOrder.verificationDetails = { razorpayOrderId, razorpayPaymentId, verifiedAt: new Date() };
+    paymentOrder.verificationDetails = {
+      razorpayOrderId,
+      razorpayPaymentId,
+      checkoutSignature: razorpaySignature,
+      clientConfirmedAt: new Date(),
+      fundingAuthority: "razorpay_webhook",
+    };
     await paymentOrder.save();
-    await this.createEscrowWallet(paymentOrder);
 
     await auditService.log({
       actor: { _id: vendorId, role: "vendor" },
-      action: "campaign.payment.success",
+      action: "campaign.payment.checkout_confirmed",
       entityType: "CampaignPaymentOrder",
       entityId: paymentOrder._id,
       metadata: { campaignId: paymentOrder.campaignId, razorpayOrderId, razorpayPaymentId },
@@ -136,45 +134,121 @@ class CampaignEscrowService {
     return {
       success: true,
       paymentOrderId: paymentOrder._id,
-      status: "paid",
-      message: "Payment verified and escrow wallet created",
+      status: "authorized",
+      message: "Checkout confirmed. Escrow funding is pending verified Razorpay webhook processing.",
     };
   }
 
-  async createEscrowWallet(paymentOrder) {
-    const existingEscrow = await CampaignEscrowWallet.findOne({
+  async createEscrowWallet(paymentOrder, webhookEventId = "") {
+    let escrowWallet = await CampaignEscrowWallet.findOne({
       campaignId: paymentOrder.campaignId,
       vendorId: paymentOrder.vendorId,
     });
-    if (existingEscrow) return existingEscrow;
 
-    const escrowWallet = new CampaignEscrowWallet({
-      campaignId: paymentOrder.campaignId,
-      vendorId: paymentOrder.vendorId,
-      paymentOrderId: paymentOrder._id,
-      budgetAmount: paymentOrder.budgetAmount,
-      platformFeeAmount: paymentOrder.platformFeeAmount,
-      gatewayFeeAmount: paymentOrder.gatewayFeeAmount,
-      taxAmount: paymentOrder.taxAmount,
-      totalEscrowAmount: paymentOrder.budgetAmount,
-      amountFunded: paymentOrder.budgetAmount,
-      amountRemaining: paymentOrder.budgetAmount,
-      status: "funded",
-      campaignStatus: "active",
-      fundedAt: new Date(),
-      currency: paymentOrder.currency,
-      auditLog: [{
-        action: "escrow_created_from_payment",
-        actor: paymentOrder.vendorId,
-        actorRole: "vendor",
-        details: {
-          paymentOrderId: paymentOrder._id,
-          paidAmount: paymentOrder.totalAmount,
-          escrowAmount: paymentOrder.budgetAmount,
-        },
-      }],
+    const campaign = await Campaign.findById(paymentOrder.campaignId).lean();
+    if (!campaign || campaign.paymentType !== "fixed") {
+      throw new ApiError(409, "Fixed payment campaign not found for escrow funding");
+    }
+    if (!escrowWallet) {
+      escrowWallet = new CampaignEscrowWallet({
+        campaignId: paymentOrder.campaignId,
+        vendorId: paymentOrder.vendorId,
+        paymentOrderId: paymentOrder._id,
+        budgetAmount: paymentOrder.budgetAmount,
+        platformFeeAmount: paymentOrder.platformFeeAmount,
+        gatewayFeeAmount: paymentOrder.gatewayFeeAmount,
+        taxAmount: paymentOrder.taxAmount,
+        totalEscrowAmount: paymentOrder.budgetAmount,
+        paidAmount: paymentOrder.totalAmount,
+        feeConfigurationSnapshot: paymentOrder.feeConfigurationSnapshot,
+        amountFunded: paymentOrder.budgetAmount,
+        amountRemaining: paymentOrder.budgetAmount,
+        status: "funded",
+        campaignStatus: "active",
+        fundedAt: new Date(),
+        currency: paymentOrder.currency,
+        auditLog: [{
+          action: "escrow_created_from_payment",
+          actor: paymentOrder.vendorId,
+          actorRole: "vendor",
+          details: {
+            paymentOrderId: paymentOrder._id,
+            paidAmount: paymentOrder.totalAmount,
+            escrowAmount: paymentOrder.budgetAmount,
+          },
+        }],
+      });
+      await escrowWallet.save();
+    }
+    const allocationCount = await CampaignDeliverableFunding.countDocuments({ escrowWalletId: escrowWallet._id });
+    if (!allocationCount) {
+    const derived = campaignExecutionService.__private__.deriveDeliverables(campaign);
+    const sourceRows = derived.length ? derived : [{
+      deliverableType: "campaign_budget",
+      title: campaign.title || "Campaign budget",
+      quantity: 1,
+      totalPrice: paymentOrder.budgetAmount,
+      snapshot: {},
+    }];
+    const sourceTotal = money(sourceRows.reduce((sum, row) => sum + Number(row.totalPrice || 0), 0));
+    let allocated = 0;
+    const allocationRows = sourceRows.map((row, index) => {
+      const isLast = index === sourceRows.length - 1;
+      const amount = isLast
+        ? money(paymentOrder.budgetAmount - allocated)
+        : money(sourceTotal > 0
+          ? (Number(row.totalPrice || 0) / sourceTotal) * paymentOrder.budgetAmount
+          : paymentOrder.budgetAmount / sourceRows.length);
+      allocated = money(allocated + amount);
+      return {
+        campaignId: campaign._id,
+        escrowWalletId: escrowWallet._id,
+        allocationKey: String(index + 1).padStart(4, "0"),
+        deliverableType: row.deliverableType || "deliverable",
+        deliverableName: row.title || `Deliverable ${index + 1}`,
+        allocatedAmount: amount,
+        remainingAmount: amount,
+        status: "funded",
+        currency: paymentOrder.currency,
+        snapshot: row.snapshot || row,
+      };
     });
-    await escrowWallet.save();
+    await CampaignDeliverableFunding.insertMany(allocationRows);
+    }
+    await CampaignEscrowLedger.findOneAndUpdate({
+      idempotencyKey: `campaign-vendor-payment:${paymentOrder._id}`,
+    }, {
+      $setOnInsert: {
+        campaignId: campaign._id,
+        escrowWalletId: escrowWallet._id,
+        paymentOrderId: paymentOrder._id,
+        vendorId: paymentOrder.vendorId,
+        entryType: "vendor_payment",
+        direction: "credit",
+        amount: paymentOrder.totalAmount,
+        balanceAfter: paymentOrder.totalAmount,
+        currency: paymentOrder.currency,
+        idempotencyKey: `campaign-vendor-payment:${paymentOrder._id}`,
+        metadata: { webhookEventId },
+      },
+    }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
+    await CampaignEscrowLedger.findOneAndUpdate({
+      idempotencyKey: `campaign-escrow-funding:${paymentOrder._id}`,
+    }, {
+      $setOnInsert: {
+      campaignId: campaign._id,
+      escrowWalletId: escrowWallet._id,
+      paymentOrderId: paymentOrder._id,
+      vendorId: paymentOrder.vendorId,
+      entryType: "escrow_funding",
+      direction: "credit",
+      amount: paymentOrder.budgetAmount,
+      balanceAfter: paymentOrder.budgetAmount,
+      currency: paymentOrder.currency,
+      idempotencyKey: `campaign-escrow-funding:${paymentOrder._id}`,
+        metadata: { webhookEventId, paidAmount: paymentOrder.totalAmount },
+      },
+    }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
     return escrowWallet;
   }
 
@@ -233,23 +307,22 @@ class CampaignEscrowService {
         throw new ApiError(400, "Every deliverable must be approved, eligible, and owned by this campaign");
       }
 
-      const payouts = await withSession(DeliverablePayout.find({
+      const allocations = await withSession(CampaignDeliverableFunding.find({
         deliverableId: { $in: uniqueIds },
         campaignId,
-        influencerId,
-        paymentModel: "fixed",
-        status: "eligible",
+        escrowWalletId: escrow._id,
+        remainingAmount: { $gt: 0 },
+        status: { $in: ["funded", "partially_released"] },
       }), session);
-      if (payouts.length !== uniqueIds.length) {
-        throw new ApiError(409, "One or more deliverables were already released or are not payable");
+      if (allocations.length !== uniqueIds.length) {
+        throw new ApiError(409, "One or more deliverable allocations were already released or are not funded");
       }
-
-      const payoutByDeliverable = new Map(payouts.map((row) => [String(row.deliverableId), row]));
+      const allocationByDeliverable = new Map(allocations.map((row) => [String(row.deliverableId), row]));
       const processedDeliverables = deliverables.map((deliverable) => ({
         deliverableId: deliverable._id,
         type: deliverable.deliverableType,
         title: deliverable.title,
-        amount: money(payoutByDeliverable.get(String(deliverable._id)).approvedAmount),
+        amount: money(allocationByDeliverable.get(String(deliverable._id)).remainingAmount),
         approvedAt: deliverable.completedAt || new Date(),
       }));
       const totalReleaseAmount = money(processedDeliverables.reduce((sum, row) => sum + row.amount, 0));
@@ -301,6 +374,18 @@ class CampaignEscrowService {
         { returnDocument: "after", session: session || undefined }
       );
       if (!updatedEscrow) throw new ApiError(409, "Escrow balance changed; retry the release");
+      for (const allocation of allocations) {
+        const releaseAmount = money(allocation.remainingAmount);
+        const updated = await CampaignDeliverableFunding.findOneAndUpdate(
+          { _id: allocation._id, remainingAmount: releaseAmount },
+          {
+            $inc: { releasedAmount: releaseAmount, remainingAmount: -releaseAmount },
+            $set: { status: "released" },
+          },
+          { returnDocument: "after", session }
+        );
+        if (!updated) throw new ApiError(409, "Deliverable funding allocation changed; retry the release");
+      }
 
       const wallet = await InfluencerWallet.findOneAndUpdate(
         { influencerId },
@@ -323,9 +408,23 @@ class CampaignEscrowService {
         balanceAfter: updatedWallet.availableBalance,
         meta: { campaignId, releaseId: paymentRelease._id, deliverableIds: uniqueIds },
       }], { session: session || undefined });
+      await CampaignEscrowLedger.create([{
+        campaignId,
+        escrowWalletId: escrow._id,
+        releaseId: paymentRelease._id,
+        vendorId,
+        influencerId,
+        entryType: "deliverable_release",
+        direction: "debit",
+        amount: totalReleaseAmount,
+        balanceAfter: updatedEscrow.amountRemaining,
+        currency: escrow.currency,
+        idempotencyKey: `campaign-release:${paymentRelease._id}`,
+        metadata: { deliverableIds: uniqueIds, influencerLedgerId: ledgerEntry._id },
+      }], { session });
 
       await DeliverablePayout.updateMany(
-        { _id: { $in: payouts.map((row) => row._id) }, status: "eligible" },
+        { deliverableId: { $in: uniqueIds }, campaignId, status: "eligible" },
         { $set: { status: "released", "metadata.releaseId": paymentRelease._id, "metadata.releasedAt": new Date() } },
         { session: session || undefined }
       );
@@ -350,6 +449,20 @@ class CampaignEscrowService {
       entityId: result.releaseId,
       metadata: { campaignId, influencerId, amount: result.totalAmount, deliverableIds: uniqueIds },
     }).catch(() => {});
+    const influencer = await InfluencerProfile.findById(influencerId).select("userId").lean();
+    if (influencer?.userId) {
+      await notificationService.createNotification({
+        userId: influencer.userId,
+        role: "INFLUENCER",
+        module: "FINANCE",
+        subModule: "INFLUENCER_COMMERCE",
+        type: "COMMISSION_PAID",
+        title: "Campaign earnings released",
+        message: `INR ${result.totalAmount} from approved campaign deliverables is now available in your wallet.`,
+        referenceId: result.releaseId,
+        meta: { campaignId: String(campaignId), releaseId: String(result.releaseId) },
+      }).catch(() => null);
+    }
     return { ...result, message: "Approved earnings released to the influencer wallet" };
   }
 
@@ -366,18 +479,33 @@ class CampaignEscrowService {
 
     const paymentOrder = await CampaignPaymentOrder.findById(escrow.paymentOrderId);
     if (!paymentOrder) throw new ApiError(404, "Campaign payment order not found");
-    const totalRefundAmount = money(escrow.amountRemaining);
+    const fundingAllocations = await CampaignDeliverableFunding.find({
+      campaignId,
+      escrowWalletId: escrow._id,
+      remainingAmount: { $gt: 0 },
+      status: { $in: ["funded", "partially_released"] },
+    }).lean();
+    const grossRefundAmount = money(fundingAllocations.reduce((sum, row) => sum + Number(row.remainingAmount || 0), 0));
+    if (grossRefundAmount <= 0) throw new ApiError(400, "No unreleased deliverable funding is available to refund");
+    const refundFees = await campaignFeeService.calculateRefundFees(grossRefundAmount, {
+      partial: money(escrow.amountReleased) > 0,
+    });
 
     const refund = new CampaignRefund({
       campaignId,
       escrowWalletId: escrow._id,
       vendorId,
       paymentOrderId: paymentOrder._id,
-      budgetAmount: totalRefundAmount,
+      budgetAmount: grossRefundAmount,
       platformFeeAmount: 0,
       gatewayFeeAmount: 0,
       taxAmount: 0,
-      totalRefundAmount,
+      grossRefundAmount,
+      processingFeeAmount: refundFees.processingFeeAmount,
+      partialRefundFeeAmount: refundFees.partialRefundFeeAmount,
+      totalRefundAmount: refundFees.totalRefundAmount,
+      feeConfigurationSnapshot: refundFees.feeConfigurationSnapshot,
+      fundingAllocationIds: fundingAllocations.map((row) => row._id),
       refundPlatformFee: false,
       refundGatewayFee: false,
       refundTax: false,
@@ -392,15 +520,18 @@ class CampaignEscrowService {
         action: "refund_requested",
         actor: requestedBy,
         actorRole: "vendor",
-        details: { reason, totalRefundAmount },
+        details: { reason, grossRefundAmount, totalRefundAmount: refundFees.totalRefundAmount },
       }],
     });
     await refund.save();
 
     return {
       refundId: refund._id,
-      totalRefundAmount,
-      budgetRefund: totalRefundAmount,
+      totalRefundAmount: refundFees.totalRefundAmount,
+      grossRefundAmount,
+      budgetRefund: grossRefundAmount,
+      processingFeeAmount: refundFees.processingFeeAmount,
+      partialRefundFeeAmount: refundFees.partialRefundFeeAmount,
       feeRefund: 0,
       taxRefund: 0,
       status: "requested",
@@ -437,6 +568,9 @@ class CampaignEscrowService {
     const escrow = await CampaignEscrowWallet.findOne({ campaignId, vendorId }).lean();
     if (!escrow) return { status: "not_funded", message: "Campaign not yet funded" };
     const paymentOrder = await CampaignPaymentOrder.findById(escrow.paymentOrderId).lean();
+    const allocations = await CampaignDeliverableFunding.find({ campaignId, escrowWalletId: escrow._id })
+      .sort({ allocationKey: 1 })
+      .lean();
     return {
       escrowId: escrow._id,
       campaignId,
@@ -458,6 +592,8 @@ class CampaignEscrowService {
       lastReleaseAt: escrow.lastReleaseAt,
       paymentOrderStatus: paymentOrder?.status,
       partialReleases: escrow.partialReleases,
+      feeConfigurationSnapshot: escrow.feeConfigurationSnapshot,
+      fundingAllocations: allocations,
     };
   }
 }

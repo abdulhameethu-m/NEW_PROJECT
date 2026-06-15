@@ -84,6 +84,7 @@ const MODULES = {
   influencers: { label: "Influencers", icon: Users, path: "/admin/influencer-commerce/influencers" },
   vendors: { label: "Vendors", icon: Users, path: "/admin/influencer-commerce/vendors" },
   campaigns: { label: "Campaign Management", icon: BarChart3, path: "/admin/influencer-commerce/campaigns" },
+  "vendor-campaign-commission": { label: "Vendor Campaign Commission", icon: Calculator, path: "/admin/influencer-commerce/vendor-campaign-commission" },
   applications: { label: "Campaign Applications", icon: FileCheck2, path: "/admin/influencer-commerce/applications" },
   matching: { label: "Influencer-Vendor Matching", icon: Search, path: "/admin/influencer-commerce/matching" },
   "affiliate-products": { label: "Affiliate Products", icon: Package, path: "/admin/influencer-commerce/affiliate-products" },
@@ -443,6 +444,7 @@ export function AdminInfluencerCommercePage() {
     influencers: listAdminInfluencerCommerceInfluencers,
     vendors: listAdminInfluencerCommerceVendors,
     campaigns: listAdminInfluencerCommerceCampaigns,
+    "vendor-campaign-commission": async () => ({ data: { items: await CampaignEscrowService.listFeeConfigurations() } }),
     applications: listAdminCampaignApplications,
     matching: getAdminInfluencerVendorMatching,
     "affiliate-products": listAdminAffiliateProducts,
@@ -588,7 +590,7 @@ export function AdminInfluencerCommercePage() {
       {message ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{message}</div> : null}
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">{error}</div> : null}
 
-      {moduleId !== "settings" ? <Filters filters={filters} setFilters={setFilters} compact={["dashboard", "reports"].includes(moduleId)} /> : null}
+      {!["settings", "vendor-campaign-commission"].includes(moduleId) ? <Filters filters={filters} setFilters={setFilters} compact={["dashboard", "reports"].includes(moduleId)} /> : null}
       {loading ? <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">Loading influencer commerce data...</div> : renderModule(moduleId, data, items, pagination, setFilters, runAction, busyId)}
     </div>
   );
@@ -599,6 +601,7 @@ function renderModule(moduleId, data, items, pagination, setFilters, runAction, 
   if (moduleId === "influencers") return <InfluencersView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "vendors") return <VendorsView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "campaigns") return <CampaignsView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
+  if (moduleId === "vendor-campaign-commission") return <VendorCampaignCommissionView items={items} runAction={runAction} busyId={busyId} />;
   if (moduleId === "applications") return <ApplicationsView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "matching") return <MatchingView data={data} runAction={runAction} busyId={busyId} />;
   if (moduleId === "affiliate-products") return <AffiliateProductsView items={items} pagination={pagination} setFilters={setFilters} title="Affiliate Products" />;
@@ -1720,6 +1723,158 @@ function SettlementsView({ items, fixedPayments, refunds, pagination, setFilters
           </tr>
         )} />
         <Pagination pagination={pagination} setFilters={setFilters} />
+      </Section>
+    </div>
+  );
+}
+
+function VendorCampaignCommissionView({ items, runAction, busyId }) {
+  const emptyForm = () => ({
+    feeName: "Platform Fee",
+    feeCode: "platform_fee",
+    feeType: "percentage",
+    percentageValue: 0,
+    fixedValue: 0,
+    calculationBase: "campaign_budget",
+    isActive: true,
+    effectiveFrom: new Date().toISOString().slice(0, 10),
+    effectiveTo: "",
+  });
+  const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState("");
+  const inputClass = "h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white";
+  const dateInput = (value) => value ? new Date(value).toISOString().slice(0, 10) : "";
+  const payloadFor = (value) => ({
+    feeName: value.feeName,
+    feeCode: value.feeCode,
+    feeType: value.feeType,
+    percentageValue: Number(value.percentageValue || 0),
+    fixedValue: Number(value.fixedValue || 0),
+    calculationBase: value.calculationBase,
+    isActive: Boolean(value.isActive),
+    effectiveFrom: value.effectiveFrom,
+    effectiveTo: value.effectiveTo || null,
+  });
+  const resetForm = () => {
+    setEditingId("");
+    setForm(emptyForm());
+  };
+  const startEdit = (row) => {
+    setEditingId(idOf(row));
+    setForm({
+      feeName: row.feeName || "",
+      feeCode: row.feeCode || "platform_fee",
+      feeType: row.feeType || "percentage",
+      percentageValue: Number(row.percentageValue || 0),
+      fixedValue: Number(row.fixedValue || 0),
+      calculationBase: row.calculationBase || "campaign_budget",
+      isActive: Boolean(row.isActive),
+      effectiveFrom: dateInput(row.effectiveFrom),
+      effectiveTo: dateInput(row.effectiveTo),
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const saveConfiguration = async () => {
+    const actionId = editingId ? `edit-campaign-fee-${editingId}` : "create-campaign-fee";
+    const saved = await runAction(
+      actionId,
+      () => editingId
+        ? CampaignEscrowService.updateFeeConfiguration(editingId, payloadFor(form))
+        : CampaignEscrowService.createFeeConfiguration(payloadFor(form)),
+      editingId ? "Campaign fee configuration updated." : "Campaign fee configuration created."
+    );
+    if (saved) resetForm();
+  };
+  const deleteConfiguration = async (row) => {
+    const id = idOf(row);
+    if (!window.confirm(`Delete "${row.feeName}"? Existing payment snapshots will remain unchanged.`)) return;
+    const deleted = await runAction(
+      `delete-campaign-fee-${id}`,
+      () => CampaignEscrowService.deleteFeeConfiguration(id),
+      "Campaign fee configuration deleted."
+    );
+    if (deleted && editingId === id) resetForm();
+  };
+  return (
+    <div className="space-y-4">
+      <Section title={editingId ? "Edit Fee Configuration" : "Create Fee Configuration"} icon={Calculator}>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <FieldShell label="Fee Name"><input className={inputClass} value={form.feeName} onChange={(event) => setForm((current) => ({ ...current, feeName: event.target.value }))} /></FieldShell>
+          <FieldShell label="Fee Code">
+            <select className={inputClass} value={form.feeCode} onChange={(event) => setForm((current) => ({ ...current, feeCode: event.target.value }))}>
+              <option value="platform_fee">Platform Fee</option>
+              <option value="gateway_fee">Gateway Fee</option>
+              <option value="gst">GST</option>
+              <option value="refund_processing_fee">Refund Processing Fee</option>
+              <option value="partial_refund_fee">Partial Refund Fee</option>
+            </select>
+          </FieldShell>
+          <FieldShell label="Fee Type">
+            <select className={inputClass} value={form.feeType} onChange={(event) => setForm((current) => ({ ...current, feeType: event.target.value }))}>
+              <option value="percentage">Percentage</option>
+              <option value="fixed">Fixed</option>
+              <option value="hybrid">Hybrid</option>
+            </select>
+          </FieldShell>
+          <FieldShell label="Calculation Base">
+            <select className={inputClass} value={form.calculationBase} onChange={(event) => setForm((current) => ({ ...current, calculationBase: event.target.value }))}>
+              <option value="campaign_budget">Campaign Budget</option>
+              <option value="service_fees">Service Fees</option>
+              <option value="refundable_amount">Refundable Amount</option>
+            </select>
+          </FieldShell>
+          <FieldShell label="Percentage"><input type="number" min="0" max="100" step="0.01" className={inputClass} value={form.percentageValue} onChange={(event) => setForm((current) => ({ ...current, percentageValue: event.target.value }))} /></FieldShell>
+          <FieldShell label="Fixed Amount"><input type="number" min="0" step="0.01" className={inputClass} value={form.fixedValue} onChange={(event) => setForm((current) => ({ ...current, fixedValue: event.target.value }))} /></FieldShell>
+          <FieldShell label="Effective From"><input type="date" className={inputClass} value={form.effectiveFrom} onChange={(event) => setForm((current) => ({ ...current, effectiveFrom: event.target.value }))} /></FieldShell>
+          <FieldShell label="Effective To"><input type="date" className={inputClass} value={form.effectiveTo} onChange={(event) => setForm((current) => ({ ...current, effectiveTo: event.target.value }))} /></FieldShell>
+          <FieldShell label="Status">
+            <label className={`${inputClass} flex items-center gap-2`}>
+              <input type="checkbox" checked={form.isActive} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} />
+              Active
+            </label>
+          </FieldShell>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <ActionButton
+            icon={CheckCircle2}
+            disabled={busyId === (editingId ? `edit-campaign-fee-${editingId}` : "create-campaign-fee") || !form.feeName.trim()}
+            onClick={saveConfiguration}
+          >
+            {editingId ? "Update Configuration" : "Save Configuration"}
+          </ActionButton>
+          {editingId ? <ActionButton tone="slate" icon={XCircle} onClick={resetForm}>Cancel Edit</ActionButton> : null}
+        </div>
+      </Section>
+      <Section title="Configured Campaign Fees" icon={Percent}>
+        <ResponsiveTable headers={["Fee", "Code", "Type", "Percentage", "Fixed", "Base", "Effective", "Status", "Actions"]} rows={items} renderRow={(row) => (
+          <tr key={idOf(row)}>
+            <td className="px-3 py-3 font-medium text-slate-900 dark:text-white">{row.feeName}</td>
+            <td className="px-3 py-3 text-slate-500">{row.feeCode}</td>
+            <td className="px-3 py-3"><StatusBadge value={row.feeType} /></td>
+            <td className="px-3 py-3">{Number(row.percentageValue || 0)}%</td>
+            <td className="px-3 py-3">{formatCurrency(row.fixedValue || 0)}</td>
+            <td className="px-3 py-3 text-slate-500">{statusText(row.calculationBase)}</td>
+            <td className="px-3 py-3 text-slate-500">{row.effectiveFrom ? new Date(row.effectiveFrom).toLocaleDateString() : "-"}</td>
+            <td className="px-3 py-3"><StatusBadge value={row.isActive ? "active" : "inactive"} /></td>
+            <td className="px-3 py-3">
+              <div className="flex flex-wrap gap-2">
+                <ActionButton tone="slate" icon={Pencil} disabled={Boolean(busyId)} onClick={() => startEdit(row)}>Edit</ActionButton>
+                <ActionButton
+                  tone={row.isActive ? "amber" : "green"}
+                  disabled={busyId === `toggle-fee-${idOf(row)}`}
+                  onClick={() => runAction(
+                    `toggle-fee-${idOf(row)}`,
+                    () => CampaignEscrowService.updateFeeConfiguration(idOf(row), payloadFor({ ...row, isActive: !row.isActive, effectiveFrom: dateInput(row.effectiveFrom), effectiveTo: dateInput(row.effectiveTo) })),
+                    `Campaign fee ${row.isActive ? "deactivated" : "activated"}.`
+                  )}
+                >
+                  {row.isActive ? "Deactivate" : "Activate"}
+                </ActionButton>
+                <ActionButton tone="red" icon={Trash2} disabled={busyId === `delete-campaign-fee-${idOf(row)}`} onClick={() => deleteConfiguration(row)}>Delete</ActionButton>
+              </div>
+            </td>
+          </tr>
+        )} />
       </Section>
     </div>
   );

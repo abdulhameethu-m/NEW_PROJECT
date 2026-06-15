@@ -13,6 +13,9 @@ export function BudgetSummaryPanel({
   gatewayFeeAmount,
   taxAmount,
   totalAmount,
+  escrowAmount,
+  feeLines = [],
+  feeSource = '',
   currency = 'INR',
   loading = false,
   error = null,
@@ -24,8 +27,18 @@ export function BudgetSummaryPanel({
       gatewayFee: gatewayFeeAmount || 0,
       tax: taxAmount || 0,
       total: totalAmount || 0,
+      escrow: escrowAmount ?? budgetAmount ?? 0,
     };
-  }, [budgetAmount, platformFeeAmount, gatewayFeeAmount, taxAmount, totalAmount]);
+  }, [budgetAmount, platformFeeAmount, gatewayFeeAmount, taxAmount, totalAmount, escrowAmount]);
+
+  const dynamicFees = useMemo(() => {
+    if (feeLines.length) return feeLines;
+    return [
+      { feeCode: 'platform_fee', feeName: 'Platform Fee', amount: breakdown.platformFee },
+      { feeCode: 'gateway_fee', feeName: 'Payment Gateway Fee', amount: breakdown.gatewayFee },
+      { feeCode: 'gst', feeName: 'GST', amount: breakdown.tax },
+    ].filter((line) => Number(line.amount || 0) > 0);
+  }, [feeLines, breakdown.platformFee, breakdown.gatewayFee, breakdown.tax]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -93,37 +106,22 @@ export function BudgetSummaryPanel({
           </p>
         </div>
 
-        {/* Platform Fee */}
-        <div className="flex items-center justify-between py-3">
-          <div>
-            <p className="text-sm font-medium text-gray-600">Platform Fee</p>
-            <p className="text-xs text-gray-500 mt-0.5">2% of campaign budget</p>
+        {dynamicFees.map((line, index) => (
+          <div key={line.configurationId || line.feeCode || index} className="flex items-center justify-between py-3">
+            <div>
+              <p className="text-sm font-medium text-gray-600">{line.feeName || line.label || 'Fee'}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{line.description || line.source || feeSource}</p>
+            </div>
+            <p className="text-base text-gray-700">{formatCurrency(line.amount || 0)}</p>
           </div>
-          <p className="text-base text-gray-700">
-            {formatCurrency(breakdown.platformFee)}
-          </p>
-        </div>
+        ))}
 
-        {/* Gateway Fee */}
-        <div className="flex items-center justify-between py-3">
+        <div className="flex items-center justify-between border-b-2 border-gray-200 py-3 pb-3">
           <div>
-            <p className="text-sm font-medium text-gray-600">Payment Gateway Fee</p>
-            <p className="text-xs text-gray-500 mt-0.5">Razorpay processing fee</p>
+            <p className="text-sm font-medium text-gray-600">Escrow Amount</p>
+            <p className="text-xs text-gray-500 mt-0.5">Locked for deliverable-level releases</p>
           </div>
-          <p className="text-base text-gray-700">
-            {formatCurrency(breakdown.gatewayFee)}
-          </p>
-        </div>
-
-        {/* Tax */}
-        <div className="flex items-center justify-between py-3 border-b-2 border-gray-200 pb-3">
-          <div>
-            <p className="text-sm font-medium text-gray-600">GST (18%)</p>
-            <p className="text-xs text-gray-500 mt-0.5">Applied on budget + fees</p>
-          </div>
-          <p className="text-base text-gray-700">
-            {formatCurrency(breakdown.tax)}
-          </p>
+          <p className="text-base font-semibold text-gray-800">{formatCurrency(breakdown.escrow)}</p>
         </div>
 
         {/* Total Amount */}
@@ -147,6 +145,7 @@ export function BudgetSummaryPanel({
             <p className="text-sm text-blue-800 mt-1">
               Payment will be held in escrow. Funds are released only when you approve deliverables from the influencer.
             </p>
+            {feeSource ? <p className="mt-1 text-xs font-medium text-blue-700">Fee source: {feeSource}</p> : null}
           </div>
         </div>
       </div>
