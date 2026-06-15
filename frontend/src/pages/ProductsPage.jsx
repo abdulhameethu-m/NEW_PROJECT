@@ -1,7 +1,7 @@
 import { logger } from "../services/logger/logger.js";
 import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ChevronDown, Heart, ShoppingCart } from "lucide-react";
+import { ChevronDown, Heart, ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
 import { BackButton } from "../components/BackButton";
 import { useCategories } from "../hooks/useCategories";
 import { getSubcategoriesByCategory } from "../services/subcategoryService";
@@ -13,6 +13,7 @@ import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useWishlist } from "../hooks/useWishlist";
 import { getCartErrorMessage } from "../utils/cartErrors";
 import { SellerNameLink } from "../components/seller/SellerNavigation";
+import { resolveApiAssetUrl } from "../utils/resolveUrl";
 
 
 const RESERVED_QUERY_KEYS = new Set([
@@ -799,7 +800,32 @@ const ProductCard = memo(function ProductCard({ product }) {
   const { addItem: addWishlistItem, removeItem: removeWishlistItem, isInWishlist: checkWishlistStatus } = useWishlist();
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isHovering, setIsHovering] = useState(false);
   const productId = useMemo(() => extractProductId(product), [product]);
+
+  // Get all product images
+  const allImages = useMemo(() => product?.images?.filter((img) => img?.url) || [], [product?.images]);
+  const hasMultipleImages = allImages.length > 1;
+  const currentImageUrl = allImages[currentImageIndex]?.url || product.images?.[0]?.url;
+
+  // Get display settings from product
+  const displaySettings = product?.displaySettings || {};
+  const enableImageScroll = displaySettings.enableImageScroll !== false;
+  const scrollSpeed = displaySettings.imageScrollSpeed || 800;
+  const cardType = displaySettings.cardType || "scroll";
+  const shouldScroll = enableImageScroll && cardType === "scroll";
+
+  // Auto-cycle through images on hover
+  useEffect(() => {
+    if (!isHovering || !hasMultipleImages || !shouldScroll) return;
+
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+    }, scrollSpeed);
+
+    return () => clearInterval(interval);
+  }, [isHovering, hasMultipleImages, shouldScroll, allImages.length, scrollSpeed]);
 
   useEffect(() => {
     let active = true;
@@ -824,6 +850,27 @@ const ProductCard = memo(function ProductCard({ product }) {
   const discountPercent = product.discountPrice
     ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
     : 0;
+
+  const handleMouseEnter = () => {
+    setIsHovering(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovering(false);
+    setCurrentImageIndex(0);
+  };
+
+  const handleNextImage = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+  };
+
+  const handlePrevImage = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+  };
 
   const handleWishlist = async (event) => {
     event.preventDefault();
@@ -871,11 +918,19 @@ const ProductCard = memo(function ProductCard({ product }) {
     <Link
       to={`/product/${productId}`}
       className="group/card flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition-all duration-200 hover:border-slate-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:shadow-slate-950/50"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
-      <div className="group relative w-full overflow-hidden bg-slate-100 dark:bg-slate-800" style={{ aspectRatio: "3/4" }}>
-        {product.images?.[0]?.url ? (
+      <div 
+        className="group relative w-full overflow-hidden bg-slate-100 dark:bg-slate-800" 
+        style={{ aspectRatio: "3/4" }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {currentImageUrl ? (
           <img
-            src={product.images[0].url}
+            key={`${product._id}-${currentImageIndex}`}
+            src={currentImageUrl}
             alt={product.name}
             className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
@@ -886,6 +941,34 @@ const ProductCard = memo(function ProductCard({ product }) {
         ) : (
           <div className="flex h-full w-full items-center justify-center text-slate-400 text-xs">No Image</div>
         )}
+
+        {/* Image Navigation - Visible on Hover */}
+        {hasMultipleImages && isHovering && shouldScroll && (
+          <>
+            {/* Previous Button */}
+            <button
+              onClick={handlePrevImage}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-8 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm shadow-lg hover:bg-white dark:hover:bg-slate-700 transition-all duration-200 hover:scale-110"
+              aria-label="Previous image"
+              tabIndex={-1}
+              type="button"
+            >
+              <ChevronLeft size={16} className="text-slate-700 dark:text-slate-200" />
+            </button>
+
+            {/* Next Button */}
+            <button
+              onClick={handleNextImage}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-8 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm shadow-lg hover:bg-white dark:hover:bg-slate-700 transition-all duration-200 hover:scale-110"
+              aria-label="Next image"
+              tabIndex={-1}
+              type="button"
+            >
+              <ChevronRight size={16} className="text-slate-700 dark:text-slate-200" />
+            </button>
+          </>
+        )}
+
         {discountPercent > 0 ? (
           <div className="absolute top-1.5 right-1.5 transform transition-all duration-200 group-hover:scale-110">
             <div className="flex flex-col items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-2 py-1.5 shadow-lg shadow-orange-500/40">

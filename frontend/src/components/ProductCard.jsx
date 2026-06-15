@@ -2,7 +2,7 @@ import { logger } from "../services/logger/logger.js";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
-import { Heart, ShoppingCart, Star } from "lucide-react";
+import { Heart, ShoppingCart, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import { useCart } from "../hooks/useCart";
@@ -35,8 +35,32 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
   const { addItem: addWishlistItem, removeItem: removeWishlistItem, isInWishlist: checkWishlistStatus } = useWishlist();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isHovering, setIsHovering] = useState(false);
   const productId = useMemo(() => extractProductId(product), [product]);
-  const imageUrl = resolveApiAssetUrl(product?.images?.[0]?.url || "");
+  
+  // Get all product images
+  const allImages = useMemo(() => product?.images?.filter((img) => img?.url) || [], [product?.images]);
+  const imageUrl = resolveApiAssetUrl(allImages[currentImageIndex]?.url || allImages[0]?.url || "");
+  const hasMultipleImages = allImages.length > 1;
+
+  // Get display settings from product
+  const displaySettings = product?.displaySettings || {};
+  const enableImageScroll = displaySettings.enableImageScroll !== false;
+  const scrollSpeed = displaySettings.imageScrollSpeed || 800;
+  const cardType = displaySettings.cardType || "scroll";
+  const shouldScroll = enableImageScroll && cardType === "scroll";
+
+  // Auto-cycle through images on hover
+  useEffect(() => {
+    if (!isHovering || !hasMultipleImages || !shouldScroll) return;
+
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+    }, scrollSpeed);
+
+    return () => clearInterval(interval);
+  }, [isHovering, hasMultipleImages, shouldScroll, allImages.length, scrollSpeed]);
 
   const { selectedVariant, hasAvailableVariants, availableStock } = useMemo(
     () => getAvailableProductVariant(product, cart?.items),
@@ -149,6 +173,27 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
     navigate(`/product/${productId}`);
   };
 
+  const handleNextImage = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+  };
+
+  const handlePrevImage = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+  };
+
+  const handleMouseEnter = () => {
+    setIsHovering(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovering(false);
+    setCurrentImageIndex(0);
+  };
+
   return (
     <Motion.article
       whileHover={{ y: -8 }}
@@ -160,17 +205,27 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
           navigateToProduct();
         }
       }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       role="link"
       tabIndex={0}
       className={`group relative flex flex-col h-full overflow-hidden rounded-2xl transition-all duration-300 ${cardStyleClass}`}
     >
-      <div className={`relative w-full ${imageAspectClass} bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-slate-800 overflow-hidden flex-shrink-0`}>
+      <div 
+        className={`relative w-full ${imageAspectClass} bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-slate-800 overflow-hidden flex-shrink-0`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         {/* Product Image */}
         {imageUrl ? (
-          <img
+          <Motion.img
+            key={`${product._id}-${currentImageIndex}`}
             src={imageUrl}
             alt={product?.name || "Product image"}
-            className="h-full w-full object-cover object-center transition duration-500 group-hover:scale-110"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="h-full w-full object-cover object-center transition-all duration-300 group-hover:scale-110"
             loading="lazy"
           />
         ) : (
@@ -188,6 +243,33 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
             <div className="text-xs font-bold text-white">{discountPercent}%</div>
             <div className="text-[10px] font-semibold text-white">OFF</div>
           </div>
+        )}
+
+        {/* Image Navigation - Visible on Hover */}
+        {hasMultipleImages && isHovering && shouldScroll && (
+          <>
+            {/* Previous Button */}
+            <button
+              onClick={handlePrevImage}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-9 h-9 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm shadow-lg hover:bg-white dark:hover:bg-slate-700 transition-all duration-200 hover:scale-110"
+              aria-label="Previous image"
+              tabIndex={-1}
+              type="button"
+            >
+              <ChevronLeft size={18} className="text-slate-700 dark:text-slate-200" />
+            </button>
+
+            {/* Next Button */}
+            <button
+              onClick={handleNextImage}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-9 h-9 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm shadow-lg hover:bg-white dark:hover:bg-slate-700 transition-all duration-200 hover:scale-110"
+              aria-label="Next image"
+              tabIndex={-1}
+              type="button"
+            >
+              <ChevronRight size={18} className="text-slate-700 dark:text-slate-200" />
+            </button>
+          </>
         )}
 
         {/* Premium Vertical Action Stack - Top Right */}

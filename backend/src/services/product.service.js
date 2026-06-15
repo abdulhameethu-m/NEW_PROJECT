@@ -492,7 +492,6 @@ class ProductService {
 
         updateData.modulesData = normalizedModulesData;
         updateData.attributes = normalizedAttributes;
-        updateData.extraDetails = normalizedModulesData;
         updateData.images = normalizedImages;
         updateData.variantConfig = variantState.variantConfig;
         updateData.variants = variantState.variants;

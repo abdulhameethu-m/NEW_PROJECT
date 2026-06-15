@@ -44,6 +44,11 @@ function getInitialForm() {
     metaKeywords: "",
     modulesData: {},
     attributes: {},
+    displaySettings: {
+      cardType: "scroll", // 'normal' or 'scroll'
+      enableImageScroll: true,
+      imageScrollSpeed: 800, // milliseconds
+    },
   };
 }
 
@@ -208,6 +213,11 @@ export function ProductEditor({
           metaKeywords: product.metaKeywords?.join(", ") || "",
           modulesData: product.modulesData || product.extraDetails || {},
           attributes: product.attributes || {},
+          displaySettings: {
+            cardType: product.displaySettings?.cardType || "scroll",
+            enableImageScroll: product.displaySettings?.enableImageScroll !== false,
+            imageScrollSpeed: product.displaySettings?.imageScrollSpeed || 800,
+          },
         });
 
         setVariantRows(
@@ -568,6 +578,11 @@ export function ProductEditor({
           .split(",")
           .map((key) => key.trim())
           .filter(Boolean),
+        displaySettings: {
+          cardType: formData.displaySettings?.cardType || "scroll",
+          enableImageScroll: Boolean(formData.displaySettings?.enableImageScroll),
+          imageScrollSpeed: Number(formData.displaySettings?.imageScrollSpeed || 800),
+        },
       };
 
       if (isEditing) {
@@ -686,6 +701,72 @@ export function ProductEditor({
               title="Drag & drop generic product images"
               description="These images act as the fallback gallery for every variant and appear after variant-specific media."
             />
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Product card display settings</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Control how product images appear on product cards and category pages.
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Card type</label>
+              <select 
+                value={formData.displaySettings?.cardType || "scroll"} 
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  displaySettings: { ...prev.displaySettings, cardType: e.target.value }
+                }))}
+                className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+              >
+                <option value="scroll">Scroll product card (Auto-cycling images)</option>
+                <option value="normal">Normal product card (Single image)</option>
+              </select>
+            </div>
+
+            {formData.displaySettings?.cardType === "scroll" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Image scroll speed (ms)</label>
+                  <input 
+                    type="number" 
+                    min="300" 
+                    max="5000" 
+                    step="100"
+                    value={formData.displaySettings?.imageScrollSpeed || 800}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      displaySettings: { ...prev.displaySettings, imageScrollSpeed: Number(e.target.value) }
+                    }))}
+                    className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                  />
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    How long each image displays before changing (300-5000ms). Default: 800ms
+                  </p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="flex items-center gap-3">
+                    <input 
+                      type="checkbox" 
+                      checked={formData.displaySettings?.enableImageScroll !== false}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        displaySettings: { ...prev.displaySettings, enableImageScroll: e.target.checked }
+                      }))}
+                      className="h-4 w-4 rounded border-slate-300 accent-blue-600 dark:border-slate-600"
+                    />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Enable image auto-scrolling on hover
+                    </span>
+                  </label>
+                  <p className="mt-1 ml-7 text-xs text-slate-500 dark:text-slate-400">
+                    When enabled, images will automatically cycle through when customers hover over the product card
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </section>
 

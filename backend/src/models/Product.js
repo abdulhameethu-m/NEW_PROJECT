@@ -346,6 +346,23 @@ const productSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    displaySettings: {
+      cardType: {
+        type: String,
+        enum: ["scroll", "normal"],
+        default: "scroll",
+      },
+      enableImageScroll: {
+        type: Boolean,
+        default: true,
+      },
+      imageScrollSpeed: {
+        type: Number,
+        default: 800,
+        min: 300,
+        max: 5000,
+      },
+    },
   },
   { timestamps: true }
 );

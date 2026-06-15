@@ -160,6 +160,11 @@ const productSchema = Joi.object({
     Joi.string(),
     Joi.object().pattern(Joi.string(), Joi.alternatives().try(Joi.string().allow(""), Joi.number(), Joi.boolean(), Joi.array()))
   ).default({}),
+  displaySettings: Joi.object({
+    cardType: Joi.string().valid("scroll", "normal").default("scroll"),
+    enableImageScroll: Joi.boolean().default(true),
+    imageScrollSpeed: Joi.number().integer().min(300).max(5000).default(800),
+  }),
 }).unknown(true); // Allow unknown fields but validate known ones
 
 // Schema for creating product (stricter)
@@ -212,6 +217,11 @@ const updateProductSchema = Joi.object({
     Joi.string(),
     Joi.object().pattern(Joi.string(), Joi.alternatives().try(Joi.string().allow(""), Joi.number(), Joi.boolean(), Joi.array()))
   ),
+  displaySettings: Joi.object({
+    cardType: Joi.string().valid("scroll", "normal"),
+    enableImageScroll: Joi.boolean(),
+    imageScrollSpeed: Joi.number().integer().min(300).max(5000),
+  }),
 }).unknown(true);
 
 // Schema for admin approval
