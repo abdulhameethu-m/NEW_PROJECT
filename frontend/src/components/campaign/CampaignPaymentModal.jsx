@@ -54,14 +54,19 @@ export function CampaignPaymentModal({
         prefill: {
           email: paymentData.email || '',
         },
-        handler: (response) => {
-          onPaymentSuccess({
-            paymentOrderId: paymentData.paymentOrderId,
-            razorpayOrderId: response.razorpay_order_id,
-            razorpayPaymentId: response.razorpay_payment_id,
-            razorpaySignature: response.razorpay_signature,
-          });
-          onClose();
+        handler: async (response) => {
+          try {
+            await onPaymentSuccess({
+              paymentOrderId: paymentData.paymentOrderId,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            onClose();
+          } catch (err) {
+            setError(err?.response?.data?.message || err?.message || 'Payment verification failed');
+            onPaymentError?.(err);
+          }
         },
         modal: {
           ondismiss: () => {

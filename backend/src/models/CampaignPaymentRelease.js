@@ -100,7 +100,7 @@ const campaignPaymentReleaseSchema = new mongoose.Schema(
     },
     walletTransactionId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Ledger",
+      ref: "InfluencerLedger",
     },
 
     // Settlement tracking
@@ -155,5 +155,9 @@ campaignPaymentReleaseSchema.index({ vendorId: 1, createdAt: -1 });
 campaignPaymentReleaseSchema.index({ influencerId: 1, status: 1 });
 campaignPaymentReleaseSchema.index({ status: 1, createdAt: -1 });
 campaignPaymentReleaseSchema.index({ escrowWalletId: 1 });
+campaignPaymentReleaseSchema.index(
+  { "deliverables.deliverableId": 1 },
+  { unique: true }
+);
 
 module.exports = mongoose.model("CampaignPaymentRelease", campaignPaymentReleaseSchema);

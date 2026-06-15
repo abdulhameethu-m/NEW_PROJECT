@@ -2,15 +2,14 @@ const Razorpay = require("razorpay");
 const CampaignRefund = require("../models/CampaignRefund");
 const CampaignEscrowWallet = require("../models/CampaignEscrowWallet");
 const CampaignPaymentOrder = require("../models/CampaignPaymentOrder");
-const CampaignPaymentRelease = require("../models/CampaignPaymentRelease");
-const Ledger = require("../models/Ledger");
-const Campaign = require("../modules/campaign/model");
+const { Campaign } = require("../modules/campaign/model");
 const campaignEscrowService = require("./campaign-escrow.service");
+const auditService = require("./audit.service");
 const { ApiError } = require("../utils/ApiError");
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
-  key_secret: process.env.RAZORPAY_SECRET || "",
+  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
 });
 
 /**
@@ -96,8 +95,10 @@ class CampaignRefundService {
   /**
    * Get refund details
    */
-  async getRefundDetails(refundId) {
-    const refund = await CampaignRefund.findById(refundId)
+  async getRefundDetails(refundId, vendorId = null) {
+    const query = { _id: refundId };
+    if (vendorId) query.vendorId = vendorId;
+    const refund = await CampaignRefund.findOne(query)
       .populate("campaignId")
       .populate("escrowWalletId")
       .populate("vendorId")
@@ -127,19 +128,6 @@ class CampaignRefundService {
 
     // Approve via escrow service
     const result = await campaignEscrowService.approveRefund(refundId, approvalReason, approvedBy);
-
-    // Mark for processing
-    refund.status = "processing";
-    refund.processingStartedAt = new Date();
-
-    refund.auditLog.push({
-      action: "refund_processing_started",
-      actor: approvedBy,
-      actorRole: "admin",
-      timestamp: new Date(),
-    });
-
-    await refund.save();
 
     return result;
   }
@@ -191,7 +179,18 @@ class CampaignRefundService {
       throw new ApiError(400, `Cannot process refund in status: ${refund.status}`);
     }
 
+    let gatewaySucceeded = false;
     try {
+      const escrow = await CampaignEscrowWallet.findOne({
+        _id: refund.escrowWalletId,
+        amountRemaining: { $gte: refund.totalRefundAmount },
+        status: { $in: ["funded", "partially_released"] },
+      });
+      if (!escrow) throw new ApiError(409, "Escrow balance is no longer available for this refund");
+      refund.status = "processing";
+      refund.processingStartedAt = new Date();
+      await refund.save();
+
       // Get original payment for refund
       const paymentOrder = await CampaignPaymentOrder.findById(refund.paymentOrderId);
       if (!paymentOrder || !paymentOrder.razorpayPaymentId) {
@@ -210,6 +209,7 @@ class CampaignRefundService {
           },
         }
       );
+      gatewaySucceeded = true;
 
       // Update refund record
       refund.status = "completed";
@@ -227,22 +227,34 @@ class CampaignRefundService {
       });
 
       await refund.save();
-
-      // Create ledger entry for audit
-      const ledgerEntry = new Ledger({
-        vendorId: refund.vendorId,
-        transactionType: "campaign_refund",
+      escrow.amountRefunded = Number(escrow.amountRefunded || 0) + refund.totalRefundAmount;
+      escrow.amountRemaining = Math.max(0, Number(escrow.amountRemaining || 0) - refund.totalRefundAmount);
+      escrow.status = "refunded";
+      escrow.campaignStatus = "cancelled";
+      escrow.refunds.push({
+        refundId: refund._id,
         amount: refund.totalRefundAmount,
-        reference: {
-          campaignId: refund.campaignId,
-          refundId: refund._id,
-          razorpayRefundId: razorpayRefund.id,
-        },
-        description: `Campaign refund for ${refund.reason}`,
-        status: "completed",
+        reason: refund.reason,
+        refundedAt: new Date(),
       });
-
-      await ledgerEntry.save();
+      escrow.auditLog.push({
+        action: "refund_completed",
+        actor: processedBy,
+        actorRole: "admin",
+        details: { refundId: refund._id, amount: refund.totalRefundAmount, razorpayRefundId: razorpayRefund.id },
+      });
+      await escrow.save();
+      await Campaign.findByIdAndUpdate(refund.campaignId, {
+        $set: { state: "cancelled" },
+        $push: { history: { state: "cancelled", actorId: processedBy, note: "Remaining escrow refunded", changedAt: new Date() } },
+      });
+      await auditService.log({
+        actor: { _id: processedBy, role: "admin" },
+        action: "campaign.refund.completed",
+        entityType: "CampaignRefund",
+        entityId: refund._id,
+        metadata: { campaignId: refund.campaignId, amount: refund.totalRefundAmount, razorpayRefundId: razorpayRefund.id },
+      }).catch(() => {});
 
       return {
         refundId: refund._id,
@@ -252,6 +264,10 @@ class CampaignRefundService {
         message: "Refund processed to original payment method",
       };
     } catch (error) {
+      if (!gatewaySucceeded && refund.status === "processing") {
+        refund.status = "approved";
+        await refund.save().catch(() => {});
+      }
       throw new ApiError(500, `Failed to process refund: ${error.message}`);
     }
   }
@@ -294,12 +310,6 @@ class CampaignRefundService {
       cancellationReason,
       cancelledBy
     );
-
-    // Auto-approve for cancellation scenarios
-    if (["campaign_cancelled_before_acceptance", "campaign_cancelled_no_deliverables"].includes(refundReason)) {
-      const approved = await this.approveRefund(refundRequest.refundId, "Auto-approved: Campaign cancellation before acceptance", cancelledBy);
-      return approved;
-    }
 
     return refundRequest;
   }
@@ -348,7 +358,7 @@ class CampaignRefundService {
       eligible: true,
       reason: "Eligible for refund",
       availableAmount: escrow.amountRemaining,
-      totalRefundAmount: escrow.amountRemaining + (escrow.platformFeeAmount || 0) + (escrow.gatewayFeeAmount || 0) + (escrow.taxAmount || 0),
+      totalRefundAmount: escrow.amountRemaining,
     };
   }
 

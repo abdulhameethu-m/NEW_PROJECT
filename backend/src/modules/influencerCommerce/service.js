@@ -17,6 +17,7 @@ const { Reel } = require("../reel/model");
 const { TrackingSession } = require("../tracking/model");
 const { Product } = require("../../models/Product");
 const { Order } = require("../../models/Order");
+const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
 const { emitDomainEvent } = require("../events/event-bus");
 const { VendorInfluencerRelationship, InfluencerService } = require("./model");
 const { CAMPAIGN_STATES } = require("../shared/constants");
@@ -1357,7 +1358,7 @@ class InfluencerCommerceVendorService {
       Campaign.countDocuments(filter),
     ]);
     const campaignIds = items.map((campaign) => campaign._id);
-    const [contentCounts, commissionCounts, orderCounts, commerceDocs] = campaignIds.length
+    const [contentCounts, commissionCounts, orderCounts, fundedEscrows, commerceDocs] = campaignIds.length
       ? await Promise.all([
         Reel.aggregate([
           { $match: { campaignId: { $in: campaignIds } } },
@@ -1371,12 +1372,16 @@ class InfluencerCommerceVendorService {
           { $match: { "attribution.campaignId": { $in: campaignIds } } },
           { $group: { _id: "$attribution.campaignId", count: { $sum: 1 } } },
         ]),
+        CampaignEscrowWallet.find({ campaignId: { $in: campaignIds }, status: { $ne: "pending" } })
+          .select("campaignId")
+          .lean(),
         influencerRateCardService.getCampaignCommerceDocs(campaignIds),
       ])
-      : [[], [], [], { paymentModels: new Map(), attributionRules: new Map() }];
+      : [[], [], [], [], { paymentModels: new Map(), attributionRules: new Map() }];
     const contentCountMap = new Map(contentCounts.map((row) => [String(row._id), Number(row.count || 0)]));
     const commissionCountMap = new Map(commissionCounts.map((row) => [String(row._id), row]));
     const orderCountMap = new Map(orderCounts.map((row) => [String(row._id), Number(row.count || 0)]));
+    const fundedEscrowSet = new Set(fundedEscrows.map((row) => String(row.campaignId)));
     return {
       items: items.map((campaign) => {
         const applicationsCount = campaign.applications?.length || 0;
@@ -1391,6 +1396,7 @@ class InfluencerCommerceVendorService {
           contentCount ? "uploaded content" : "",
           commissionCount ? "commission records" : "",
           orderAttributionCount ? "sales/order attribution" : "",
+          fundedEscrowSet.has(String(campaign._id)) ? "funded escrow" : "",
         ].filter(Boolean);
         return {
           ...campaign,
@@ -1441,7 +1447,10 @@ class InfluencerCommerceVendorService {
     application.status = decision;
     application.reviewedAt = new Date();
     campaign.history.push({ state: decision, actorId: userId, note: payload.note || `Application ${decision}`, changedAt: new Date() });
-    if (decision === "approved" && campaign.state === "draft") campaign.state = "active";
+    if (decision === "approved") {
+      if (!campaign.influencerId) campaign.influencerId = influencerObjectId;
+      if (campaign.state === "draft") campaign.state = "active";
+    }
     await campaign.save();
     if (decision === "approved") {
       await upsertProductAssignments({ campaign, influencerId: influencerObjectId, status: "approved", source: "campaign_application", actorId: userId });
@@ -1484,8 +1493,33 @@ class InfluencerCommerceVendorService {
     if (!CAMPAIGN_STATES.includes(state)) {
       throw new AppError("Invalid campaign state", 400, "INVALID_STATE");
     }
-    const current = await Campaign.findOne({ _id: campaignId, vendorId: vendor._id }).select("state").lean();
+    const current = await Campaign.findOne({ _id: campaignId, vendorId: vendor._id }).select("state paymentType").lean();
     if (!current) throw new AppError("Campaign not found", 404, "NOT_FOUND");
+    if (state === "active" && current.paymentType === "fixed") {
+      if (["proposed", "invitation_sent", "pending_review"].includes(current.state)) {
+        throw new AppError("The influencer must accept this fixed-payment campaign before activation", 409, "CAMPAIGN_ACCEPTANCE_REQUIRED");
+      }
+      const funded = await CampaignEscrowWallet.exists({
+        campaignId,
+        vendorId: vendor._id,
+        status: { $in: ["funded", "partially_released", "fully_released", "completed"] },
+      });
+      if (!funded) {
+        throw new AppError("Fixed payment campaigns must be funded before activation", 409, "ESCROW_FUNDING_REQUIRED");
+      }
+    }
+    if (state === "completed" && current.paymentType === "fixed") {
+      const escrow = await CampaignEscrowWallet.findOne({ campaignId, vendorId: vendor._id })
+        .select("amountRemaining")
+        .lean();
+      if (escrow && Number(escrow.amountRemaining || 0) > 0) {
+        throw new AppError(
+          "Release approved earnings or refund the remaining escrow before closing this campaign",
+          409,
+          "ESCROW_BALANCE_REMAINS"
+        );
+      }
+    }
     if (current.state === state) return current;
     if (["completed", "cancelled"].includes(current.state) && state !== current.state) {
       throw new AppError("Closed campaigns cannot be reopened. Create a new campaign instead.", 409, "CAMPAIGN_CLOSED_LOCKED");
@@ -1495,6 +1529,17 @@ class InfluencerCommerceVendorService {
       { $set: { state }, $push: { history: { state, actorId: userId, note: payload.note || `Campaign ${state}`, changedAt: new Date() } } },
       { returnDocument: "after" }
     );
+    if (campaign.paymentType === "fixed") {
+      await CampaignEscrowWallet.updateOne(
+        { campaignId: campaign._id, vendorId: vendor._id },
+        {
+          $set: {
+            campaignStatus: state,
+            ...(state === "completed" ? { status: "completed", completedAt: new Date() } : {}),
+          },
+        }
+      );
+    }
     await CampaignStatusHistory.create({
       campaignId: campaign._id,
       oldStatus: current.state,
@@ -1513,10 +1558,11 @@ class InfluencerCommerceVendorService {
     const campaign = await Campaign.findOne({ _id: campaignId, vendorId: vendor._id });
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
 
-    const [commissionCount, contentCount, orderAttributionCount] = await Promise.all([
+    const [commissionCount, contentCount, orderAttributionCount, fundedEscrow] = await Promise.all([
       CommissionRecord.countDocuments({ campaignId: campaign._id }),
       Reel.countDocuments({ campaignId: campaign._id }),
       Order.countDocuments({ "attribution.campaignId": campaign._id }),
+      CampaignEscrowWallet.exists({ campaignId: campaign._id, status: { $ne: "pending" } }),
     ]);
     const applicationsCount = (campaign.applications || []).length;
     const deleteBlockers = [
@@ -1524,6 +1570,7 @@ class InfluencerCommerceVendorService {
       contentCount ? "uploaded content" : "",
       commissionCount ? "commission records" : "",
       orderAttributionCount ? "sales/order attribution" : "",
+      fundedEscrow ? "funded escrow" : "",
     ].filter(Boolean);
     if (deleteBlockers.length) {
       throw new AppError(

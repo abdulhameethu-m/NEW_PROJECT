@@ -61,14 +61,10 @@ export function ReleasePaymentModal({
       setError(null);
       setSuccess(null);
 
-      const selectedData = approvedDeliverables.filter((d) =>
-        selectedDeliverables.includes(d.id)
-      );
-
       await onRelease({
         campaignId,
         influencerId,
-        deliverables: selectedData,
+        deliverableIds: selectedDeliverables,
       });
 
       setSuccess(`₹${totalAmount.toLocaleString('en-IN')} released to influencer`);

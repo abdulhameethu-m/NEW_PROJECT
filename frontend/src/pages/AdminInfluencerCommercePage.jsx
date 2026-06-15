@@ -77,6 +77,7 @@ import {
 import { getCategories } from "../services/categoryService";
 import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
+import CampaignEscrowService from "../services/campaignEscrowService";
 
 const MODULES = {
   dashboard: { label: "Dashboard", icon: BarChart3, path: "/admin/influencer-commerce" },
@@ -489,7 +490,26 @@ export function AdminInfluencerCommercePage() {
       };
     },
     commissions: listAdminInfluencerCommissions,
-    settlements: listAdminInfluencerSettlements,
+    settlements: async (query) => {
+      const [settlements, fixedPayments, refunds] = await Promise.all([
+        listAdminInfluencerSettlements(query),
+        CampaignEscrowService.listAllPaymentOrders(query),
+        CampaignEscrowService.listRefundRequests({ ...query, limit: query.limit || 20 }),
+      ]);
+      return {
+        data: {
+          ...(unwrap(settlements) || {}),
+          fixedPayments: fixedPayments?.orders || [],
+          fixedPaymentPagination: {
+            total: fixedPayments?.total || 0,
+            page: Math.floor(Number(fixedPayments?.skip || 0) / Number(fixedPayments?.limit || 20)) + 1,
+            limit: fixedPayments?.limit || 20,
+            pages: fixedPayments?.pages || 1,
+          },
+          refunds: refunds?.refunds || [],
+        },
+      };
+    },
     payouts: listAdminInfluencerPayouts,
     withdrawals: listAdminInfluencerWithdrawals,
     "creator-performance": getAdminCreatorPerformance,
@@ -587,7 +607,7 @@ function renderModule(moduleId, data, items, pagination, setFilters, runAction, 
   if (moduleId === "content") return <ContentView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "commission-engine") return <CommissionEngineView data={data} runAction={runAction} busyId={busyId} />;
   if (moduleId === "commissions") return <CommissionsView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
-  if (moduleId === "settlements") return <SettlementsView items={items} pagination={pagination} setFilters={setFilters} />;
+  if (moduleId === "settlements") return <SettlementsView items={items} fixedPayments={data.fixedPayments || []} refunds={data.refunds || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "payouts") return <PayoutsView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "withdrawals") return <WithdrawalsView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "creator-performance") return <PerformanceView title="Creator Performance" items={data.leaderboard || items} pagination={pagination} setFilters={setFilters} kind="creator" />;
@@ -1644,23 +1664,64 @@ function CommissionsView({ items, pagination, setFilters, runAction, busyId }) {
   );
 }
 
-function SettlementsView({ items, pagination, setFilters }) {
+function SettlementsView({ items, fixedPayments, refunds, pagination, setFilters, runAction, busyId }) {
   return (
-    <Section title="Escrow & Settlements" icon={WalletCards}>
-      <ResponsiveTable headers={["Vendor", "Influencer", "Campaign", "Order", "Escrow", "Hold Until", "Status", "Released"]} rows={items} renderRow={(row) => (
-        <tr key={idOf(row)}>
-          <td className="px-3 py-3">{pickVendorName(row.vendorId || row.vendor)}</td>
-          <td className="px-3 py-3">{pickUserName(row.influencerId || row.influencer)}</td>
-          <td className="px-3 py-3">{text(row.campaignId?.title || row.campaign?.title)}</td>
-          <td className="px-3 py-3">{text(row.orderId?.orderNumber || row.orderNumber)}</td>
-          <td className="px-3 py-3">{formatCurrency(row.escrowAmount || 0)}</td>
-          <td className="px-3 py-3">{dateValue(row.holdUntil)}</td>
-          <td className="px-3 py-3"><StatusBadge value={row.settlementStatus || row.state} /></td>
-          <td className="px-3 py-3">{dateValue(row.releasedDate)}</td>
-        </tr>
-      )} />
-      <Pagination pagination={pagination} setFilters={setFilters} />
-    </Section>
+    <div className="space-y-4">
+      <Section title="Fixed Campaign Payments" icon={WalletCards}>
+        <ResponsiveTable headers={["Campaign", "Vendor", "Budget", "Paid", "Escrow Balance", "Released", "Refunded", "Payment", "Campaign Status"]} rows={fixedPayments} renderRow={(row) => (
+          <tr key={idOf(row)}>
+            <td className="px-3 py-3 font-medium text-slate-900 dark:text-white">{text(row.campaignId?.title || row.campaignId)}</td>
+            <td className="px-3 py-3">{pickVendorName(row.vendorId)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.budgetAmount || 0)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.totalAmount || 0)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.escrow?.amountRemaining || 0)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.escrow?.amountReleased || 0)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.escrow?.amountRefunded || 0)}</td>
+            <td className="px-3 py-3"><StatusBadge value={row.status} /></td>
+            <td className="px-3 py-3"><StatusBadge value={row.campaignId?.state || row.escrow?.campaignStatus} /></td>
+          </tr>
+        )} />
+      </Section>
+
+      <Section title="Fixed Campaign Refunds" icon={RefreshCw}>
+        <ResponsiveTable headers={["Campaign", "Vendor", "Amount", "Reason", "Status", "Requested", "Actions"]} rows={refunds} renderRow={(row) => {
+          const id = idOf(row);
+          return (
+            <tr key={id}>
+              <td className="px-3 py-3">{text(row.campaignId?.title || row.campaignId)}</td>
+              <td className="px-3 py-3">{pickVendorName(row.vendorId)}</td>
+              <td className="px-3 py-3">{formatCurrency(row.totalRefundAmount || 0)}</td>
+              <td className="px-3 py-3">{statusText(row.reason)}</td>
+              <td className="px-3 py-3"><StatusBadge value={row.status} /></td>
+              <td className="px-3 py-3">{dateValue(row.requestedAt)}</td>
+              <td className="px-3 py-3">
+                <div className="flex flex-wrap gap-2">
+                  <ActionButton tone="green" disabled={row.status !== "requested" || busyId === `approve-refund-${id}`} onClick={() => runAction(`approve-refund-${id}`, () => CampaignEscrowService.approveRefund(id, "Approved by platform admin"), "Refund approved.")}>Approve</ActionButton>
+                  <ActionButton tone="red" disabled={row.status !== "requested" || busyId === `reject-refund-${id}`} onClick={() => runAction(`reject-refund-${id}`, () => CampaignEscrowService.rejectRefund(id, "Rejected by platform admin"), "Refund rejected.")}>Reject</ActionButton>
+                  <ActionButton tone="amber" disabled={row.status !== "approved" || busyId === `process-refund-${id}`} onClick={() => runAction(`process-refund-${id}`, () => CampaignEscrowService.processRefund(id), "Refund sent to Razorpay.")}>Process</ActionButton>
+                </div>
+              </td>
+            </tr>
+          );
+        }} />
+      </Section>
+
+      <Section title="Commission Escrow & Settlements" icon={WalletCards}>
+        <ResponsiveTable headers={["Vendor", "Influencer", "Campaign", "Order", "Escrow", "Hold Until", "Status", "Released"]} rows={items} renderRow={(row) => (
+          <tr key={idOf(row)}>
+            <td className="px-3 py-3">{pickVendorName(row.vendorId || row.vendor)}</td>
+            <td className="px-3 py-3">{pickUserName(row.influencerId || row.influencer)}</td>
+            <td className="px-3 py-3">{text(row.campaignId?.title || row.campaign?.title)}</td>
+            <td className="px-3 py-3">{text(row.orderId?.orderNumber || row.orderNumber)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.escrowAmount || 0)}</td>
+            <td className="px-3 py-3">{dateValue(row.holdUntil)}</td>
+            <td className="px-3 py-3"><StatusBadge value={row.settlementStatus || row.state} /></td>
+            <td className="px-3 py-3">{dateValue(row.releasedDate)}</td>
+          </tr>
+        )} />
+        <Pagination pagination={pagination} setFilters={setFilters} />
+      </Section>
+    </div>
   );
 }
 

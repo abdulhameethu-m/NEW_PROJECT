@@ -17,6 +17,7 @@ const {
 } = require("./model");
 const { VendorInfluencerRelationship } = require("../influencerCommerce/model");
 const { InfluencerProductAssignment } = require("../influencer/model");
+const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
 
 const WORKFLOW = Object.freeze({
   DRAFT: "draft",
@@ -426,6 +427,8 @@ class CampaignService {
       payload,
     });
 
+    const requiresFunding = pricing.paymentType === "fixed";
+    const initialState = requiresFunding ? "draft" : WORKFLOW.INVITATION_SENT;
     const campaign = await Campaign.create({
       vendorId: vendor._id,
       influencerId: influencer._id,
@@ -454,24 +457,26 @@ class CampaignService {
       influencerRateSnapshot: pricing.influencerSnapshot,
       requirementsSnapshot: pricing.influencerSnapshot?.requirements || {},
       deadline: payload.deadline,
-      state: WORKFLOW.INVITATION_SENT,
-      history: [pushHistory(WORKFLOW.INVITATION_SENT, userId, "Campaign invitation sent by vendor")],
+      state: initialState,
+      history: [pushHistory(initialState, userId, requiresFunding ? "Fixed campaign awaiting escrow funding" : "Campaign invitation sent by vendor")],
     });
     await influencerRateCardService.attachCampaignPricing(campaign, pricing);
-    await createInvitationRecord({ campaign, influencerId: influencer._id, actorId: userId });
-    await notifyInfluencerProfile(influencer, {
-      title: "Campaign invitation",
-      message: `${vendorName(vendor)} invited you to review ${campaign.title || "a campaign"}.`,
-      referenceId: campaign._id,
-      meta: { campaignId: String(campaign._id), vendorId: String(vendor._id), invitationStatus: WORKFLOW.INVITATION_SENT },
-    });
-    await auditService.log({
-      actor: { _id: userId, role: "vendor" },
-      action: "campaign.invitation.sent",
-      entityType: "CampaignInvitation",
-      entityId: campaign._id,
-      metadata: { campaignId: String(campaign._id), influencerId: String(influencer._id), vendorId: String(vendor._id) },
-    }).catch(() => {});
+    if (!requiresFunding) {
+      await createInvitationRecord({ campaign, influencerId: influencer._id, actorId: userId });
+      await notifyInfluencerProfile(influencer, {
+        title: "Campaign invitation",
+        message: `${vendorName(vendor)} invited you to review ${campaign.title || "a campaign"}.`,
+        referenceId: campaign._id,
+        meta: { campaignId: String(campaign._id), vendorId: String(vendor._id), invitationStatus: WORKFLOW.INVITATION_SENT },
+      });
+      await auditService.log({
+        actor: { _id: userId, role: "vendor" },
+        action: "campaign.invitation.sent",
+        entityType: "CampaignInvitation",
+        entityId: campaign._id,
+        metadata: { campaignId: String(campaign._id), influencerId: String(influencer._id), vendorId: String(vendor._id) },
+      }).catch(() => {});
+    }
     await influencerCommerceEngine.ensureCampaignBudgetControl(campaign, pricing.budgetValue || payload.budget || campaign.fixedFee || 0);
     return campaign;
   }
@@ -489,6 +494,16 @@ class CampaignService {
     }
     if (!INVITATION_OPEN_STATES.includes(campaign.state)) {
       throw new AppError("Campaign cannot be accepted in the current state", 400, "INVALID_STATE");
+    }
+    if (campaign.paymentType === "fixed") {
+      const funded = await CampaignEscrowWallet.exists({
+        campaignId: campaign._id,
+        vendorId: campaign.vendorId,
+        status: { $in: ["funded", "partially_released", "fully_released", "completed"] },
+      });
+      if (!funded) {
+        throw new AppError("This fixed-payment campaign has not been funded", 409, "ESCROW_FUNDING_REQUIRED");
+      }
     }
     ensureDeadlineOpen(campaign);
     const subscription = await influencerCommerceEngine.getVendorSubscription(campaign.vendorId);

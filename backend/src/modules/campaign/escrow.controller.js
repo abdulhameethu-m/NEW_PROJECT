@@ -10,13 +10,13 @@ const { ApiError } = require("../../utils/ApiError");
  */
 const createPaymentOrder = asyncHandler(async (req, res) => {
   const { campaignId } = req.body;
-  const vendorId = req.user.sub;
+  const vendorId = req.vendor._id;
 
   if (!campaignId) {
     throw new ApiError(400, "Campaign ID is required");
   }
 
-  const result = await campaignPaymentService.createRazorpayOrder(campaignId, vendorId, vendorId);
+  const result = await campaignPaymentService.createRazorpayOrder(campaignId, vendorId, req.user.sub);
   return ok(res, result, "Payment order created");
 });
 
@@ -32,6 +32,8 @@ const verifyPayment = asyncHandler(async (req, res) => {
 
   const result = await campaignPaymentService.verifyPaymentAndActivateCampaign(
     paymentOrderId,
+    req.vendor._id,
+    req.user.sub,
     razorpayOrderId,
     razorpayPaymentId,
     razorpaySignature
@@ -45,7 +47,7 @@ const verifyPayment = asyncHandler(async (req, res) => {
  */
 const getPaymentDetails = asyncHandler(async (req, res) => {
   const { paymentOrderId } = req.params;
-  const result = await campaignPaymentService.getPaymentDetails(paymentOrderId);
+  const result = await campaignPaymentService.getPaymentDetails(paymentOrderId, req.vendor._id);
   return ok(res, result, "Payment details loaded");
 });
 
@@ -54,7 +56,7 @@ const getPaymentDetails = asyncHandler(async (req, res) => {
  */
 const getEscrowSummary = asyncHandler(async (req, res) => {
   const { campaignId } = req.params;
-  const vendorId = req.user.sub;
+  const vendorId = req.vendor._id;
 
   const result = await campaignEscrowService.getCampaignEscrowSummary(campaignId, vendorId);
   return ok(res, result, "Escrow summary loaded");
@@ -65,14 +67,14 @@ const getEscrowSummary = asyncHandler(async (req, res) => {
  */
 const releasePayment = asyncHandler(async (req, res) => {
   const { campaignId } = req.params;
-  const { influencerId, deliverables } = req.body;
-  const vendorId = req.user.sub;
+  const { influencerId, deliverableIds } = req.body;
+  const vendorId = req.vendor._id;
 
-  if (!influencerId || !deliverables || !Array.isArray(deliverables)) {
-    throw new ApiError(400, "Influencer ID and deliverables array are required");
+  if (!influencerId || !deliverableIds || !Array.isArray(deliverableIds)) {
+    throw new ApiError(400, "Influencer ID and deliverable IDs are required");
   }
 
-  if (deliverables.length === 0) {
+  if (deliverableIds.length === 0) {
     throw new ApiError(400, "At least one deliverable must be specified");
   }
 
@@ -80,8 +82,8 @@ const releasePayment = asyncHandler(async (req, res) => {
     campaignId,
     vendorId,
     influencerId,
-    deliverables,
-    vendorId
+    deliverableIds,
+    req.user.sub
   );
 
   return ok(res, result, "Payment released to influencer");
@@ -92,7 +94,7 @@ const releasePayment = asyncHandler(async (req, res) => {
  */
 const checkRefundEligibility = asyncHandler(async (req, res) => {
   const { campaignId } = req.params;
-  const vendorId = req.user.sub;
+  const vendorId = req.vendor._id;
 
   const result = await campaignRefundService.checkRefundEligibility(campaignId, vendorId);
   return ok(res, result, "Refund eligibility checked");
@@ -104,7 +106,7 @@ const checkRefundEligibility = asyncHandler(async (req, res) => {
 const requestRefund = asyncHandler(async (req, res) => {
   const { campaignId } = req.params;
   const { reason, description } = req.body;
-  const vendorId = req.user.sub;
+  const vendorId = req.vendor._id;
 
   if (!reason) {
     throw new ApiError(400, "Refund reason is required");
@@ -115,7 +117,7 @@ const requestRefund = asyncHandler(async (req, res) => {
     vendorId,
     reason,
     description || "",
-    vendorId
+    req.user.sub
   );
 
   return ok(res, result, "Refund request created");
@@ -126,7 +128,7 @@ const requestRefund = asyncHandler(async (req, res) => {
  */
 const getRefundDetails = asyncHandler(async (req, res) => {
   const { refundId } = req.params;
-  const result = await campaignRefundService.getRefundDetails(refundId);
+  const result = await campaignRefundService.getRefundDetails(refundId, req.vendor._id);
   return ok(res, result, "Refund details loaded");
 });
 
@@ -208,7 +210,7 @@ const getRefundStats = asyncHandler(async (req, res) => {
  */
 const listPaymentOrders = asyncHandler(async (req, res) => {
   const filters = {
-    vendorId: req.query.vendorId || (req.user.role === "vendor" ? req.user.sub : null),
+    vendorId: req.query.vendorId || (req.user.role === "vendor" ? req.vendor?._id : null),
     campaignId: req.query.campaignId,
     status: req.query.status,
     startDate: req.query.startDate,
@@ -227,7 +229,7 @@ const listPaymentOrders = asyncHandler(async (req, res) => {
 const calculateCost = asyncHandler(async (req, res) => {
   const { campaignId } = req.params;
 
-  const result = await campaignEscrowService.calculateCampaignCost(campaignId);
+  const result = await campaignEscrowService.calculateCampaignCost(campaignId, req.vendor._id);
   return ok(res, result, "Campaign cost calculated");
 });
 

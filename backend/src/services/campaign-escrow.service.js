@@ -1,150 +1,137 @@
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 const CampaignPaymentOrder = require("../models/CampaignPaymentOrder");
 const CampaignEscrowWallet = require("../models/CampaignEscrowWallet");
 const CampaignPaymentRelease = require("../models/CampaignPaymentRelease");
 const CampaignRefund = require("../models/CampaignRefund");
-const Ledger = require("../models/Ledger");
-const Campaign = require("../modules/campaign/model");
-const Vendor = require("../models/Vendor");
-const User = require("../models/User");
+const { Campaign } = require("../modules/campaign/model");
+const { CampaignDeliverable, DeliverablePayout } = require("../modules/campaign/executionModel");
+const { InfluencerWallet, InfluencerLedger } = require("../modules/commission/models");
+const { withOptionalTransaction } = require("../utils/withOptionalTransaction");
+const auditService = require("./audit.service");
 const { ApiError } = require("../utils/ApiError");
 
-/**
- * Campaign Escrow Service
- * Handles all escrow wallet operations for fixed payment campaigns
- */
-class CampaignEscrowService {
-  /**
-   * Calculate total campaign cost with fees
-   */
-  async calculateCampaignCost(campaignId) {
-    const campaign = await Campaign.findById(campaignId).lean();
-    if (!campaign) {
-      throw new ApiError(404, "Campaign not found");
-    }
+function money(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? Number(number.toFixed(2)) : 0;
+}
 
+function withSession(query, session) {
+  return session ? query.session(session) : query;
+}
+
+class CampaignEscrowService {
+  async calculateCampaignCost(campaignId, vendorId = null) {
+    const campaign = await Campaign.findById(campaignId).lean();
+    if (!campaign) throw new ApiError(404, "Campaign not found");
+    if (vendorId && String(campaign.vendorId) !== String(vendorId)) {
+      throw new ApiError(403, "Campaign does not belong to this vendor");
+    }
     if (campaign.paymentType !== "fixed") {
       throw new ApiError(400, "Campaign payment model is not fixed payment");
     }
 
-    const budgetAmount = campaign.pricing?.fixedCost || campaign.fixedFee || 0;
+    const budgetAmount = money(campaign.pricing?.fixedCost || campaign.fixedFee);
+    if (budgetAmount <= 0) {
+      throw new ApiError(400, "Fixed payment campaign budget must be greater than zero");
+    }
 
-    // Calculate platform fee (2% of budget)
-    const platformFee = Math.round(budgetAmount * 0.02);
-
-    // Calculate gateway fee (fixed ₹50)
-    const gatewayFee = 50;
-
-    // Calculate GST (18% on budget + platform fee)
-    const taxableAmount = budgetAmount + platformFee;
-    const tax = Math.round(taxableAmount * 0.18);
-
-    const totalAmount = budgetAmount + platformFee + gatewayFee + tax;
+    const platformFeeAmount = money(budgetAmount * 0.02);
+    const gatewayFeeAmount = 50;
+    const taxAmount = money((platformFeeAmount + gatewayFeeAmount) * 0.18);
+    const totalAmount = money(budgetAmount + platformFeeAmount + gatewayFeeAmount + taxAmount);
 
     return {
       budgetAmount,
-      platformFeeAmount: platformFee,
-      gatewayFeeAmount: gatewayFee,
-      taxAmount: tax,
+      platformFeeAmount,
+      gatewayFeeAmount,
+      taxAmount,
       totalAmount,
       currency: campaign.pricing?.currency || "INR",
     };
   }
 
-  /**
-   * Create payment order for fixed payment campaign
-   */
-  async createPaymentOrder(campaignId, vendorId, userId) {
-    // Validate campaign exists and belongs to vendor
+  async createPaymentOrder(campaignId, vendorId) {
     const campaign = await Campaign.findById(campaignId).lean();
-    if (!campaign) {
-      throw new ApiError(404, "Campaign not found");
-    }
-
-    if (campaign.vendorId.toString() !== vendorId.toString()) {
+    if (!campaign) throw new ApiError(404, "Campaign not found");
+    if (String(campaign.vendorId) !== String(vendorId)) {
       throw new ApiError(403, "Campaign does not belong to this vendor");
     }
-
     if (campaign.paymentType !== "fixed") {
       throw new ApiError(400, "Campaign payment model is not fixed payment");
     }
 
-    // Check if payment already exists
-    const existingPayment = await CampaignPaymentOrder.findOne({
-      campaignId,
-      vendorId,
-      status: { $ne: "failed" },
-    });
-
-    if (existingPayment) {
-      throw new ApiError(400, "Payment order already exists for this campaign");
+    const existingPayment = await CampaignPaymentOrder.findOne({ campaignId, vendorId });
+    if (existingPayment && existingPayment.status !== "failed") {
+      throw new ApiError(409, "Payment order already exists for this campaign");
     }
 
-    // Calculate costs
-    const costDetails = await this.calculateCampaignCost(campaignId);
-
-    // Create payment order
-    const paymentOrder = new CampaignPaymentOrder({
-      campaignId,
-      vendorId,
-      budgetAmount: costDetails.budgetAmount,
-      platformFeeAmount: costDetails.platformFeeAmount,
-      gatewayFeeAmount: costDetails.gatewayFeeAmount,
-      taxAmount: costDetails.taxAmount,
-      totalAmount: costDetails.totalAmount,
-      currency: costDetails.currency,
+    const costDetails = await this.calculateCampaignCost(campaignId, vendorId);
+    const paymentOrder = existingPayment || new CampaignPaymentOrder({ campaignId, vendorId });
+    Object.assign(paymentOrder, {
+      ...costDetails,
       status: "pending",
+      razorpayOrderId: undefined,
+      razorpayPaymentId: undefined,
+      signatureVerified: false,
+      signatureVerifiedAt: undefined,
+      failureReason: "",
+      failureCode: "",
     });
-
     await paymentOrder.save();
 
-    return {
-      paymentOrderId: paymentOrder._id,
-      ...costDetails,
-    };
+    return { paymentOrderId: paymentOrder._id, ...costDetails };
   }
 
-  /**
-   * Verify payment signature and mark as paid
-   */
-  async verifyPaymentSignature(paymentOrderId, razorpayOrderId, razorpayPaymentId, razorpaySignature) {
+  async verifyPaymentSignature(paymentOrderId, vendorId, razorpayOrderId, razorpayPaymentId, razorpaySignature) {
     const paymentOrder = await CampaignPaymentOrder.findById(paymentOrderId);
-    if (!paymentOrder) {
-      throw new ApiError(404, "Payment order not found");
+    if (!paymentOrder) throw new ApiError(404, "Payment order not found");
+    if (String(paymentOrder.vendorId) !== String(vendorId)) {
+      throw new ApiError(403, "Payment order does not belong to this vendor");
+    }
+    if (paymentOrder.status === "paid" && paymentOrder.signatureVerified) {
+      await this.createEscrowWallet(paymentOrder);
+      return { success: true, paymentOrderId: paymentOrder._id, status: "paid", idempotent: true };
+    }
+    if (!paymentOrder.razorpayOrderId || paymentOrder.razorpayOrderId !== razorpayOrderId) {
+      throw new ApiError(400, "Razorpay order does not match the payment order");
+    }
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      throw new ApiError(503, "Payment gateway is not configured");
     }
 
-    // Verify signature
-    const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_SECRET || "")
+    const expectedHex = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpayOrderId}|${razorpayPaymentId}`)
       .digest("hex");
+    const expected = Buffer.from(expectedHex, "utf8");
+    const received = Buffer.from(String(razorpaySignature), "utf8");
 
-    if (expectedSignature !== razorpaySignature) {
+    if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
       paymentOrder.status = "failed";
+      paymentOrder.failedAt = new Date();
       paymentOrder.failureReason = "Signature verification failed";
       paymentOrder.failureCode = "INVALID_SIGNATURE";
       await paymentOrder.save();
-
       throw new ApiError(400, "Payment signature verification failed");
     }
 
-    // Mark as paid
-    paymentOrder.razorpayOrderId = razorpayOrderId;
     paymentOrder.razorpayPaymentId = razorpayPaymentId;
     paymentOrder.status = "paid";
     paymentOrder.paidAt = new Date();
     paymentOrder.signatureVerified = true;
     paymentOrder.signatureVerifiedAt = new Date();
-    paymentOrder.verificationDetails = {
-      razorpayOrderId,
-      razorpayPaymentId,
-      verifiedAt: new Date(),
-    };
-
+    paymentOrder.verificationDetails = { razorpayOrderId, razorpayPaymentId, verifiedAt: new Date() };
     await paymentOrder.save();
-
-    // Create escrow wallet
     await this.createEscrowWallet(paymentOrder);
+
+    await auditService.log({
+      actor: { _id: vendorId, role: "vendor" },
+      action: "campaign.payment.success",
+      entityType: "CampaignPaymentOrder",
+      entityId: paymentOrder._id,
+      metadata: { campaignId: paymentOrder.campaignId, razorpayOrderId, razorpayPaymentId },
+    }).catch(() => {});
 
     return {
       success: true,
@@ -154,21 +141,13 @@ class CampaignEscrowService {
     };
   }
 
-  /**
-   * Create escrow wallet after successful payment
-   */
   async createEscrowWallet(paymentOrder) {
-    // Check if escrow already exists
     const existingEscrow = await CampaignEscrowWallet.findOne({
       campaignId: paymentOrder.campaignId,
       vendorId: paymentOrder.vendorId,
     });
+    if (existingEscrow) return existingEscrow;
 
-    if (existingEscrow) {
-      return existingEscrow;
-    }
-
-    // Create escrow wallet
     const escrowWallet = new CampaignEscrowWallet({
       campaignId: paymentOrder.campaignId,
       vendorId: paymentOrder.vendorId,
@@ -177,257 +156,231 @@ class CampaignEscrowService {
       platformFeeAmount: paymentOrder.platformFeeAmount,
       gatewayFeeAmount: paymentOrder.gatewayFeeAmount,
       taxAmount: paymentOrder.taxAmount,
-      totalEscrowAmount: paymentOrder.totalAmount,
-      amountFunded: paymentOrder.totalAmount,
+      totalEscrowAmount: paymentOrder.budgetAmount,
+      amountFunded: paymentOrder.budgetAmount,
       amountRemaining: paymentOrder.budgetAmount,
       status: "funded",
+      campaignStatus: "active",
       fundedAt: new Date(),
       currency: paymentOrder.currency,
+      auditLog: [{
+        action: "escrow_created_from_payment",
+        actor: paymentOrder.vendorId,
+        actorRole: "vendor",
+        details: {
+          paymentOrderId: paymentOrder._id,
+          paidAmount: paymentOrder.totalAmount,
+          escrowAmount: paymentOrder.budgetAmount,
+        },
+      }],
     });
-
-    // Add audit log
-    escrowWallet.auditLog.push({
-      action: "escrow_created_from_payment",
-      actor: paymentOrder.vendorId,
-      actorRole: "vendor",
-      details: {
-        paymentOrderId: paymentOrder._id,
-        totalAmount: paymentOrder.totalAmount,
-        budgetAmount: paymentOrder.budgetAmount,
-      },
-    });
-
     await escrowWallet.save();
-
     return escrowWallet;
   }
 
-  /**
-   * Get escrow wallet details
-   */
   async getEscrowWallet(campaignId, vendorId) {
-    const escrow = await CampaignEscrowWallet.findOne({
-      campaignId,
-      vendorId,
-    })
+    const escrow = await CampaignEscrowWallet.findOne({ campaignId, vendorId })
       .populate("paymentOrderId")
       .lean();
-
-    if (!escrow) {
-      throw new ApiError(404, "Escrow wallet not found");
-    }
-
+    if (!escrow) throw new ApiError(404, "Escrow wallet not found");
     return escrow;
   }
 
-  /**
-   * Release payment for approved deliverables
-   */
-  async releasePaymentForDeliverables(campaignId, vendorId, influencerId, deliverables, releasedBy) {
-    // Validate escrow exists and has funds
-    const escrow = await CampaignEscrowWallet.findOne({
-      campaignId,
-      vendorId,
-    });
-
-    if (!escrow) {
-      throw new ApiError(404, "Escrow wallet not found");
+  async releasePaymentForDeliverables(campaignId, vendorId, influencerId, deliverableIds, releasedBy) {
+    const uniqueIds = [...new Set(deliverableIds.map(String))];
+    if (!uniqueIds.length || uniqueIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+      throw new ApiError(400, "Valid deliverable IDs are required");
     }
 
-    if (!["funded", "partially_released"].includes(escrow.status)) {
-      throw new ApiError(400, `Cannot release payments in current escrow status: ${escrow.status}`);
-    }
+    const result = await withOptionalTransaction(async (session) => {
+      if (!session) {
+        throw new ApiError(503, "Escrow releases require MongoDB transaction support");
+      }
+      const campaign = await withSession(Campaign.findOne({ _id: campaignId, vendorId }), session);
+      if (!campaign) throw new ApiError(404, "Campaign not found");
+      if (campaign.paymentType !== "fixed") {
+        throw new ApiError(400, "Campaign is not a fixed payment campaign");
+      }
+      if (String(campaign.influencerId) !== String(influencerId)) {
+        throw new ApiError(400, "Influencer does not match this campaign");
+      }
+      if (["draft", "invitation_sent", "rejected", "cancelled", "expired"].includes(campaign.state)) {
+        throw new ApiError(400, "Campaign must be accepted before earnings can be released");
+      }
+      const activeRefund = await withSession(CampaignRefund.findOne({
+        campaignId,
+        status: { $in: ["requested", "approved", "processing"] },
+      }), session);
+      if (activeRefund) {
+        throw new ApiError(409, "Campaign earnings cannot be released while a refund is pending");
+      }
 
-    // Calculate total release amount
-    let totalReleaseAmount = 0;
-    const processedDeliverables = [];
+      const escrow = await withSession(CampaignEscrowWallet.findOne({ campaignId, vendorId }), session);
+      if (!escrow) throw new ApiError(404, "Escrow wallet not found");
+      if (!["funded", "partially_released"].includes(escrow.status)) {
+        throw new ApiError(400, `Cannot release payments in current escrow status: ${escrow.status}`);
+      }
 
-    for (const deliverable of deliverables) {
-      const amount = deliverable.amount || 0;
-      totalReleaseAmount += amount;
+      const deliverables = await withSession(CampaignDeliverable.find({
+        _id: { $in: uniqueIds },
+        campaignId,
+        vendorId,
+        influencerId,
+        approvalStatus: "approved",
+        paymentEligibility: "eligible",
+      }), session);
+      if (deliverables.length !== uniqueIds.length) {
+        throw new ApiError(400, "Every deliverable must be approved, eligible, and owned by this campaign");
+      }
 
-      processedDeliverables.push({
-        deliverableId: deliverable.id,
-        type: deliverable.type,
+      const payouts = await withSession(DeliverablePayout.find({
+        deliverableId: { $in: uniqueIds },
+        campaignId,
+        influencerId,
+        paymentModel: "fixed",
+        status: "eligible",
+      }), session);
+      if (payouts.length !== uniqueIds.length) {
+        throw new ApiError(409, "One or more deliverables were already released or are not payable");
+      }
+
+      const payoutByDeliverable = new Map(payouts.map((row) => [String(row.deliverableId), row]));
+      const processedDeliverables = deliverables.map((deliverable) => ({
+        deliverableId: deliverable._id,
+        type: deliverable.deliverableType,
         title: deliverable.title,
-        amount,
+        amount: money(payoutByDeliverable.get(String(deliverable._id)).approvedAmount),
+        approvedAt: deliverable.completedAt || new Date(),
+      }));
+      const totalReleaseAmount = money(processedDeliverables.reduce((sum, row) => sum + row.amount, 0));
+      if (totalReleaseAmount <= 0) throw new ApiError(400, "Approved deliverables have no payable value");
+      if (totalReleaseAmount > money(escrow.amountRemaining)) {
+        throw new ApiError(400, `Insufficient escrow funds. Available: ${escrow.amountRemaining}, requested: ${totalReleaseAmount}`);
+      }
+
+      const [paymentRelease] = await CampaignPaymentRelease.create([{
+        campaignId,
+        escrowWalletId: escrow._id,
+        vendorId,
+        influencerId,
+        deliverables: processedDeliverables,
+        totalAmount: totalReleaseAmount,
+        platformFeeAmount: 0,
+        netAmount: totalReleaseAmount,
+        status: "released",
+        approvedBy: releasedBy,
+        approvalReason: "Approved campaign deliverables",
         approvedAt: new Date(),
-        approvalNotes: deliverable.approvalNotes || "",
-      });
-    }
+        releasedAt: new Date(),
+        partialRelease: totalReleaseAmount < money(escrow.budgetAmount),
+      }], { session: session || undefined });
 
-    // Validate sufficient funds
-    if (totalReleaseAmount > escrow.amountRemaining) {
-      throw new ApiError(400, `Insufficient escrow funds. Available: ₹${escrow.amountRemaining}, Requested: ₹${totalReleaseAmount}`);
-    }
+      const updatedEscrow = await CampaignEscrowWallet.findOneAndUpdate(
+        {
+          _id: escrow._id,
+          amountRemaining: { $gte: totalReleaseAmount },
+          status: { $in: ["funded", "partially_released"] },
+        },
+        {
+          $inc: { amountReleased: totalReleaseAmount, amountRemaining: -totalReleaseAmount },
+          $set: {
+            status: money(escrow.amountRemaining) === totalReleaseAmount ? "fully_released" : "partially_released",
+            lastReleaseAt: new Date(),
+            ...(escrow.firstReleaseAt ? {} : { firstReleaseAt: new Date() }),
+          },
+          $push: {
+            partialReleases: { releaseId: paymentRelease._id, amount: totalReleaseAmount, releasedAt: new Date() },
+            auditLog: {
+              action: "payment_released",
+              actor: releasedBy,
+              actorRole: "vendor",
+              details: { releaseId: paymentRelease._id, totalAmount: totalReleaseAmount, deliverableIds: uniqueIds },
+            },
+          },
+        },
+        { returnDocument: "after", session: session || undefined }
+      );
+      if (!updatedEscrow) throw new ApiError(409, "Escrow balance changed; retry the release");
 
-    // Calculate platform fee on release (deducted from amount going to influencer)
-    const platformFeeOnRelease = Math.round(totalReleaseAmount * 0.02);
-    const netAmount = totalReleaseAmount - platformFeeOnRelease;
+      const wallet = await InfluencerWallet.findOneAndUpdate(
+        { influencerId },
+        { $setOnInsert: { influencerId } },
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true, session: session || undefined }
+      );
+      if (wallet.status !== "active") throw new ApiError(400, "Influencer wallet is not active");
 
-    // Create payment release record
-    const paymentRelease = new CampaignPaymentRelease({
-      campaignId,
-      escrowWalletId: escrow._id,
-      vendorId,
-      influencerId,
-      deliverables: processedDeliverables,
-      totalAmount: totalReleaseAmount,
-      platformFeeAmount: platformFeeOnRelease,
-      netAmount,
-      status: "approved",
-      approvedBy: releasedBy,
-      approvalReason: "Deliverables approved by vendor",
-      approvedAt: new Date(),
-      releasedAt: new Date(),
-      partialRelease: true,
-    });
+      const updatedWallet = await InfluencerWallet.findByIdAndUpdate(
+        wallet._id,
+        { $inc: { availableBalance: totalReleaseAmount, totalEarnings: totalReleaseAmount } },
+        { returnDocument: "after", runValidators: true, session: session || undefined }
+      );
+      const [ledgerEntry] = await InfluencerLedger.create([{
+        influencerId,
+        type: "CREDIT",
+        amount: totalReleaseAmount,
+        source: "CAMPAIGN",
+        idempotencyKey: `campaign-release:${paymentRelease._id}`,
+        balanceAfter: updatedWallet.availableBalance,
+        meta: { campaignId, releaseId: paymentRelease._id, deliverableIds: uniqueIds },
+      }], { session: session || undefined });
 
-    await paymentRelease.save();
+      await DeliverablePayout.updateMany(
+        { _id: { $in: payouts.map((row) => row._id) }, status: "eligible" },
+        { $set: { status: "released", "metadata.releaseId": paymentRelease._id, "metadata.releasedAt": new Date() } },
+        { session: session || undefined }
+      );
+      paymentRelease.walletTransactionId = ledgerEntry._id;
+      paymentRelease.settledAt = new Date();
+      paymentRelease.status = "settled";
+      await paymentRelease.save({ session: session || undefined });
 
-    // Update escrow wallet
-    escrow.amountReleased += totalReleaseAmount;
-    escrow.amountRemaining -= totalReleaseAmount;
-    escrow.lastReleaseAt = new Date();
-
-    if (escrow.amountRemaining === 0) {
-      escrow.status = "fully_released";
-    } else {
-      escrow.status = "partially_released";
-    }
-
-    // Add to partial releases tracking
-    escrow.partialReleases.push({
-      releaseId: paymentRelease._id,
-      amount: totalReleaseAmount,
-      releasedAt: new Date(),
-    });
-
-    // Add audit log
-    escrow.auditLog.push({
-      action: "payment_released",
-      actor: releasedBy,
-      actorRole: "vendor",
-      details: {
+      return {
         releaseId: paymentRelease._id,
         totalAmount: totalReleaseAmount,
-        deliverableCount: deliverables.length,
-      },
-    });
+        netAmount: totalReleaseAmount,
+        platformFee: 0,
+        status: "settled",
+      };
+    }, { source: "campaign-escrow-release" });
 
-    await escrow.save();
-
-    // Create wallet transaction (move funds to influencer wallet)
-    await this.createInfluencerWalletTransaction(paymentRelease, campaignId, influencerId);
-
-    return {
-      releaseId: paymentRelease._id,
-      totalAmount: totalReleaseAmount,
-      netAmount,
-      platformFee: platformFeeOnRelease,
-      status: "released",
-      message: "Payment released to influencer wallet",
-    };
+    await auditService.log({
+      actor: { _id: releasedBy, role: "vendor" },
+      action: "campaign.escrow.released",
+      entityType: "CampaignPaymentRelease",
+      entityId: result.releaseId,
+      metadata: { campaignId, influencerId, amount: result.totalAmount, deliverableIds: uniqueIds },
+    }).catch(() => {});
+    return { ...result, message: "Approved earnings released to the influencer wallet" };
   }
 
-  /**
-   * Create wallet transaction for influencer
-   */
-  async createInfluencerWalletTransaction(paymentRelease, campaignId, influencerId) {
-    // This integrates with the existing wallet system
-    // Create ledger entry for influencer earnings
-    const ledgerEntry = new Ledger({
-      userId: influencerId,
-      transactionType: "campaign_payment_release",
-      amount: paymentRelease.netAmount,
-      balance: 0, // Updated by wallet service
-      reference: {
-        campaignId,
-        releaseId: paymentRelease._id,
-        type: "campaign_fixed_payment",
-      },
-      description: `Payment for approved deliverables in campaign ${campaignId}`,
-      status: "completed",
-    });
-
-    await ledgerEntry.save();
-
-    // Update payment release with transaction ID
-    paymentRelease.walletTransactionId = ledgerEntry._id;
-    paymentRelease.settledAt = new Date();
-    paymentRelease.status = "settled";
-    await paymentRelease.save();
-
-    return ledgerEntry;
-  }
-
-  /**
-   * Refund campaign budget
-   */
   async refundCampaignBudget(campaignId, vendorId, reason, description, requestedBy) {
-    // Validate escrow exists
-    const escrow = await CampaignEscrowWallet.findOne({
-      campaignId,
-      vendorId,
-    });
+    const escrow = await CampaignEscrowWallet.findOne({ campaignId, vendorId });
+    if (!escrow) throw new ApiError(404, "Escrow wallet not found");
 
-    if (!escrow) {
-      throw new ApiError(404, "Escrow wallet not found");
-    }
-
-    // Check if already refunded
     const existingRefund = await CampaignRefund.findOne({
       campaignId,
-      status: { $in: ["approved", "processing", "completed"] },
+      status: { $in: ["requested", "approved", "processing", "completed"] },
     });
+    if (existingRefund) throw new ApiError(409, "Campaign already has an active or completed refund");
+    if (money(escrow.amountRemaining) <= 0) throw new ApiError(400, "No escrow funds are available to refund");
 
-    if (existingRefund) {
-      throw new ApiError(400, "Campaign already has an active or completed refund");
-    }
-
-    // Validate available amount to refund
-    if (escrow.amountRemaining === 0 && escrow.status === "fully_released") {
-      throw new ApiError(400, "No funds available to refund (all released to influencer)");
-    }
-
-    // Get payment order for refund details
     const paymentOrder = await CampaignPaymentOrder.findById(escrow.paymentOrderId);
+    if (!paymentOrder) throw new ApiError(404, "Campaign payment order not found");
+    const totalRefundAmount = money(escrow.amountRemaining);
 
-    // Calculate refund amounts
-    const refundAmount = escrow.amountRemaining; // Only refund remaining (unreleased) amount
-
-    // Determine fee refund policy based on reason
-    let refundPlatformFee = false;
-    let refundGatewayFee = false;
-    let refundTax = false;
-
-    if (["campaign_cancelled_before_acceptance", "campaign_cancelled_no_deliverables"].includes(reason)) {
-      // Full refund including fees for cancellation before acceptance
-      refundPlatformFee = true;
-      refundGatewayFee = true;
-      refundTax = true;
-    }
-
-    // Calculate actual refund
-    let totalRefund = refundAmount;
-    if (refundPlatformFee) totalRefund += escrow.platformFeeAmount;
-    if (refundGatewayFee) totalRefund += escrow.gatewayFeeAmount;
-    if (refundTax) totalRefund += escrow.taxAmount;
-
-    // Create refund record
     const refund = new CampaignRefund({
       campaignId,
       escrowWalletId: escrow._id,
       vendorId,
       paymentOrderId: paymentOrder._id,
-      budgetAmount: refundAmount,
-      platformFeeAmount: refundPlatformFee ? escrow.platformFeeAmount : 0,
-      gatewayFeeAmount: refundGatewayFee ? escrow.gatewayFeeAmount : 0,
-      taxAmount: refundTax ? escrow.taxAmount : 0,
-      totalRefundAmount: totalRefund,
-      refundPlatformFee,
-      refundGatewayFee,
-      refundTax,
+      budgetAmount: totalRefundAmount,
+      platformFeeAmount: 0,
+      gatewayFeeAmount: 0,
+      taxAmount: 0,
+      totalRefundAmount,
+      refundPlatformFee: false,
+      refundGatewayFee: false,
+      refundTax: false,
       reason,
       description,
       requestedBy,
@@ -435,74 +388,43 @@ class CampaignEscrowService {
       status: "requested",
       refundMethod: "original_payment_method",
       currency: escrow.currency,
+      auditLog: [{
+        action: "refund_requested",
+        actor: requestedBy,
+        actorRole: "vendor",
+        details: { reason, totalRefundAmount },
+      }],
     });
-
-    // Add audit log
-    refund.auditLog.push({
-      action: "refund_requested",
-      actor: requestedBy,
-      actorRole: "admin",
-      details: {
-        reason,
-        totalRefundAmount: totalRefund,
-      },
-    });
-
     await refund.save();
 
     return {
       refundId: refund._id,
-      totalRefundAmount: totalRefund,
-      budgetRefund: refundAmount,
-      feeRefund: (refundPlatformFee ? escrow.platformFeeAmount : 0) + (refundGatewayFee ? escrow.gatewayFeeAmount : 0),
-      taxRefund: refundTax ? escrow.taxAmount : 0,
+      totalRefundAmount,
+      budgetRefund: totalRefundAmount,
+      feeRefund: 0,
+      taxRefund: 0,
       status: "requested",
       message: "Refund request created and pending approval",
     };
   }
 
-  /**
-   * Approve refund
-   */
   async approveRefund(refundId, approvalReason, approvedBy) {
-    const refund = await CampaignRefund.findById(refundId);
-    if (!refund) {
-      throw new ApiError(404, "Refund not found");
-    }
-
-    if (refund.status !== "requested") {
-      throw new ApiError(400, `Cannot approve refund in status: ${refund.status}`);
-    }
-
-    // Update refund
-    refund.status = "approved";
-    refund.approvedBy = approvedBy;
-    refund.approvalReason = approvalReason;
-    refund.approvedAt = new Date();
-
-    refund.auditLog.push({
-      action: "refund_approved",
-      actor: approvedBy,
-      actorRole: "admin",
-      details: { approvalReason },
-    });
-
-    await refund.save();
-
-    // Update escrow wallet
-    const escrow = await CampaignEscrowWallet.findById(refund.escrowWalletId);
-    escrow.amountRefunded += refund.totalRefundAmount;
-    escrow.status = "refunded";
-
-    escrow.auditLog.push({
-      action: "refund_approved",
-      actor: approvedBy,
-      actorRole: "admin",
-      details: { refundId, totalRefundAmount: refund.totalRefundAmount },
-    });
-
-    await escrow.save();
-
+    const refund = await CampaignRefund.findOneAndUpdate(
+      { _id: refundId, status: "requested" },
+      {
+        $set: { status: "approved", approvedBy, approvalReason, approvedAt: new Date() },
+        $push: {
+          auditLog: {
+            action: "refund_approved",
+            actor: approvedBy,
+            actorRole: "admin",
+            details: { approvalReason },
+          },
+        },
+      },
+      { returnDocument: "after" }
+    );
+    if (!refund) throw new ApiError(409, "Refund is not pending approval");
     return {
       refundId: refund._id,
       status: "approved",
@@ -511,24 +433,10 @@ class CampaignEscrowService {
     };
   }
 
-  /**
-   * Get campaign escrow summary
-   */
   async getCampaignEscrowSummary(campaignId, vendorId) {
-    const escrow = await CampaignEscrowWallet.findOne({
-      campaignId,
-      vendorId,
-    }).lean();
-
-    if (!escrow) {
-      return {
-        status: "not_funded",
-        message: "Campaign not yet funded",
-      };
-    }
-
+    const escrow = await CampaignEscrowWallet.findOne({ campaignId, vendorId }).lean();
+    if (!escrow) return { status: "not_funded", message: "Campaign not yet funded" };
     const paymentOrder = await CampaignPaymentOrder.findById(escrow.paymentOrderId).lean();
-
     return {
       escrowId: escrow._id,
       campaignId,
@@ -538,6 +446,7 @@ class CampaignEscrowService {
       gatewayFeeAmount: escrow.gatewayFeeAmount,
       taxAmount: escrow.taxAmount,
       totalEscrowAmount: escrow.totalEscrowAmount,
+      totalPaidAmount: paymentOrder?.totalAmount,
       amountFunded: escrow.amountFunded,
       amountReleased: escrow.amountReleased,
       amountRefunded: escrow.amountRefunded,
@@ -545,8 +454,10 @@ class CampaignEscrowService {
       status: escrow.status,
       campaignStatus: escrow.campaignStatus,
       fundedAt: escrow.fundedAt,
+      firstReleaseAt: escrow.firstReleaseAt,
+      lastReleaseAt: escrow.lastReleaseAt,
       paymentOrderStatus: paymentOrder?.status,
-      partialReleases: escrow.partialReleases.length,
+      partialReleases: escrow.partialReleases,
     };
   }
 }

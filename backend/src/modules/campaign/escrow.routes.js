@@ -93,16 +93,8 @@ router.post(
   validate(
     Joi.object({
       influencerId: Joi.string().required(),
-      deliverables: Joi.array()
-        .items(
-          Joi.object({
-            id: Joi.string().required(),
-            type: Joi.string().required(),
-            title: Joi.string(),
-            amount: Joi.number().min(0).required(),
-            approvalNotes: Joi.string().allow(""),
-          })
-        )
+      deliverableIds: Joi.array()
+        .items(Joi.string().required())
         .min(1)
         .required(),
     })
