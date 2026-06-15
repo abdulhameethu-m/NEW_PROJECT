@@ -211,10 +211,6 @@ const pageMeta = {
     title: "Influencer Commerce",
     subtitle: "Review creator wallets, payout readiness, and account verification.",
   },
-  "/admin/influencer-commerce/withdrawals": {
-    title: "Influencer Commerce",
-    subtitle: "Approve, reject, process, and audit influencer withdrawal requests.",
-  },
   "/admin/influencer-commerce/creator-performance": {
     title: "Influencer Commerce",
     subtitle: "Rank creators by revenue, conversions, engagement, ROI, and growth.",
@@ -233,7 +229,7 @@ const pageMeta = {
   },
   "/admin/influencer-commerce/fraud": {
     title: "Influencer Commerce",
-    subtitle: "Investigate suspicious attribution, withdrawal, KYC, and commission patterns.",
+    subtitle: "Investigate suspicious attribution, content, KYC, and commission patterns.",
   },
   "/admin/influencer-commerce/communication": {
     title: "Influencer Commerce",

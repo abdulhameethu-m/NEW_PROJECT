@@ -24,7 +24,7 @@ function ensureUploadDir(uploadDir) {
 }
 
 function isPrivateFolder(folder = "") {
-  return /(^|[-_/])(kyc|identity|bank|tax|verification|withdrawal|finance|document|documents)([-_/]|$)/i.test(String(folder || ""));
+  return /(^|[-_/])(kyc|identity|bank|tax|verification|finance|document|documents)([-_/]|$)/i.test(String(folder || ""));
 }
 
 function validateFiles(files) {

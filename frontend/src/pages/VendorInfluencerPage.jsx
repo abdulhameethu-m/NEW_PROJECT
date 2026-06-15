@@ -39,7 +39,6 @@ import {
   getVendorAffiliateProducts,
   getVendorContentApprovals,
   getVendorCreatorLeaderboard,
-  getVendorCampaignExecution,
   getVendorInfluencerAnalytics,
   getVendorInfluencerCampaigns,
   getVendorInfluencerCommerceConfiguration,
@@ -66,7 +65,6 @@ import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import CampaignEscrowService from "../services/campaignEscrowService";
 import { BudgetSummaryPanel } from "../components/campaign/BudgetSummaryPanel";
 import { CampaignPaymentModal } from "../components/campaign/CampaignPaymentModal";
-import { ReleasePaymentModal } from "../components/campaign/ReleasePaymentModal";
 
 const TABS = [
   ["dashboard", "Dashboard", BarChart3],
@@ -1155,7 +1153,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       </label>
       <button type="submit" disabled={busy || !form.title.trim() || !form.productIds.length || !form.campaignType || !form.paymentType || Boolean(previewError)} className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
         <Send className="h-4 w-4" aria-hidden="true" />
-        {form.paymentType === "fixed" ? "Proceed to Payment" : "Create"}
+        {form.paymentType === "fixed" ? "Send Invitation" : "Create"}
       </button>
     </form>
   );
@@ -1179,7 +1177,6 @@ export function VendorInfluencerPage() {
   const [planChangePreview, setPlanChangePreview] = useState(null);
   const [selectedInvite, setSelectedInvite] = useState(null);
   const [campaignPayment, setCampaignPayment] = useState(null);
-  const [campaignRelease, setCampaignRelease] = useState(null);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -1351,28 +1348,12 @@ export function VendorInfluencerPage() {
       return false;
     }
 
-    try {
-      if (campaign?.paymentType === "fixed") {
-        const paymentOrder = await CampaignEscrowService.createPaymentOrder(campaign._id || campaign.id);
-        setCampaignPayment({ campaign, paymentOrder });
-        setMessage("Campaign created. Complete payment to fund escrow and send the invitation.");
-      } else {
-        setMessage("Campaign synchronized with the influencer ecosystem.");
-        await Promise.all([loadTab({ silent: true }), loadFoundation()]);
-      }
-      return true;
-    } catch (err) {
-      await Promise.all([loadTab({ silent: true }), loadFoundation()]).catch(() => {});
-      const gatewayMessage = err?.response?.data?.message;
-      setError(
-        `Campaign was created, but secure payment setup is not ready. ${
-          gatewayMessage || "Use Fund Escrow on the campaign to retry safely."
-        }`
-      );
-      return true;
-    } finally {
-      setBusyId("");
-    }
+    setMessage(campaign?.paymentType === "fixed"
+      ? "Campaign invitation sent. Escrow funding becomes available after the influencer accepts."
+      : "Campaign synchronized with the influencer ecosystem.");
+    await Promise.all([loadTab({ silent: true }), loadFoundation()]).catch(() => {});
+    setBusyId("");
+    return true;
   }
 
   async function verifyCampaignPayment(verification) {
@@ -1404,67 +1385,26 @@ export function VendorInfluencerPage() {
     }
   }
 
-  async function openCampaignRelease(campaign) {
-    const campaignId = campaign._id || campaign.id;
-    setBusyId(`escrow-${campaignId}`);
-    setError("");
-    try {
-      const [executionResponse, escrowData] = await Promise.all([
-        getVendorCampaignExecution(campaignId),
-        CampaignEscrowService.getEscrowSummary(campaignId),
-      ]);
-      const execution = executionResponse?.data || executionResponse;
-      const approvedDeliverables = (execution?.deliverables || [])
-        .filter((row) => row.paymentEligibility === "eligible" && row.payout?.status === "eligible")
-        .map((row) => ({
-          id: String(row.id),
-          type: row.deliverableType,
-          title: row.title,
-          amount: Number(row.payout?.approvedAmount || row.totalPrice || 0),
-        }));
-      const influencer = execution?.campaign?.influencer;
-      const influencerId = String(influencer?._id || influencer || campaign.influencerId?._id || campaign.influencerId || "");
-      setCampaignRelease({ campaignId, influencerId, approvedDeliverables, escrowData });
-    } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "Unable to load escrow release details.");
-    } finally {
-      setBusyId("");
-    }
-  }
-
   async function openCampaignFunding(campaign) {
     const campaignId = campaign._id || campaign.id;
     setBusyId(`fund-${campaignId}`);
     setError("");
     try {
-      const paymentOrder = await CampaignEscrowService.createPaymentOrder(campaignId);
-      setCampaignPayment({ campaign, paymentOrder });
+      const fundingSummary = await CampaignEscrowService.calculateCost(campaignId);
+      setCampaignPayment({ campaign, fundingSummary, paymentOrder: null });
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "Unable to start campaign funding.");
+      setError(err?.response?.data?.message || err?.message || "Unable to load campaign funding details.");
     } finally {
       setBusyId("");
     }
   }
 
-  async function releaseCampaignEarnings({ campaignId, influencerId, deliverableIds }) {
-    setBusyId(`release-${campaignId}`);
-    try {
-      const result = await CampaignEscrowService.releasePayment(campaignId, influencerId, deliverableIds);
-      setMessage(`${formatCurrency(result.totalAmount || 0)} released to the influencer wallet.`);
-      const escrowData = await CampaignEscrowService.getEscrowSummary(campaignId);
-      setCampaignRelease((current) => current ? {
-        ...current,
-        escrowData,
-        approvedDeliverables: current.approvedDeliverables.filter((row) => !deliverableIds.includes(row.id)),
-      } : current);
-      await Promise.all([loadTab({ silent: true }), loadFoundation()]);
-      return result;
-    } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "Unable to release campaign earnings.");
-      throw err;
-    } finally {
-      setBusyId("");
-    }
+  async function createCampaignPaymentOrder() {
+    const campaignId = campaignPayment?.campaign?._id || campaignPayment?.campaign?.id;
+    if (!campaignId) throw new Error("Campaign not found.");
+    const paymentOrder = await CampaignEscrowService.createPaymentOrder(campaignId);
+    setCampaignPayment((current) => current ? { ...current, paymentOrder } : current);
+    return paymentOrder;
   }
 
   async function requestCampaignRefund(campaign) {
@@ -1705,21 +1645,13 @@ export function VendorInfluencerPage() {
       <CampaignPaymentModal
         isOpen={Boolean(campaignPayment)}
         onClose={() => setCampaignPayment(null)}
-        campaignId={campaignPayment?.campaign?._id || campaignPayment?.campaign?.id}
+        campaign={campaignPayment?.campaign}
+        fundingSummary={campaignPayment?.fundingSummary}
         paymentData={campaignPayment?.paymentOrder}
+        onCreatePaymentOrder={createCampaignPaymentOrder}
         onPaymentSuccess={verifyCampaignPayment}
         onPaymentError={(err) => setError(err?.response?.data?.message || err?.message || "Payment failed.")}
         isLoading={busyId === "verify-campaign-payment"}
-      />
-      <ReleasePaymentModal
-        isOpen={Boolean(campaignRelease)}
-        onClose={() => setCampaignRelease(null)}
-        campaignId={campaignRelease?.campaignId}
-        influencerId={campaignRelease?.influencerId}
-        approvedDeliverables={campaignRelease?.approvedDeliverables || []}
-        escrowData={campaignRelease?.escrowData}
-        onRelease={releaseCampaignEarnings}
-        isLoading={busyId === `release-${campaignRelease?.campaignId}`}
       />
 
       {loading ? <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Loading influencer commerce...</div> : null}
@@ -1759,7 +1691,7 @@ export function VendorInfluencerPage() {
           onStatus={(row, status) => runAction(influencerRowId(row), () => updateVendorInfluencerRelationship(influencerRowId(row), { status }), "Relationship updated.")}
         />
       ) : null}
-      {tab === "campaigns" ? <CampaignsView campaigns={campaigns} pagination={data.campaigns?.pagination} products={products} influencers={campaignInfluencers} configuration={data.configuration || {}} selectedInfluencerId={filters.influencerId} selectedProductIds={filters.productId ? [filters.productId] : []} busyId={busyId} onPage={(page) => setFilters((current) => ({ ...current, page }))} onCreate={createCampaign} onReview={(campaign, application, decision) => runAction(`${campaign._id}-${application.influencerId}`, () => reviewVendorCampaignApplication(campaign._id, application.influencerId, { decision }), "Campaign application reviewed.")} onStatus={(campaign, action) => runAction(campaign._id, () => updateVendorInfluencerCampaignStatus(campaign._id, { action }), "Campaign status updated.")} onFund={openCampaignFunding} onEscrow={openCampaignRelease} onRefund={requestCampaignRefund} onDelete={(campaign) => runAction(`delete-${campaign._id}`, () => deleteVendorInfluencerCampaign(campaign._id), "Campaign deleted.")} /> : null}
+      {tab === "campaigns" ? <CampaignsView campaigns={campaigns} pagination={data.campaigns?.pagination} products={products} influencers={campaignInfluencers} configuration={data.configuration || {}} selectedInfluencerId={filters.influencerId} selectedProductIds={filters.productId ? [filters.productId] : []} busyId={busyId} onPage={(page) => setFilters((current) => ({ ...current, page }))} onCreate={createCampaign} onReview={(campaign, application, decision) => runAction(`${campaign._id}-${application.influencerId}`, () => reviewVendorCampaignApplication(campaign._id, application.influencerId, { decision }), "Campaign application reviewed.")} onStatus={(campaign, action) => runAction(campaign._id, () => updateVendorInfluencerCampaignStatus(campaign._id, { action }), "Campaign status updated.")} onFund={openCampaignFunding} onRefund={requestCampaignRefund} onDelete={(campaign) => runAction(`delete-${campaign._id}`, () => deleteVendorInfluencerCampaign(campaign._id), "Campaign deleted.")} /> : null}
       {tab === "products" ? (
         <ProductsView
           rows={products}
@@ -2321,7 +2253,7 @@ function RelationshipsView({ rows, pagination, busyId, onStatus, onInvite, onPag
   );
 }
 
-function CampaignsView({ campaigns, pagination, products, influencers, configuration, selectedInfluencerId = "", selectedProductIds = [], busyId, onPage, onCreate, onReview, onStatus, onFund, onEscrow, onRefund, onDelete }) {
+function CampaignsView({ campaigns, pagination, products, influencers, configuration, selectedInfluencerId = "", selectedProductIds = [], busyId, onPage, onCreate, onReview, onStatus, onFund, onRefund, onDelete }) {
   async function confirmDelete(campaign) {
     const title = campaign.title || "this campaign";
     if (await confirmAction({ message: `Delete "${title}"? This is only allowed before applications, content, or commissions exist.`, tone: "danger", confirmLabel: "Confirm" })) {
@@ -2375,17 +2307,17 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
                       <button disabled={isBusy || isActive || isTerminal} onClick={() => onStatus(campaign, "activate")} className="rounded-lg border border-emerald-200 px-2 py-1 text-xs font-semibold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-900/50 dark:text-emerald-300">{isActive ? "Active" : "Activate"}</button>
                       <button disabled={isBusy || isPaused || isTerminal} onClick={() => onStatus(campaign, "pause")} className="rounded-lg border border-amber-200 px-2 py-1 text-xs font-semibold text-amber-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-900/50 dark:text-amber-300">{isCancelled ? "Cancelled" : isPaused ? "Paused" : "Pause"}</button>
                       <button disabled={isBusy || isTerminal} onClick={() => onStatus(campaign, "close")} className="rounded-lg border border-slate-200 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">{isCompleted ? "Closed" : isCancelled ? "Cancelled" : "Close"}</button>
-                      {campaign.paymentType === "fixed" && state === "draft" ? (
+                      {campaign.paymentType === "fixed" && state === "accepted" && ["accepted_awaiting_funding", "funding_pending"].includes(campaign.fixedPaymentWorkflow?.status) ? (
                         <button disabled={busyId === `fund-${campaign._id}`} onClick={() => onFund(campaign)} className="rounded-lg bg-indigo-600 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
                           Fund Escrow
                         </button>
                       ) : null}
-                      {campaign.paymentType === "fixed" && state !== "draft" ? (
-                        <button disabled={busyId === `escrow-${campaign._id}`} onClick={() => onEscrow(campaign)} className="rounded-lg border border-indigo-200 px-2 py-1 text-xs font-semibold text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-900/50 dark:text-indigo-300">
-                          Release Approved Earnings
-                        </button>
+                      {campaign.paymentType === "fixed" && campaign.fixedPaymentWorkflow?.status === "vendor_approved" ? (
+                        <span className="rounded-lg border border-indigo-200 px-2 py-1 text-xs font-semibold text-indigo-700 dark:border-indigo-900/50 dark:text-indigo-300">
+                          Awaiting admin release
+                        </span>
                       ) : null}
-                      {campaign.paymentType === "fixed" && state !== "draft" && !isTerminal ? (
+                      {campaign.paymentType === "fixed" && campaign.fixedPaymentWorkflow?.contentEnabled && !isTerminal ? (
                         <button disabled={busyId === `refund-${campaign._id}`} onClick={() => onRefund(campaign)} className="rounded-lg border border-rose-200 px-2 py-1 text-xs font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-300">
                           Request Refund
                         </button>

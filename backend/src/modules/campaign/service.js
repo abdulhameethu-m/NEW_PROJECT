@@ -308,6 +308,7 @@ function presentCampaign(campaign, profileId) {
     paymentType: campaign.paymentType,
     paymentModel,
     pricing,
+    fixedPaymentWorkflow: campaign.fixedPaymentWorkflow || null,
     influencerRateSnapshot: campaign.influencerRateSnapshot || campaign.contractSnapshot?.influencerRateCard || {},
     requirementsSnapshot: campaign.requirementsSnapshot || campaign.contractSnapshot?.requirements || {},
     invitationStatus: invitation?.status || "",
@@ -428,7 +429,7 @@ class CampaignService {
     });
 
     const requiresFunding = pricing.paymentType === "fixed";
-    const initialState = requiresFunding ? "draft" : WORKFLOW.INVITATION_SENT;
+    const initialState = WORKFLOW.INVITATION_SENT;
     const campaign = await Campaign.create({
       vendorId: vendor._id,
       influencerId: influencer._id,
@@ -451,6 +452,15 @@ class CampaignService {
       commissionPercent: pricing.commissionPercentage,
       fixedFee: pricing.fixedFee,
       paymentType: pricing.paymentType,
+      ...(requiresFunding
+        ? {
+            fixedPaymentWorkflow: {
+              status: "awaiting_acceptance",
+              contentEnabled: false,
+              lastTransitionAt: new Date(),
+            },
+          }
+        : {}),
       attributionWindowDays: pricing.attributionDays,
       pricing: pricing.pricing,
       paymentModelSnapshot: pricing.paymentModel,
@@ -458,25 +468,23 @@ class CampaignService {
       requirementsSnapshot: pricing.influencerSnapshot?.requirements || {},
       deadline: payload.deadline,
       state: initialState,
-      history: [pushHistory(initialState, userId, requiresFunding ? "Fixed campaign awaiting escrow funding" : "Campaign invitation sent by vendor")],
+      history: [pushHistory(initialState, userId, "Campaign invitation sent by vendor")],
     });
     await influencerRateCardService.attachCampaignPricing(campaign, pricing);
-    if (!requiresFunding) {
-      await createInvitationRecord({ campaign, influencerId: influencer._id, actorId: userId });
-      await notifyInfluencerProfile(influencer, {
-        title: "Campaign invitation",
-        message: `${vendorName(vendor)} invited you to review ${campaign.title || "a campaign"}.`,
-        referenceId: campaign._id,
-        meta: { campaignId: String(campaign._id), vendorId: String(vendor._id), invitationStatus: WORKFLOW.INVITATION_SENT },
-      });
-      await auditService.log({
-        actor: { _id: userId, role: "vendor" },
-        action: "campaign.invitation.sent",
-        entityType: "CampaignInvitation",
-        entityId: campaign._id,
-        metadata: { campaignId: String(campaign._id), influencerId: String(influencer._id), vendorId: String(vendor._id) },
-      }).catch(() => {});
-    }
+    await createInvitationRecord({ campaign, influencerId: influencer._id, actorId: userId });
+    await notifyInfluencerProfile(influencer, {
+      title: "Campaign invitation",
+      message: `${vendorName(vendor)} invited you to review ${campaign.title || "a campaign"}.`,
+      referenceId: campaign._id,
+      meta: { campaignId: String(campaign._id), vendorId: String(vendor._id), invitationStatus: WORKFLOW.INVITATION_SENT },
+    });
+    await auditService.log({
+      actor: { _id: userId, role: "vendor" },
+      action: "campaign.invitation.sent",
+      entityType: "CampaignInvitation",
+      entityId: campaign._id,
+      metadata: { campaignId: String(campaign._id), influencerId: String(influencer._id), vendorId: String(vendor._id) },
+    }).catch(() => {});
     await influencerCommerceEngine.ensureCampaignBudgetControl(campaign, pricing.budgetValue || payload.budget || campaign.fixedFee || 0);
     return campaign;
   }
@@ -495,16 +503,6 @@ class CampaignService {
     if (!INVITATION_OPEN_STATES.includes(campaign.state)) {
       throw new AppError("Campaign cannot be accepted in the current state", 400, "INVALID_STATE");
     }
-    if (campaign.paymentType === "fixed") {
-      const funded = await CampaignEscrowWallet.exists({
-        campaignId: campaign._id,
-        vendorId: campaign.vendorId,
-        status: { $in: ["funded", "partially_released", "fully_released", "completed"] },
-      });
-      if (!funded) {
-        throw new AppError("This fixed-payment campaign has not been funded", 409, "ESCROW_FUNDING_REQUIRED");
-      }
-    }
     ensureDeadlineOpen(campaign);
     const subscription = await influencerCommerceEngine.getVendorSubscription(campaign.vendorId);
     if (!subscription) {
@@ -518,6 +516,14 @@ class CampaignService {
       {
         $set: {
           state,
+          ...(campaign.paymentType === "fixed"
+            ? {
+                "fixedPaymentWorkflow.status": "accepted_awaiting_funding",
+                "fixedPaymentWorkflow.contentEnabled": false,
+                "fixedPaymentWorkflow.acceptedAt": new Date(),
+                "fixedPaymentWorkflow.lastTransitionAt": new Date(),
+              }
+            : {}),
           termsFrozen: {
             commissionPercent: campaign.commissionPercent,
             fixedFee: campaign.fixedFee,
@@ -584,7 +590,7 @@ class CampaignService {
     });
     await notifyVendorUser(updated.vendorId, {
       title: "Campaign accepted",
-      message: `${profile.displayName || profile.userId?.name || "Creator"} accepted ${updated.title || "your campaign"}.`,
+      message: `${profile.displayName || profile.userId?.name || "Creator"} accepted ${updated.title || "your campaign"}.${updated.paymentType === "fixed" ? " Escrow funding is now required." : ""}`,
       referenceId: updated._id,
       meta: { campaignId: String(updated._id), influencerId: String(profile._id), status: state },
     });

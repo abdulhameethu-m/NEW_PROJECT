@@ -47,7 +47,6 @@ import {
   listAdminInfluencerCommissions,
   listAdminInfluencerPayouts,
   listAdminInfluencerSettlements,
-  listAdminInfluencerWithdrawals,
   listInfluencerCommerceConfigAudit,
   listCommissionEngineAuditLogs,
   listCommissionEngineRules,
@@ -70,7 +69,6 @@ import {
   updateAdminInfluencerCommerceCampaign,
   updateAdminInfluencerCommission,
   updateAdminInfluencerSettings,
-  updateAdminInfluencerWithdrawal,
   updateCommissionEngineRule,
   updateInfluencerCommerceConfig,
 } from "../services/adminInfluencerCommerceService";
@@ -95,7 +93,6 @@ const MODULES = {
   commissions: { label: "Commission Management", icon: WalletCards, path: "/admin/influencer-commerce/commissions" },
   settlements: { label: "Escrow & Settlements", icon: WalletCards, path: "/admin/influencer-commerce/settlements" },
   payouts: { label: "Payout Management", icon: WalletCards, path: "/admin/influencer-commerce/payouts" },
-  withdrawals: { label: "Withdrawal Requests", icon: WalletCards, path: "/admin/influencer-commerce/withdrawals" },
   "creator-performance": { label: "Creator Performance", icon: BarChart3, path: "/admin/influencer-commerce/creator-performance" },
   "vendor-performance": { label: "Vendor Performance", icon: BarChart3, path: "/admin/influencer-commerce/vendor-performance" },
   "campaign-analytics": { label: "Campaign Analytics", icon: BarChart3, path: "/admin/influencer-commerce/campaign-analytics" },
@@ -493,10 +490,11 @@ export function AdminInfluencerCommercePage() {
     },
     commissions: listAdminInfluencerCommissions,
     settlements: async (query) => {
-      const [settlements, fixedPayments, refunds] = await Promise.all([
+      const [settlements, fixedPayments, refunds, releaseQueue] = await Promise.all([
         listAdminInfluencerSettlements(query),
         CampaignEscrowService.listAllPaymentOrders(query),
         CampaignEscrowService.listRefundRequests({ ...query, limit: query.limit || 20 }),
+        CampaignEscrowService.listReleaseQueue(query),
       ]);
       return {
         data: {
@@ -509,11 +507,11 @@ export function AdminInfluencerCommercePage() {
             pages: fixedPayments?.pages || 1,
           },
           refunds: refunds?.refunds || [],
+          releaseQueue: releaseQueue?.items || [],
         },
       };
     },
     payouts: listAdminInfluencerPayouts,
-    withdrawals: listAdminInfluencerWithdrawals,
     "creator-performance": getAdminCreatorPerformance,
     "vendor-performance": getAdminVendorPerformance,
     "campaign-analytics": getAdminCampaignAnalytics,
@@ -610,9 +608,8 @@ function renderModule(moduleId, data, items, pagination, setFilters, runAction, 
   if (moduleId === "content") return <ContentView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "commission-engine") return <CommissionEngineView data={data} runAction={runAction} busyId={busyId} />;
   if (moduleId === "commissions") return <CommissionsView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
-  if (moduleId === "settlements") return <SettlementsView items={items} fixedPayments={data.fixedPayments || []} refunds={data.refunds || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
+  if (moduleId === "settlements") return <SettlementsView items={items} fixedPayments={data.fixedPayments || []} refunds={data.refunds || []} releaseQueue={data.releaseQueue || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "payouts") return <PayoutsView items={items} pagination={pagination} setFilters={setFilters} />;
-  if (moduleId === "withdrawals") return <WithdrawalsView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "creator-performance") return <PerformanceView title="Creator Performance" items={data.leaderboard || items} pagination={pagination} setFilters={setFilters} kind="creator" />;
   if (moduleId === "vendor-performance") return <PerformanceView title="Vendor Performance" items={data.leaderboard || items} pagination={pagination} setFilters={setFilters} kind="vendor" />;
   if (moduleId === "campaign-analytics") return <AnalyticsView title="Campaign Analytics" data={data} />;
@@ -646,7 +643,6 @@ function DashboardView({ data }) {
         <Metric label="Credit Wallet Balance" value={formatCurrency(metrics.subscriptionCreditBalance || 0)} />
         <Metric label="Commission Paid" value={formatCurrency(metrics.commissionPaid || 0)} />
         <Metric label="Escrow Balance" value={formatCurrency(metrics.escrowBalance || 0)} />
-        <Metric label="Pending Withdrawals" value={numberValue(metrics.pendingWithdrawals)} />
         <Metric label="Content Pending Approval" value={numberValue(metrics.contentPendingApproval)} />
         <Metric label="Fraud Alerts" value={numberValue(metrics.fraudAlerts)} />
       </div>
@@ -658,7 +654,6 @@ function DashboardView({ data }) {
         <MiniList title="Recent Campaigns" rows={widgets.recentCampaigns} label={(row) => row.title} value={(row) => <StatusBadge value={row.status || row.state} />} />
         <MiniList title="Top Influencers" rows={widgets.topInfluencers} label={pickUserName} value={(row) => formatCurrency(row.revenue || row.totalRevenue || 0)} />
         <MiniList title="Top Vendors" rows={widgets.topVendors} label={pickVendorName} value={(row) => formatCurrency(row.revenue || row.campaignRevenue || 0)} />
-        <MiniList title="Pending Withdrawals" rows={widgets.pendingWithdrawals} label={(row) => pickUserName(row.influencerId || row.influencer)} value={(row) => formatCurrency(row.amount || 0)} />
         <MiniList title="Recent Subscriptions" rows={widgets.recentSubscriptionPayments} label={(row) => pickVendorName(row.vendorId || row.vendor)} value={(row) => formatCurrency(row.amount || 0)} />
       </div>
     </div>
@@ -1667,9 +1662,41 @@ function CommissionsView({ items, pagination, setFilters, runAction, busyId }) {
   );
 }
 
-function SettlementsView({ items, fixedPayments, refunds, pagination, setFilters, runAction, busyId }) {
+function SettlementsView({ items, fixedPayments, refunds, releaseQueue, pagination, setFilters, runAction, busyId }) {
   return (
     <div className="space-y-4">
+      <Section title="Approved Fixed Deliverables" icon={CheckCircle2}>
+        <ResponsiveTable headers={["Campaign", "Vendor", "Influencer", "Deliverable", "Amount", "Status", "Action"]} rows={releaseQueue} renderRow={(row) => {
+          const campaign = row.campaign || {};
+          const campaignId = idOf(campaign);
+          const influencerId = idOf(campaign.influencerId);
+          const actionId = `release-fixed-${row.deliverableId}`;
+          return (
+            <tr key={row.deliverableId}>
+              <td className="px-3 py-3 font-medium text-slate-900 dark:text-white">{text(campaign.title)}</td>
+              <td className="px-3 py-3">{pickVendorName(campaign.vendorId)}</td>
+              <td className="px-3 py-3">{pickUserName(campaign.influencerId)}</td>
+              <td className="px-3 py-3">{text(row.title || row.deliverableType)}</td>
+              <td className="px-3 py-3">{formatCurrency(row.amount || 0)}</td>
+              <td className="px-3 py-3"><StatusBadge value={row.paymentEligibility} /></td>
+              <td className="px-3 py-3">
+                <ActionButton
+                  tone="green"
+                  disabled={!campaignId || !influencerId || busyId === actionId}
+                  onClick={() => runAction(
+                    actionId,
+                    () => CampaignEscrowService.releaseApprovedDeliverables(campaignId, influencerId, [row.deliverableId]),
+                    "Approved earnings released to the influencer wallet."
+                  )}
+                >
+                  Release
+                </ActionButton>
+              </td>
+            </tr>
+          );
+        }} />
+      </Section>
+
       <Section title="Fixed Campaign Payments" icon={WalletCards}>
         <ResponsiveTable headers={["Campaign", "Vendor", "Budget", "Paid", "Escrow Balance", "Released", "Refunded", "Payment", "Campaign Status"]} rows={fixedPayments} renderRow={(row) => (
           <tr key={idOf(row)}>
@@ -1899,35 +1926,6 @@ function PayoutsView({ items, pagination, setFilters }) {
   );
 }
 
-function WithdrawalsView({ items, pagination, setFilters, runAction, busyId }) {
-  return (
-    <Section title="Withdrawal Requests" icon={WalletCards}>
-      <ResponsiveTable headers={["Influencer", "Amount", "Method", "Requested", "Status", "Risk", "Payout Account", "Actions"]} rows={items} renderRow={(row) => {
-        const id = idOf(row);
-        return (
-          <tr key={id}>
-            <td className="px-3 py-3 font-medium text-slate-900 dark:text-white">{pickUserName(row.influencerId || row.influencer)}</td>
-            <td className="px-3 py-3">{formatCurrency(row.amount || 0)}</td>
-            <td className="px-3 py-3">{text(row.method || row.payoutMethod)}</td>
-            <td className="px-3 py-3">{dateValue(row.createdAt || row.requestedAt)}</td>
-            <td className="px-3 py-3"><StatusBadge value={row.status} /></td>
-            <td className="px-3 py-3"><StatusBadge value={row.riskLevel || row.riskFlags?.[0] || "low"} /></td>
-            <td className="px-3 py-3">{text(row.payoutAccountId?.label || row.payoutAccount)}</td>
-            <td className="px-3 py-3">
-              <div className="flex flex-wrap gap-2">
-                <ActionButton tone="green" disabled={busyId === `approve-${id}`} onClick={() => runAction(`approve-${id}`, () => updateAdminInfluencerWithdrawal(id, { status: "APPROVED" }), "Withdrawal approved.")}>Approve</ActionButton>
-                <ActionButton tone="amber" disabled={busyId === `process-${id}`} onClick={() => runAction(`process-${id}`, () => updateAdminInfluencerWithdrawal(id, { status: "PROCESSING" }), "Withdrawal processing.")}>Process</ActionButton>
-                <ActionButton tone="red" disabled={busyId === `reject-${id}`} onClick={() => runAction(`reject-${id}`, () => updateAdminInfluencerWithdrawal(id, { status: "REJECTED" }), "Withdrawal rejected.")}>Reject</ActionButton>
-              </div>
-            </td>
-          </tr>
-        );
-      }} />
-      <Pagination pagination={pagination} setFilters={setFilters} />
-    </Section>
-  );
-}
-
 function PerformanceView({ title, items, pagination, setFilters, kind }) {
   return (
     <Section title={title} icon={BarChart3}>
@@ -2047,7 +2045,6 @@ function ReportsView({ data, runAction, busyId }) {
     "Revenue Reports",
     "Commission Reports",
     "Settlement Reports",
-    "Withdrawal Reports",
     "Content Reports",
     "Conversion Reports",
     "Fraud Reports",
@@ -2965,8 +2962,6 @@ function SettingsView({ data, runAction, busyId }) {
           {[
             ["Default Commission Rate", percentValue(settings.defaultCommissionRate)],
             ["Maximum Commission Rate", percentValue(settings.maximumCommissionRate)],
-            ["Minimum Withdrawal Amount", formatCurrency(settings.minimumWithdrawalAmount || 0)],
-            ["Maximum Withdrawal Amount", formatCurrency(settings.maximumWithdrawalAmount || 0)],
             ["Commission Hold Days", numberValue(settings.commissionHoldDays)],
             ["Tracking Cookie Duration", `${numberValue(settings.trackingCookieDurationDays)} days`],
             ["Self-Attribution Blocking", settings.selfAttributionBlocking ? "Enabled" : "Disabled"],

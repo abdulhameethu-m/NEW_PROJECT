@@ -14,7 +14,10 @@ export default function InfluencerReelUploadPage() {
   const [message, setMessage] = useState({ type: "", text: "" });
 
   const contentReadyStates = new Set(["accepted", "active", "product_shipped", "content_in_progress", "content_submitted", "under_review", "revision_requested", "approved", "published", "tracking_active"]);
-  const activeCampaigns = campaigns.filter((c) => contentReadyStates.has(c.state));
+  const activeCampaigns = campaigns.filter((campaign) => (
+    contentReadyStates.has(campaign.state) &&
+    (campaign.paymentType !== "fixed" || campaign.fixedPaymentWorkflow?.contentEnabled)
+  ));
 
   const loadCampaigns = useCallback(async () => {
     try {

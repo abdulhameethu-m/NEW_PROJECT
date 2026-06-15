@@ -95,25 +95,6 @@ router.get(
 );
 
 /**
- * POST /api/campaigns/escrow/release-payment/:campaignId
- * Release payment for approved deliverables
- */
-router.post(
-  "/release-payment/:campaignId",
-  vendorAuth,
-  validate(
-    Joi.object({
-      influencerId: Joi.string().required(),
-      deliverableIds: Joi.array()
-        .items(Joi.string().required())
-        .min(1)
-        .required(),
-    })
-  ),
-  escrowController.releasePayment
-);
-
-/**
  * GET /api/campaigns/escrow/refund-eligibility/:campaignId
  * Check if campaign is eligible for refund
  */
@@ -171,6 +152,24 @@ router.get(
  * ============ ADMIN ROUTES ============
  * For admin to manage escrow and refunds
  */
+
+router.get(
+  "/admin/release-queue",
+  adminAuth,
+  escrowController.listReleaseQueue
+);
+
+router.post(
+  "/admin/release-payment/:campaignId",
+  adminAuth,
+  validate(
+    Joi.object({
+      influencerId: Joi.string().required(),
+      deliverableIds: Joi.array().items(Joi.string().required()).min(1).required(),
+    })
+  ),
+  escrowController.releasePayment
+);
 
 /**
  * GET /api/admin/campaigns/escrow/refund-requests

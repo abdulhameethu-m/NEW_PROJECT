@@ -96,7 +96,6 @@ export const ADMIN_SECTION_ITEMS = [
           { name: "Commission Management", path: "/admin/influencer-commerce/commissions", permission: "influencerCommerce.read", icon: Percent, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
           { name: "Escrow & Settlements", path: "/admin/influencer-commerce/settlements", permission: "influencerCommerce.read", icon: Wallet, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
           { name: "Payout Management", path: "/admin/influencer-commerce/payouts", permission: "influencerCommerce.read", icon: Wallet, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
-          { name: "Withdrawal Requests", path: "/admin/influencer-commerce/withdrawals", permission: "influencerCommerce.read", icon: CreditCard, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
         ],
       },
       {

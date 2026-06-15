@@ -112,7 +112,8 @@ const CONTENT_READY_CAMPAIGN_STATES = new Set([
 ]);
 
 function campaignAcceptsCreatorContent(campaign = {}) {
-  return CONTENT_READY_CAMPAIGN_STATES.has(String(campaign.state || "").toLowerCase());
+  if (!CONTENT_READY_CAMPAIGN_STATES.has(String(campaign.state || "").toLowerCase())) return false;
+  return campaign.paymentType !== "fixed" || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled);
 }
 
 async function deleteLocalReelAsset(url = "") {

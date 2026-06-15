@@ -2,30 +2,18 @@ import { useMemo, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import {
   BarChart3,
-  Banknote,
-  Bell,
   Boxes,
   CheckCircle2,
   Clapperboard,
   ClipboardList,
-  CreditCard,
-  FileText,
-  History,
-  IdCard,
-  Landmark,
   LayoutDashboard,
   Link2,
-  Lock,
   Megaphone,
   PackagePlus,
-  Palette,
   Settings,
-  Shield,
-  Smartphone,
   Star,
   Store,
   Upload,
-  UserRound,
   Wallet,
 } from "lucide-react";
 import { Sidebar } from "../../components/sidebar/Sidebar";
@@ -41,13 +29,6 @@ const INFLUENCER_PRIMARY_ITEM = {
 
 const INFLUENCER_SECTIONS = [
   {
-    section: "Overview",
-    key: "overview",
-    items: [
-      { name: "Profile", path: "/influencer/profile", icon: UserRound },
-    ],
-  },
-  {
     section: "Collection",
     key: "collection",
     items: [
@@ -57,23 +38,6 @@ const INFLUENCER_SECTIONS = [
       { name: "Product Assignment", path: "/influencer/collections", matchSearch: "?tab=assignment", icon: PackagePlus },
       { name: "Collection Analytics", path: "/influencer/collections", matchSearch: "?tab=analytics", icon: BarChart3 },
       { name: "Collection Visibility", path: "/influencer/collections", matchSearch: "?tab=visibility", icon: Boxes },
-    ],
-  },
-  {
-    section: "Storefront Builder",
-    key: "storefront",
-    items: [
-      { name: "Store Information", path: "/influencer/storefront-builder", icon: Settings },
-      { name: "Store Banner", path: "/influencer/storefront-builder", matchSearch: "?tab=banner", icon: Store },
-      { name: "Profile Branding", path: "/influencer/storefront-builder", matchSearch: "?tab=branding", icon: Palette },
-      { name: "Homepage Builder", path: "/influencer/storefront-builder", matchSearch: "?tab=homepage", icon: LayoutDashboard },
-      { name: "Featured Collections", path: "/influencer/storefront-builder", matchSearch: "?tab=collections", icon: Boxes },
-      { name: "Featured Products", path: "/influencer/storefront-builder", matchSearch: "?tab=products", icon: PackagePlus },
-      { name: "Hero Banner", path: "/influencer/storefront-builder", matchSearch: "?tab=hero", icon: Megaphone },
-      { name: "Categories", path: "/influencer/storefront-builder", matchSearch: "?tab=categories", icon: Star },
-      { name: "Social Links", path: "/influencer/storefront-builder", matchSearch: "?tab=social", icon: Link2 },
-      { name: "SEO Settings", path: "/influencer/storefront-builder", matchSearch: "?tab=seo", icon: BarChart3 },
-      { name: "Preview Storefront", path: "/influencer/storefront-builder", matchSearch: "?tab=preview", icon: Store },
     ],
   },
   {
@@ -117,80 +81,16 @@ const INFLUENCER_SECTIONS = [
       { name: "Campaign Analytics", path: "/influencer/campaigns", matchSearch: "?tab=analytics", icon: BarChart3 },
     ],
   },
-  {
-    section: "Earnings & Wallet",
-    key: "finance",
-    items: [
-      { name: "Total Earnings", path: "/influencer/earnings", icon: Banknote },
-      { name: "Pending Earnings", path: "/influencer/earnings", matchSearch: "?tab=pending", icon: ClipboardList },
-      { name: "Approved Earnings", path: "/influencer/earnings", matchSearch: "?tab=approved", icon: CheckCircle2 },
-      { name: "Withdrawable Balance", path: "/influencer/earnings", matchSearch: "?tab=balance", icon: Wallet },
-      { name: "Earnings History", path: "/influencer/earnings", matchSearch: "?tab=history", icon: ClipboardList },
-      { name: "Commission Breakdown", path: "/influencer/earnings", matchSearch: "?tab=commission", icon: BarChart3 },
-      { name: "Bonus Earnings", path: "/influencer/earnings", matchSearch: "?tab=bonus", icon: Banknote },
-      { name: "Tax Summary", path: "/influencer/earnings", matchSearch: "?tab=tax", icon: FileText },
-    ],
-  },
-  {
-    section: "Withdrawal Requests",
-    key: "withdrawals",
-    items: [
-      { name: "Request Withdrawal", path: "/influencer/earnings", matchSearch: "?tab=request", icon: Wallet },
-      { name: "Pending Requests", path: "/influencer/earnings", matchSearch: "?tab=withdrawal_pending", icon: ClipboardList },
-      { name: "Approved Requests", path: "/influencer/earnings", matchSearch: "?tab=withdrawal_approved", icon: CheckCircle2 },
-      { name: "Rejected Requests", path: "/influencer/earnings", matchSearch: "?tab=withdrawal_rejected", icon: ClipboardList },
-      { name: "Payment History", path: "/influencer/earnings", matchSearch: "?tab=payments", icon: CreditCard },
-      { name: "Bank Accounts", path: "/influencer/earnings", matchSearch: "?tab=banks", icon: Landmark },
-    ],
-  },
-  {
-    section: "Documents & Verification",
-    key: "verification",
-    items: [
-      { name: "Identity Documents", path: "/influencer/verification", icon: IdCard },
-      { name: "Tax Information", path: "/influencer/verification", matchSearch: "?tab=tax", icon: FileText },
-      { name: "Bank Information", path: "/influencer/verification", matchSearch: "?tab=bank", icon: Landmark },
-      { name: "Verification Status", path: "/influencer/verification", matchSearch: "?tab=status", icon: CheckCircle2 },
-      { name: "Approval History", path: "/influencer/verification", matchSearch: "?tab=history", icon: History },
-      { name: "Uploaded Documents", path: "/influencer/verification", matchSearch: "?tab=documents", icon: ClipboardList },
-    ],
-  },
-  {
-    section: "Profile Settings",
-    key: "profileSettings",
-    items: [
-      { name: "Personal Information", path: "/influencer/profile", icon: UserRound },
-      { name: "Social Accounts", path: "/influencer/profile", matchSearch: "?tab=social", icon: Smartphone },
-      { name: "Store Branding", path: "/influencer/profile", matchSearch: "?tab=branding", icon: Palette },
-      { name: "Payment Settings", path: "/influencer/profile", matchSearch: "?tab=payment", icon: Wallet },
-      { name: "Notification Settings", path: "/influencer/profile", matchSearch: "?tab=notifications", icon: Bell },
-      { name: "Security Settings", path: "/influencer/profile", matchSearch: "?tab=security", icon: Lock },
-      { name: "Privacy Settings", path: "/influencer/profile", matchSearch: "?tab=privacy", icon: Shield },
-      { name: "Connected Accounts", path: "/influencer/profile", matchSearch: "?tab=connected", icon: Link2 },
-    ],
-  },
-  {
-    section: "Workspace",
-    key: "workspace",
-    items: [
-      { name: "Storefront", path: "/influencer/storefront-builder", icon: Store },
-      { name: "Settings", path: "/influencer/profile", icon: Settings },
-    ],
-  },
 ];
 
 const PAGE_META = {
   "/influencer/dashboard": {
     title: "Creator overview",
-    subtitle: "Earnings, attributed orders, clicks, and recent wallet activity.",
+    subtitle: "Campaigns, content, collections, and affiliate performance.",
   },
   "/influencer/collections": {
     title: "Collections",
     subtitle: "Curate products and share creator recommendations.",
-  },
-  "/influencer/storefront-builder": {
-    title: "Storefront Builder",
-    subtitle: "Customize branding, homepage sections, merchandising, SEO, and storefront previews.",
   },
   "/influencer/affiliate-links": {
     title: "Affiliate links",
@@ -215,18 +115,6 @@ const PAGE_META = {
   "/influencer/reels": {
     title: "Reel performance",
     subtitle: "Moderation status, engagement metrics, and storefront attribution.",
-  },
-  "/influencer/earnings": {
-    title: "Earnings & Wallet",
-    subtitle: "Balances, commissions, withdrawals, payout accounts, payment history, and tax summaries.",
-  },
-  "/influencer/verification": {
-    title: "Documents & Verification",
-    subtitle: "Identity documents, tax information, bank verification, approval history, and compliance status.",
-  },
-  "/influencer/profile": {
-    title: "Profile Settings",
-    subtitle: "Personal information, social accounts, branding, payments, notifications, security, and privacy.",
   },
 };
 

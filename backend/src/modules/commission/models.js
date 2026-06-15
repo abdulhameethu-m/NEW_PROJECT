@@ -232,6 +232,10 @@ const influencerWalletSchema = new mongoose.Schema(
     totalEarnings: { type: Number, min: 0, default: 0 },
     reversedAmount: { type: Number, min: 0, default: 0 },
     withdrawnBalance: { type: Number, min: 0, default: 0 },
+    creditedCampaignReleaseIds: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CampaignPaymentRelease",
+    }],
     status: { type: String, enum: ["active", "inactive", "suspended"], default: "active", index: true },
   },
   {
@@ -329,50 +333,6 @@ const influencerPayoutAccountSchema = new mongoose.Schema(
 
 influencerPayoutAccountSchema.index({ influencerId: 1, isActive: 1, createdAt: -1 });
 influencerPayoutAccountSchema.index({ influencerId: 1, isDefault: 1 });
-
-const influencerWithdrawalRequestSchema = new mongoose.Schema(
-  {
-    influencerId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "InfluencerProfile",
-      required: true,
-      index: true,
-    },
-    payoutAccountId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "InfluencerPayoutAccount",
-      index: true,
-    },
-    amount: { type: Number, min: 0, required: true },
-    paymentMethod: {
-      type: String,
-      enum: ["bank_transfer", "upi", "paypal", "stripe_connect", "wise", "manual"],
-      default: "bank_transfer",
-    },
-    status: {
-      type: String,
-      enum: ["DRAFT", "PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED", "PROCESSING", "PAID", "FAILED", "CANCELLED"],
-      default: "PENDING",
-      index: true,
-    },
-    requestedAt: { type: Date, default: Date.now, index: true },
-    expectedProcessingAt: { type: Date },
-    approvedAt: { type: Date },
-    rejectedAt: { type: Date },
-    processedAt: { type: Date },
-    referenceNumber: { type: String, trim: true, maxlength: 120, default: "" },
-    remarks: { type: String, trim: true, maxlength: 1000, default: "" },
-    adminNote: { type: String, trim: true, maxlength: 1000, default: "" },
-    rejectionReason: { type: String, trim: true, maxlength: 1000, default: "" },
-    gatewayResponse: { type: mongoose.Schema.Types.Mixed, default: {} },
-  },
-  {
-    timestamps: true,
-    collection: "influencer_withdrawal_requests",
-  }
-);
-
-influencerWithdrawalRequestSchema.index({ influencerId: 1, status: 1, requestedAt: -1 });
 
 const commissionRecordSchema = new mongoose.Schema(
   {
@@ -507,7 +467,4 @@ module.exports = {
   InfluencerPayoutAccount:
     mongoose.models.InfluencerPayoutAccount ||
     mongoose.model("InfluencerPayoutAccount", influencerPayoutAccountSchema),
-  InfluencerWithdrawalRequest:
-    mongoose.models.InfluencerWithdrawalRequest ||
-    mongoose.model("InfluencerWithdrawalRequest", influencerWithdrawalRequestSchema),
 };

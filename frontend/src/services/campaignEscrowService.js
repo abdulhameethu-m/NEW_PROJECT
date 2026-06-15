@@ -55,11 +55,16 @@ class CampaignEscrowService {
     return response.data.data;
   }
 
-  /**
-   * Release payment for approved deliverables
-   */
-  static async releasePayment(campaignId, influencerId, deliverableIds) {
-    const response = await api.post(`${API_BASE}/release-payment/${campaignId}`, {
+  static async listReleaseQueue(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.campaignId) params.append('campaignId', filters.campaignId);
+    if (filters.vendorId) params.append('vendorId', filters.vendorId);
+    const response = await api.get(`${ADMIN_API_BASE}/release-queue?${params.toString()}`);
+    return response.data.data;
+  }
+
+  static async releaseApprovedDeliverables(campaignId, influencerId, deliverableIds) {
+    const response = await api.post(`${ADMIN_API_BASE}/release-payment/${campaignId}`, {
       influencerId,
       deliverableIds,
     });

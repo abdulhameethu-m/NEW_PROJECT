@@ -19,7 +19,7 @@ const privateDocumentSchema = new mongoose.Schema(
     category: {
       type: String,
       trim: true,
-      enum: ["kyc", "identity", "bank", "tax", "verification", "withdrawal", "finance", "settlement", "contract", "compliance", "supporting"],
+      enum: ["kyc", "identity", "bank", "tax", "verification", "finance", "settlement", "contract", "compliance", "supporting"],
       default: "supporting",
       index: true,
     },

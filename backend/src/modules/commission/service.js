@@ -18,7 +18,6 @@ const {
   InfluencerLedger,
   CommissionRecord,
   InfluencerPayoutAccount,
-  InfluencerWithdrawalRequest,
   RULE_TYPES,
   COMMISSION_METHODS,
 } = require("./models");
@@ -29,11 +28,8 @@ const {
   InfluencerSocialAccount,
 } = require("../influencer/model");
 const auditService = require("../../services/audit.service");
-const { getEncryptionService, EncryptionService } = require("../../utils/encryption");
 
 const HOLD_DAYS = Number(process.env.INFLUENCER_HOLD_DAYS || 7);
-const MIN_WITHDRAWAL_AMOUNT = Number(process.env.INFLUENCER_MIN_WITHDRAWAL_AMOUNT || 500);
-const MAX_WITHDRAWAL_AMOUNT = Number(process.env.INFLUENCER_MAX_WITHDRAWAL_AMOUNT || 1000000);
 const RULE_PRECEDENCE = {
   product: 600,
   campaign: 500,
@@ -205,10 +201,6 @@ function evaluateArithmeticExpression(expression) {
   return Number(values[0] || 0);
 }
 
-function buildWithdrawalLedgerKey(requestId, type = "request") {
-  return `withdrawal:${type}:${requestId}`;
-}
-
 function startOfDay(date) {
   const next = new Date(date);
   next.setUTCHours(0, 0, 0, 0);
@@ -364,56 +356,6 @@ async function executeWithOptionalTransaction(work) {
 function attachSession(query, session) {
   if (session) query.session(session);
   return query;
-}
-
-function maskSensitive(value = "") {
-  if (!value) return "";
-  return EncryptionService.maskString(String(value));
-}
-
-function maskInfluencerPayoutAccount(account) {
-  if (!account) return null;
-  const encService = getEncryptionService();
-  const doc = account.toObject ? account.toObject() : account;
-  let accountNumber = "";
-  let upiId = "";
-  try {
-    accountNumber = doc.accountNumberEncrypted ? maskSensitive(encService.decrypt(doc.accountNumberEncrypted)) : "";
-  } catch (error) {
-    accountNumber = "XXXX****";
-  }
-  try {
-    upiId = doc.upiIdEncrypted ? maskSensitive(encService.decrypt(doc.upiIdEncrypted)) : "";
-  } catch (error) {
-    upiId = "XXXX****";
-  }
-  return {
-    _id: doc._id,
-    influencerId: doc.influencerId,
-    accountHolderName: doc.accountHolderName,
-    accountNumber,
-    ifscCode: doc.ifscCode,
-    bankName: doc.bankName,
-    upiId,
-    paypalEmail: doc.paypalEmail,
-    paymentMethod: doc.paymentMethod,
-    isDefault: doc.isDefault,
-    isActive: doc.isActive,
-    isVerified: doc.isVerified,
-    verificationStatus: doc.verificationStatus,
-    rejectionReason: doc.rejectionReason,
-    createdAt: doc.createdAt,
-    updatedAt: doc.updatedAt,
-  };
-}
-
-function normalizeWithdrawalStatus(tab = "") {
-  const value = String(tab || "").toLowerCase();
-  if (value === "pending") return ["PENDING", "UNDER_REVIEW"];
-  if (value === "approved") return ["APPROVED", "PROCESSING", "PAID"];
-  if (value === "rejected") return ["REJECTED", "FAILED", "CANCELLED"];
-  if (value === "history") return ["APPROVED", "PROCESSING", "PAID", "FAILED"];
-  return [];
 }
 
 async function getOrCreateWallet(influencerId, session = null) {
@@ -1100,20 +1042,9 @@ class CommissionService {
     };
   }
 
-  async getInfluencerWallet(userId, influencerId) {
-    if (!influencerId) {
-      const profile = await require("../influencer/service").getProfile(userId);
-      influencerId = profile._id;
-    }
-    const wallet = await getOrCreateWallet(influencerId);
-    const ledger = await InfluencerLedger.find({ influencerId }).sort({ createdAt: -1 }).limit(50).lean();
-    return { wallet, ledger };
-  }
-
   async getInfluencerDashboard(userId, query = {}) {
     const profile = await require("../influencer/service").getProfile(userId);
     const influencerId = profile._id;
-    const wallet = await getOrCreateWallet(influencerId);
     const { start, end } = parseDashboardRange(query);
     const previousEnd = new Date(start.getTime() - 1);
     const previousStart = new Date(previousEnd.getTime() - (end.getTime() - start.getTime()));
@@ -1146,9 +1077,6 @@ class CommissionService {
     const [
       currentAgg,
       previousAgg,
-      pendingAgg,
-      ledgerAgg,
-      recentLedger,
       records,
       reels,
       campaigns,
@@ -1177,26 +1105,6 @@ class CommissionService {
           },
         },
       ]),
-      CommissionRecord.aggregate([
-        { $match: { influencerId, state: "HOLD" } },
-        { $group: { _id: null, total: { $sum: "$influencerShare" } } },
-      ]),
-      InfluencerLedger.aggregate([
-        {
-          $match: {
-            influencerId,
-            createdAt: { $gte: start, $lte: end },
-          },
-        },
-        {
-          $group: {
-            _id: "$source",
-            total: { $sum: "$amount" },
-            count: { $sum: 1 },
-          },
-        },
-      ]),
-      InfluencerLedger.find({ influencerId }).sort({ createdAt: -1 }).limit(8).lean(),
       CommissionRecord.find(baseRecordMatch)
         .populate({
           path: "orderId",
@@ -1280,7 +1188,7 @@ class CommissionService {
     const totalClicks = reels.reduce((sum, reel) => sum + Number(reel.metrics?.clicks || 0), 0);
     const totalViews = reels.reduce((sum, reel) => sum + Number(reel.metrics?.views || 0), 0);
     const totalOrders = filteredRecords.length;
-    const totalEarnings = roundMoney(filteredRecords.reduce((sum, record) => sum + Number(record.influencerShare || 0), 0));
+    const totalCommission = roundMoney(filteredRecords.reduce((sum, record) => sum + Number(record.influencerShare || 0), 0));
     const grossRevenue = roundMoney(filteredRecords.reduce((sum, record) => sum + Number(record.gross || 0), 0));
     const conversionRate = totalClicks > 0 ? roundMoney((totalOrders / totalClicks) * 100) : 0;
     const averageOrderValue = totalOrders > 0 ? roundMoney(grossRevenue / totalOrders) : 0;
@@ -1433,28 +1341,8 @@ class CommissionService {
       };
     });
 
-    const earningsBreakdown = ledgerAgg.map((row) => ({
-      source: row._id === "COMMISSION" ? "Product Commissions" : row._id === "REVERSAL" ? "Reversals" : row._id || "Other Earnings",
-      amount: roundMoney(row.total || 0),
-      count: row.count,
-    }));
-    const breakdownTotal = earningsBreakdown.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    for (const item of earningsBreakdown) {
-      item.percentage = breakdownTotal ? roundMoney((item.amount / breakdownTotal) * 100) : 0;
-    }
-
-    const pendingEarnings = roundMoney(pendingAgg[0]?.total || 0);
     const dominantHistoricalRule = dominantRuleSummary(ruleByRecordId);
     const recentActivity = [
-      ...recentLedger.map((entry) => ({
-        id: String(entry._id),
-        type: "wallet",
-        title: entry.type === "CREDIT" ? "Commission approved" : "Wallet adjustment",
-        message: entry.source === "COMMISSION" ? "Order commission moved through your ledger." : entry.source,
-        amount: entry.amount,
-        entryType: entry.type,
-        createdAt: entry.createdAt,
-      })),
       ...activeCampaigns
         .filter((campaign) => campaign.status === "proposed")
         .slice(0, 3)
@@ -1479,12 +1367,9 @@ class CommissionService {
         category,
         brand,
       },
-      totalEarnings,
-      pendingEarnings,
       totalOrders,
       totalClicks,
       conversionRate,
-      availableBalance: roundMoney(wallet.availableBalance || 0),
       followers,
       commissionRuleSummary: {
         currentApplicableRule: buildRuleSummary(currentApplicableRule),
@@ -1496,27 +1381,23 @@ class CommissionService {
             ? "Shown from current rule resolution for this influencer."
             : "No active commission rule currently applies to this influencer.",
       },
-      earningsOverTime: [...revenueMap.values()].map((row) => ({ date: row.date, amount: row.commission })),
       recentActivity,
       kpis: [
-        { key: "earnings", label: "Total Earnings", value: totalEarnings, format: "currency", growth: percentChange(current.commission, previous.commission), sparkline: [...revenueMap.values()].map((row) => row.commission) },
         { key: "clicks", label: "Product Clicks", value: totalClicks, format: "number", growth: percentChange(totalClicks, 0), sparkline: reels.map((row) => row.metrics?.clicks || 0).slice(0, 12) },
         { key: "orders", label: "Orders Generated", value: totalOrders, format: "number", growth: percentChange(current.orders, previous.orders), sparkline: [...revenueMap.values()].map((row) => row.orders) },
         { key: "conversion", label: "Conversion Rate", value: conversionRate, format: "percent", growth: percentChange(conversionRate, 0), sparkline: [...revenueMap.values()].map((row) => row.orders) },
         { key: "followers", label: "Followers Count", value: followers, format: "number", growth: 0, sparkline: [followers, followers, followers] },
-        { key: "balance", label: "Withdrawable Balance", value: roundMoney(wallet.availableBalance || 0), format: "currency", growth: 0, sparkline: [wallet.availableBalance || 0] },
       ],
       metrics: {
         grossRevenue,
-        commissionRevenue: totalEarnings,
+        commissionRevenue: totalCommission,
         bonusRevenue: 0,
-        campaignRevenue: totalEarnings,
+        campaignRevenue: grossRevenue,
         averageOrderValue,
         engagementRate,
         totalViews,
       },
       revenueOverview: [...revenueMap.values()],
-      earningsBreakdown,
       topProducts,
       topVideos,
       activeCampaigns: activeCampaigns.filter((campaign) => ["active", "accepted", "completed", "proposed"].includes(campaign.status)),
@@ -1535,428 +1416,17 @@ class CommissionService {
         total: filteredRecords.length,
         totalPages: Math.ceil(filteredRecords.length / limit) || 1,
       },
-      earningsSummary: {
-        pending: pendingEarnings,
-        approved: roundMoney(wallet.totalEarnings || 0),
-        withdrawable: roundMoney(wallet.availableBalance || 0),
-        lifetime: roundMoney(wallet.totalEarnings || 0),
-        withdrawn: roundMoney(wallet.withdrawnBalance || 0),
-      },
       quickActions: [
         { key: "affiliate", label: "Create Affiliate Link", href: "/influencer/affiliate-links", enabled: Boolean(profile.permissions?.affiliateLinks) },
         { key: "product", label: "Add Product", href: "/influencer/collections", enabled: Boolean(profile.permissions?.collections) },
         { key: "video", label: "Upload Video", href: "/influencer/reels/upload", enabled: true },
         { key: "collection", label: "Create Collection", href: "/influencer/collections", enabled: Boolean(profile.permissions?.collections) },
-        { key: "withdraw", label: "Request Withdrawal", href: "/influencer/earnings", enabled: Boolean(profile.permissions?.wallet) },
       ],
       notifications: {
         unreadCount: 0,
         items: [],
       },
     };
-  }
-
-  async getInfluencerEarnings(userId, query = {}) {
-    const profile = await require("../influencer/service").getProfile(userId);
-    const influencerId = profile._id;
-    const wallet = await getOrCreateWallet(influencerId);
-    const { start, end } = parseDashboardRange(query);
-
-    const pendingAgg = await CommissionRecord.aggregate([
-      { $match: { influencerId, state: "HOLD" } },
-      { $group: { _id: null, total: { $sum: "$influencerShare" } } },
-    ]);
-    const pending = roundMoney(pendingAgg[0]?.total || 0);
-    const settledAgg = await CommissionRecord.aggregate([
-      { $match: { influencerId, state: "SETTLED" } },
-      { $group: { _id: null, total: { $sum: "$influencerShare" }, gross: { $sum: "$gross" }, count: { $sum: 1 } } },
-    ]);
-    const bonusAgg = await InfluencerLedger.aggregate([
-      { $match: { influencerId, source: { $in: ["BONUS", "REFERRAL", "ADJUSTMENT", "CAMPAIGN"] } } },
-      { $group: { _id: "$source", total: { $sum: "$amount" }, count: { $sum: 1 } } },
-    ]);
-
-    const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
-    const skip = (page - 1) * limit;
-
-    const ledgerFilter = { influencerId };
-    if (query.type === "CREDIT" || query.type === "DEBIT") {
-      ledgerFilter.type = query.type;
-    }
-    if (["COMMISSION", "REVERSAL", "WITHDRAWAL", "WITHDRAWAL_REVERSAL", "BONUS", "REFERRAL", "ADJUSTMENT", "CAMPAIGN"].includes(query.source)) {
-      ledgerFilter.source = query.source;
-    }
-    if (query.from || query.to) {
-      ledgerFilter.createdAt = {};
-      if (query.from) ledgerFilter.createdAt.$gte = new Date(query.from);
-      if (query.to) ledgerFilter.createdAt.$lte = new Date(query.to);
-    }
-
-    const [transactions, total, records, withdrawals, account] = await Promise.all([
-      InfluencerLedger.find(ledgerFilter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      InfluencerLedger.countDocuments(ledgerFilter),
-      CommissionRecord.find({ influencerId, createdAt: { $gte: start, $lte: end } })
-        .populate({ path: "orderId", select: "orderNumber totalAmount status paymentStatus createdAt items", populate: { path: "items.productId", select: "name category brand images" } })
-        .populate({ path: "campaignId", select: "title campaignType category vendorId", populate: { path: "vendorId", select: "shopName companyName" } })
-        .sort({ createdAt: -1 })
-        .limit(300)
-        .lean(),
-      InfluencerWithdrawalRequest.find({ influencerId }).populate("payoutAccountId").sort({ requestedAt: -1 }).limit(100).lean(),
-      InfluencerPayoutAccount.findOne({ influencerId, isActive: true, isDefault: true }).sort({ createdAt: -1 }).lean(),
-    ]);
-
-    const dailyMap = new Map(buildDateBuckets(start, end).map((bucket) => [bucket.date, bucket]));
-    const productBreakdown = new Map();
-    const campaignBreakdown = new Map();
-    for (const record of records) {
-      const key = new Date(record.createdAt).toISOString().slice(0, 10);
-      const bucket = dailyMap.get(key);
-      if (bucket) {
-        bucket.revenue = roundMoney(bucket.revenue + Number(record.gross || 0));
-        bucket.commission = roundMoney(bucket.commission + Number(record.influencerShare || 0));
-        bucket.orders += 1;
-      }
-      const campaignId = String(record.campaignId?._id || record.campaignId || "");
-      if (campaignId) {
-        const row = campaignBreakdown.get(campaignId) || {
-          id: campaignId,
-          campaign: record.campaignId?.title || `${record.campaignId?.vendorId?.shopName || record.campaignId?.vendorId?.companyName || "Brand"} campaign`,
-          orders: 0,
-          revenue: 0,
-          commission: 0,
-        };
-        row.orders += 1;
-        row.revenue = roundMoney(row.revenue + Number(record.gross || 0));
-        row.commission = roundMoney(row.commission + Number(record.influencerShare || 0));
-        campaignBreakdown.set(campaignId, row);
-      }
-      for (const item of record.orderId?.items || []) {
-        const product = item.productId || {};
-        const id = String(product._id || item.productId || "");
-        if (!id) continue;
-        const row = productBreakdown.get(id) || {
-          id,
-          productName: product.name || item.name || "Product",
-          campaign: record.campaignId?.title || "",
-          category: product.category || "",
-          brand: product.brand || "",
-          orders: 0,
-          revenue: 0,
-          commissionRate: Number(record.commissionPercent || 0),
-          commissionEarned: 0,
-        };
-        row.orders += Number(item.quantity || 1);
-        row.revenue = roundMoney(row.revenue + Number(item.price || 0) * Number(item.quantity || 1));
-        row.commissionEarned = roundMoney(row.commissionEarned + Number(record.influencerShare || 0));
-        productBreakdown.set(id, row);
-      }
-    }
-
-    const withdrawalBuckets = withdrawals.reduce(
-      (acc, request) => {
-        if (["PENDING", "UNDER_REVIEW"].includes(request.status)) acc.pending.push(request);
-        if (["APPROVED", "PROCESSING", "PAID"].includes(request.status)) acc.approved.push(request);
-        if (["REJECTED", "FAILED", "CANCELLED"].includes(request.status)) acc.rejected.push(request);
-        if (["PAID", "PROCESSING", "APPROVED", "FAILED"].includes(request.status)) acc.history.push(request);
-        return acc;
-      },
-      { pending: [], approved: [], rejected: [], history: [] }
-    );
-
-    const bonusEarnings = bonusAgg.map((row) => ({
-      type: row._id,
-      description: `${String(row._id || "").toLowerCase()} earnings`,
-      amount: roundMoney(row.total || 0),
-      count: row.count,
-      status: "APPROVED",
-    }));
-    const bonusTotal = roundMoney(bonusEarnings.reduce((sum, row) => sum + Number(row.amount || 0), 0));
-    const approved = roundMoney(settledAgg[0]?.total || wallet.totalEarnings || 0);
-    const taxableIncome = roundMoney(approved + bonusTotal);
-    const taxWithheld = roundMoney(taxableIncome * Number(process.env.INFLUENCER_TAX_WITHHOLDING_RATE || 0));
-
-    return {
-      available: roundMoney(wallet.availableBalance || 0),
-      pendingBalance: roundMoney(wallet.pendingBalance || 0),
-      pending,
-      approved,
-      totalEarnings: roundMoney(wallet.totalEarnings || approved),
-      withdrawn: roundMoney(wallet.withdrawnBalance || 0),
-      transactions,
-      wallet: {
-        availableBalance: roundMoney(wallet.availableBalance || 0),
-        pendingBalance: roundMoney(wallet.pendingBalance || 0),
-        reservedBalance: roundMoney(wallet.pendingBalance || 0),
-        totalBalance: roundMoney(Number(wallet.availableBalance || 0) + Number(wallet.pendingBalance || 0)),
-        totalEarnings: roundMoney(wallet.totalEarnings || 0),
-        withdrawnBalance: roundMoney(wallet.withdrawnBalance || 0),
-        status: wallet.status,
-      },
-      kpis: {
-        totalEarnings: roundMoney(wallet.totalEarnings || approved),
-        pendingEarnings: pending,
-        approvedEarnings: approved,
-        withdrawableBalance: roundMoney(wallet.availableBalance || 0),
-        totalWithdrawn: roundMoney(wallet.withdrawnBalance || 0),
-        bonusEarnings: bonusTotal,
-      },
-      earningsHistory: transactions,
-      pendingEarnings: records.filter((record) => record.state === "HOLD").map((record) => ({
-        id: record._id,
-        referenceId: record.metadata?.orderNumber || String(record.orderId?._id || record.orderId || "").slice(-8),
-        source: "Commission",
-        orderId: record.orderId?.orderNumber || "",
-        campaign: record.campaignId?.title || "",
-        amount: Number(record.influencerShare || 0),
-        expectedApprovalDate: record.holdUntil,
-        status: "Pending",
-      })),
-      approvedEarnings: records.filter((record) => record.state === "SETTLED").map((record) => ({
-        id: record._id,
-        date: record.settledAt || record.createdAt,
-        source: "Commission",
-        order: record.orderId?.orderNumber || "",
-        campaign: record.campaignId?.title || "",
-        amount: Number(record.gross || 0),
-        commission: Number(record.influencerShare || 0),
-        status: record.state,
-      })),
-      commissionBreakdown: {
-        products: [...productBreakdown.values()].sort((a, b) => b.commissionEarned - a.commissionEarned),
-        campaigns: [...campaignBreakdown.values()].sort((a, b) => b.commission - a.commission),
-        averageCommission: records.length ? roundMoney(records.reduce((sum, record) => sum + Number(record.commissionPercent || 0), 0) / records.length) : 0,
-      },
-      bonusEarnings,
-      taxSummary: {
-        taxableIncome,
-        totalEarnings: roundMoney(wallet.totalEarnings || approved),
-        taxWithheld,
-        netEarnings: roundMoney(taxableIncome - taxWithheld),
-        deductions: 0,
-        documents: [],
-      },
-      revenueTrend: [...dailyMap.values()],
-      withdrawals: withdrawalBuckets,
-      payoutAccount: maskInfluencerPayoutAccount(account),
-      withdrawalRules: {
-        minimumAmount: MIN_WITHDRAWAL_AMOUNT,
-        maximumAmount: MAX_WITHDRAWAL_AMOUNT,
-        processingTime: "2-5 business days",
-      },
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit) || 1,
-    };
-  }
-
-  async listInfluencerWithdrawals(userId, query = {}) {
-    const profile = await require("../influencer/service").getProfile(userId);
-    const influencerId = profile._id;
-    const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
-    const filter = { influencerId };
-    const statuses = normalizeWithdrawalStatus(query.tab || query.status);
-    if (statuses.length) filter.status = { $in: statuses };
-    const [requests, total] = await Promise.all([
-      InfluencerWithdrawalRequest.find(filter).populate("payoutAccountId").sort({ requestedAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
-      InfluencerWithdrawalRequest.countDocuments(filter),
-    ]);
-    return {
-      requests: requests.map((request) => ({ ...request, payoutAccountId: maskInfluencerPayoutAccount(request.payoutAccountId) })),
-      pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
-    };
-  }
-
-  async requestWithdrawal(userId, payload = {}, actor = {}, meta = {}) {
-    const profile = await require("../influencer/service").getProfile(userId);
-    const influencerId = profile._id;
-    const amount = roundMoney(payload.amount || 0);
-    if (amount < MIN_WITHDRAWAL_AMOUNT) {
-      throw new AppError(`Minimum withdrawal amount is ${MIN_WITHDRAWAL_AMOUNT}`, 400, "WITHDRAWAL_MINIMUM_NOT_MET");
-    }
-    if (amount > MAX_WITHDRAWAL_AMOUNT) {
-      throw new AppError(`Maximum withdrawal amount is ${MAX_WITHDRAWAL_AMOUNT}`, 400, "WITHDRAWAL_MAXIMUM_EXCEEDED");
-    }
-
-    return await executeWithOptionalTransaction(async (session) => {
-      const wallet = await getOrCreateWallet(influencerId, session);
-      if (roundMoney(wallet.availableBalance || 0) < amount) {
-        throw new AppError("Insufficient withdrawable balance", 400, "INSUFFICIENT_BALANCE");
-      }
-      const pending = await attachSession(
-        InfluencerWithdrawalRequest.findOne({ influencerId, status: { $in: ["PENDING", "UNDER_REVIEW", "APPROVED", "PROCESSING"] } }),
-        session
-      ).lean();
-      if (pending) throw new AppError("A withdrawal request is already pending", 409, "WITHDRAWAL_ALREADY_PENDING");
-
-      const account = payload.payoutAccountId
-        ? await attachSession(InfluencerPayoutAccount.findOne({ _id: payload.payoutAccountId, influencerId, isActive: true }), session)
-        : await attachSession(InfluencerPayoutAccount.findOne({ influencerId, isActive: true, isDefault: true }).sort({ createdAt: -1 }), session);
-      if (!account) throw new AppError("Add a bank account or payout method before requesting withdrawal", 400, "PAYOUT_ACCOUNT_REQUIRED");
-
-      const updatedWallet = await InfluencerWallet.findByIdAndUpdate(
-        wallet._id,
-        {
-          $set: {
-            availableBalance: roundMoney(wallet.availableBalance || 0) - amount,
-            pendingBalance: roundMoney(wallet.pendingBalance || 0) + amount,
-          },
-        },
-        { returnDocument: "after", session: session || undefined, runValidators: true }
-      );
-
-      const [request] = await InfluencerWithdrawalRequest.create(
-        [
-          {
-            influencerId,
-            payoutAccountId: account._id,
-            amount,
-            paymentMethod: payload.paymentMethod || account.paymentMethod || "bank_transfer",
-            status: "PENDING",
-            remarks: payload.remarks || "",
-            expectedProcessingAt: addDays(new Date(), 3),
-          },
-        ],
-        { session: session || undefined }
-      );
-
-      const [ledgerEntry] = await InfluencerLedger.create(
-        [
-          {
-            influencerId,
-            type: "DEBIT",
-            amount,
-            source: "WITHDRAWAL",
-            idempotencyKey: buildWithdrawalLedgerKey(request._id),
-            balanceAfter: updatedWallet.availableBalance,
-            meta: {
-              withdrawalRequestId: request._id,
-              payoutAccountId: account._id,
-              status: request.status,
-            },
-          },
-        ],
-        { session: session || undefined }
-      );
-
-      await auditService.log({
-        actor: actor || { _id: userId, role: "influencer" },
-        action: "influencer.withdrawal.requested",
-        entityType: "InfluencerWithdrawalRequest",
-        entityId: request._id,
-        metadata: { influencerId: String(influencerId), amount, ledgerEntryId: String(ledgerEntry._id) },
-        ipAddress: meta?.ipAddress,
-        userAgent: meta?.userAgent,
-      }).catch(() => {});
-
-      return { request, wallet: updatedWallet, ledgerEntry };
-    });
-  }
-
-  async cancelWithdrawal(userId, requestId, meta = {}) {
-    const profile = await require("../influencer/service").getProfile(userId);
-    const influencerId = profile._id;
-    return await executeWithOptionalTransaction(async (session) => {
-      const request = await attachSession(InfluencerWithdrawalRequest.findOne({ _id: requestId, influencerId }), session);
-      if (!request) throw new AppError("Withdrawal request not found", 404, "NOT_FOUND");
-      if (!["PENDING", "UNDER_REVIEW"].includes(request.status)) {
-        throw new AppError("Only pending withdrawal requests can be cancelled", 400, "INVALID_WITHDRAWAL_STATUS");
-      }
-      const wallet = await getOrCreateWallet(influencerId, session);
-      const updatedWallet = await InfluencerWallet.findByIdAndUpdate(
-        wallet._id,
-        {
-          $set: {
-            availableBalance: roundMoney(wallet.availableBalance || 0) + roundMoney(request.amount || 0),
-            pendingBalance: Math.max(0, roundMoney(wallet.pendingBalance || 0) - roundMoney(request.amount || 0)),
-          },
-        },
-        { returnDocument: "after", session: session || undefined, runValidators: true }
-      );
-      request.status = "CANCELLED";
-      request.rejectedAt = new Date();
-      request.rejectionReason = "Cancelled by influencer";
-      await request.save({ session: session || undefined });
-
-      await InfluencerLedger.create(
-        [
-          {
-            influencerId,
-            type: "CREDIT",
-            amount: request.amount,
-            source: "WITHDRAWAL_REVERSAL",
-            idempotencyKey: buildWithdrawalLedgerKey(request._id, "cancel"),
-            balanceAfter: updatedWallet.availableBalance,
-            meta: { withdrawalRequestId: request._id, reason: "cancelled" },
-          },
-        ],
-        { session: session || undefined }
-      );
-      return { request, wallet: updatedWallet };
-    });
-  }
-
-  async getInfluencerPayoutAccounts(userId) {
-    const profile = await require("../influencer/service").getProfile(userId);
-    const accounts = await InfluencerPayoutAccount.find({ influencerId: profile._id, isActive: true }).sort({ isDefault: -1, createdAt: -1 });
-    return { accounts: accounts.map(maskInfluencerPayoutAccount) };
-  }
-
-  async upsertInfluencerPayoutAccount(userId, payload = {}, meta = {}) {
-    const profile = await require("../influencer/service").getProfile(userId);
-    const influencerId = profile._id;
-    const encService = getEncryptionService();
-    const normalized = {
-      accountHolderName: String(payload.accountHolderName || "").trim(),
-      accountNumber: String(payload.accountNumber || "").trim(),
-      ifscCode: String(payload.ifscCode || "").trim().toUpperCase(),
-      bankName: String(payload.bankName || "").trim(),
-      upiId: String(payload.upiId || "").trim().toLowerCase(),
-      paypalEmail: String(payload.paypalEmail || "").trim().toLowerCase(),
-      paymentMethod: payload.paymentMethod || "bank_transfer",
-    };
-    const hasBank = normalized.accountHolderName && normalized.accountNumber && normalized.ifscCode;
-    const hasUpi = Boolean(normalized.upiId);
-    const hasPaypal = Boolean(normalized.paypalEmail);
-    if (!hasBank && !hasUpi && !hasPaypal) {
-      throw new AppError("Provide bank, UPI, or PayPal payout details", 400, "PAYOUT_ACCOUNT_REQUIRED");
-    }
-
-    const existing = await InfluencerPayoutAccount.findOne({ influencerId, isActive: true, isDefault: true }).sort({ createdAt: -1 });
-    if (existing) {
-      await InfluencerPayoutAccount.updateMany({ influencerId, isActive: true, isDefault: true }, { $set: { isDefault: false, isActive: false } });
-    }
-    const account = await InfluencerPayoutAccount.create({
-      influencerId,
-      accountHolderName: normalized.accountHolderName,
-      accountNumberEncrypted: normalized.accountNumber ? encService.encrypt(normalized.accountNumber) : "",
-      ifscCode: normalized.ifscCode,
-      bankName: normalized.bankName,
-      upiIdEncrypted: normalized.upiId ? encService.encrypt(normalized.upiId) : "",
-      paypalEmail: normalized.paypalEmail,
-      paymentMethod: normalized.paymentMethod,
-      isDefault: true,
-      isActive: true,
-      isVerified: false,
-      verificationStatus: "PENDING",
-      version: existing ? Number(existing.version || 1) + 1 : 1,
-      previousVersions: existing ? [existing.toObject ? existing.toObject() : existing] : [],
-      updateReason: payload.updateReason || "Influencer updated payout account",
-    });
-
-    await auditService.log({
-      actor: { _id: userId, role: "influencer" },
-      action: existing ? "influencer.payout_account.updated" : "influencer.payout_account.created",
-      entityType: "InfluencerPayoutAccount",
-      entityId: account._id,
-      metadata: { influencerId: String(influencerId), paymentMethod: account.paymentMethod },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    }).catch(() => {});
-
-    return maskInfluencerPayoutAccount(account);
   }
 
   async simulateCommission(payload = {}) {

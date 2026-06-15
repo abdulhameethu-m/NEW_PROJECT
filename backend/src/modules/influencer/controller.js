@@ -74,9 +74,6 @@ const followPublic = asyncHandler(async (req, res) => ok(res, await influencerSe
 const unfollowPublic = asyncHandler(async (req, res) => ok(res, await influencerService.unfollowPublicStorefront(req.params.username, req.user?.sub), "Influencer unfollowed"));
 const subscribePublicNewsletter = asyncHandler(async (req, res) => ok(res, await influencerService.subscribePublicNewsletter(req.params.username, req.body), "Newsletter subscription saved", 201));
 const trackPublicEvent = asyncHandler(async (req, res) => ok(res, await influencerService.trackPublicEvent(req.params.username, req.user?.sub, req.body), "Influencer event tracked", 201));
-const getStorefrontBuilder = asyncHandler(async (req, res) => ok(res, await influencerService.getStorefrontBuilder(req.user.sub), "Storefront builder loaded"));
-const updateStorefrontBuilder = asyncHandler(async (req, res) => ok(res, await influencerService.updateStorefrontBuilder(req.user.sub, req.body), "Storefront builder saved"));
-const previewStorefrontBuilder = asyncHandler(async (req, res) => ok(res, await influencerService.previewStorefrontBuilder(req.user.sub, req.body), "Storefront preview generated"));
 const generateAffiliateLink = asyncHandler(async (req, res) => ok(res, await influencerService.generateAffiliateLink(req.user.sub, req.body), "Affiliate link generated", 201));
 const uploadCollectionMedia = asyncHandler(async (req, res) => {
   const uploaded = {};
@@ -115,68 +112,10 @@ const registerStepOne = asyncHandler(async (req, res) =>
   )
 );
 const register = asyncHandler(async (req, res) => ok(res, await influencerService.register(req.user.sub, req.body), "Influencer profile saved"));
-const profile = asyncHandler(async (req, res) => ok(res, await influencerService.getProfile(req.user.sub), "Influencer profile loaded"));
-const update = asyncHandler(async (req, res) => ok(res, await influencerService.updateProfile(req.user.sub, req.body), "Influencer profile updated"));
 const list = asyncHandler(async (req, res) => ok(res, await influencerService.list(req.query, req.user?.sub), "Influencers loaded"));
 const moderate = asyncHandler(async (req, res) => ok(res, await influencerService.moderate(req.params.id, req.body), "Influencer status updated"));
 const dashboard = asyncHandler(async (req, res) =>
   ok(res, await commissionService.getInfluencerDashboard(req.user.sub, req.query), "Influencer dashboard loaded")
-);
-const earnings = asyncHandler(async (req, res) =>
-  ok(res, await commissionService.getInfluencerEarnings(req.user.sub, req.query), "Influencer earnings loaded")
-);
-const verificationCenter = asyncHandler(async (req, res) =>
-  ok(res, await influencerService.getVerificationCenter(req.user.sub, req.query), "Influencer verification loaded")
-);
-const profileSettings = asyncHandler(async (req, res) =>
-  ok(res, await influencerService.getProfileSettings(req.user.sub), "Influencer profile settings loaded")
-);
-const updateProfileSettings = asyncHandler(async (req, res) =>
-  ok(
-    res,
-    await influencerService.updateProfileSettings(req.user.sub, req.params.section, req.body, {
-      ipAddress: req.ip,
-      userAgent: req.get("user-agent"),
-    }),
-    "Influencer profile settings saved"
-  )
-);
-const settingsSessions = asyncHandler(async (req, res) => ok(res, await require("../../services/user.service").listSessions(req.user.sub), "Sessions loaded"));
-const settingsRevokeSession = asyncHandler(async (req, res) =>
-  ok(
-    res,
-    await require("../../services/user.service").revokeSession(req.user.sub, req.params.id, {
-      ipAddress: req.ip,
-      userAgent: req.get("user-agent"),
-    }),
-    "Session revoked"
-  )
-);
-const settingsChangePassword = asyncHandler(async (req, res) =>
-  ok(
-    res,
-    await require("../../services/user.service").changePassword(req.user.sub, req.body, {
-      ipAddress: req.ip,
-      userAgent: req.get("user-agent"),
-    }),
-    "Password changed"
-  )
-);
-const uploadVerificationDocuments = asyncHandler(async (req, res) =>
-  ok(res, await influencerService.uploadVerificationDocuments(req.user.sub, req.body, req.files || []), "Verification documents uploaded", 201)
-);
-const saveVerificationTax = asyncHandler(async (req, res) =>
-  ok(res, await influencerService.saveVerificationTax(req.user.sub, req.body, req.files || []), "Tax information submitted")
-);
-const saveVerificationBank = asyncHandler(async (req, res) =>
-  ok(
-    res,
-    await commissionService.upsertInfluencerPayoutAccount(req.user.sub, req.body, {
-      ipAddress: req.ip,
-      userAgent: req.get("user-agent"),
-    }),
-    "Bank information submitted"
-  )
 );
 const commerceProfile = asyncHandler(async (req, res) =>
   ok(res, await influencerRateCardService.getMyCommerceProfile(req.user.sub), "Influencer commerce profile loaded")
@@ -220,9 +159,6 @@ module.exports = {
   unfollowPublic,
   subscribePublicNewsletter,
   trackPublicEvent,
-  getStorefrontBuilder,
-  updateStorefrontBuilder,
-  previewStorefrontBuilder,
   generateAffiliateLink,
   uploadCollectionMedia,
   listAffiliateProducts,
@@ -242,21 +178,9 @@ module.exports = {
   collectionProducts,
   registerStepOne,
   register,
-  profile,
-  update,
   list,
   moderate,
   dashboard,
-  earnings,
-  verificationCenter,
-  profileSettings,
-  updateProfileSettings,
-  settingsSessions,
-  settingsRevokeSession,
-  settingsChangePassword,
-  uploadVerificationDocuments,
-  saveVerificationTax,
-  saveVerificationBank,
   commerceProfile,
   saveServices,
   saveRequirements,

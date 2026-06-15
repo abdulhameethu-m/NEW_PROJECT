@@ -122,13 +122,7 @@ export default defineConfig({
     },
 
     // Chunk size optimization
-    minify: "terser",
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      },
-    },
+    minify: "oxc",
 
     // Enable source maps in production for error tracking
     sourcemap: "hidden",

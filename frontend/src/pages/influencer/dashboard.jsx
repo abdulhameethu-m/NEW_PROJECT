@@ -4,7 +4,6 @@ import {
   BarChart3,
   Bell,
   ChevronRight,
-  CircleDollarSign,
   Clapperboard,
   Download,
   Megaphone,
@@ -14,18 +13,14 @@ import {
   Sparkles,
   TrendingDown,
   TrendingUp,
-  Wallet,
   Zap,
 } from "lucide-react";
 import {
   Area,
   AreaChart as ReAreaChart,
   CartesianGrid,
-  Cell,
   Line as ReLine,
   LineChart as ReLineChart,
-  Pie as RePie,
-  PieChart as RePieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -35,7 +30,6 @@ import { getInfluencerDashboard } from "../../services/influencerCommerceService
 import { formatCurrency } from "../../utils/formatCurrency";
 
 const numberFormatter = new Intl.NumberFormat("en-IN");
-const COLORS = ["#4f46e5", "#06b6d4", "#22c55e", "#f59e0b", "#ef4444"];
 
 const RANGE_OPTIONS = [
   { value: "today", label: "Today" },
@@ -201,43 +195,6 @@ function RevenueOverview({ data = [], metrics = {}, loading }) {
   );
 }
 
-function EarningsBreakdown({ rows = [] }) {
-  const total = rows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  return (
-    <Card title="Earnings Breakdown" className="lg:col-span-3">
-      {rows.length ? (
-        <div className="grid gap-4 sm:grid-cols-[150px_1fr] lg:grid-cols-1 xl:grid-cols-[150px_1fr]">
-          <div className="relative h-40">
-            <ResponsiveContainer width="100%" height="100%">
-              <RePieChart>
-                <RePie data={rows} dataKey="amount" innerRadius={45} outerRadius={70} paddingAngle={3}>
-                  {rows.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
-                </RePie>
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-              </RePieChart>
-            </ResponsiveContainer>
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-              <span className="text-xs text-slate-500">Total</span>
-              <span className="text-sm font-semibold text-slate-950 dark:text-white">{formatCurrency(total)}</span>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {rows.map((item, index) => (
-              <div key={item.source} className="flex items-center justify-between gap-3 text-sm">
-                <span className="flex min-w-0 items-center gap-2 text-slate-600 dark:text-slate-300">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                  <span className="truncate">{item.source}</span>
-                </span>
-                <span className="font-semibold text-slate-950 dark:text-white">{item.percentage}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : <EmptyState label="No earning sources yet" />}
-    </Card>
-  );
-}
-
 function TopProducts({ rows = [] }) {
   return (
     <Card title="Top Products" className="lg:col-span-3">
@@ -377,29 +334,6 @@ function TopVideos({ rows = [] }) {
   );
 }
 
-function EarningsSummary({ data = {} }) {
-  return (
-    <Card title="Earnings Summary" className="lg:col-span-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {[
-          ["Pending", data.pending],
-          ["Approved", data.approved],
-          ["Withdrawable", data.withdrawable],
-          ["Withdrawn", data.withdrawn],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
-            <p className="text-xs text-slate-500">{label}</p>
-            <p className="text-lg font-semibold text-slate-950 dark:text-white">{formatCurrency(value || 0)}</p>
-          </div>
-        ))}
-      </div>
-      <Link to="/influencer/earnings" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-300">
-        View transactions <ChevronRight className="h-4 w-4" />
-      </Link>
-    </Card>
-  );
-}
-
 function CommissionRuleSummary({ data = {} }) {
   const rule = data.mostAppliedRule || data.currentApplicableRule;
   return (
@@ -445,7 +379,7 @@ function Activity({ rows = [] }) {
         {rows.length ? rows.slice(0, 6).map((item) => (
           <div key={item.id} className="flex gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300">
-              {item.type === "campaign" ? <Megaphone className="h-4 w-4" /> : <CircleDollarSign className="h-4 w-4" />}
+              <Megaphone className="h-4 w-4" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-950 dark:text-white">{item.title}</p>
@@ -465,7 +399,6 @@ function QuickActions({ rows = [] }) {
     product: Package,
     video: Clapperboard,
     collection: Sparkles,
-    withdraw: Wallet,
     analytics: BarChart3,
   };
   return (
@@ -562,13 +495,12 @@ export default function InfluencerDashboardPage() {
         </div>
       ) : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        {(data?.kpis || Array.from({ length: 6 })).map((item, index) => <KpiCard key={item?.key || index} item={item} loading={loading} />)}
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {(data?.kpis || Array.from({ length: 4 })).map((item, index) => <KpiCard key={item?.key || index} item={item} loading={loading} />)}
       </section>
 
       <section className="grid gap-5 lg:grid-cols-12">
         <RevenueOverview data={data?.revenueOverview || []} metrics={data?.metrics || {}} loading={loading} />
-        <EarningsBreakdown rows={data?.earningsBreakdown || []} />
         <TopProducts rows={filteredProducts} />
       </section>
 
@@ -581,7 +513,6 @@ export default function InfluencerDashboardPage() {
       <section className="grid gap-5 lg:grid-cols-12">
         <TopVideos rows={data?.topVideos || []} />
         <CommissionRuleSummary data={data?.commissionRuleSummary || {}} />
-        <EarningsSummary data={data?.earningsSummary || {}} />
         <Activity rows={data?.recentActivity || []} />
         <QuickActions rows={data?.quickActions || []} />
       </section>
@@ -606,7 +537,7 @@ export default function InfluencerDashboardPage() {
             <Bell className="h-5 w-5 text-indigo-500" />
             <div>
               <p className="font-semibold text-slate-950 dark:text-white">{data?.notifications?.unreadCount || 0} unread</p>
-              <p className="text-sm text-slate-500">Orders, campaigns, commissions, wallet, and system alerts.</p>
+              <p className="text-sm text-slate-500">Orders, campaigns, content, and system alerts.</p>
             </div>
           </div>
         </Card>

@@ -191,7 +191,7 @@ export const moduleLoaders = {
   analytics: {
     vendor: () => import('../pages/VendorAnalyticsPage'),
     admin: () => import('../pages/AdminAnalyticsPage'),
-    influencer: () => import('../pages/influencer/earnings'),
+    influencer: () => import('../pages/influencer/dashboard'),
   },
 
   // Admin
@@ -219,9 +219,6 @@ export const moduleLoaders = {
     dashboard: () => import('../pages/influencer/dashboard'),
     campaigns: () => import('../pages/influencer/campaigns'),
     affiliate: () => import('../pages/influencer/affiliateProducts'),
-    storefront: () => import('../pages/influencer/storefrontBuilder'),
-    earnings: () => import('../pages/influencer/earnings'),
-    profile: () => import('../pages/influencer/profile'),
   },
 
   // Settings & Support

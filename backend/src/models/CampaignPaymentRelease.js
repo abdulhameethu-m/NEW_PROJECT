@@ -1,5 +1,21 @@
 const mongoose = require("mongoose");
 
+const releasedDeliverableSchema = new mongoose.Schema(
+  {
+    deliverableId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CampaignDeliverable",
+      required: true,
+    },
+    type: { type: String, trim: true, default: "" },
+    title: { type: String, trim: true, default: "" },
+    amount: { type: Number, min: 0, required: true },
+    approvedAt: { type: Date },
+    approvalNotes: { type: String, trim: true, default: "" },
+  },
+  { _id: false }
+);
+
 const campaignPaymentReleaseSchema = new mongoose.Schema(
   {
     // Core identifiers
@@ -28,19 +44,7 @@ const campaignPaymentReleaseSchema = new mongoose.Schema(
     },
 
     // Deliverables being released
-    deliverables: [
-      {
-        _id: false,
-        deliverableId: {
-          type: mongoose.Schema.Types.ObjectId,
-        },
-        type: String, // 'reel', 'post', 'story', etc.
-        title: String,
-        amount: Number, // Amount for this deliverable
-        approvedAt: Date,
-        approvalNotes: String,
-      },
-    ],
+    deliverables: { type: [releasedDeliverableSchema], required: true, default: [] },
 
     // Release amounts
     totalAmount: {

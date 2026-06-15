@@ -55,7 +55,7 @@ export function RegisterPage() {
         return continueAfterPrimaryAuth({ result: res, attemptedFrom: from, nav });
       }
       if (role === "vendor") return nav("/vendor/onboarding", { replace: true });
-      if (role === "influencer") return nav("/influencer/profile", { replace: true });
+      if (role === "influencer") return nav("/influencer/dashboard", { replace: true });
       return nav("/user/dashboard", { replace: true });
     } catch (err) {
       setError(normalizeError(err));

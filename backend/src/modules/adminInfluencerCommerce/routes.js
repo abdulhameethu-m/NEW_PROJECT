@@ -144,12 +144,6 @@ router.patch(
 );
 router.get("/settlements", validate(querySchema, "query"), controller.settlements);
 router.get("/payouts", validate(querySchema, "query"), controller.payouts);
-router.get("/withdrawals", validate(querySchema, "query"), controller.withdrawals);
-router.patch(
-  "/withdrawals/:requestId",
-  validate(Joi.object({ action: Joi.string().valid("approve", "reject", "process", "paid", "review").optional(), status: Joi.string().trim().allow("").optional(), note: Joi.string().trim().max(1000).allow("").default("") })),
-  controller.updateWithdrawal
-);
 router.get("/creator-performance", validate(querySchema, "query"), controller.creatorPerformance);
 router.get("/vendor-performance", validate(querySchema, "query"), controller.vendorPerformance);
 router.get("/campaign-analytics", validate(querySchema, "query"), controller.campaignAnalytics);

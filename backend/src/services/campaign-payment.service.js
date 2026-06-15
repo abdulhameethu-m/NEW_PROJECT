@@ -2,7 +2,7 @@ const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const CampaignPaymentOrder = require("../models/CampaignPaymentOrder");
 const CampaignEscrowWallet = require("../models/CampaignEscrowWallet");
-const { Campaign, CampaignInvitation } = require("../modules/campaign/model");
+const { Campaign, CampaignAcceptance } = require("../modules/campaign/model");
 const { InfluencerProfile } = require("../modules/influencer/model");
 const campaignEscrowService = require("./campaign-escrow.service");
 const auditService = require("./audit.service");
@@ -128,6 +128,28 @@ class CampaignPaymentService {
       throw new ApiError(
         503,
         "Razorpay credentials are missing or placeholders. Configure a valid RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
+      );
+    }
+    const campaign = await Campaign.findOne({ _id: campaignId, vendorId, paymentType: "fixed" })
+      .select("state fixedPaymentWorkflow")
+      .lean();
+    if (!campaign) {
+      throw new ApiError(404, "Fixed-payment campaign not found for this vendor");
+    }
+    const acceptance = await CampaignAcceptance.findOne({
+      campaignId,
+      influencerId: { $exists: true },
+      status: "accepted",
+    }).select("_id").lean();
+    if (
+      !acceptance ||
+      campaign.state !== "accepted" ||
+      !["accepted_awaiting_funding", "funding_pending"].includes(campaign.fixedPaymentWorkflow?.status)
+    ) {
+      throw new ApiError(
+        409,
+        "The influencer must accept this campaign before payment can begin",
+        "CAMPAIGN_ACCEPTANCE_REQUIRED"
       );
     }
     let paymentOrder = await CampaignPaymentOrder.findOne({ campaignId, vendorId });
@@ -346,7 +368,10 @@ class CampaignPaymentService {
       throw new ApiError(403, "Payment order does not belong to this vendor");
     }
 
-    const gatewayPayment = await razorpay.payments.fetch(razorpayPaymentId);
+    const gatewayPayment = await withGatewayTimeout(
+      razorpay.payments.fetch(razorpayPaymentId),
+      "payment verification"
+    );
     if (
       gatewayPayment.order_id !== razorpayOrderId ||
       Number(gatewayPayment.amount) !== Math.round(Number(paymentOrder.totalAmount) * 100) ||
@@ -364,11 +389,16 @@ class CampaignPaymentService {
       razorpayPaymentId,
       razorpaySignature
     );
+    const fundingResult = await this.processCapturedCampaignPayment(
+      gatewayPayment,
+      `checkout-verified:${razorpayPaymentId}`
+    );
 
     return {
       ...verificationResult,
+      ...fundingResult,
       campaignId: paymentOrder.campaignId,
-      campaignStatus: "payment_processing",
+      campaignStatus: fundingResult?.campaignStatus || "payment_processing",
       invitationCreated: false,
     };
   }
@@ -437,39 +467,60 @@ class CampaignPaymentService {
     if (campaign.paymentType !== "fixed") {
       throw new ApiError(400, "Campaign is not a fixed payment campaign");
     }
-    const nextState = campaign.influencerId ? "invitation_sent" : "active";
-    if (campaign.state === "draft") {
-      campaign.state = nextState;
-      campaign.history = campaign.history || [];
-      campaign.history.push({
-        action: "campaign_activated_after_payment",
-        state: nextState,
-        actorId: null,
-        timestamp: new Date(),
-        details: {
-          paymentOrderId: paymentOrder._id,
-          razorpayOrderId: paymentOrder.razorpayOrderId,
-        },
-      });
-      await campaign.save();
+    if (!campaign.influencerId || !["accepted", "active"].includes(campaign.state)) {
+      throw new ApiError(409, "A funded campaign must have an accepted influencer invitation");
+    }
+    if (
+      campaign.state === "active" &&
+      campaign.fixedPaymentWorkflow?.contentEnabled &&
+      ["funded", "content_in_progress", "vendor_approved", "partially_released", "fully_released"].includes(
+        campaign.fixedPaymentWorkflow?.status
+      )
+    ) {
+      return {
+        campaignId,
+        campaignStatus: "active",
+        contentEnabled: true,
+        invitationCreated: false,
+        idempotent: true,
+      };
     }
 
-    if (campaign.influencerId) {
-      await this.createCampaignInvitation(campaignId, vendorId, campaign.influencerId);
-      const influencer = await InfluencerProfile.findById(campaign.influencerId).select("userId").lean();
-      if (influencer?.userId) {
-        await notificationService.createNotification({
-          userId: influencer.userId,
-          role: "INFLUENCER",
-          module: "GROWTH",
-          subModule: "INFLUENCER_COMMERCE",
-          type: "INFLUENCER_COMMERCE",
-          title: "Campaign invitation",
-          message: `A funded fixed-payment campaign is ready for your review: ${campaign.title || "Campaign"}.`,
-          referenceId: campaign._id,
-          meta: { campaignId: String(campaign._id), vendorId: String(vendorId), escrowFunded: true },
-        }).catch(() => null);
-      }
+    campaign.state = "active";
+    campaign.fixedPaymentWorkflow = {
+      ...(campaign.fixedPaymentWorkflow?.toObject?.() || campaign.fixedPaymentWorkflow || {}),
+      status: "funded",
+      contentEnabled: true,
+      fundedAt: campaign.fixedPaymentWorkflow?.fundedAt || new Date(),
+      lastTransitionAt: new Date(),
+    };
+    campaign.history = campaign.history || [];
+    campaign.history.push({
+      action: "campaign_activated_after_payment",
+      state: "active",
+      actorId: null,
+      timestamp: new Date(),
+      details: {
+        paymentOrderId: paymentOrder._id,
+        razorpayOrderId: paymentOrder.razorpayOrderId,
+        escrowId: escrow._id,
+      },
+    });
+    await campaign.save();
+
+    const influencer = await InfluencerProfile.findById(campaign.influencerId).select("userId").lean();
+    if (influencer?.userId) {
+      await notificationService.createNotification({
+        userId: influencer.userId,
+        role: "INFLUENCER",
+        module: "GROWTH",
+        subModule: "INFLUENCER_COMMERCE",
+        type: "INFLUENCER_COMMERCE",
+        title: "Campaign funded",
+        message: `Escrow is funded for ${campaign.title || "Campaign"}. You can now create and submit content.`,
+        referenceId: campaign._id,
+        meta: { campaignId: String(campaign._id), vendorId: String(vendorId), escrowFunded: true },
+      }).catch(() => null);
     }
     await notificationService.notifyVendorUser(vendorId, {
       module: "FINANCE",
@@ -482,26 +533,10 @@ class CampaignPaymentService {
     }).catch(() => null);
     return {
       campaignId,
-      campaignStatus: nextState,
-      invitationCreated: !!campaign.influencerId,
+      campaignStatus: "active",
+      contentEnabled: true,
+      invitationCreated: false,
     };
-  }
-
-  /**
-   * Create campaign invitation after payment
-   */
-  async createCampaignInvitation(campaignId, vendorId, influencerId) {
-    return CampaignInvitation.findOneAndUpdate(
-      { campaignId, influencerId },
-      {
-        $setOnInsert: { campaignId, vendorId, influencerId, invitedAt: new Date() },
-        $set: {
-          status: "invitation_sent",
-          metadata: { sentAfterPayment: true, paymentType: "fixed" },
-        },
-      },
-      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
-    );
   }
 
   /**

@@ -97,16 +97,6 @@ export async function listAdminInfluencerPayouts(params = {}) {
   return data;
 }
 
-export async function listAdminInfluencerWithdrawals(params = {}) {
-  const { data } = await api.get(`${base}/withdrawals`, { params });
-  return data;
-}
-
-export async function updateAdminInfluencerWithdrawal(requestId, payload = {}) {
-  const { data } = await api.patch(`${base}/withdrawals/${requestId}`, payload);
-  return data;
-}
-
 export async function getAdminCreatorPerformance(params = {}) {
   const { data } = await api.get(`${base}/creator-performance`, { params });
   return data;

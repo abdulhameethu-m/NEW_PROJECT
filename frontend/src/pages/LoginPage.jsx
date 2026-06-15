@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../context/authStore";
 import { useStaffAuthStore } from "../context/staffAuthStore";
@@ -47,6 +47,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
+  const submitInFlightRef = useRef(false);
 
   async function navigateAfterPrimaryLogin(result, attemptedFrom) {
     return continueAfterPrimaryAuth({ result, attemptedFrom, nav });
@@ -65,10 +66,12 @@ export function LoginPage() {
 
   async function onSubmit(e) {
     e.preventDefault();
+    if (submitInFlightRef.current) return;
     setError("");
     const nextErrors = validateAuthForm({ identifier, password });
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
+    submitInFlightRef.current = true;
     setLoading(true);
     const normalizedIdentifier = identifier.trim();
     const normalizedPassword = password;
@@ -104,6 +107,7 @@ export function LoginPage() {
         setError(normalizeError(staffError?.response ? staffError : primaryError));
       }
     } finally {
+      submitInFlightRef.current = false;
       setLoading(false);
     }
   }

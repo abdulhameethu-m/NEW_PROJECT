@@ -18,7 +18,6 @@ const {
   CommissionRecord,
   InfluencerWallet,
   InfluencerLedger,
-  InfluencerWithdrawalRequest,
   InfluencerPayoutAccount,
 } = require("../commission/models");
 const { Reel } = require("../reel/model");
@@ -253,8 +252,6 @@ class AdminInfluencerCommerceService {
       totalVendors,
       activeCampaigns,
       commissionAgg,
-      pendingWithdrawals,
-      pendingWithdrawalAmount,
       contentPendingApproval,
       fraudAlerts,
       recentCampaigns,
@@ -287,8 +284,6 @@ class AdminInfluencerCommerceService {
         { $match: commissionMatch },
         { $group: { _id: null, revenue: { $sum: "$gross" }, commission: { $sum: "$influencerShare" }, paid: { $sum: { $cond: [{ $eq: ["$state", "SETTLED"] }, "$influencerShare", 0] } }, pending: { $sum: { $cond: [{ $eq: ["$state", "HOLD"] }, "$influencerShare", 0] } }, orders: { $sum: 1 } } },
       ]),
-      InfluencerWithdrawalRequest.countDocuments({ status: { $in: ["PENDING", "UNDER_REVIEW"] } }),
-      InfluencerWithdrawalRequest.aggregate([{ $match: { status: { $in: ["PENDING", "UNDER_REVIEW"] } } }, { $group: { _id: null, amount: { $sum: "$amount" } } }]),
       Reel.countDocuments({ state: { $in: ["uploaded", "pending_review"] } }),
       InfluencerCommerceFraudAlert.countDocuments({ status: { $in: ["OPEN", "UNDER_REVIEW", "ESCALATED"] } }),
       Campaign.find(campaignMatch).populate("vendorId", "shopName companyName").populate({ path: "influencerId", populate: { path: "userId", select: "name email" } }).sort({ createdAt: -1 }).limit(8).lean(),
@@ -341,8 +336,6 @@ class AdminInfluencerCommerceService {
         campaignRevenue: money(summary.revenue),
         commissionPaid: money(summary.paid),
         escrowBalance: money(summary.pending),
-        pendingWithdrawals,
-        pendingWithdrawalAmount: money(pendingWithdrawalAmount[0]?.amount || 0),
         contentPendingApproval,
         fraudAlerts,
         totalSubscriptionRevenue: money(subscriptionSummary.gross),
@@ -370,7 +363,6 @@ class AdminInfluencerCommerceService {
         topInfluencers: topInfluencers.map((row) => ({ ...row, influencer: influencerMap.get(String(row._id)), name: influencerName(influencerMap.get(String(row._id))) })),
         topVendors: topVendors.map((row) => ({ ...row, vendor: vendorMap.get(String(row._id)), name: vendorName(vendorMap.get(String(row._id))) })),
         pendingVerifications,
-        pendingWithdrawals: await InfluencerWithdrawalRequest.find({ status: { $in: ["PENDING", "UNDER_REVIEW"] } }).populate("influencerId", "displayName userId").sort({ requestedAt: -1 }).limit(8).lean(),
         pendingContentReviews: await Reel.find({ state: { $in: ["uploaded", "pending_review"] } }).populate({ path: "influencerId", populate: { path: "userId", select: "name email" } }).populate("campaignId", "title vendorId").sort({ createdAt: -1 }).limit(8).lean(),
         recentFraudAlerts: await InfluencerCommerceFraudAlert.find({}).sort({ createdAt: -1 }).limit(8).lean(),
         subscriptionRevenue: subscriptionSummary,
@@ -1275,32 +1267,6 @@ class AdminInfluencerCommerceService {
     };
   }
 
-  async withdrawals(query = {}) {
-    const { page, limit, skip } = pageOptions(query);
-    const filter = {};
-    if (query.status) filter.status = query.status;
-    if (oid(query.influencerId)) filter.influencerId = oid(query.influencerId);
-    const [items, total] = await Promise.all([
-      InfluencerWithdrawalRequest.find(filter).populate({ path: "influencerId", populate: { path: "userId", select: "name email" } }).populate("payoutAccountId").sort({ requestedAt: -1 }).skip(skip).limit(limit).lean(),
-      InfluencerWithdrawalRequest.countDocuments(filter),
-    ]);
-    return { items: items.map((row) => ({ ...row, influencerName: influencerName(row.influencerId) })), pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 } };
-  }
-
-  async updateWithdrawal(actor, requestId, payload = {}) {
-    const statusMap = { approve: "APPROVED", reject: "REJECTED", process: "PROCESSING", paid: "PAID", review: "UNDER_REVIEW" };
-    const status = statusMap[payload.action] || payload.status;
-    if (!status) throw new AppError("Withdrawal status is required", 400, "VALIDATION_ERROR");
-    const request = await InfluencerWithdrawalRequest.findByIdAndUpdate(
-      requestId,
-      { $set: { status, adminNote: payload.note || "", ...(status === "APPROVED" ? { approvedAt: new Date() } : {}), ...(status === "REJECTED" ? { rejectedAt: new Date(), rejectionReason: payload.note || "" } : {}), ...(status === "PAID" ? { processedAt: new Date() } : {}) } },
-      { returnDocument: "after" }
-    );
-    if (!request) throw new AppError("Withdrawal request not found", 404, "NOT_FOUND");
-    await auditService.log({ actor, action: `admin.influencer_commerce.withdrawal.${status.toLowerCase()}`, entityType: "InfluencerWithdrawalRequest", entityId: request._id, metadata: { note: payload.note || "" } }).catch(() => {});
-    return request;
-  }
-
   async creatorPerformance(query = {}) {
     const { page, limit } = pageOptions(query, 25);
     const { start, end } = parseRange(query);
@@ -1369,17 +1335,15 @@ class AdminInfluencerCommerceService {
       }
     }
 
-    const [profiles, reels, withdrawals] = ids.length || Object.keys(profileFilter).length ? await Promise.all([
+    const [profiles, reels] = ids.length || Object.keys(profileFilter).length ? await Promise.all([
       InfluencerProfile.find(profileFilter).populate("userId", "name email").lean(),
       Reel.aggregate([{ $match: ids.length ? { influencerId: { $in: ids } } : {} }, { $group: { _id: "$influencerId", reelClicks: { $sum: "$metrics.clicks" }, engagement: { $sum: { $add: ["$metrics.likes", "$metrics.comments", "$metrics.shares"] } }, views: { $sum: "$metrics.views" } } }]),
-      InfluencerWithdrawalRequest.aggregate([{ $match: ids.length ? { influencerId: { $in: ids } } : {} }, { $group: { _id: "$influencerId", withdrawalVolume: { $sum: "$amount" } } }]),
-    ]) : [[], [], []];
+    ]) : [[], []];
 
     const profileMap = new Map(profiles.map((row) => [String(row._id), row]));
     const commissionMap = new Map(commissionRows.map((row) => [String(row._id), row]));
     const trackingMap = new Map(trackingRows.map((row) => [String(row._id), row]));
     const reelMap = new Map(reels.map((row) => [String(row._id), row]));
-    const withdrawalMap = new Map(withdrawals.map((row) => [String(row._id), row]));
     const profileIds = profiles.map((profile) => String(profile._id));
     const allIds = [...new Set([...profileIds, ...ids.map(String)])].filter((id) => profileMap.has(id) || !Object.keys(profileFilter).length);
 
@@ -1417,7 +1381,6 @@ class AdminInfluencerCommerceService {
         settledCommission: money(commission.settledCommission || 0),
         heldCommission: money(commission.heldCommission || 0),
         reversedCommission: money(commission.reversedCommission || 0),
-        withdrawalVolume: money(withdrawalMap.get(id)?.withdrawalVolume || 0),
         score: money(revenue / 100 + orders * 8 + clicks * 0.5 + engagement * 0.1 + roi * 0.05),
       };
     }).sort((a, b) => b.score - a.score || b.revenue - a.revenue);
@@ -1496,7 +1459,6 @@ class AdminInfluencerCommerceService {
   }
 
   async fraud(query = {}) {
-    await this.generateFraudSignals().catch(() => {});
     const { page, limit, skip } = pageOptions(query);
     const filter = {};
     if (query.status) filter.status = query.status;
@@ -1506,21 +1468,6 @@ class AdminInfluencerCommerceService {
       InfluencerCommerceFraudAlert.countDocuments(filter),
     ]);
     return { items, pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 } };
-  }
-
-  async generateFraudSignals() {
-    const duplicateWithdrawals = await InfluencerWithdrawalRequest.aggregate([
-      { $match: { status: { $in: ["PENDING", "UNDER_REVIEW"] } } },
-      { $group: { _id: "$influencerId", count: { $sum: 1 }, amount: { $sum: "$amount" } } },
-      { $match: { count: { $gt: 1 } } },
-    ]);
-    for (const row of duplicateWithdrawals) {
-      await InfluencerCommerceFraudAlert.findOneAndUpdate(
-        { alertType: "DUPLICATE_WITHDRAWAL", influencerId: row._id, status: { $in: ["OPEN", "UNDER_REVIEW", "ESCALATED"] } },
-        { $setOnInsert: { alertType: "DUPLICATE_WITHDRAWAL", influencerId: row._id, severity: "MEDIUM", evidence: row } },
-        { upsert: true, returnDocument: "after" }
-      );
-    }
   }
 
   async updateFraud(actor, alertId, payload = {}) {
@@ -1553,7 +1500,6 @@ class AdminInfluencerCommerceService {
         "revenue",
         "commissions",
         "settlements",
-        "withdrawals",
         "content",
         "conversions",
         "fraud",
@@ -1573,8 +1519,6 @@ class AdminInfluencerCommerceService {
       enabled: await isInfluencerCommerceEnabled(),
       defaultCommissionRate: Number(process.env.INFLUENCER_DEFAULT_COMMISSION_RATE || 10),
       maximumCommissionRate: Number(process.env.INFLUENCER_MAX_COMMISSION_RATE || 50),
-      minimumWithdrawalAmount: Number(process.env.INFLUENCER_MIN_WITHDRAWAL_AMOUNT || 500),
-      maximumWithdrawalAmount: Number(process.env.INFLUENCER_MAX_WITHDRAWAL_AMOUNT || 1000000),
       commissionHoldDays: Number(process.env.INFLUENCER_HOLD_DAYS || 7),
       trackingCookieDurationHours: Number(process.env.INFLUENCER_TRACKING_TTL_HOURS || 24),
       selfAttributionBlocking: true,
@@ -1609,7 +1553,7 @@ class AdminInfluencerCommerceService {
 
   async auditLogs(query = {}) {
     const { page, limit, skip } = pageOptions(query);
-    const filter = { action: /influencer_commerce|influencer|campaign|commission|withdrawal|content/i };
+    const filter = { action: /influencer_commerce|influencer|campaign|commission|content/i };
     const [items, total] = await Promise.all([
       AuditLog.find(filter).populate("actorId", "name email role").sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       AuditLog.countDocuments(filter),

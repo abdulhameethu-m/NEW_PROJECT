@@ -154,3 +154,39 @@ test("legacy bearer authentication is rejected instead of accepted as compatibil
     }
   }
 });
+
+test("public bootstrap requests do not consume the general API rate-limit bucket", async () => {
+  const previousApiLimit = process.env.API_RATE_LIMIT_MAX;
+  const previousPublicLimit = process.env.PUBLIC_API_RATE_LIMIT_MAX;
+  process.env.API_RATE_LIMIT_MAX = "1";
+  process.env.PUBLIC_API_RATE_LIMIT_MAX = "10";
+
+  try {
+    const app = createApp();
+    const firstPublicResponse = await request(app, { path: "/api/public/nonexistent" });
+    const secondPublicResponse = await request(app, { path: "/api/public/nonexistent" });
+    const firstAuthResponse = await request(app, { path: "/api/auth/nonexistent" });
+    const secondAuthResponse = await request(app, { path: "/api/auth/nonexistent" });
+    const firstGeneralResponse = await request(app, { path: "/api/nonexistent" });
+    const secondGeneralResponse = await request(app, { path: "/api/nonexistent" });
+
+    assert.equal(firstPublicResponse.statusCode, 404);
+    assert.equal(secondPublicResponse.statusCode, 404);
+    assert.equal(firstAuthResponse.statusCode, 404);
+    assert.equal(secondAuthResponse.statusCode, 404);
+    assert.equal(firstGeneralResponse.statusCode, 404);
+    assert.equal(secondGeneralResponse.statusCode, 429);
+  } finally {
+    if (previousApiLimit === undefined) {
+      delete process.env.API_RATE_LIMIT_MAX;
+    } else {
+      process.env.API_RATE_LIMIT_MAX = previousApiLimit;
+    }
+
+    if (previousPublicLimit === undefined) {
+      delete process.env.PUBLIC_API_RATE_LIMIT_MAX;
+    } else {
+      process.env.PUBLIC_API_RATE_LIMIT_MAX = previousPublicLimit;
+    }
+  }
+});

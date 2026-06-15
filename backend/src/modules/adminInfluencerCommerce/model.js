@@ -8,7 +8,6 @@ const fraudAlertSchema = new mongoose.Schema(
         "SELF_ATTRIBUTION",
         "REPEATED_CLICKS",
         "CONVERSION_SPIKE",
-        "DUPLICATE_WITHDRAWAL",
         "ABNORMAL_COMMISSION",
         "BLACKLISTED_ACCOUNT",
         "KYC_MISMATCH",
@@ -36,7 +35,7 @@ const reportScheduleSchema = new mongoose.Schema(
   {
     reportType: {
       type: String,
-      enum: ["campaigns", "influencers", "vendors", "revenue", "commissions", "settlements", "withdrawals", "content", "conversions", "fraud"],
+      enum: ["campaigns", "influencers", "vendors", "revenue", "commissions", "settlements", "content", "conversions", "fraud"],
       required: true,
       index: true,
     },

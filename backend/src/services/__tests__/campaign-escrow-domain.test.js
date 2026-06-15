@@ -5,7 +5,7 @@ process.env.RAZORPAY_KEY_ID ||= "rzp_test_CampaignEscrowTests";
 process.env.RAZORPAY_KEY_SECRET ||= "campaignEscrowTestSecret123";
 
 const { Campaign } = require("../../modules/campaign/model");
-const { InfluencerLedger } = require("../../modules/commission/models");
+const { InfluencerLedger, InfluencerWallet } = require("../../modules/commission/models");
 const CampaignPaymentRelease = require("../../models/CampaignPaymentRelease");
 const CampaignPaymentOrder = require("../../models/CampaignPaymentOrder");
 const { AppError } = require("../../utils/AppError");
@@ -79,11 +79,17 @@ test("escrow pricing rejects non-fixed campaign models", async () => {
 
 test("campaign releases use the influencer ledger and unique deliverable protection", () => {
   assert.equal(CampaignPaymentRelease.schema.path("walletTransactionId").options.ref, "InfluencerLedger");
+  assert.equal(
+    CampaignPaymentRelease.schema.path("deliverables.deliverableId").options.ref,
+    "CampaignDeliverable"
+  );
   const uniqueIndex = CampaignPaymentRelease.schema.indexes().find(
     ([fields, options]) => fields["deliverables.deliverableId"] === 1 && options.unique
   );
   assert.ok(uniqueIndex);
   assert.ok(InfluencerLedger.schema.path("source").enumValues.includes("CAMPAIGN"));
+  assert.ok(InfluencerWallet.schema.path("creditedCampaignReleaseIds"));
+  assert.equal(campaignEscrowService.standaloneReleaseEnabled(), false);
 });
 
 test("campaign gateway receipts are stable and payment order fields are uniquely indexed", () => {

@@ -1,6 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { Campaign } = require("../../modules/campaign/model");
+const { FIXED_PAYMENT_WORKFLOW_STATUSES } = require("../../modules/shared/constants");
 const campaignRuleEngine = require("../campaign-rule-engine.service");
 
 test("campaign model supports influencer applications and deliverables", () => {
@@ -8,6 +11,45 @@ test("campaign model supports influencer applications and deliverables", () => {
   assert.ok(Campaign.schema.path("applications"));
   assert.ok(Campaign.schema.path("deliverables"));
   assert.ok(Campaign.schema.path("productIds"));
+});
+
+test("fixed campaigns expose the escrow workflow and content gate", () => {
+  assert.ok(Campaign.schema.path("fixedPaymentWorkflow.status"));
+  assert.ok(Campaign.schema.path("fixedPaymentWorkflow.contentEnabled"));
+  assert.deepEqual(FIXED_PAYMENT_WORKFLOW_STATUSES, [
+    "awaiting_acceptance",
+    "accepted_awaiting_funding",
+    "funding_pending",
+    "funded",
+    "content_in_progress",
+    "vendor_approved",
+    "partially_released",
+    "fully_released",
+    "refund_pending",
+    "refunded",
+    "completed",
+    "cancelled",
+  ]);
+});
+
+test("fixed escrow release is exposed only through the admin route", () => {
+  const routes = fs.readFileSync(
+    path.join(__dirname, "../../modules/campaign/escrow.routes.js"),
+    "utf8"
+  );
+  assert.match(routes, /"\/admin\/release-payment\/:campaignId"[\s\S]*?adminAuth/);
+  assert.doesNotMatch(routes, /"\/release-payment\/:campaignId"[\s\S]*?vendorAuth/);
+});
+
+test("captured checkout verification securely reconciles escrow funding without waiting for localhost webhooks", () => {
+  const paymentService = fs.readFileSync(
+    path.join(__dirname, "../campaign-payment.service.js"),
+    "utf8"
+  );
+  assert.match(
+    paymentService,
+    /verifyPaymentSignature\([\s\S]*?processCapturedCampaignPayment\([\s\S]*?checkout-verified:/
+  );
 });
 
 test("campaign rule engine blocks invalid campaign payment combinations", () => {

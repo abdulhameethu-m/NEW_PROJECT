@@ -27,6 +27,11 @@ function withSession(query, session) {
 }
 
 class CampaignEscrowService {
+  standaloneReleaseEnabled() {
+    return process.env.NODE_ENV !== "production"
+      && process.env.ALLOW_STANDALONE_ESCROW_RELEASES === "true";
+  }
+
   async calculateCampaignCost(campaignId, vendorId = null) {
     const campaign = await Campaign.findById(campaignId).lean();
     if (!campaign) throw new ApiError(404, "Campaign not found");
@@ -36,7 +41,6 @@ class CampaignEscrowService {
     if (campaign.paymentType !== "fixed") {
       throw new ApiError(400, "Campaign payment model is not fixed payment");
     }
-
     const budgetAmount = money(campaign.pricing?.fixedCost || campaign.fixedFee);
     if (budgetAmount <= 0) {
       throw new ApiError(400, "Fixed payment campaign budget must be greater than zero");
@@ -56,6 +60,16 @@ class CampaignEscrowService {
     }
     if (campaign.paymentType !== "fixed") {
       throw new ApiError(400, "Campaign payment model is not fixed payment");
+    }
+    if (
+      campaign.state !== "accepted" ||
+      !["accepted_awaiting_funding", "funding_pending"].includes(campaign.fixedPaymentWorkflow?.status)
+    ) {
+      throw new ApiError(
+        409,
+        "The influencer must accept this fixed-payment campaign before escrow can be funded",
+        "CAMPAIGN_ACCEPTANCE_REQUIRED"
+      );
     }
 
     const existingPayment = await CampaignPaymentOrder.findOne({ campaignId, vendorId });
@@ -81,6 +95,16 @@ class CampaignEscrowService {
       orderCreationLockExpiresAt: undefined,
     });
     await paymentOrder.save();
+    await Campaign.updateOne(
+      { _id: campaignId, paymentType: "fixed", state: "accepted" },
+      {
+        $set: {
+          "fixedPaymentWorkflow.status": "funding_pending",
+          "fixedPaymentWorkflow.fundingStartedAt": new Date(),
+          "fixedPaymentWorkflow.lastTransitionAt": new Date(),
+        },
+      }
+    );
 
     return { paymentOrderId: paymentOrder._id, ...costDetails };
   }
@@ -148,6 +172,9 @@ class CampaignEscrowService {
     const campaign = await Campaign.findById(paymentOrder.campaignId).lean();
     if (!campaign || campaign.paymentType !== "fixed") {
       throw new ApiError(409, "Fixed payment campaign not found for escrow funding");
+    }
+    if (!["accepted", "active"].includes(campaign.state)) {
+      throw new ApiError(409, "Escrow cannot be funded before the influencer accepts the campaign");
     }
     if (!escrowWallet) {
       escrowWallet = new CampaignEscrowWallet({
@@ -260,7 +287,7 @@ class CampaignEscrowService {
     return escrow;
   }
 
-  async releasePaymentForDeliverables(campaignId, vendorId, influencerId, deliverableIds, releasedBy) {
+  async releasePaymentForDeliverables(campaignId, influencerId, deliverableIds, releasedBy) {
     const uniqueIds = [...new Set(deliverableIds.map(String))];
     if (!uniqueIds.length || uniqueIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
       throw new ApiError(400, "Valid deliverable IDs are required");
@@ -268,9 +295,15 @@ class CampaignEscrowService {
 
     const result = await withOptionalTransaction(async (session) => {
       if (!session) {
-        throw new ApiError(503, "Escrow releases require MongoDB transaction support");
+        if (!this.standaloneReleaseEnabled()) {
+          throw new ApiError(
+            503,
+            "Escrow releases require MongoDB transaction support. Use a replica set or explicitly enable the recoverable development release mode."
+          );
+        }
+        return this.releasePaymentWithRecovery(campaignId, influencerId, uniqueIds, releasedBy);
       }
-      const campaign = await withSession(Campaign.findOne({ _id: campaignId, vendorId }), session);
+      const campaign = await withSession(Campaign.findById(campaignId), session);
       if (!campaign) throw new ApiError(404, "Campaign not found");
       if (campaign.paymentType !== "fixed") {
         throw new ApiError(400, "Campaign is not a fixed payment campaign");
@@ -278,6 +311,7 @@ class CampaignEscrowService {
       if (String(campaign.influencerId) !== String(influencerId)) {
         throw new ApiError(400, "Influencer does not match this campaign");
       }
+      const vendorId = campaign.vendorId;
       if (["draft", "invitation_sent", "rejected", "cancelled", "expired"].includes(campaign.state)) {
         throw new ApiError(400, "Campaign must be accepted before earnings can be released");
       }
@@ -366,7 +400,7 @@ class CampaignEscrowService {
             auditLog: {
               action: "payment_released",
               actor: releasedBy,
-              actorRole: "vendor",
+              actorRole: "admin",
               details: { releaseId: paymentRelease._id, totalAmount: totalReleaseAmount, deliverableIds: uniqueIds },
             },
           },
@@ -428,10 +462,33 @@ class CampaignEscrowService {
         { $set: { status: "released", "metadata.releaseId": paymentRelease._id, "metadata.releasedAt": new Date() } },
         { session: session || undefined }
       );
+      await CampaignDeliverable.updateMany(
+        { _id: { $in: uniqueIds }, campaignId },
+        {
+          $set: {
+            status: "completed",
+            completionStatus: "completed",
+            paymentEligibility: "paid",
+            completedAt: new Date(),
+          },
+        },
+        { session }
+      );
       paymentRelease.walletTransactionId = ledgerEntry._id;
       paymentRelease.settledAt = new Date();
       paymentRelease.status = "settled";
       await paymentRelease.save({ session: session || undefined });
+      await Campaign.updateOne(
+        { _id: campaignId },
+        {
+          $set: {
+            "fixedPaymentWorkflow.status":
+              money(updatedEscrow.amountRemaining) === 0 ? "fully_released" : "partially_released",
+            "fixedPaymentWorkflow.lastTransitionAt": new Date(),
+          },
+        },
+        { session }
+      );
 
       return {
         releaseId: paymentRelease._id,
@@ -443,7 +500,7 @@ class CampaignEscrowService {
     }, { source: "campaign-escrow-release" });
 
     await auditService.log({
-      actor: { _id: releasedBy, role: "vendor" },
+      actor: { _id: releasedBy, role: "admin" },
       action: "campaign.escrow.released",
       entityType: "CampaignPaymentRelease",
       entityId: result.releaseId,
@@ -464,6 +521,347 @@ class CampaignEscrowService {
       }).catch(() => null);
     }
     return { ...result, message: "Approved earnings released to the influencer wallet" };
+  }
+
+  async releasePaymentWithRecovery(campaignId, influencerId, uniqueIds, releasedBy) {
+    const campaign = await Campaign.findById(campaignId);
+    if (!campaign) throw new ApiError(404, "Campaign not found");
+    if (campaign.paymentType !== "fixed") {
+      throw new ApiError(400, "Campaign is not a fixed payment campaign");
+    }
+    if (String(campaign.influencerId) !== String(influencerId)) {
+      throw new ApiError(400, "Influencer does not match this campaign");
+    }
+    const vendorId = campaign.vendorId;
+    const activeRefund = await CampaignRefund.findOne({
+      campaignId,
+      status: { $in: ["requested", "approved", "processing"] },
+    });
+    if (activeRefund) {
+      throw new ApiError(409, "Campaign earnings cannot be released while a refund is pending");
+    }
+
+    const escrow = await CampaignEscrowWallet.findOne({ campaignId, vendorId });
+    if (!escrow) throw new ApiError(404, "Escrow wallet not found");
+    if (!["funded", "partially_released", "fully_released"].includes(escrow.status)) {
+      throw new ApiError(400, `Cannot release payments in current escrow status: ${escrow.status}`);
+    }
+
+    const deliverables = await CampaignDeliverable.find({
+      _id: { $in: uniqueIds },
+      campaignId,
+      vendorId,
+      influencerId,
+      approvalStatus: "approved",
+      paymentEligibility: { $in: ["eligible", "paid"] },
+    });
+    if (deliverables.length !== uniqueIds.length) {
+      throw new ApiError(400, "Every deliverable must be approved and owned by this campaign");
+    }
+
+    const allocations = await CampaignDeliverableFunding.find({
+      deliverableId: { $in: uniqueIds },
+      campaignId,
+      escrowWalletId: escrow._id,
+    });
+    if (allocations.length !== uniqueIds.length) {
+      throw new ApiError(409, "One or more deliverable funding allocations are missing");
+    }
+    const allocationByDeliverable = new Map(allocations.map((row) => [String(row.deliverableId), row]));
+    const processedDeliverables = deliverables.map((deliverable) => {
+      const allocation = allocationByDeliverable.get(String(deliverable._id));
+      return {
+        deliverableId: deliverable._id,
+        type: deliverable.deliverableType,
+        title: deliverable.title,
+        amount: money(allocation.allocatedAmount),
+        approvedAt: deliverable.completedAt || new Date(),
+      };
+    });
+    const totalReleaseAmount = money(processedDeliverables.reduce((sum, row) => sum + row.amount, 0));
+
+    let paymentRelease = await CampaignPaymentRelease.findOne({
+      campaignId,
+      "deliverables.deliverableId": { $in: uniqueIds },
+    });
+    if (paymentRelease) {
+      const claimedIds = paymentRelease.deliverables.map((row) => String(row.deliverableId)).sort();
+      if (
+        String(paymentRelease.influencerId) !== String(influencerId)
+        || claimedIds.join(",") !== [...uniqueIds].sort().join(",")
+      ) {
+        throw new ApiError(409, "A deliverable is already claimed by another release");
+      }
+      if (paymentRelease.status === "settled") {
+        return {
+          releaseId: paymentRelease._id,
+          totalAmount: paymentRelease.totalAmount,
+          netAmount: paymentRelease.netAmount,
+          platformFee: paymentRelease.platformFeeAmount,
+          status: "settled",
+          idempotent: true,
+        };
+      }
+    } else {
+      try {
+        paymentRelease = await CampaignPaymentRelease.create({
+          campaignId,
+          escrowWalletId: escrow._id,
+          vendorId,
+          influencerId,
+          deliverables: processedDeliverables,
+          totalAmount: totalReleaseAmount,
+          platformFeeAmount: 0,
+          netAmount: totalReleaseAmount,
+          status: "approved",
+          approvedBy: releasedBy,
+          approvalReason: "Approved campaign deliverables",
+          approvedAt: new Date(),
+          partialRelease: totalReleaseAmount < money(escrow.budgetAmount),
+          auditLog: [{
+            action: "standalone_release_claimed",
+            actor: releasedBy,
+            actorRole: "admin",
+            details: { deliverableIds: uniqueIds },
+          }],
+        });
+      } catch (error) {
+        if (error?.code !== 11000) throw error;
+        paymentRelease = await CampaignPaymentRelease.findOne({
+          campaignId,
+          "deliverables.deliverableId": { $in: uniqueIds },
+        });
+        if (!paymentRelease) throw error;
+      }
+    }
+
+    const releaseId = paymentRelease._id;
+    let updatedEscrow = await CampaignEscrowWallet.findById(escrow._id);
+    const escrowAlreadyDebited = updatedEscrow.partialReleases.some(
+      (row) => String(row.releaseId) === String(releaseId)
+    );
+    if (!escrowAlreadyDebited) {
+      updatedEscrow = await CampaignEscrowWallet.findOneAndUpdate(
+        {
+          _id: escrow._id,
+          amountRemaining: { $gte: totalReleaseAmount },
+          status: { $in: ["funded", "partially_released"] },
+          "partialReleases.releaseId": { $ne: releaseId },
+        },
+        {
+          $inc: { amountReleased: totalReleaseAmount, amountRemaining: -totalReleaseAmount },
+          $set: {
+            status: money(escrow.amountRemaining) === totalReleaseAmount ? "fully_released" : "partially_released",
+            lastReleaseAt: new Date(),
+            ...(escrow.firstReleaseAt ? {} : { firstReleaseAt: new Date() }),
+          },
+          $push: {
+            partialReleases: { releaseId, amount: totalReleaseAmount, releasedAt: new Date() },
+            auditLog: {
+              action: "payment_released",
+              actor: releasedBy,
+              actorRole: "admin",
+              details: { releaseId, totalAmount: totalReleaseAmount, deliverableIds: uniqueIds },
+            },
+          },
+        },
+        { returnDocument: "after" }
+      );
+      if (!updatedEscrow) throw new ApiError(409, "Escrow balance changed; retry the release");
+    }
+
+    for (const allocation of allocations) {
+      if (allocation.status === "released" && money(allocation.remainingAmount) === 0) continue;
+      const releaseAmount = money(allocation.remainingAmount);
+      const updated = await CampaignDeliverableFunding.findOneAndUpdate(
+        {
+          _id: allocation._id,
+          remainingAmount: releaseAmount,
+          status: { $in: ["funded", "partially_released"] },
+        },
+        {
+          $inc: { releasedAmount: releaseAmount, remainingAmount: -releaseAmount },
+          $set: { status: "released" },
+        },
+        { returnDocument: "after" }
+      );
+      if (!updated) {
+        const current = await CampaignDeliverableFunding.findById(allocation._id).lean();
+        if (current?.status !== "released" || money(current.remainingAmount) !== 0) {
+          throw new ApiError(409, "Deliverable allocation changed; retry the release");
+        }
+      }
+    }
+
+    let wallet = await InfluencerWallet.findOneAndUpdate(
+      { influencerId },
+      { $setOnInsert: { influencerId } },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    );
+    if (wallet.status !== "active") throw new ApiError(400, "Influencer wallet is not active");
+    if (!wallet.creditedCampaignReleaseIds.some((id) => String(id) === String(releaseId))) {
+      wallet = await InfluencerWallet.findOneAndUpdate(
+        {
+          _id: wallet._id,
+          status: "active",
+          creditedCampaignReleaseIds: { $ne: releaseId },
+        },
+        {
+          $inc: { availableBalance: totalReleaseAmount, totalEarnings: totalReleaseAmount },
+          $addToSet: { creditedCampaignReleaseIds: releaseId },
+        },
+        { returnDocument: "after", runValidators: true }
+      );
+      if (!wallet) wallet = await InfluencerWallet.findOne({ influencerId });
+    }
+
+    const ledgerEntry = await InfluencerLedger.findOneAndUpdate(
+      { idempotencyKey: `campaign-release:${releaseId}` },
+      {
+        $setOnInsert: {
+          influencerId,
+          type: "CREDIT",
+          amount: totalReleaseAmount,
+          source: "CAMPAIGN",
+          idempotencyKey: `campaign-release:${releaseId}`,
+          balanceAfter: wallet.availableBalance,
+          meta: { campaignId, releaseId, deliverableIds: uniqueIds },
+        },
+      },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    );
+    await CampaignEscrowLedger.findOneAndUpdate(
+      { idempotencyKey: `campaign-release:${releaseId}` },
+      {
+        $setOnInsert: {
+          campaignId,
+          escrowWalletId: escrow._id,
+          releaseId,
+          vendorId,
+          influencerId,
+          entryType: "deliverable_release",
+          direction: "debit",
+          amount: totalReleaseAmount,
+          balanceAfter: updatedEscrow.amountRemaining,
+          currency: escrow.currency,
+          idempotencyKey: `campaign-release:${releaseId}`,
+          metadata: { deliverableIds: uniqueIds, influencerLedgerId: ledgerEntry._id },
+        },
+      },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    );
+
+    await DeliverablePayout.updateMany(
+      { deliverableId: { $in: uniqueIds }, campaignId },
+      { $set: { status: "released", "metadata.releaseId": releaseId, "metadata.releasedAt": new Date() } }
+    );
+    await CampaignDeliverable.updateMany(
+      { _id: { $in: uniqueIds }, campaignId },
+      {
+        $set: {
+          status: "completed",
+          completionStatus: "completed",
+          paymentEligibility: "paid",
+          completedAt: new Date(),
+        },
+      }
+    );
+    await Campaign.updateOne(
+      { _id: campaignId },
+      {
+        $set: {
+          "fixedPaymentWorkflow.status":
+            money(updatedEscrow.amountRemaining) === 0 ? "fully_released" : "partially_released",
+          "fixedPaymentWorkflow.lastTransitionAt": new Date(),
+        },
+      }
+    );
+    paymentRelease.walletTransactionId = ledgerEntry._id;
+    paymentRelease.releasedAt = paymentRelease.releasedAt || new Date();
+    paymentRelease.settledAt = new Date();
+    paymentRelease.status = "settled";
+    paymentRelease.auditLog.push({
+      action: "standalone_release_settled",
+      actor: releasedBy,
+      actorRole: "admin",
+      details: { recoverable: true },
+    });
+    await paymentRelease.save();
+
+    return {
+      releaseId,
+      totalAmount: totalReleaseAmount,
+      netAmount: totalReleaseAmount,
+      platformFee: 0,
+      status: "settled",
+      recoverableStandaloneMode: true,
+    };
+  }
+
+  async listAdminReleaseQueue(filters = {}) {
+    const campaignFilter = { paymentType: "fixed" };
+    if (filters.campaignId) campaignFilter._id = filters.campaignId;
+    if (filters.vendorId) campaignFilter.vendorId = filters.vendorId;
+    const campaigns = await Campaign.find(campaignFilter)
+      .select("_id title state vendorId influencerId fixedPaymentWorkflow")
+      .populate("vendorId", "shopName companyName")
+      .populate({ path: "influencerId", populate: { path: "userId", select: "name email username" } })
+      .lean();
+    const campaignIds = campaigns.map((row) => row._id);
+    if (!campaignIds.length) return { items: [], total: 0 };
+
+    const deliverables = await CampaignDeliverable.find({
+      campaignId: { $in: campaignIds },
+      approvalStatus: "approved",
+      paymentEligibility: "eligible",
+    }).lean();
+    const allocations = deliverables.length
+      ? await CampaignDeliverableFunding.find({
+          deliverableId: { $in: deliverables.map((row) => row._id) },
+          remainingAmount: { $gt: 0 },
+          status: { $in: ["funded", "partially_released"] },
+        }).lean()
+      : [];
+    const allocationMap = new Map(allocations.map((row) => [String(row.deliverableId), row]));
+    const campaignMap = new Map(campaigns.map((row) => [String(row._id), row]));
+    const items = deliverables
+      .filter((row) => allocationMap.has(String(row._id)))
+      .map((row) => {
+        const campaign = campaignMap.get(String(row.campaignId));
+        const allocation = allocationMap.get(String(row._id));
+        return {
+          campaign,
+          deliverableId: row._id,
+          deliverableType: row.deliverableType,
+          title: row.title,
+          approvalStatus: row.approvalStatus,
+          paymentEligibility: row.paymentEligibility,
+          amount: allocation.remainingAmount,
+          allocationStatus: allocation.status,
+        };
+      });
+    const pendingReleases = await CampaignPaymentRelease.find({
+      campaignId: { $in: campaignIds },
+      status: { $in: ["approved", "released"] },
+    }).lean();
+    const existingDeliverableIds = new Set(items.map((row) => String(row.deliverableId)));
+    for (const release of pendingReleases) {
+      const campaign = campaignMap.get(String(release.campaignId));
+      for (const row of release.deliverables || []) {
+        if (existingDeliverableIds.has(String(row.deliverableId))) continue;
+        items.push({
+          campaign,
+          deliverableId: row.deliverableId,
+          deliverableType: row.type,
+          title: row.title,
+          approvalStatus: "approved",
+          paymentEligibility: "eligible",
+          amount: row.amount,
+          allocationStatus: "release_recovery",
+        });
+      }
+    }
+    return { items, total: items.length };
   }
 
   async refundCampaignBudget(campaignId, vendorId, reason, description, requestedBy) {
@@ -524,6 +922,16 @@ class CampaignEscrowService {
       }],
     });
     await refund.save();
+    await Campaign.updateOne(
+      { _id: campaignId, paymentType: "fixed" },
+      {
+        $set: {
+          "fixedPaymentWorkflow.status": "refund_pending",
+          "fixedPaymentWorkflow.contentEnabled": false,
+          "fixedPaymentWorkflow.lastTransitionAt": new Date(),
+        },
+      }
+    );
 
     return {
       refundId: refund._id,

@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Loader, X } from 'lucide-react';
+import { BudgetSummaryPanel } from './BudgetSummaryPanel';
 
 const RAZORPAY_SCRIPT_ID = 'razorpay-checkout-script';
 
@@ -20,33 +21,35 @@ function loadRazorpayCheckout() {
   });
 }
 
-/**
- * Campaign Payment Modal
- * Handles Razorpay payment checkout for fixed payment campaigns
- */
 export function CampaignPaymentModal({
   isOpen,
   onClose,
-  campaignId,
+  campaign,
+  fundingSummary,
   paymentData,
+  onCreatePaymentOrder,
   onPaymentSuccess,
   onPaymentError,
   isLoading = false,
 }) {
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const [checkoutOpening, setCheckoutOpening] = useState(false);
-  const openedOrderRef = useRef('');
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setCheckoutOpening(false);
+      return undefined;
+    }
     let active = true;
-    setError(null);
+    setError('');
     setRazorpayLoaded(Boolean(window.Razorpay));
     loadRazorpayCheckout().then((ready) => {
       if (!active) return;
       setRazorpayLoaded(ready);
-      if (!ready) setError('Razorpay checkout could not load. Check your internet connection and browser content blockers.');
+      if (!ready) {
+        setError('Razorpay checkout could not load. Check your internet connection and browser content blockers.');
+      }
     });
     return () => {
       active = false;
@@ -54,174 +57,122 @@ export function CampaignPaymentModal({
   }, [isOpen]);
 
   const handlePaymentClick = useCallback(async () => {
-    if (!paymentData?.orderId || !paymentData?.paymentOrderId || !paymentData?.razorpayKeyId) {
-      setError('Payment order is incomplete. Verify the Razorpay key configuration and create the order again.');
-      return;
-    }
     if (!razorpayLoaded || !window.Razorpay) {
-      setError('Payment gateway not ready. Please try again.');
+      setError('Payment gateway is not ready. Please try again.');
       return;
     }
 
     try {
       setCheckoutOpening(true);
-      setError(null);
-      const options = {
-        key: paymentData.razorpayKeyId,
-        order_id: paymentData.orderId,
-        amount: paymentData.amountInPaise,
-        currency: paymentData.currency || 'INR',
+      setError('');
+      const order = paymentData?.orderId ? paymentData : await onCreatePaymentOrder?.();
+      if (!order?.orderId || !order?.paymentOrderId || !order?.razorpayKeyId) {
+        throw new Error('Payment order is incomplete. Verify the Razorpay configuration and try again.');
+      }
+
+      const checkout = new window.Razorpay({
+        key: order.razorpayKeyId,
+        order_id: order.orderId,
+        amount: order.amountInPaise,
+        currency: order.currency || 'INR',
         name: 'Campaign Funding',
-        description: `Fund campaign: ${paymentData.campaignId}`,
-        notes: paymentData.notes || {},
-        prefill: {
-          email: paymentData.email || '',
-        },
+        description: `Fund campaign: ${campaign?.title || order.campaignId}`,
+        notes: order.notes || {},
+        prefill: { email: order.email || '' },
         handler: async (response) => {
           try {
             await onPaymentSuccess({
-              paymentOrderId: paymentData.paymentOrderId,
+              paymentOrderId: order.paymentOrderId,
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
             });
             onClose();
-          } catch (err) {
-            setError(err?.response?.data?.message || err?.message || 'Payment verification failed');
-            onPaymentError?.(err);
+          } catch (paymentError) {
+            const message = paymentError?.response?.data?.message || paymentError?.message || 'Payment verification failed.';
+            setError(message);
+            setCheckoutOpening(false);
+            onPaymentError?.(paymentError);
           }
         },
         modal: {
           ondismiss: () => {
-            setError(null);
             setCheckoutOpening(false);
           },
         },
-      };
+        theme: { color: '#4f46e5' },
+      });
 
-      const rzp1 = new window.Razorpay(options);
-      rzp1.on('payment.failed', (response) => {
+      checkout.on('payment.failed', (response) => {
         const message = response?.error?.description || response?.error?.reason || 'Razorpay payment failed.';
         setError(message);
         setCheckoutOpening(false);
         onPaymentError?.(response?.error || new Error(message));
       });
-      rzp1.open();
-    } catch (err) {
-      setError(err.message || 'Failed to open payment gateway');
+      checkout.open();
+    } catch (paymentError) {
+      const message = paymentError?.response?.data?.message || paymentError?.message || 'Failed to open Razorpay.';
+      setError(message);
       setCheckoutOpening(false);
-      onPaymentError?.(err);
+      onPaymentError?.(paymentError);
     }
-  }, [razorpayLoaded, paymentData, onPaymentSuccess, onClose, onPaymentError]);
-
-  useEffect(() => {
-    const orderId = paymentData?.orderId || '';
-    if (!isOpen || !razorpayLoaded || !orderId || openedOrderRef.current === orderId) return;
-    openedOrderRef.current = orderId;
-    handlePaymentClick();
-  }, [isOpen, razorpayLoaded, paymentData?.orderId, handlePaymentClick]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      openedOrderRef.current = '';
-      setCheckoutOpening(false);
-    }
-  }, [isOpen]);
+  }, [
+    campaign?.title,
+    onClose,
+    onCreatePaymentOrder,
+    onPaymentError,
+    onPaymentSuccess,
+    paymentData,
+    razorpayLoaded,
+  ]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg max-w-md w-full mx-4 shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Campaign Funding Payment</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Campaign Funding Payment</h2>
+            <p className="mt-1 text-sm text-gray-500">Review the complete funding details before continuing.</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 transition-colors hover:text-gray-600" aria-label="Close">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="px-6 py-6 space-y-6">
-          {/* Campaign ID */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Campaign ID
-            </label>
-            <p className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded border border-gray-200">
-              {campaignId}
-            </p>
-          </div>
+        <div className="space-y-4 p-6">
+          <BudgetSummaryPanel
+            campaign={campaign}
+            {...fundingSummary}
+            feeSource="Configured by Admin"
+          />
 
-          {/* Payment Amount */}
-          {paymentData && (
-            <div className="bg-indigo-50 rounded-lg p-4">
-              <p className="text-xs text-indigo-600 font-medium mb-2">AMOUNT TO PAY</p>
-              <p className="text-3xl font-bold text-indigo-900">
-                ₹{(paymentData.amount || 0).toLocaleString('en-IN')}
-              </p>
-              <div className="mt-3 space-y-1 text-xs text-indigo-700">
-                <p>
-                  <span>Budget:</span>{' '}
-                  <span className="font-medium">
-                    ₹{(paymentData.budgetBreakdown?.budgetAmount || 0).toLocaleString('en-IN')}
-                  </span>
-                </p>
-                <p>
-                  <span>Fees & Taxes:</span>{' '}
-                  <span className="font-medium">
-                    ₹
-                    {(
-                      (paymentData.budgetBreakdown?.platformFeeAmount || 0) +
-                      (paymentData.budgetBreakdown?.gatewayFeeAmount || 0) +
-                      (paymentData.budgetBreakdown?.taxAmount || 0)
-                    ).toLocaleString('en-IN')}
-                  </span>
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Error */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          {error ? (
+            <div className="flex gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
               <p className="text-sm text-red-700">{error}</p>
             </div>
-          )}
-
-          {/* Info */}
-          <div className="bg-blue-50 rounded-lg p-4 text-sm text-blue-700">
-            <p className="font-medium mb-2">Secure Payment</p>
-            <p>
-              Your payment is secured by Razorpay. Funds will be held in escrow and released only
-              when you approve deliverables.
-            </p>
-          </div>
+          ) : null}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
+        <div className="flex gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
           <button
             onClick={onClose}
-            disabled={isLoading}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            disabled={isLoading || checkoutOpening}
+            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-white disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handlePaymentClick}
-            disabled={isLoading || checkoutOpening || !razorpayLoaded || !paymentData}
-            className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+            disabled={isLoading || checkoutOpening || !razorpayLoaded || !fundingSummary}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-400"
           >
             {isLoading || checkoutOpening || !razorpayLoaded ? (
               <>
-                <Loader className="w-4 h-4 animate-spin" />
-                <span>{checkoutOpening ? 'Opening Razorpay...' : 'Processing...'}</span>
+                <Loader className="h-4 w-4 animate-spin" />
+                <span>{checkoutOpening ? 'Opening Razorpay...' : 'Loading gateway...'}</span>
               </>
             ) : (
               'Pay Now'

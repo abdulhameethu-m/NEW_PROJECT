@@ -162,6 +162,17 @@ class CampaignRefundService {
     });
 
     await refund.save();
+    const escrow = await CampaignEscrowWallet.findById(refund.escrowWalletId).select("status").lean();
+    await Campaign.updateOne(
+      { _id: refund.campaignId, paymentType: "fixed" },
+      {
+        $set: {
+          "fixedPaymentWorkflow.status": escrow?.status === "partially_released" ? "partially_released" : "funded",
+          "fixedPaymentWorkflow.contentEnabled": true,
+          "fixedPaymentWorkflow.lastTransitionAt": new Date(),
+        },
+      }
+    );
 
     return {
       refundId: refund._id,
@@ -291,7 +302,12 @@ class CampaignRefundService {
         },
       });
       await Campaign.findByIdAndUpdate(refund.campaignId, {
-        $set: { state: "cancelled" },
+        $set: {
+          state: "cancelled",
+          "fixedPaymentWorkflow.status": "refunded",
+          "fixedPaymentWorkflow.contentEnabled": false,
+          "fixedPaymentWorkflow.lastTransitionAt": new Date(),
+        },
         $push: { history: { state: "cancelled", actorId: processedBy, note: "Remaining escrow refunded", changedAt: new Date() } },
       });
       await auditService.log({

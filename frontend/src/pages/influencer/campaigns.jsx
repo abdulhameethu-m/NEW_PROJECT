@@ -80,6 +80,7 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
   const canReject = canAccept;
   const isApplied = ["submitted", "pending_review", "shortlisted", "approved", "accepted", "active", "completed"].includes(applicationStatus);
   const isActive = ["approved", "accepted", "active", "product_shipped", "content_in_progress", "content_submitted", "under_review", "revision_requested", "published", "tracking_active", "completed"].includes(workflowStatus);
+  const contentEnabled = campaign.paymentType !== "fixed" || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled);
   const isWaiting = ["submitted", "pending_review", "shortlisted"].includes(applicationStatus);
   const canApply = campaign.marketplacePublic && !isApplied && !canAccept;
   const deadline = campaign.applicationDeadline || campaign.deadline;
@@ -179,7 +180,7 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
             <ExternalLink className="h-4 w-4" />
             View Details
           </button>
-          {isActive ? (
+          {isActive && contentEnabled ? (
             <button
               type="button"
               disabled={busy}
@@ -199,7 +200,7 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
             <Bookmark className="h-4 w-4" />
             {campaign.saved ? "Saved" : "Save"}
           </button>
-          {isActive ? (
+          {isActive && contentEnabled ? (
             <Link
               to={contentHref}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -221,6 +222,11 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
         {isWaiting ? (
           <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
             Waiting for vendor approval.
+          </p>
+        ) : null}
+        {isActive && !contentEnabled ? (
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+            Accepted. Waiting for the vendor to fund escrow before content creation is enabled.
           </p>
         ) : null}
         {applicationStatus === "approved" ? (
@@ -1067,7 +1073,7 @@ export default function InfluencerCampaignsPage() {
             </p>
             <h1 className="mt-3 text-2xl font-semibold text-slate-950 dark:text-white">Discover, apply, execute, and analyze brand campaigns</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-              Built on the existing campaign, product, content, wallet, and commission infrastructure.
+              Built on the existing campaign, product, content, and commission infrastructure.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1075,9 +1081,9 @@ export default function InfluencerCampaignsPage() {
               <FileUp className="h-4 w-4" />
               Submit Content
             </Link>
-            <Link to="/influencer/earnings" className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950">
+            <Link to="/influencer/campaigns?tab=accepted" className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950">
               <CheckCircle2 className="h-4 w-4" />
-              View Earnings
+              Accepted Campaigns
             </Link>
           </div>
         </div>

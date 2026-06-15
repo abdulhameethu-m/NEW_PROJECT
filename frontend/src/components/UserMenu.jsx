@@ -136,11 +136,9 @@ export function UserMenu() {
   const menuItemsByRole = {
     influencer: [
       { label: "Dashboard", path: "/influencer/dashboard", icon: "D" },
-      { label: "Profile", path: "/influencer/profile", icon: "P" },
       { label: "Campaigns", path: "/influencer/campaigns", icon: "C" },
       { label: "Upload reel", path: "/influencer/reels/upload", icon: "U" },
       { label: "Reels", path: "/influencer/reels", icon: "R" },
-      { label: "Earnings", path: "/influencer/earnings", icon: "E" },
     ],
     vendor: [
       { label: "Dashboard", path: "/dashboard/vendor", icon: "D" },

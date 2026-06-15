@@ -65,7 +65,6 @@ const OrderSuccessPage = lazyNamed(() => import("./pages/OrderSuccessPage"), "Or
 const InfluencerPublicStorefrontPage = lazyNamed(() => import("./pages/InfluencerPublicStorefrontPage"), "InfluencerPublicStorefrontPage");
 const InfluencerLayout = lazyNamed(() => import("./pages/influencer/InfluencerLayout"), "InfluencerLayout");
 const InfluencerDashboardPage = lazyDefault(() => import("./pages/influencer/dashboard.jsx"));
-const InfluencerStorefrontBuilderPage = lazyDefault(() => import("./pages/influencer/storefrontBuilder.jsx"));
 const InfluencerCollectionsPage = lazyDefault(() => import("./pages/influencer/collections.jsx"));
 const InfluencerAffiliateProductsPage = lazyDefault(() => import("./pages/influencer/affiliateProducts.jsx"));
 const InfluencerAffiliateLinksPage = lazyDefault(() => import("./pages/influencer/affiliateLinks.jsx"));
@@ -74,9 +73,6 @@ const InfluencerCampaignExecutionPage = lazyDefault(() => import("./pages/influe
 const InfluencerContentCenterPage = lazyDefault(() => import("./pages/influencer/contentCenter.jsx"));
 const InfluencerReelUploadPage = lazyDefault(() => import("./pages/influencer/reelUpload.jsx"));
 const InfluencerReelsPage = lazyDefault(() => import("./pages/influencer/reels.jsx"));
-const InfluencerEarningsPage = lazyDefault(() => import("./pages/influencer/earnings.jsx"));
-const InfluencerVerificationPage = lazyDefault(() => import("./pages/influencer/verification.jsx"));
-const InfluencerProfilePage = lazyDefault(() => import("./pages/influencer/profile.jsx"));
 const VendorOverviewPage = lazyNamed(() => import("./pages/VendorOverviewPage"), "VendorOverviewPage");
 const VendorProductsPage = lazyNamed(() => import("./pages/VendorProductsPage"), "VendorProductsPage");
 const ProductFormPage = lazyNamed(() => import("./pages/ProductFormPage"), "ProductFormPage");
@@ -249,7 +245,6 @@ export default function App() {
             <Route path="/influencer" element={<Navigate to="/influencer/dashboard" replace />} />
             <Route element={<InfluencerLayout />}>
               <Route path="/influencer/dashboard" element={<InfluencerDashboardPage />} />
-              <Route path="/influencer/storefront-builder" element={<InfluencerStorefrontBuilderPage />} />
               <Route path="/influencer/collections" element={<InfluencerCollectionsPage />} />
               <Route path="/influencer/affiliate-products" element={<InfluencerAffiliateProductsPage />} />
               <Route path="/influencer/affiliate-links" element={<InfluencerAffiliateLinksPage />} />
@@ -258,9 +253,6 @@ export default function App() {
               <Route path="/influencer/content" element={<InfluencerContentCenterPage />} />
               <Route path="/influencer/reels/upload" element={<InfluencerReelUploadPage />} />
               <Route path="/influencer/reels" element={<InfluencerReelsPage />} />
-              <Route path="/influencer/earnings" element={<InfluencerEarningsPage />} />
-              <Route path="/influencer/verification" element={<InfluencerVerificationPage />} />
-              <Route path="/influencer/profile" element={<InfluencerProfilePage />} />
             </Route>
           </Route>
 

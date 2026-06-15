@@ -22,7 +22,6 @@ const STAFF_PERMISSION_CATALOG = Object.freeze({
     "commissions",
     "settlements",
     "payouts",
-    "withdrawals",
     "analytics",
     "fraud",
     "settings",

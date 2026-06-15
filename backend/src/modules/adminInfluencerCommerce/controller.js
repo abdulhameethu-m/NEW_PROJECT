@@ -22,8 +22,6 @@ const commissions = asyncHandler(async (req, res) => ok(res, await service.commi
 const updateCommission = asyncHandler(async (req, res) => ok(res, await service.updateCommission(req.user, req.params.commissionId, req.body), "Commission updated"));
 const settlements = asyncHandler(async (req, res) => ok(res, await service.settlements(req.query), "Settlements loaded"));
 const payouts = asyncHandler(async (req, res) => ok(res, await service.payouts(req.query), "Payouts loaded"));
-const withdrawals = asyncHandler(async (req, res) => ok(res, await service.withdrawals(req.query), "Withdrawals loaded"));
-const updateWithdrawal = asyncHandler(async (req, res) => ok(res, await service.updateWithdrawal(req.user, req.params.requestId, req.body), "Withdrawal updated"));
 const creatorPerformance = asyncHandler(async (req, res) => ok(res, await service.creatorPerformance(req.query), "Creator performance loaded"));
 const vendorPerformance = asyncHandler(async (req, res) => ok(res, await service.vendorPerformance(req.query), "Vendor performance loaded"));
 const campaignAnalytics = asyncHandler(async (req, res) => ok(res, await service.campaignAnalytics(req.query), "Campaign analytics loaded"));
@@ -65,8 +63,6 @@ module.exports = {
   updateCommission,
   settlements,
   payouts,
-  withdrawals,
-  updateWithdrawal,
   creatorPerformance,
   vendorPerformance,
   campaignAnalytics,

@@ -38,6 +38,20 @@ const CAMPAIGN_WORKFLOW_STATUSES = [
 const CAMPAIGN_STATES = CAMPAIGN_WORKFLOW_STATUSES;
 const CAMPAIGN_INVITATION_STATUSES = ["invitation_sent", "viewed", "accepted", "rejected", "expired", "cancelled"];
 const CAMPAIGN_ACCEPTANCE_STATUSES = ["accepted", "active", "completed", "cancelled"];
+const FIXED_PAYMENT_WORKFLOW_STATUSES = [
+  "awaiting_acceptance",
+  "accepted_awaiting_funding",
+  "funding_pending",
+  "funded",
+  "content_in_progress",
+  "vendor_approved",
+  "partially_released",
+  "fully_released",
+  "refund_pending",
+  "refunded",
+  "completed",
+  "cancelled",
+];
 const REEL_STATES = ["uploaded", "pending_review", "approved", "published", "rejected"];
 const COMMISSION_STATES = ["HOLD", "SETTLED", "CANCELLED", "REVERSED"];
 
@@ -58,6 +72,7 @@ module.exports = {
   CAMPAIGN_WORKFLOW_STATUSES,
   CAMPAIGN_INVITATION_STATUSES,
   CAMPAIGN_ACCEPTANCE_STATUSES,
+  FIXED_PAYMENT_WORKFLOW_STATUSES,
   CAMPAIGN_STATES,
   REEL_STATES,
   COMMISSION_STATES,

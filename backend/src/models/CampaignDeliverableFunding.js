@@ -4,7 +4,7 @@ const campaignDeliverableFundingSchema = new mongoose.Schema(
   {
     campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", required: true, index: true },
     escrowWalletId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignEscrowWallet", required: true, index: true },
-    deliverableId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignDeliverable", default: null, index: true },
+    deliverableId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignDeliverable", default: null },
     allocationKey: { type: String, trim: true, required: true },
     deliverableType: { type: String, trim: true, required: true },
     deliverableName: { type: String, trim: true, required: true },

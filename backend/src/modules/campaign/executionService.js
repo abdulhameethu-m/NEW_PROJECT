@@ -1,12 +1,14 @@
 const mongoose = require("mongoose");
 const { AppError } = require("../../utils/AppError");
 const auditService = require("../../services/audit.service");
+const notificationService = require("../../services/notification.service");
 const vendorRepo = require("../../repositories/vendor.repository");
 const influencerService = require("../influencer/service");
 const { CommissionRecord } = require("../commission/models");
 const { Campaign, CampaignStatusHistory } = require("./model");
 const { Reel } = require("../reel/model");
 const CampaignDeliverableFunding = require("../../models/CampaignDeliverableFunding");
+const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
 const {
   CampaignDeliverable,
   DeliverableSubmission,
@@ -118,6 +120,22 @@ function campaignBudget(campaign = {}) {
   return money(campaign.pricing?.totalBudget || campaign.fixedFee || campaign.paymentModelSnapshot?.expectedBudget || 0);
 }
 
+async function assertFixedContentEnabled(campaign) {
+  if (campaign.paymentType !== "fixed") return;
+  const escrow = await CampaignEscrowWallet.findOne({
+    campaignId: campaign._id,
+    vendorId: campaign.vendorId?._id || campaign.vendorId,
+    status: { $in: ["funded", "partially_released", "fully_released"] },
+  }).select("_id status").lean();
+  if (!campaign.fixedPaymentWorkflow?.contentEnabled || !escrow) {
+    throw new AppError(
+      "Content creation is locked until the vendor funds escrow and Razorpay confirms the payment",
+      409,
+      "ESCROW_FUNDING_REQUIRED"
+    );
+  }
+}
+
 async function audit({ actorId, role, action, campaignId, deliverableId = null, submissionId = null, oldValue = null, newValue = null, metadata = {} }) {
   await CampaignExecutionAudit.create({ userId: actorId, role, action, campaignId, deliverableId, submissionId, oldValue, newValue, metadata });
   await auditService.log({
@@ -164,6 +182,7 @@ class CampaignExecutionService {
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
     if (String(campaign.influencerId || "") !== String(profile._id)) throw new AppError("Forbidden", 403, "FORBIDDEN");
     if (!ACTIVE_STATES.includes(campaign.state)) throw new AppError("Campaign must be accepted before content execution", 409, "INVALID_STATE");
+    await assertFixedContentEnabled(campaign);
     const deliverables = await this.ensureDeliverables(campaign);
     return this.presentExecution(campaign, deliverables, profile._id);
   }
@@ -217,6 +236,8 @@ class CampaignExecutionService {
         startDate: campaign.createdAt,
         endDate: campaign.deadline || campaign.marketplace?.applicationDeadline || null,
         status: campaign.state,
+        fixedPaymentWorkflow: campaign.fixedPaymentWorkflow || null,
+        contentEnabled: paymentType !== "fixed" || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled),
       },
       progress: progress(deliverables),
       payout: {
@@ -251,6 +272,9 @@ class CampaignExecutionService {
 
   async submit(userId, campaignId, deliverableId, payload = {}) {
     const profile = await influencerService.getProfile(userId);
+    const campaign = await Campaign.findOne({ _id: campaignId, influencerId: profile._id }).lean();
+    if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
+    await assertFixedContentEnabled(campaign);
     const deliverable = await CampaignDeliverable.findOne({ _id: deliverableId, campaignId, influencerId: profile._id });
     if (!deliverable) throw new AppError("Deliverable not found", 404, "NOT_FOUND");
     if (["approved", "completed", "cancelled"].includes(deliverable.status)) throw new AppError("This deliverable is closed for uploads", 409, "INVALID_STATE");
@@ -309,7 +333,7 @@ class CampaignExecutionService {
         ? money((Number(deliverable.totalPrice || 0) / totalDeliverableValue) * (fixedFee || totalDeliverableValue))
         : deliverable.totalPrice;
       submission.status = "approved";
-      deliverable.status = "completed";
+      deliverable.status = campaign.paymentType === "fixed" ? "approved" : "completed";
       deliverable.approvalStatus = "approved";
       deliverable.completionStatus = "completed";
       deliverable.paymentEligibility = "eligible";
@@ -332,6 +356,24 @@ class CampaignExecutionService {
         },
         { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
       );
+      if (campaign.paymentType === "fixed") {
+        campaign.fixedPaymentWorkflow.status = "vendor_approved";
+        campaign.fixedPaymentWorkflow.lastTransitionAt = new Date();
+        await campaign.save();
+        await notificationService.notifyAdmins({
+          module: "FINANCE",
+          subModule: "INFLUENCER_COMMERCE",
+          type: "INFLUENCER_COMMERCE",
+          title: "Fixed campaign release ready",
+          message: `${campaign.title || "Campaign"} has an approved deliverable awaiting escrow release.`,
+          referenceId: campaign._id,
+          meta: {
+            campaignId: String(campaign._id),
+            deliverableId: String(deliverable._id),
+            influencerId: String(deliverable.influencerId),
+          },
+        }, "influencerCommerce.read").catch(() => null);
+      }
     } else {
       submission.status = decision === "reject" ? "rejected" : "revision_requested";
       deliverable.status = decision === "reject" ? "rejected" : "revision_requested";

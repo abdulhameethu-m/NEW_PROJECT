@@ -5,7 +5,7 @@ const { hasStaffPermission } = require("../modules/staff/permissions");
 const ADMIN_ROLES = new Set(["admin", "super_admin"]);
 const FINANCE_ROLES = new Set(["finance_admin"]);
 const SUPPORT_ROLES = new Set(["support_admin"]);
-const FINANCIAL_DOCUMENT_CATEGORIES = new Set(["bank", "tax", "withdrawal", "finance", "settlement"]);
+const FINANCIAL_DOCUMENT_CATEGORIES = new Set(["bank", "tax", "finance", "settlement"]);
 const COMPLIANCE_DOCUMENT_CATEGORIES = new Set(["kyc", "identity", "verification", "compliance"]);
 
 function actor(input = {}) {
@@ -78,11 +78,6 @@ const policies = {
   commission(currentActor, action, resource = {}) {
     if (hasAnyRole(currentActor, ["super_admin", "admin", "finance_admin"])) return true;
     return currentActor.role === "influencer" && owns(currentActor, resource.influencerId);
-  },
-
-  withdrawal(currentActor, action, resource = {}) {
-    if (hasAnyRole(currentActor, ["super_admin", "admin", "finance_admin"])) return true;
-    return currentActor.role === "influencer" && owns(currentActor, resource.influencerId || resource.userId);
   },
 
   document(currentActor, action, resource = {}) {

@@ -23,9 +23,8 @@ test("influencer cannot modify another influencer's reel or collection", () => {
   assert.equal(can(influencerA, "influencerOwned", "delete", { _id: "collection-b", influencerId: "influencer-b" }), false);
 });
 
-test("influencer cannot access another influencer's commission or withdrawal", () => {
+test("influencer cannot access another influencer's commission", () => {
   assert.equal(can(influencerA, "commission", "read", { influencerId: "influencer-b" }), false);
-  assert.equal(can(influencerA, "withdrawal", "cancel", { influencerId: "influencer-b" }), false);
 });
 
 test("finance admin cannot modify RBAC", () => {

@@ -42,21 +42,6 @@ export async function trackPublicInfluencerEvent(username, payload = {}) {
   return data;
 }
 
-export async function getInfluencerStorefrontBuilder() {
-  const { data } = await api.get("/api/influencer/storefront-builder");
-  return data;
-}
-
-export async function saveInfluencerStorefrontBuilder(payload) {
-  const { data } = await api.put("/api/influencer/storefront-builder", payload);
-  return data;
-}
-
-export async function previewInfluencerStorefrontBuilder(payload) {
-  const { data } = await api.post("/api/influencer/storefront-builder/preview", payload);
-  return data;
-}
-
 export async function generateInfluencerAffiliateLink(payload) {
   const { data } = await api.post("/api/influencer/generate-affiliate-link", payload);
   return data;
@@ -141,93 +126,8 @@ export async function getInfluencerCollectionAnalytics(params = {}) {
   return data;
 }
 
-export async function getInfluencerEarnings(params = {}) {
-  const { data } = await api.get("/api/influencer/earnings", { params });
-  return data;
-}
-
-export async function getInfluencerWalletEarnings(params = {}) {
-  const { data } = await api.get("/api/commission/earnings", { params });
-  return data;
-}
-
-export async function listInfluencerWithdrawals(params = {}) {
-  const { data } = await api.get("/api/commission/withdrawals", { params });
-  return data;
-}
-
-export async function requestInfluencerWithdrawal(payload = {}) {
-  const { data } = await api.post("/api/commission/withdrawals", payload);
-  return data;
-}
-
-export async function cancelInfluencerWithdrawal(requestId) {
-  const { data } = await api.post(`/api/commission/withdrawals/${requestId}/cancel`);
-  return data;
-}
-
-export async function listInfluencerPayoutAccounts() {
-  const { data } = await api.get("/api/commission/payout-accounts");
-  return data;
-}
-
-export async function saveInfluencerPayoutAccount(payload = {}) {
-  const { data } = await api.post("/api/commission/payout-accounts", payload);
-  return data;
-}
-
-export async function getInfluencerVerification(params = {}) {
-  const { data } = await api.get("/api/influencer/verification", { params });
-  return data;
-}
-
-export async function uploadInfluencerVerificationDocuments(formData) {
-  const { data } = await api.post("/api/influencer/verification/documents", formData);
-  return data;
-}
-
-export async function saveInfluencerVerificationTax(formData) {
-  const { data } = await api.post("/api/influencer/verification/tax", formData);
-  return data;
-}
-
-export async function saveInfluencerVerificationBank(payload = {}) {
-  const { data } = await api.post("/api/influencer/verification/bank", payload);
-  return data;
-}
-
-export async function getInfluencerProfileSettings() {
-  const { data } = await api.get("/api/influencer/profile-settings");
-  return data;
-}
-
-export async function updateInfluencerProfileSettings(section, payload = {}) {
-  const { data } = await api.patch(`/api/influencer/profile-settings/${section}`, payload);
-  return data;
-}
-
-export async function changeInfluencerPassword(payload = {}) {
-  const { data } = await api.post("/api/influencer/profile-settings/security/change-password", payload);
-  return data;
-}
-
-export async function getInfluencerSessions() {
-  const { data } = await api.get("/api/influencer/profile-settings/security/sessions");
-  return data;
-}
-
-export async function revokeInfluencerSession(id) {
-  const { data } = await api.delete(`/api/influencer/profile-settings/security/sessions/${id}`);
-  return data;
-}
-
 export async function registerInfluencer(payload) {
   const { data } = await api.post("/api/influencer/register", payload);
-  return data;
-}
-
-export async function getInfluencerProfile() {
-  const { data } = await api.get("/api/influencer/profile");
   return data;
 }
 
@@ -243,11 +143,6 @@ export async function saveInfluencerServices(payload = {}) {
 
 export async function saveInfluencerRequirements(payload = {}) {
   const { data } = await api.put("/api/influencer/requirements", payload);
-  return data;
-}
-
-export async function updateInfluencerProfile(payload) {
-  const { data } = await api.put("/api/influencer/profile", payload);
   return data;
 }
 
@@ -670,11 +565,6 @@ export async function checkAndCompleteCampaign(campaignId) {
 
 export async function trackAffiliateEvent(payload) {
   const { data } = await api.post("/api/tracking/event", payload);
-  return data;
-}
-
-export async function getInfluencerWallet() {
-  const { data } = await api.get("/api/commission/wallet");
   return data;
 }
 

@@ -4,6 +4,7 @@ const {
   CAMPAIGN_INVITATION_STATUSES,
   CAMPAIGN_STATES,
   CAMPAIGN_WORKFLOW_STATUSES,
+  FIXED_PAYMENT_WORKFLOW_STATUSES,
 } = require("../shared/constants");
 
 const campaignSchema = new mongoose.Schema(
@@ -101,6 +102,17 @@ const campaignSchema = new mongoose.Schema(
       enum: ["fixed", "commission", "hybrid", "free_product"],
       default: "commission",
       index: true,
+    },
+    fixedPaymentWorkflow: {
+      status: {
+        type: String,
+        enum: FIXED_PAYMENT_WORKFLOW_STATUSES,
+      },
+      contentEnabled: { type: Boolean, default: false },
+      acceptedAt: { type: Date },
+      fundingStartedAt: { type: Date },
+      fundedAt: { type: Date },
+      lastTransitionAt: { type: Date },
     },
     attributionWindowDays: { type: Number, min: 0, default: 0 },
     pricing: {

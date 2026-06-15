@@ -38,15 +38,6 @@ const contentUpload = multer({
   },
   limits: { fileSize: 200 * 1024 * 1024, files: 20 },
 });
-const verificationUpload = multer({
-  storage: multer.memoryStorage(),
-  fileFilter: (_req, file, cb) => {
-    const allowed = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
-    if (!allowed.includes(file.mimetype)) return cb(new Error("UNSUPPORTED_FILE_TYPE"));
-    cb(null, true);
-  },
-  limits: { fileSize: 10 * 1024 * 1024, files: 6 },
-});
 const collectionMediaUpload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (_req, file, cb) => {
@@ -87,15 +78,6 @@ const dashboardQuery = Joi.object({
   country: Joi.string().allow("").optional(),
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(50).optional(),
-});
-
-const earningsQuery = Joi.object({
-  page: Joi.number().integer().min(1).optional(),
-  limit: Joi.number().integer().min(1).max(100).optional(),
-  type: Joi.string().valid("CREDIT", "DEBIT").optional(),
-  source: Joi.string().valid("COMMISSION", "REVERSAL").optional(),
-  from: Joi.date().iso().optional(),
-  to: Joi.date().iso().optional(),
 });
 
 const collectionTypes = ["recommended_products", "tech_essentials", "fashion_picks", "creator_favorites", "trending_products", "custom", "featured", "seasonal", "campaign", "affiliate", "bundle", "brand"];
@@ -177,37 +159,6 @@ const collectionAssignmentSchema = Joi.object({
   mode: Joi.string().valid("add", "remove", "replace").default("add"),
   productIds: Joi.array().items(Joi.string()).max(100).default([]),
 });
-
-const storefrontBuilderSchema = Joi.object({
-  name: Joi.string().trim().max(120).allow("").optional(),
-  storeName: Joi.string().trim().max(120).allow("").optional(),
-  slug: Joi.string().trim().max(120).allow("").optional(),
-  banner: Joi.string().allow("").optional(),
-  bannerImage: Joi.string().allow("").optional(),
-  mobileBanner: Joi.string().allow("").optional(),
-  profileImage: Joi.string().allow("").optional(),
-  logo: Joi.string().allow("").optional(),
-  description: Joi.string().allow("").max(1200).optional(),
-  tagline: Joi.string().allow("").max(160).optional(),
-  contact: Joi.object().unknown(true).optional(),
-  theme: Joi.string().allow("").optional(),
-  branding: Joi.object().unknown(true).optional(),
-  hero: Joi.object().unknown(true).optional(),
-  banners: Joi.object().unknown(true).optional(),
-  homepage: Joi.object({
-    sections: Joi.array().items(Joi.object().unknown(true)).optional(),
-    draftSections: Joi.array().items(Joi.object().unknown(true)).optional(),
-  }).unknown(true).optional(),
-  featuredCollectionIds: Joi.array().items(Joi.string()).max(20).optional(),
-  featuredProductIds: Joi.array().items(Joi.string()).max(40).optional(),
-  featuredCategoryKeys: Joi.array().items(Joi.string()).max(20).optional(),
-  socialLinks: Joi.alternatives().try(Joi.object().unknown(true), Joi.array().items(Joi.object().unknown(true))).optional(),
-  categories: Joi.array().items(Joi.string()).max(20).optional(),
-  seo: Joi.object().unknown(true).optional(),
-  keywords: Joi.array().items(Joi.string()).optional(),
-  status: Joi.string().valid("draft", "active", "hidden", "archived", "inactive", "suspended").optional(),
-  settings: Joi.object().unknown(true).optional(),
-}).unknown(true);
 
 const affiliateProductQuery = Joi.object({
   page: Joi.number().integer().min(1).optional(),
@@ -443,59 +394,6 @@ const applicationListQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).optional(),
 });
 
-const verificationQuerySchema = Joi.object({
-  category: Joi.string().valid("identity", "tax", "bank", "compliance", "supporting", "content").allow("").optional(),
-  status: Joi.string().allow("").optional(),
-});
-
-const verificationDocumentSchema = Joi.object({
-  category: Joi.string().valid("identity", "tax", "bank", "compliance", "supporting").default("identity"),
-  documentType: Joi.string().trim().max(80).default("identity_document"),
-  documentNumber: Joi.string().trim().max(120).allow("").default(""),
-  countryOfIssue: Joi.string().trim().max(100).allow("").default(""),
-  country: Joi.string().trim().max(100).allow("").default(""),
-  issueDate: Joi.date().iso().allow("", null).optional(),
-  expiryDate: Joi.date().iso().allow("", null).optional(),
-  side: Joi.string().trim().max(40).allow("").default(""),
-});
-
-const verificationTaxSchema = Joi.object({
-  taxType: Joi.string().trim().max(80).allow("").default(""),
-  taxNumber: Joi.string().trim().max(120).allow("").default(""),
-  taxId: Joi.string().trim().max(120).allow("").default(""),
-  panNumber: Joi.string().trim().max(20).allow("").default(""),
-  gstNumber: Joi.string().trim().max(20).allow("").default(""),
-  legalName: Joi.string().trim().max(140).allow("").default(""),
-  businessName: Joi.string().trim().max(140).allow("").default(""),
-  registeredAddress: Joi.string().trim().max(255).allow("").default(""),
-  address1: Joi.string().trim().max(255).allow("").default(""),
-  country: Joi.string().trim().max(100).allow("").default("IN"),
-  state: Joi.string().trim().max(100).allow("").default(""),
-  city: Joi.string().trim().max(100).allow("").default(""),
-  postalCode: Joi.string().trim().max(30).allow("").default(""),
-  businessType: Joi.string().trim().max(80).allow("").default("individual_creator"),
-  businessRegistrationNumber: Joi.string().trim().max(100).allow("").default(""),
-  dateOfBirth: Joi.date().iso().allow("", null).optional(),
-  nationality: Joi.string().trim().max(100).allow("").default(""),
-});
-
-const verificationBankSchema = Joi.object({
-  paymentMethod: Joi.string().valid("bank_transfer", "upi", "paypal", "stripe_connect", "wise", "manual").default("bank_transfer"),
-  accountHolderName: Joi.string().trim().max(160).allow("", null),
-  bankName: Joi.string().trim().max(160).allow("", null),
-  branchName: Joi.string().trim().max(160).allow("", null),
-  accountNumber: Joi.string().trim().max(40).allow("", null),
-  ifscCode: Joi.string().trim().max(20).allow("", null),
-  swiftCode: Joi.string().trim().max(20).allow("", null),
-  iban: Joi.string().trim().max(60).allow("", null),
-  routingNumber: Joi.string().trim().max(30).allow("", null),
-  upiId: Joi.string().trim().max(160).allow("", null),
-  paypalEmail: Joi.string().email().allow("", null),
-  country: Joi.string().trim().max(100).allow("").default(""),
-  currency: Joi.string().trim().max(10).allow("").default("INR"),
-});
-
-const profileSettingsSchema = Joi.object().unknown(true);
 const servicePackageSchema = Joi.object({
   id: Joi.string().allow("").optional(),
   _id: Joi.string().allow("").optional(),
@@ -566,10 +464,6 @@ const requirementsSchema = Joi.object({
   notes: Joi.string().trim().max(2000).allow("").default(""),
   customFields: Joi.object().unknown(true).default({}),
 }).unknown(true);
-const settingsPasswordSchema = Joi.object({
-  currentPassword: Joi.string().min(6).max(128).required(),
-  newPassword: Joi.string().min(8).max(128).required(),
-});
 const publicStorefrontQuery = Joi.object({
   tab: Joi.string().valid("storefront", "posts", "reels", "collections", "about").optional(),
   filter: Joi.string().allow("").optional(),
@@ -659,9 +553,6 @@ router.post("/public/:username/follow", authRequired, validate(Joi.object({ sour
 router.delete("/public/:username/follow", authRequired, controller.unfollowPublic);
 router.post("/public/:username/newsletter", validate(publicNewsletterSchema), controller.subscribePublicNewsletter);
 router.post("/public/:username/events", authOptional, validate(publicEventSchema), controller.trackPublicEvent);
-router.get("/storefront-builder", authRequired, requireRole("influencer"), controller.getStorefrontBuilder);
-router.put("/storefront-builder", authRequired, requireRole("influencer"), validate(storefrontBuilderSchema), controller.updateStorefrontBuilder);
-router.post("/storefront-builder/preview", authRequired, requireRole("influencer"), validate(storefrontBuilderSchema), controller.previewStorefrontBuilder);
 router.get("/affiliate-products", authRequired, requireRole("influencer"), validate(affiliateProductQuery, "query"), controller.listAffiliateProducts);
 router.get("/affiliate-products/recommended", authRequired, requireRole("influencer"), validate(affiliateProductQuery, "query"), controller.recommendedAffiliateProducts);
 router.get("/affiliate-products/saved", authRequired, requireRole("influencer"), validate(affiliateProductQuery, "query"), controller.savedAffiliateProducts);
@@ -688,8 +579,6 @@ router.patch("/collections/:id/status", authRequired, requireRole("influencer"),
 router.delete("/collections/:id", authRequired, requireRole("influencer"), controller.deleteCollection);
 router.post("/collections/:id/products", authRequired, requireRole("influencer"), validate(collectionAssignmentSchema), controller.assignCollectionProducts);
 router.post("/register", authRequired, requireRole("influencer", "user"), validate(saveSchema), controller.register);
-router.get("/profile", authRequired, requireRole("influencer"), controller.profile);
-router.put("/profile", authRequired, requireRole("influencer"), validate(saveSchema), controller.update);
 router.get("/commerce-profile", authRequired, requireRole("influencer"), controller.commerceProfile);
 router.get("/services", authRequired, requireRole("influencer"), controller.commerceProfile);
 router.put("/services", authRequired, requireRole("influencer"), validate(servicesSchema), controller.saveServices);
@@ -697,22 +586,6 @@ router.get("/requirements", authRequired, requireRole("influencer"), controller.
 router.put("/requirements", authRequired, requireRole("influencer"), validate(requirementsSchema), controller.saveRequirements);
 router.post("/generate-affiliate-link", authRequired, requireRole("influencer"), validate(affiliateLinkSchema), controller.generateAffiliateLink);
 router.get("/dashboard", authRequired, requireRole("influencer"), validate(dashboardQuery, "query"), controller.dashboard);
-router.get("/earnings", authRequired, requireRole("influencer"), validate(earningsQuery, "query"), controller.earnings);
-router.get("/verification", authRequired, requireRole("influencer"), validate(verificationQuerySchema, "query"), controller.verificationCenter);
-router.get("/profile-settings", authRequired, requireRole("influencer"), controller.profileSettings);
-router.patch("/profile-settings/:section", authRequired, requireRole("influencer"), validate(profileSettingsSchema), controller.updateProfileSettings);
-router.get("/profile-settings/security/sessions", authRequired, requireRole("influencer"), controller.settingsSessions);
-router.delete("/profile-settings/security/sessions/:id", authRequired, requireRole("influencer"), controller.settingsRevokeSession);
-router.post("/profile-settings/security/change-password", authRequired, requireRole("influencer"), validate(settingsPasswordSchema), controller.settingsChangePassword);
-router.post("/verification/documents", authRequired, requireRole("influencer"), verificationUpload.array("documents", 6), validate(verificationDocumentSchema), controller.uploadVerificationDocuments);
-router.post("/verification/tax", authRequired, requireRole("influencer"), proofUpload.fields([
-  { name: "taxCertificate", maxCount: 1 },
-  { name: "gstCertificate", maxCount: 1 },
-  { name: "businessRegistration", maxCount: 1 },
-  { name: "taxRegistration", maxCount: 1 },
-  { name: "addressProof", maxCount: 1 },
-]), validate(verificationTaxSchema), controller.saveVerificationTax);
-router.post("/verification/bank", authRequired, requireRole("influencer"), validate(verificationBankSchema), controller.saveVerificationBank);
 router.get("/list", authOptional, controller.list);
 router.get("/admin/list", authRequired, requireRole("admin", "super_admin", "support_admin", "finance_admin"), controller.list);
 router.get("/admin/applications", authRequired, requireRole("admin", "super_admin", "support_admin", "finance_admin"), validate(applicationListQuerySchema, "query"), controller.adminApplications);

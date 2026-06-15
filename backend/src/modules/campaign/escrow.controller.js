@@ -69,7 +69,6 @@ const getEscrowSummary = asyncHandler(async (req, res) => {
 const releasePayment = asyncHandler(async (req, res) => {
   const { campaignId } = req.params;
   const { influencerId, deliverableIds } = req.body;
-  const vendorId = req.vendor._id;
 
   if (!influencerId || !deliverableIds || !Array.isArray(deliverableIds)) {
     throw new ApiError(400, "Influencer ID and deliverable IDs are required");
@@ -81,7 +80,6 @@ const releasePayment = asyncHandler(async (req, res) => {
 
   const result = await campaignEscrowService.releasePaymentForDeliverables(
     campaignId,
-    vendorId,
     influencerId,
     deliverableIds,
     req.user.sub
@@ -234,6 +232,14 @@ const calculateCost = asyncHandler(async (req, res) => {
   return ok(res, result, "Campaign cost calculated");
 });
 
+const listReleaseQueue = asyncHandler(async (req, res) => {
+  const result = await campaignEscrowService.listAdminReleaseQueue({
+    campaignId: req.query.campaignId,
+    vendorId: req.query.vendorId,
+  });
+  return ok(res, result, "Approved deliverables awaiting release loaded");
+});
+
 const listFeeConfigurations = asyncHandler(async (req, res) => {
   return ok(res, await campaignFeeService.listConfigurations(), "Campaign fee configurations loaded");
 });
@@ -277,6 +283,7 @@ module.exports = {
 
   // Admin endpoints
   listRefundRequests,
+  listReleaseQueue,
   approveRefund,
   rejectRefund,
   processRefund,

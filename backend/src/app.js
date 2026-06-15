@@ -66,6 +66,7 @@ function createLimiter({
   limit,
   message,
   skip,
+  skipSuccessfulRequests = false,
 }) {
   return rateLimit({
     windowMs,
@@ -73,6 +74,7 @@ function createLimiter({
     standardHeaders: true,
     legacyHeaders: false,
     skip,
+    skipSuccessfulRequests,
     handler: (req, res) => {
       res.status(429).json({
         success: false,
@@ -89,6 +91,7 @@ function createApp() {
   const isDevelopment = process.env.NODE_ENV !== "production";
   const authRateLimit = Number(process.env.AUTH_RATE_LIMIT_MAX || (isDevelopment ? 60 : 20));
   const apiRateLimit = Number(process.env.API_RATE_LIMIT_MAX || (isDevelopment ? 5000 : 1000));
+  const publicApiRateLimit = Number(process.env.PUBLIC_API_RATE_LIMIT_MAX || (isDevelopment ? 10000 : 3000));
 
   app.disable("x-powered-by");
 
@@ -136,16 +139,36 @@ function createApp() {
   const authLimiter = createLimiter({
     limit: authRateLimit,
     message: "Too many login attempts. Please wait a moment and try again.",
+    skipSuccessfulRequests: true,
   });
 
+  const getRequestPath = (req) => String(req.originalUrl || req.url || "").split("?")[0];
+  const isPublicBootstrapRequest = (req) => {
+    const requestPath = getRequestPath(req);
+    return req.method === "GET" && (
+      requestPath.startsWith("/api/public/") ||
+      requestPath === "/api/categories" ||
+      requestPath === "/api/homepage-builder/public" ||
+      requestPath.startsWith("/api/homepage-builder/public/")
+    )
+  };
+  const publicApiLimiter = createLimiter({
+    limit: publicApiRateLimit,
+    message: "Too many public data requests. Please wait briefly and retry.",
+  });
   const apiLimiter = createLimiter({
     limit: apiRateLimit,
     message: "Too many requests. Please slow down and try again shortly.",
-    skip: (req) =>
-      req.path === "/health" ||
-      req.path.startsWith("/uploads") ||
-      req.path.startsWith("/api/auth") ||
-      req.path.startsWith("/api/staff/auth"),
+    skip: (req) => {
+      const requestPath = getRequestPath(req);
+      return (
+        requestPath === "/health" ||
+        requestPath.startsWith("/uploads") ||
+        requestPath.startsWith("/api/auth") ||
+        requestPath.startsWith("/api/staff/auth") ||
+        isPublicBootstrapRequest(req)
+      );
+    },
   });
 
   app.use(
@@ -208,6 +231,9 @@ function createApp() {
   app.use("/api/staff/auth/refresh", authLimiter);
   app.use("/api/staff/auth/password-reset/request", authLimiter);
   app.use("/api/staff/auth/password-reset/reset", authLimiter);
+  app.use((req, res, next) => (
+    isPublicBootstrapRequest(req) ? publicApiLimiter(req, res, next) : next()
+  ));
   app.use("/api", apiLimiter);
 
   app.use("/api/auth", authRoutes);

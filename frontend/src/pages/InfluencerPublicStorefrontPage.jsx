@@ -556,7 +556,7 @@ function Sidebar({ data, following, followBusy = false, onFollow, onShare, canEd
 
         <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
           {canEdit ? (
-            <Link to="/influencer/storefront-builder" className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-black text-white">Edit Store</Link>
+            <Link to="/influencer/dashboard" className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-black text-white">Creator Dashboard</Link>
           ) : (
             <button onClick={onFollow} disabled={followBusy} className={`inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-black ${following ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "bg-indigo-600 text-white"}`}>
               {following ? <UserMinus className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
@@ -651,7 +651,7 @@ function ProfileHeader({ data, following, followBusy = false, onFollow, onShare,
             </div>
             <div className="flex flex-wrap gap-2">
               {canEdit ? (
-                <Link to="/influencer/storefront-builder" className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-black text-white">Edit Profile</Link>
+                <Link to="/influencer/dashboard" className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-black text-white">Creator Dashboard</Link>
               ) : (
                 <button onClick={onFollow} disabled={followBusy} className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-black ${following ? "bg-white text-slate-950" : "bg-indigo-600 text-white"}`}>{following ? <UserMinus className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}{followBusy ? (following ? "Unfollowing..." : "Following...") : following ? "Following" : "Follow"}</button>
               )}
@@ -1185,7 +1185,7 @@ export function InfluencerPublicStorefrontPage() {
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 lg:hidden">
         {canEdit ? (
-          <Link to="/influencer/storefront-builder" className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-3 text-sm font-black text-white">Edit Profile</Link>
+          <Link to="/influencer/dashboard" className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-3 text-sm font-black text-white">Creator Dashboard</Link>
         ) : (
           <button onClick={toggleFollow} disabled={followBusy} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-3 text-sm font-black text-white">
             {following ? <UserMinus className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}

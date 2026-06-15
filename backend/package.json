@@ -38,6 +38,7 @@
     "migrate:pricing:categories": "node src/scripts/migratePricingCategories.js",
     "migrate:indexes:session-ttl": "node src/scripts/reconcileSessionTtlIndexes.js",
     "migrate:company-branding": "node src/scripts/migrateCompanyBranding.js",
+    "migrate:remove-influencer-panel-modules": "node src/scripts/removeInfluencerPanelModules.js",
     "audit:razorpay": "node src/scripts/razorpayConnectivityTest.js",
     "diagnose:razorpay": "node src/scripts/razorpayDiagnostic.js"
   },
