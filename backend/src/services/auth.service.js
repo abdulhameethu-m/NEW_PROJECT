@@ -6,6 +6,7 @@ const userRepo = require("../repositories/user.repository");
 const sessionRepo = require("../repositories/session.repository");
 const auditService = require("./audit.service");
 const { isInfluencerCommerceEnabled } = require("./influencer-commerce-config.service");
+const { PasswordResetToken } = require("../models/PasswordResetToken");
 
 function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -268,6 +269,94 @@ async function updateThemePreference(userId, theme, meta = {}) {
   return normalizeUser(updated);
 }
 
+async function requestPasswordReset(identifier) {
+  const id = String(identifier || "").trim();
+  const isEmail = id.includes("@");
+
+  const user = isEmail
+    ? await userRepo.findByEmail(id)
+    : await userRepo.findByPhone(id);
+
+  // Always return success to prevent user enumeration
+  if (!user) {
+    return { requested: true };
+  }
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  await PasswordResetToken.create({
+    userId: user._id,
+    tokenHash: hashToken(rawToken),
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+  });
+
+  return {
+    requested: true,
+    resetToken: process.env.NODE_ENV === "production" ? undefined : rawToken,
+  };
+}
+
+async function resetPassword(token, password) {
+  const normalizedPassword = String(password || "").trim();
+  if (normalizedPassword.length < 6) {
+    throw new AppError("Password must be at least 6 characters", 400, "VALIDATION_ERROR");
+  }
+
+  const tokenHash = hashToken(token);
+  const resetRecord = await PasswordResetToken.findOne({
+    tokenHash,
+    usedAt: null,
+    expiresAt: { $gt: new Date() },
+  });
+
+  if (!resetRecord) {
+    throw new AppError("Invalid or expired reset token", 400, "INVALID_RESET_TOKEN");
+  }
+
+  const user = await userRepo.findById(resetRecord.userId, { includePassword: true });
+  if (!user) throw new AppError("User not found", 404, "NOT_FOUND");
+
+  const hashed = await bcrypt.hash(normalizedPassword, 12);
+  await userRepo.updateById(user._id, {
+    password: hashed,
+    passwordChangedAt: new Date(),
+  });
+
+  resetRecord.usedAt = new Date();
+  await resetRecord.save();
+
+  // Revoke all sessions for the user
+  await sessionRepo.revokeAllForUser(user._id);
+
+  await auditService.log({
+    actor: { _id: user._id, role: user.role },
+    action: "auth.password.reset",
+    entityType: "User",
+    entityId: user._id,
+  });
+
+  return { reset: true };
+}
+
+async function findUserByEmailOrPhone(identifier) {
+  const id = String(identifier || "").trim();
+  const isEmail = id.includes("@");
+
+  const user = isEmail
+    ? await userRepo.findByEmail(id)
+    : await userRepo.findByPhone(id);
+
+  if (!user) {
+    throw new AppError("User not found", 404, "NOT_FOUND");
+  }
+
+  return {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+  };
+}
+
 module.exports = {
   register,
   login,
@@ -276,4 +365,7 @@ module.exports = {
   logoutAll,
   me,
   updateThemePreference,
+  requestPasswordReset,
+  resetPassword,
+  findUserByEmailOrPhone,
 };

@@ -59,3 +59,44 @@ export async function mergeGuestData(guestCartItems = [], guestWishlistItems = [
   return data?.data || data;
 }
 
+/**
+ * Request password reset
+ * Sends a password reset token to the user's email/phone
+ * @param {string} identifier - Email or phone number
+ * @returns {Promise<Object>} {requested: true, resetToken?: string}
+ */
+export async function requestPasswordReset(identifier) {
+  const { data } = await api.post("/api/auth/password-reset/request", {
+    identifier,
+  });
+  return data?.data || data;
+}
+
+/**
+ * Reset password with token
+ * @param {string} token - Reset token from email
+ * @param {string} password - New password
+ * @returns {Promise<Object>} {reset: true}
+ */
+export async function resetPassword(token, password) {
+  const { data } = await api.post("/api/auth/password-reset/confirm", {
+    token,
+    password,
+  });
+  return data?.data || data;
+}
+
+/**
+ * Find user for forgot username recovery
+ * Returns user's name, email, and phone (masked)
+ * @param {string} identifier - Email or phone number
+ * @returns {Promise<Object>} User details
+ */
+export async function findUserForRecovery(identifier) {
+  const { data } = await api.post("/api/auth/forgot-username", {
+    identifier,
+  });
+  return data?.data || data;
+}
+
+

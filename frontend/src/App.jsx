@@ -18,6 +18,8 @@ const lazyDefault = (loader) => lazy(loader);
 const HomePage = lazyNamed(() => import("./pages/HomePage"), "HomePage");
 const RoleSelectionPage = lazyNamed(() => import("./pages/RoleSelectionPage"), "RoleSelectionPage");
 const LoginPage = lazyNamed(() => import("./pages/LoginPage"), "LoginPage");
+const ForgotPasswordPage = lazyNamed(() => import("./pages/ForgotPasswordPage"), "ForgotPasswordPage");
+const ForgotUsernamePage = lazyNamed(() => import("./pages/ForgotUsernamePage"), "ForgotUsernamePage");
 const RegisterPage = lazyNamed(() => import("./pages/RegisterPage"), "RegisterPage");
 const InfluencerRegistrationStepOnePage = lazyNamed(() => import("./pages/InfluencerRegistrationStepOnePage"), "InfluencerRegistrationStepOnePage");
 const InfluencerSocialVerificationPage = lazyNamed(() => import("./pages/InfluencerSocialVerificationPage"), "InfluencerSocialVerificationPage");
@@ -176,6 +178,8 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/role" element={<RoleSelectionPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/forgot-username" element={<ForgotUsernamePage />} />
         <Route path="/staff/login" element={<Navigate to="/login" replace />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/register/influencer" element={<InfluencerRegistrationStepOnePage />} />

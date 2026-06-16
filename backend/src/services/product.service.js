@@ -354,10 +354,10 @@ class ProductService {
     // Generate slug from name
     const slug = generateSlug(productData.name);
 
-    // Check if slug already exists
-    const existingProduct = await productRepo.findBySlug(slug);
+    // Check if slug already exists for this vendor only
+    const existingProduct = await productRepo.findBySlug(slug, sellerId);
     if (existingProduct) {
-      throw new AppError("Product with this name already exists", 409, "DUPLICATE_PRODUCT");
+      throw new AppError("You already have a product with this name", 409, "DUPLICATE_PRODUCT");
     }
 
     const { category, subcategory } = await getCategoryAndSubcategory(productData.categoryId, productData.subCategoryId);

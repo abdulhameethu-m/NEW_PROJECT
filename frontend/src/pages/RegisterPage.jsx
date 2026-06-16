@@ -87,58 +87,161 @@ export function RegisterPage() {
         <label className="block text-sm font-medium">
           Name
           <input
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            className={`mt-1 w-full rounded-lg border px-3 py-2 ${
+              fieldErrors.name
+                ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
+                : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            }`}
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setFieldErrors((current) => ({ ...current, name: "" }));
+            }}
+            onBlur={(e) => {
+              const value = e.target.value.trim();
+              if (value) {
+                const nextErrors = validateAuthForm({ name: value });
+                if (nextErrors.name) {
+                  setFieldErrors((current) => ({ ...current, name: nextErrors.name }));
+                }
+              }
+            }}
+            placeholder="Full name"
+            maxLength="50"
             required
           />
+          {fieldErrors.name && (
+            <div className="mt-1.5 text-xs text-rose-600 flex items-start gap-1">
+              <svg className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span>{fieldErrors.name}</span>
+            </div>
+          )}
+          <div className="mt-1 text-xs text-slate-500">
+            💡 2-50 characters (letters, spaces, hyphens, apostrophes)
+          </div>
         </label>
 
         <label className="mt-4 block text-sm font-medium">
           Email {role === "vendor" || role === "influencer" ? "" : <span className="text-slate-500">(optional)</span>}
           <input
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            className={`mt-1 w-full rounded-lg border px-3 py-2 ${
+              fieldErrors.email
+                ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
+                : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            }`}
             value={email}
             onChange={(e) => {
               setEmail(e.target.value);
               setFieldErrors((current) => ({ ...current, email: "" }));
             }}
+            onBlur={(e) => {
+              const value = e.target.value.trim();
+              if (value) {
+                const nextErrors = validateAuthForm({ email: value, requireEmail: role === "vendor" || role === "influencer" });
+                if (nextErrors.email) {
+                  setFieldErrors((current) => ({ ...current, email: nextErrors.email }));
+                }
+              }
+            }}
             type="email"
             required={role === "vendor" || role === "influencer"}
             placeholder={role === "vendor" || role === "influencer" ? "name@gmail.com" : "Optional Gmail address"}
           />
-          {fieldErrors.email ? <div className="mt-1 text-xs text-rose-600">{fieldErrors.email}</div> : null}
+          {fieldErrors.email && (
+            <div className="mt-1.5 text-xs text-rose-600 flex items-start gap-1">
+              <svg className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span>{fieldErrors.email}</span>
+            </div>
+          )}
+          {(role === "vendor" || role === "influencer") && (
+            <div className="mt-1 text-xs text-slate-500">
+              💡 Gmail address is required (@gmail.com)
+            </div>
+          )}
         </label>
 
         <label className="mt-4 block text-sm font-medium">
           Phone
           <input
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            className={`mt-1 w-full rounded-lg border px-3 py-2 ${
+              fieldErrors.phone
+                ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
+                : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            }`}
             value={phone}
             onChange={(e) => {
-              setPhone(e.target.value);
+              const value = e.target.value.replace(/\D/g, "").slice(0, 10);
+              setPhone(value);
               setFieldErrors((current) => ({ ...current, phone: "" }));
             }}
+            onBlur={(e) => {
+              const value = e.target.value.trim();
+              if (value) {
+                const nextErrors = validateAuthForm({ phone: value });
+                if (nextErrors.phone) {
+                  setFieldErrors((current) => ({ ...current, phone: nextErrors.phone }));
+                }
+              }
+            }}
             inputMode="numeric"
-            maxLength={10}
+            maxLength="10"
+            placeholder="1234567890"
             required
           />
-          {fieldErrors.phone ? <div className="mt-1 text-xs text-rose-600">{fieldErrors.phone}</div> : null}
+          {fieldErrors.phone ? (
+            <div className="mt-1.5 text-xs text-rose-600 flex items-start gap-1">
+              <svg className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span>{fieldErrors.phone}</span>
+            </div>
+          ) : null}
+          <div className="mt-1 text-xs text-slate-500">
+            💡 10-digit number (digits only, auto-filled)
+          </div>
         </label>
 
         <label className="mt-4 block text-sm font-medium">
           Password
           <PasswordField
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            className={`mt-1 w-full rounded-lg border px-3 py-2 ${
+              fieldErrors.password
+                ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
+                : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            }`}
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
               setFieldErrors((current) => ({ ...current, password: "" }));
             }}
+            onBlur={(e) => {
+              const value = e.target.value;
+              if (value) {
+                const nextErrors = validateAuthForm({ password: value });
+                if (nextErrors.password) {
+                  setFieldErrors((current) => ({ ...current, password: nextErrors.password }));
+                }
+              }
+            }}
             minLength={6}
+            placeholder="Strong password"
             required
           />
-          {fieldErrors.password ? <div className="mt-1 text-xs text-rose-600">{fieldErrors.password}</div> : null}
+          {fieldErrors.password && (
+            <div className="mt-1.5 text-xs text-rose-600 flex items-start gap-1">
+              <svg className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span>{fieldErrors.password}</span>
+            </div>
+          )}
+          <div className="mt-1 text-xs text-slate-500">
+            💡 Min 6 characters, must include uppercase, lowercase, and number
+          </div>
         </label>
 
         {error ? (

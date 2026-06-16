@@ -1,4 +1,4 @@
-import { useState, forwardRef } from "react";
+import { useState, forwardRef, useEffect } from "react";
 
 /**
  * PayoutAccountForm Component
@@ -9,6 +9,7 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
   {
     initialData = {},
     onSubmit,
+    onChange,
     loading = false,
     showOptionalHint = true,
     submitLabel = "Save Account",
@@ -41,32 +42,97 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
         "Please provide either complete bank details or a UPI ID";
     }
 
-    if (formData.accountNumber && formData.accountNumber.length < 8) {
-      newErrors.accountNumber = "Account number must be at least 8 characters";
+    // Account Holder Name validation
+    if (formData.accountHolderName) {
+      if (formData.accountHolderName.length < 3) {
+        newErrors.accountHolderName = "Account holder name must be at least 3 characters";
+      } else if (!/^[a-zA-Z\s]+$/.test(formData.accountHolderName)) {
+        newErrors.accountHolderName = "Account holder name can only contain letters and spaces";
+      }
+    } else if (hasBankDetails) {
+      newErrors.accountHolderName = "Account holder name is required";
     }
 
-    if (formData.ifscCode && formData.ifscCode.length !== 11) {
-      newErrors.ifscCode = "IFSC code must be exactly 11 characters";
+    // Bank Name validation
+    if (formData.bankName) {
+      if (formData.bankName.length < 3) {
+        newErrors.bankName = "Bank name must be at least 3 characters";
+      } else if (!/^[a-zA-Z\s&.]+$/.test(formData.bankName)) {
+        newErrors.bankName = "Bank name can only contain letters, spaces, & and .";
+      }
+    } else if (hasBankDetails) {
+      newErrors.bankName = "Bank name is required";
     }
 
+    // Account Number validation
+    if (formData.accountNumber) {
+      const accountNum = formData.accountNumber.replace(/\s/g, "");
+      if (!/^\d+$/.test(accountNum)) {
+        newErrors.accountNumber = "Account number must contain only digits";
+      } else if (accountNum.length < 9 || accountNum.length > 18) {
+        newErrors.accountNumber = "Account number must be between 9 and 18 digits";
+      }
+    } else if (hasBankDetails) {
+      newErrors.accountNumber = "Account number is required";
+    }
+
+    // IFSC Code validation
+    if (formData.ifscCode) {
+      if (formData.ifscCode.length !== 11) {
+        newErrors.ifscCode = "IFSC code must be exactly 11 characters";
+      } else if (!/^[A-Z0-9]+$/.test(formData.ifscCode)) {
+        newErrors.ifscCode = "IFSC code must contain only uppercase letters and digits";
+      }
+    } else if (hasBankDetails) {
+      newErrors.ifscCode = "IFSC code is required";
+    }
+
+    // UPI ID validation
     if (
       formData.upiId &&
       !/^[a-zA-Z0-9._-]+@[a-zA-Z0-9]{2,}$/.test(formData.upiId)
     ) {
-      newErrors.upiId = "UPI ID format must be like: name@bank";
+      newErrors.upiId = "UPI ID format must be like: name@bank (e.g., john@icici)";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // Call onChange callback whenever form data changes
+  useEffect(() => {
+    if (onChange) {
+      onChange(formData);
+    }
+  }, [formData, onChange]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+    let newValue = value;
+
+    // Input restrictions based on field type
+    if (name === "accountHolderName") {
+      // Only letters and spaces
+      newValue = value.replace(/[^a-zA-Z\s]/g, "");
+    } else if (name === "bankName") {
+      // Only letters, spaces, &, and .
+      newValue = value.replace(/[^a-zA-Z\s&.]/g, "");
+    } else if (name === "accountNumber") {
+      // Only digits
+      newValue = value.replace(/\D/g, "");
+    } else if (name === "ifscCode") {
+      // Uppercase letters and digits only
+      newValue = value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    } else if (name === "upiId") {
+      // Lowercase for consistency
+      newValue = value.toLowerCase();
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        name === "ifscCode" ? value.toUpperCase() : value.toLowerCase?.() || value,
+      [name]: newValue,
     }));
+
     // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors((prev) => ({
@@ -106,6 +172,8 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
             value={formData.accountHolderName}
             onChange={handleChange}
             placeholder="Full name as per bank"
+            maxLength="50"
+            autoComplete="off"
             className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${
               errors.accountHolderName
                 ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
@@ -117,6 +185,9 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
               {errors.accountHolderName}
             </div>
           )}
+          <div className="mt-1 text-xs text-slate-500">
+            Letters and spaces only. {formData.accountHolderName.length}/50
+          </div>
         </label>
 
         <label className="text-sm font-medium text-slate-700">
@@ -127,15 +198,20 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
             value={formData.bankName}
             onChange={handleChange}
             placeholder="e.g., ICICI Bank"
+            maxLength="40"
+            autoComplete="off"
             className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${
               errors.bankName
-                ? "border-rose-400"
+                ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
                 : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
             }`}
           />
           {errors.bankName && (
             <div className="mt-1 text-xs text-rose-600">{errors.bankName}</div>
           )}
+          <div className="mt-1 text-xs text-slate-500">
+            Bank name (e.g., ICICI, HDFC, Axis). {formData.bankName.length}/40
+          </div>
         </label>
       </div>
 
@@ -151,10 +227,12 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
               name="accountNumber"
               value={formData.accountNumber}
               onChange={handleChange}
-              placeholder="Bank account number"
+              placeholder="9-18 digits"
+              maxLength="18"
+              autoComplete="off"
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm font-mono ${
                 errors.accountNumber
-                  ? "border-rose-400"
+                  ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
                   : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
               }`}
             />
@@ -163,6 +241,9 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
                 {errors.accountNumber}
               </div>
             )}
+            <div className="mt-1 text-xs text-slate-500">
+              Digits only: {formData.accountNumber.length} digits (9-18 required)
+            </div>
           </label>
 
           <label className="text-sm font-medium text-slate-700">
@@ -172,11 +253,12 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
               name="ifscCode"
               value={formData.ifscCode}
               onChange={handleChange}
-              placeholder="11-char IFSC code"
+              placeholder="11-CHAR CODE"
               maxLength="11"
+              autoComplete="off"
               className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm font-mono uppercase ${
                 errors.ifscCode
-                  ? "border-rose-400"
+                  ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
                   : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
               }`}
             />
@@ -185,9 +267,12 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
                 {errors.ifscCode}
               </div>
             )}
+            <div className="mt-1 text-xs text-slate-500">
+              11 characters: {formData.ifscCode.length}/11 (auto-uppercase)
+            </div>
           </label>
 
-          <div className="flex items-end text-xs text-slate-500">
+          <div className="flex items-end text-xs text-slate-500 bg-slate-50 rounded-lg p-2">
             <span>Format: BANKXXXX001</span>
           </div>
         </div>
@@ -209,14 +294,16 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
         <label className="text-sm font-medium text-slate-700">
           UPI ID (Optional)
           <input
-            type="email"
+            type="text"
             name="upiId"
             value={formData.upiId}
             onChange={handleChange}
             placeholder="yourname@bank or yourname@upi"
+            maxLength="60"
+            autoComplete="off"
             className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${
               errors.upiId
-                ? "border-rose-400"
+                ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
                 : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
             }`}
           />
@@ -224,7 +311,7 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
             <div className="mt-1 text-xs text-rose-600">{errors.upiId}</div>
           )}
           <div className="mt-1 text-xs text-slate-500">
-            Format: yourname@bank (e.g., john@icici)
+            Format: yourname@bank (e.g., john@icici, mobile@googleplay). Auto-lowercase.
           </div>
         </label>
       </div>

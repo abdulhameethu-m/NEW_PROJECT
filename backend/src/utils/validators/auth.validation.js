@@ -40,5 +40,48 @@ const loginSchema = Joi.object({
   password: Joi.string().min(6).max(128).required(),
 });
 
-module.exports = { registerSchema, loginSchema };
+const passwordResetRequestSchema = Joi.object({
+  identifier: Joi.string()
+    .trim()
+    .custom((value, helpers) => {
+      if (!value) return helpers.error("any.required");
+      if (value.includes("@")) {
+        if (!gmailPattern.test(value)) {
+          return helpers.message("Email must be a valid Gmail address");
+        }
+        return value;
+      }
+      if (!phonePattern.test(value)) {
+        return helpers.message("Phone number must be exactly 10 digits");
+      }
+      return value;
+    })
+    .required(),
+});
+
+const passwordResetSchema = Joi.object({
+  token: Joi.string().trim().required(),
+  password: Joi.string().min(6).max(128).required(),
+});
+
+const findUserForRecoverySchema = Joi.object({
+  identifier: Joi.string()
+    .trim()
+    .custom((value, helpers) => {
+      if (!value) return helpers.error("any.required");
+      if (value.includes("@")) {
+        if (!gmailPattern.test(value)) {
+          return helpers.message("Email must be a valid Gmail address");
+        }
+        return value;
+      }
+      if (!phonePattern.test(value)) {
+        return helpers.message("Phone number must be exactly 10 digits");
+      }
+      return value;
+    })
+    .required(),
+});
+
+module.exports = { registerSchema, loginSchema, passwordResetRequestSchema, passwordResetSchema, findUserForRecoverySchema };
 

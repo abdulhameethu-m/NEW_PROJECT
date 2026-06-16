@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { BackButton } from "../components/BackButton";
 import { PayoutAccountForm } from "../components/PayoutAccountForm";
 import * as vendorService from "../services/vendorService";
 import { LocationPickerMap } from "../components/LocationPickerMap";
@@ -75,6 +74,13 @@ export function VendorOnboardingPage() {
   const [noGst, setNoGst] = useState(false);
   const [gstNumber, setGstNumber] = useState("");
   const [documents, setDocuments] = useState([]);
+
+  // Step 3 - Bank Details (persisted locally)
+  const [accountHolderName, setAccountHolderName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [ifscCode, setIfscCode] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [upiId, setUpiId] = useState("");
 
   // Step 4
   const [shopName, setShopName] = useState("");
@@ -174,6 +180,12 @@ export function VendorOnboardingPage() {
         setVendor(res.data);
         setStep(2);
       } else if (step === 2) {
+        // Validate GST
+        if (!noGst && gstNumber.length !== 15) {
+          setError("GST number must be exactly 15 digits");
+          setSaving(false);
+          return;
+        }
         const res = await vendorService.saveStep2({
           gstNumber,
           noGst,
@@ -206,7 +218,6 @@ export function VendorOnboardingPage() {
             Complete the steps and submit for admin approval.
           </p>
         </div>
-        <BackButton fallbackTo="/" />
         <div className="rounded-xl border bg-white px-4 py-3 text-sm shadow-sm">
           <div className="text-xs text-slate-500">Completed</div>
           <div className="font-semibold">{completed}/4</div>
@@ -423,24 +434,99 @@ export function VendorOnboardingPage() {
               <input
                 className="mt-1 w-full rounded-lg border px-3 py-2"
                 value={gstNumber}
-                onChange={(e) => setGstNumber(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, "").slice(0, 15);
+                  setGstNumber(value);
+                }}
                 disabled={noGst}
-                placeholder={noGst ? "Not required" : "Enter GST number"}
+                placeholder={noGst ? "Not required" : "Enter 15-digit GST number"}
+                maxLength="15"
               />
+              <div className="mt-1 text-xs text-slate-500">
+                GST number must be exactly 15 digits. Entered: {gstNumber.length}/15
+              </div>
+              {gstNumber && gstNumber.length !== 15 ? (
+                <div className="mt-1 text-xs text-rose-600">GST number must be exactly 15 digits</div>
+              ) : null}
             </label>
             <label className="text-sm font-medium">
               Upload verification documents (PDF/JPG/PNG/WebP)
-              <input
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                type="file"
-                multiple
-                accept=".pdf,image/*"
-                onChange={(e) => setDocuments(Array.from(e.target.files || []))}
-              />
-              <div className="mt-1 text-xs text-slate-500">
+              <div
+                className="mt-2 w-full rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center transition hover:border-slate-400 hover:bg-slate-100"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.add("border-blue-400", "bg-blue-50");
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.classList.remove("border-blue-400", "bg-blue-50");
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove("border-blue-400", "bg-blue-50");
+                  if (!noGst) {
+                    const files = Array.from(e.dataTransfer.files || []);
+                    setDocuments((prev) => [...prev, ...files]);
+                  }
+                }}
+              >
+                <input
+                  id="file-upload"
+                  className="hidden"
+                  type="file"
+                  multiple
+                  accept=".pdf,image/*"
+                  disabled={noGst}
+                  onChange={(e) => {
+                    if (!noGst) {
+                      setDocuments((prev) => [...prev, ...Array.from(e.target.files || [])]);
+                    }
+                  }}
+                />
+                <label htmlFor="file-upload" className="cursor-pointer">
+                  <div className="text-sm font-medium text-slate-700">
+                    Drag and drop files here or click to browse
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    PDF, JPG, PNG, WebP files supported
+                  </div>
+                </label>
+              </div>
+              <div className="mt-2 text-xs text-slate-500">
                 You can upload now or later. Files are appended to your profile.
               </div>
+              {noGst ? (
+                <div className="mt-2 text-xs text-amber-600">Upload is disabled when "No GST" is selected</div>
+              ) : null}
             </label>
+
+            {documents.length > 0 ? (
+              <div className="mt-4">
+                <div className="text-sm font-medium mb-2">Uploaded Documents ({documents.length})</div>
+                <div className="grid gap-2">
+                  {documents.map((doc, idx) => (
+                    <div key={idx} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-xs text-slate-700 truncate">{doc.name}</span>
+                        <span className="text-xs text-slate-500">({(doc.size / 1024 / 1024).toFixed(2)} MB)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDocuments((prev) => prev.filter((_, i) => i !== idx))}
+                        className="rounded-lg p-1 hover:bg-red-100 transition"
+                        title="Delete file"
+                      >
+                        <svg className="h-4 w-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -452,6 +538,20 @@ export function VendorOnboardingPage() {
             </p>
             <PayoutAccountForm
               ref={step3FormRef}
+              initialData={{
+                accountHolderName,
+                accountNumber,
+                ifscCode,
+                bankName,
+                upiId,
+              }}
+              onChange={(data) => {
+                setAccountHolderName(data.accountHolderName);
+                setAccountNumber(data.accountNumber);
+                setIfscCode(data.ifscCode);
+                setBankName(data.bankName);
+                setUpiId(data.upiId);
+              }}
               onSubmit={async (formData) => {
                 try {
                   setError("");
@@ -497,17 +597,77 @@ export function VendorOnboardingPage() {
             </label>
             <label className="text-sm font-medium">
               Upload 4–5 shop images (JPG/PNG/WebP)
-              <input
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={(e) => setShopImages(Array.from(e.target.files || []))}
-              />
-              <div className="mt-1 text-xs text-slate-500">
+              <div
+                className="mt-2 w-full rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center transition hover:border-slate-400 hover:bg-slate-100"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.add("border-blue-400", "bg-blue-50");
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.classList.remove("border-blue-400", "bg-blue-50");
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove("border-blue-400", "bg-blue-50");
+                  const files = Array.from(e.dataTransfer.files || []).filter((file) =>
+                    file.type.startsWith("image/")
+                  );
+                  setShopImages((prev) => [...prev, ...files]);
+                }}
+              >
+                <input
+                  id="shop-image-upload"
+                  className="hidden"
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setShopImages((prev) => [...prev, ...files]);
+                  }}
+                />
+                <label htmlFor="shop-image-upload" className="cursor-pointer">
+                  <div className="text-sm font-medium text-slate-700">
+                    Drag and drop images here or click to browse
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    JPG, PNG, WebP images supported (4–5 recommended)
+                  </div>
+                </label>
+              </div>
+              <div className="mt-2 text-xs text-slate-500">
                 Final submission will set status to <span className="font-semibold">pending</span>.
               </div>
             </label>
+
+            {shopImages.length > 0 ? (
+              <div className="mt-4">
+                <div className="text-sm font-medium mb-2">Uploaded Images ({shopImages.length})</div>
+                <div className="grid gap-2">
+                  {shopImages.map((image, idx) => (
+                    <div key={idx} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-xs text-slate-700 truncate">{image.name}</span>
+                        <span className="text-xs text-slate-500">({(image.size / 1024 / 1024).toFixed(2)} MB)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShopImages((prev) => prev.filter((_, i) => i !== idx))}
+                        className="rounded-lg p-1 hover:bg-red-100 transition"
+                        title="Delete image"
+                      >
+                        <svg className="h-4 w-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

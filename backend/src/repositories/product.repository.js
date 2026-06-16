@@ -265,8 +265,12 @@ class ProductRepository {
   }
 
   // Find product by slug
-  async findBySlug(slug) {
-    return await Product.findOne({ slug }).populate("sellerId", SELLER_PUBLIC_FIELDS).populate("createdBy", "name email");
+  async findBySlug(slug, sellerId = null) {
+    const query = { slug };
+    if (sellerId) {
+      query.sellerId = sellerId;
+    }
+    return await Product.findOne(query).populate("sellerId", SELLER_PUBLIC_FIELDS).populate("createdBy", "name email");
   }
 
   // Find by SKU

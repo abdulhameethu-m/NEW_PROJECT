@@ -135,6 +135,22 @@ const mergeGuestData = asyncHandler(async (req, res) => {
   return ok(res, result, "Guest data merged successfully");
 });
 
+const requestPasswordReset = asyncHandler(async (req, res) => {
+  const result = await authService.requestPasswordReset(req.body.identifier);
+  return ok(res, result, "Password reset requested");
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const result = await authService.resetPassword(req.body.token, req.body.password);
+  clearSessionCookies(res);
+  return ok(res, result, "Password updated successfully");
+});
+
+const findUserForRecovery = asyncHandler(async (req, res) => {
+  const result = await authService.findUserByEmailOrPhone(req.body.identifier);
+  return ok(res, result, "User found");
+});
+
 module.exports = {
   register,
   login,
@@ -145,4 +161,7 @@ module.exports = {
   updateThemePreference,
   mergeGuestData,
   csrf,
+  requestPasswordReset,
+  resetPassword,
+  findUserForRecovery,
 };

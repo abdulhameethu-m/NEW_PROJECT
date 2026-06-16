@@ -14,37 +14,82 @@ export function isValidEmail(email) {
   return EMAIL_REGEX.test(String(email || "").trim());
 }
 
-export function validateAuthForm({ identifier, email, phone, password, requireEmail = false } = {}) {
+export function validateAuthForm({ identifier, name, email, phone, password, requireEmail = false } = {}) {
   const errors = {};
+
+  // Name validation
+  if (name !== undefined) {
+    const trimmedName = String(name || "").trim();
+    if (!trimmedName) {
+      errors.name = "Name is required";
+    } else if (trimmedName.length < 2) {
+      errors.name = "Name must be at least 2 characters";
+    } else if (trimmedName.length > 50) {
+      errors.name = "Name must not exceed 50 characters";
+    } else if (!/^[a-zA-Z\s'-]+$/.test(trimmedName)) {
+      errors.name = "Name can only contain letters, spaces, hyphens, and apostrophes";
+    }
+  }
 
   if (identifier !== undefined) {
     const value = String(identifier || "").trim();
     if (!value) {
-      errors.identifier = "Enter your 10-digit phone number or Gmail address.";
+      errors.identifier = "Phone or email is required";
     } else if (value.includes("@")) {
       if (!isValidEmail(value)) {
-        errors.identifier = "Use a valid email address.";
+        errors.identifier = "Enter a valid email address (e.g., name@gmail.com)";
       }
-    } else if (!isValidPhone(value)) {
-      errors.identifier = "Phone number must be exactly 10 digits.";
+    } else {
+      const digitsOnly = value.replace(/\D/g, "");
+      if (digitsOnly.length !== 10) {
+        errors.identifier = "Phone number must be exactly 10 digits";
+      } else if (!isValidPhone(digitsOnly)) {
+        errors.identifier = "Enter a valid 10-digit phone number";
+      }
     }
   }
 
   if (email !== undefined) {
     const normalizedEmail = String(email || "").trim();
     if (requireEmail && !normalizedEmail) {
-      errors.email = "Email is required.";
-    } else if (normalizedEmail && !isValidGmail(normalizedEmail)) {
-      errors.email = "Use a valid Gmail address ending with @gmail.com.";
+      errors.email = "Email is required";
+    } else if (normalizedEmail) {
+      if (!isValidEmail(normalizedEmail)) {
+        errors.email = "Enter a valid email address";
+      }
+      if (!isValidGmail(normalizedEmail)) {
+        errors.email = "Email must be a Gmail address (@gmail.com)";
+      }
     }
   }
 
-  if (phone !== undefined && !isValidPhone(phone)) {
-    errors.phone = "Phone number must be exactly 10 digits.";
+  if (phone !== undefined) {
+    const trimmedPhone = String(phone || "").trim();
+    if (trimmedPhone) {
+      const digitsOnly = trimmedPhone.replace(/\D/g, "");
+      if (digitsOnly.length !== 10) {
+        errors.phone = "Phone number must be exactly 10 digits";
+      } else if (!isValidPhone(digitsOnly)) {
+        errors.phone = "Enter a valid 10-digit phone number";
+      }
+    }
   }
 
-  if (password !== undefined && String(password || "").length < 6) {
-    errors.password = "Password must be at least 6 characters.";
+  if (password !== undefined) {
+    const pwd = String(password || "");
+    if (!pwd) {
+      errors.password = "Password is required";
+    } else if (pwd.length < 6) {
+      errors.password = "Password must be at least 6 characters";
+    } else if (pwd.length > 128) {
+      errors.password = "Password must not exceed 128 characters";
+    } else if (!/[a-z]/.test(pwd)) {
+      errors.password = "Password must contain at least one lowercase letter";
+    } else if (!/[A-Z]/.test(pwd)) {
+      errors.password = "Password must contain at least one uppercase letter";
+    } else if (!/[0-9]/.test(pwd)) {
+      errors.password = "Password must contain at least one number";
+    }
   }
 
   return errors;

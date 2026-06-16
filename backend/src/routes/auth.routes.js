@@ -2,7 +2,13 @@ const express = require("express");
 const { validate } = require("../middleware/validate");
 const { authRequired, authOptional } = require("../middleware/auth");
 const authController = require("../controllers/auth.controller");
-const { registerSchema, loginSchema } = require("../utils/validators/auth.validation");
+const { 
+  registerSchema, 
+  loginSchema, 
+  passwordResetRequestSchema, 
+  passwordResetSchema,
+  findUserForRecoverySchema 
+} = require("../utils/validators/auth.validation");
 const { AppError } = require("../utils/AppError");
 
 const router = express.Router();
@@ -27,6 +33,17 @@ router.post("/logout", authOptional, authController.logout);
 router.post("/logout-all", authRequired, authController.logoutAll);
 router.get("/me", authRequired, authController.me);
 router.patch("/preferences/theme", authRequired, authController.updateThemePreference);
+
+/**
+ * PASSWORD RESET ENDPOINTS
+ */
+router.post("/password-reset/request", validate(passwordResetRequestSchema), authController.requestPasswordReset);
+router.post("/password-reset/confirm", validate(passwordResetSchema), authController.resetPassword);
+
+/**
+ * FORGOT USERNAME ENDPOINT
+ */
+router.post("/forgot-username", validate(findUserForRecoverySchema), authController.findUserForRecovery);
 
 /**
  * POST-LOGIN MERGE

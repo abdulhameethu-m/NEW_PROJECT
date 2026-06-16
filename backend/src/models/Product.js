@@ -126,7 +126,6 @@ const productSchema = new mongoose.Schema(
     slug: {
       type: String,
       required: true,
-      unique: true,
       lowercase: true,
       index: true,
     },
@@ -409,6 +408,8 @@ productSchema.index({ status: 1, isActive: 1, createdAt: -1 });
 productSchema.index({ "attributes.$**": 1 });
 productSchema.index({ "variants.attributes.$**": 1 });
 productSchema.index({ "variants.stock": 1, isActive: 1, status: 1 });
+// Compound unique index: allows same slug for different vendors
+productSchema.index({ slug: 1, sellerId: 1 }, { unique: true });
 
 module.exports = {
   Product: mongoose.model("Product", productSchema),
