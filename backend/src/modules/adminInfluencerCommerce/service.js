@@ -17,10 +17,8 @@ const {
 const {
   CommissionRecord,
   InfluencerWallet,
-  InfluencerLedger,
   InfluencerPayoutAccount,
 } = require("../commission/models");
-const { Reel } = require("../reel/model");
 const { TrackingSession } = require("../tracking/model");
 
 async function upsertProductAssignments({ campaign, influencerId, status = "approved", source = "admin_manual", actorId = null }) {
@@ -49,7 +47,6 @@ const { Order } = require("../../models/Order");
 const { AuditLog } = require("../../models/AuditLog");
 const PlatformConfig = require("../../models/PlatformConfig");
 const { VendorInfluencerRelationship } = require("../influencerCommerce/model");
-const { InfluencerCommerceFraudAlert, InfluencerCommerceReportSchedule } = require("./model");
 const {
   VendorSubscription,
   SubscriptionPayment,
@@ -163,30 +160,6 @@ function normalizeCampaignState(payload = {}) {
   return map[requested] || "";
 }
 
-function normalizeCommissionState(payload = {}) {
-  const requested = String(payload.action || payload.state || "").toLowerCase();
-  const map = {
-    hold: "HOLD",
-    held: "HOLD",
-    settle: "SETTLED",
-    settled: "SETTLED",
-    cancel: "CANCELLED",
-    cancelled: "CANCELLED",
-    canceled: "CANCELLED",
-    reverse: "REVERSED",
-    reversed: "REVERSED",
-  };
-  return map[requested] || "";
-}
-
-async function getOrCreateAdminWallet(influencerId) {
-  return await InfluencerWallet.findOneAndUpdate(
-    { influencerId },
-    { $setOnInsert: { influencerId } },
-    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
-  );
-}
-
 class AdminInfluencerCommerceService {
   dateMatch(query = {}) {
     const { start, end } = parseRange(query);
@@ -252,8 +225,6 @@ class AdminInfluencerCommerceService {
       totalVendors,
       activeCampaigns,
       commissionAgg,
-      contentPendingApproval,
-      fraudAlerts,
       recentCampaigns,
       topInfluencers,
       topVendors,
@@ -284,8 +255,6 @@ class AdminInfluencerCommerceService {
         { $match: commissionMatch },
         { $group: { _id: null, revenue: { $sum: "$gross" }, commission: { $sum: "$influencerShare" }, paid: { $sum: { $cond: [{ $eq: ["$state", "SETTLED"] }, "$influencerShare", 0] } }, pending: { $sum: { $cond: [{ $eq: ["$state", "HOLD"] }, "$influencerShare", 0] } }, orders: { $sum: 1 } } },
       ]),
-      Reel.countDocuments({ state: { $in: ["uploaded", "pending_review"] } }),
-      InfluencerCommerceFraudAlert.countDocuments({ status: { $in: ["OPEN", "UNDER_REVIEW", "ESCALATED"] } }),
       Campaign.find(campaignMatch).populate("vendorId", "shopName companyName").populate({ path: "influencerId", populate: { path: "userId", select: "name email" } }).sort({ createdAt: -1 }).limit(8).lean(),
       CommissionRecord.aggregate([{ $match: commissionMatch }, { $group: { _id: "$influencerId", revenue: { $sum: "$gross" }, commission: { $sum: "$influencerShare" }, orders: { $sum: 1 } } }, { $sort: { revenue: -1 } }, { $limit: 8 }]),
       CommissionRecord.aggregate([{ $match: commissionMatch }, { $group: { _id: "$vendorId", revenue: { $sum: "$gross" }, commission: { $sum: "$influencerShare" }, orders: { $sum: 1 } } }, { $sort: { revenue: -1 } }, { $limit: 8 }]),
@@ -336,8 +305,6 @@ class AdminInfluencerCommerceService {
         campaignRevenue: money(summary.revenue),
         commissionPaid: money(summary.paid),
         escrowBalance: money(summary.pending),
-        contentPendingApproval,
-        fraudAlerts,
         totalSubscriptionRevenue: money(subscriptionSummary.gross),
         monthlySubscriptionRevenue: money(monthlySubscriptionRevenueAgg[0]?.gross || 0),
         annualSubscriptionRevenue: money(annualSubscriptionRevenueAgg[0]?.gross || 0),
@@ -363,8 +330,6 @@ class AdminInfluencerCommerceService {
         topInfluencers: topInfluencers.map((row) => ({ ...row, influencer: influencerMap.get(String(row._id)), name: influencerName(influencerMap.get(String(row._id))) })),
         topVendors: topVendors.map((row) => ({ ...row, vendor: vendorMap.get(String(row._id)), name: vendorName(vendorMap.get(String(row._id))) })),
         pendingVerifications,
-        pendingContentReviews: await Reel.find({ state: { $in: ["uploaded", "pending_review"] } }).populate({ path: "influencerId", populate: { path: "userId", select: "name email" } }).populate("campaignId", "title vendorId").sort({ createdAt: -1 }).limit(8).lean(),
-        recentFraudAlerts: await InfluencerCommerceFraudAlert.find({}).sort({ createdAt: -1 }).limit(8).lean(),
         subscriptionRevenue: subscriptionSummary,
         planDistribution,
         mostUpgradedPlans,
@@ -483,95 +448,6 @@ class AdminInfluencerCommerceService {
       }),
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
-  }
-
-  async applications(query = {}) {
-    const campaignFilter = this.campaignFilter(query);
-    const campaigns = await Campaign.find(campaignFilter).populate("vendorId", "shopName companyName").lean();
-    const rows = campaigns.flatMap((campaign) => (campaign.applications || []).map((application) => ({
-      id: `${campaign._id}:${application.influencerId}`,
-      campaignId: campaign._id,
-      campaignTitle: campaign.title,
-      vendorId: campaign.vendorId?._id || campaign.vendorId,
-      vendorName: vendorName(campaign.vendorId),
-      ...application,
-    })));
-    const influencerIds = rows.map((row) => row.influencerId).filter(Boolean);
-    const influencers = influencerIds.length ? await InfluencerProfile.find({ _id: { $in: influencerIds } }).populate("userId", "name email").lean() : [];
-    const map = new Map(influencers.map((row) => [String(row._id), row]));
-    return {
-      items: rows.map((row) => ({ ...row, influencer: map.get(String(row.influencerId)), influencerName: influencerName(map.get(String(row.influencerId))) })),
-      pagination: { total: rows.length, page: 1, limit: rows.length || 1, pages: 1 },
-    };
-  }
-
-  async reviewCampaignApplication(actor, campaignId, influencerId, payload = {}) {
-    const campaign = await Campaign.findById(campaignId);
-    if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
-    const application = campaign.applications.find((item) => String(item.influencerId) === String(influencerId));
-    if (!application) throw new AppError("Application not found", 404, "NOT_FOUND");
-    const decision = payload.decision || (payload.status === "approved" ? "approve" : payload.status === "rejected" ? "reject" : payload.status === "submitted" ? "reopen" : "");
-    if (decision === "reopen") application.status = "submitted";
-    else application.status = decision === "approve" ? "approved" : "rejected";
-    application.reviewedAt = new Date();
-    campaign.history.push({ state: application.status, actorId: actor.sub || actor._id, note: payload.note || `Admin ${application.status} application`, changedAt: new Date() });
-    await campaign.save();
-    if (application.status === "approved") {
-      await Promise.all([
-        upsertProductAssignments({ campaign, influencerId, status: campaign.state === "active" ? "active" : "approved", source: "admin_manual", actorId: actor.sub || actor._id }),
-        VendorInfluencerRelationship.findOneAndUpdate(
-          { vendorId: campaign.vendorId, influencerId },
-          {
-            $set: {
-              status: campaign.state === "active" ? "active" : "approved",
-              source: "campaign_application",
-              lastActivityAt: new Date(),
-            },
-            ...(campaign.state === "active" ? { $addToSet: { activeCampaignIds: campaign._id } } : {}),
-          },
-          { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
-        ),
-      ]);
-      await influencerRateCardService.lockCampaignContract(campaign._id, {
-        influencerId,
-        actorId: actor.sub || actor._id,
-        source: "admin_application_approval",
-      });
-    } else if (application.status === "rejected") {
-      await Promise.all([
-        InfluencerProductAssignment.updateMany(
-          { campaignId: campaign._id, influencerId },
-          { $set: { status: "rejected", removedAt: new Date(), "metadata.lastActorId": actor.sub || actor._id } }
-        ),
-        VendorInfluencerRelationship.findOneAndUpdate(
-          { vendorId: campaign.vendorId, influencerId },
-          { $pull: { activeCampaignIds: campaign._id }, $set: { status: "paused", lastActivityAt: new Date() } },
-          { returnDocument: "after" }
-        ),
-      ]);
-    } else {
-      await Promise.all([
-        InfluencerProductAssignment.updateMany(
-          { campaignId: campaign._id, influencerId },
-          { $set: { status: "assigned", "metadata.lastActorId": actor.sub || actor._id } }
-        ),
-        VendorInfluencerRelationship.findOneAndUpdate(
-          { vendorId: campaign.vendorId, influencerId },
-          { $pull: { activeCampaignIds: campaign._id }, $set: { status: "applied", lastActivityAt: new Date() } },
-          { returnDocument: "after" }
-        ),
-      ]);
-    }
-    await auditService.log({ actor, action: `admin.influencer_commerce.application.${application.status}`, entityType: "Campaign", entityId: campaign._id, metadata: { influencerId, note: payload.note || "" } }).catch(() => {});
-    await notificationService.notifyVendorUser(campaign.vendorId, {
-      module: "GROWTH",
-      subModule: "INFLUENCER_COMMERCE",
-      type: "CAMPAIGN_APPLICATION",
-      title: "Campaign application updated",
-      message: `Admin marked an application as ${application.status}.`,
-      referenceId: campaign._id,
-    }).catch(() => {});
-    return campaign;
   }
 
   async updateCampaign(actor, campaignId, payload = {}) {
@@ -758,83 +634,6 @@ class AdminInfluencerCommerceService {
     };
   }
 
-  async affiliateProducts(query = {}) {
-    const { page, limit, skip } = pageOptions(query);
-    const [
-      assignmentProductIds,
-      affiliateLinkProductIds,
-      campaignProductRows,
-      trackingProductIds,
-      commissionProductRows,
-    ] = await Promise.all([
-      InfluencerProductAssignment.distinct("productId", { status: { $in: ["assigned", "accepted", "approved", "active"] } }).catch(() => []),
-      AffiliateLink.distinct("productId", { status: "active" }).catch(() => []),
-      Campaign.find({ campaignType: "affiliate", state: { $nin: ["cancelled", "completed"] } }).select("productIds").lean().catch(() => []),
-      TrackingSession.distinct("productId", {}).catch(() => []),
-      CommissionRecord.find({ "metadata.productId": { $exists: true, $ne: null } }).select("metadata.productId").lean().catch(() => []),
-    ]);
-    const affiliateProductObjectIds = oidList([
-      assignmentProductIds,
-      affiliateLinkProductIds,
-      campaignProductRows.flatMap((campaign) => campaign.productIds || []),
-      trackingProductIds,
-      commissionProductRows.map((row) => row.metadata?.productId),
-    ]);
-
-    if (!affiliateProductObjectIds.length) {
-      return { items: [], pagination: { total: 0, page, limit, pages: 1 } };
-    }
-
-    const filter = {
-      _id: { $in: affiliateProductObjectIds },
-      status: "APPROVED",
-      isActive: true,
-    };
-    if (query.search) filter.name = new RegExp(escapeRegex(query.search), "i");
-    if (query.category) filter.category = query.category;
-    if (oid(query.vendorId)) filter.sellerId = oid(query.vendorId);
-    const [items, total, commissionRows, assignmentRows] = await Promise.all([
-      Product.find(filter).populate("sellerId", "shopName companyName").sort({ "analytics.salesCount": -1, createdAt: -1 }).skip(skip).limit(limit).lean(),
-      Product.countDocuments(filter),
-      CommissionRecord.aggregate([
-        { $match: { "metadata.productId": { $in: affiliateProductObjectIds } } },
-        { $group: { _id: "$metadata.productId", revenue: { $sum: "$gross" }, commission: { $sum: "$influencerShare" }, orders: { $sum: 1 }, influencers: { $addToSet: "$influencerId" } } },
-      ]),
-      InfluencerProductAssignment.aggregate([
-        { $match: { productId: { $in: affiliateProductObjectIds }, status: { $in: ["assigned", "accepted", "approved", "active"] } } },
-        { $group: { _id: "$productId", influencers: { $addToSet: "$influencerId" } } },
-      ]),
-    ]);
-    const map = new Map(commissionRows.map((row) => [String(row._id), row]));
-    const assignmentMap = new Map(assignmentRows.map((row) => [String(row._id), row]));
-    return {
-      items: items.map((product) => {
-        const stats = map.get(String(product._id)) || {};
-        const assignments = assignmentMap.get(String(product._id)) || {};
-        const influencerIds = new Set([...(stats.influencers || []), ...(assignments.influencers || [])].filter(Boolean).map(String));
-        const clicks = Number(product.analytics?.views || 0);
-        const orders = Number(stats.orders || product.analytics?.salesCount || 0);
-        return {
-          id: product._id,
-          product,
-          name: product.name,
-          vendorName: vendorName(product.sellerId),
-          vendor: product.sellerId,
-          image: productImage(product),
-          affiliate: true,
-          influencersPromoting: influencerIds.size,
-          clicks,
-          orders,
-          revenue: money(stats.revenue || product.analytics?.totalRevenue),
-          commission: money(stats.commission),
-          conversionRate: clicks ? money((orders / clicks) * 100) : 0,
-          status: product.status,
-        };
-      }),
-      pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
-    };
-  }
-
   async affiliateLinks(query = {}) {
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 100));
     const filter = {};
@@ -951,75 +750,6 @@ class AdminInfluencerCommerceService {
     };
   }
 
-  async content(query = {}) {
-    const { page, limit, skip } = pageOptions(query);
-    const filter = {};
-    if (query.status) filter.state = query.status;
-    if (query.contentType) filter.contentType = query.contentType;
-    if (oid(query.campaignId)) filter.campaignId = oid(query.campaignId);
-    if (oid(query.influencerId)) filter.influencerId = oid(query.influencerId);
-    if (query.startDate || query.endDate) Object.assign(filter, this.dateMatch(query));
-    if (query.category) filter.category = query.category;
-    if (query.search) {
-      const re = new RegExp(escapeRegex(query.search), "i");
-      const [campaignIds, influencerIds, productIds] = await Promise.all([
-        Campaign.find({ $or: [{ title: re }, { category: re }] }).distinct("_id").catch(() => []),
-        InfluencerProfile.find({ $or: [{ displayName: re }, { influencerCode: re }, { primaryCategory: re }] }).distinct("_id").catch(() => []),
-        Product.find({ $or: [{ name: re }, { category: re }] }).distinct("_id").catch(() => []),
-      ]);
-      filter.$or = [
-        { title: re },
-        { caption: re },
-        { description: re },
-        { category: re },
-        { tags: re },
-        ...(campaignIds.length ? [{ campaignId: { $in: campaignIds } }] : []),
-        ...(influencerIds.length ? [{ influencerId: { $in: influencerIds } }] : []),
-        ...(productIds.length ? [{ productIds: { $in: productIds } }] : []),
-      ];
-    }
-    const [items, total] = await Promise.all([
-      Reel.find(filter).populate({ path: "influencerId", populate: { path: "userId", select: "name email" } }).populate({ path: "campaignId", populate: { path: "vendorId", select: "shopName companyName" } }).populate("productIds", "name category thumbnail images").sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      Reel.countDocuments(filter),
-    ]);
-    return {
-      items: items.map((row) => ({
-        ...row,
-        creatorName: influencerName(row.influencerId),
-        vendorName: vendorName(row.campaignId?.vendorId),
-        campaignTitle: row.campaignId?.title,
-        products: row.productIds || [],
-        productNames: (row.productIds || []).map((product) => product?.name).filter(Boolean),
-        reviewTitle: row.title || row.caption || "Untitled content",
-        reviewText: row.caption || row.description || "",
-        moderationNotes: row.moderation?.notes || "",
-      })),
-      pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
-    };
-  }
-
-  async moderateContent(actor, reelId, payload = {}) {
-    const nextState = payload.decision === "approve" ? "approved" : payload.decision === "publish" ? "published" : payload.decision === "changes" ? "pending_review" : "rejected";
-    const update = {
-      state: nextState,
-      "moderation.reviewerId": actor.sub || actor._id,
-      "moderation.reviewedAt": new Date(),
-      "moderation.notes": payload.note || payload.requestedChanges || "",
-    };
-    if (nextState === "published") {
-      update.visibility = "published";
-      update.publishedAt = new Date();
-    }
-    const reel = await Reel.findByIdAndUpdate(
-      reelId,
-      { $set: update },
-      { returnDocument: "after" }
-    );
-    if (!reel) throw new AppError("Content not found", 404, "NOT_FOUND");
-    await auditService.log({ actor, action: `admin.influencer_commerce.content.${payload.decision}`, entityType: "Reel", entityId: reel._id, metadata: { note: payload.note || payload.requestedChanges || "" } }).catch(() => {});
-    return reel;
-  }
-
   async productPromotions(query = {}) {
     const { page, limit } = pageOptions(query);
     const campaignFilter = { productIds: { $exists: true, $ne: [] } };
@@ -1124,131 +854,22 @@ class AdminInfluencerCommerceService {
     return { items, pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 } };
   }
 
-  async commissions(query = {}) {
+  async settlements(query = {}) {
     const { page, limit, skip } = pageOptions(query);
-    const filter = await this.applyCommissionSearch(this.commissionFilter(query), query);
+    const filter = await this.applyCommissionSearch(this.commissionFilter({ ...query, status: query.status || "HOLD" }), query);
     const [items, total] = await Promise.all([
       CommissionRecord.find(filter).populate("vendorId", "shopName companyName").populate({ path: "influencerId", populate: { path: "userId", select: "name email" } }).populate("campaignId", "title campaignType").populate("orderId", "orderNumber status paymentStatus totalAmount").sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       CommissionRecord.countDocuments(filter),
     ]);
-    return { items, pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 } };
-  }
-
-  async updateCommission(actor, commissionId, payload = {}) {
-    const nextState = normalizeCommissionState(payload);
-    if (!nextState) throw new AppError("Commission action is required", 400, "VALIDATION_ERROR");
-
-    const record = await CommissionRecord.findById(commissionId);
-    if (!record) throw new AppError("Commission record not found", 404, "NOT_FOUND");
-    const previousState = record.state;
-    const amount = money(record.influencerShare || 0);
-    const note = payload.note || "";
-
-    if (previousState === nextState) {
-      if (note) {
-        record.metadata = { ...(record.metadata || {}), adminNote: note };
-        await record.save();
-      }
-      return record;
-    }
-    if (previousState === "REVERSED") {
-      throw new AppError("Reversed commissions cannot be changed", 400, "INVALID_COMMISSION_STATE");
-    }
-    if (nextState === "HOLD" && previousState === "SETTLED") {
-      throw new AppError("Settled commissions cannot be moved back to hold. Reverse it instead.", 400, "INVALID_COMMISSION_STATE");
-    }
-    if (nextState === "SETTLED" && previousState !== "HOLD") {
-      throw new AppError("Only held commissions can be settled", 400, "INVALID_COMMISSION_STATE");
-    }
-    if (nextState === "CANCELLED" && previousState === "SETTLED") {
-      throw new AppError("Settled commissions cannot be cancelled. Reverse it instead.", 400, "INVALID_COMMISSION_STATE");
-    }
-
-    let wallet = null;
-    let ledgerEntry = null;
-    if (nextState === "SETTLED") {
-      const ledgerKey = `admin-commission-settle:${record._id}`;
-      ledgerEntry = await InfluencerLedger.findOne({ idempotencyKey: ledgerKey });
-      if (!ledgerEntry && amount > 0) {
-        wallet = await getOrCreateAdminWallet(record.influencerId);
-        const availableBalance = money((wallet.availableBalance || 0) + amount);
-        const totalEarnings = money((wallet.totalEarnings || 0) + amount);
-        wallet = await InfluencerWallet.findByIdAndUpdate(
-          wallet._id,
-          { $set: { availableBalance, totalEarnings } },
-          { returnDocument: "after", runValidators: true }
-        );
-        [ledgerEntry] = await InfluencerLedger.create([{
-          influencerId: record.influencerId,
-          orderId: record.orderId,
-          type: "CREDIT",
-          amount,
-          source: "COMMISSION",
-          idempotencyKey: ledgerKey,
-          balanceAfter: wallet.availableBalance,
-          meta: { commissionRecordId: record._id, adminAction: "settle", note },
-        }]);
-      }
-      record.settledAt = record.settledAt || new Date();
-    }
-
-    if (nextState === "REVERSED") {
-      const ledgerKey = `admin-commission-reverse:${record._id}`;
-      ledgerEntry = await InfluencerLedger.findOne({ idempotencyKey: ledgerKey });
-      if (previousState === "SETTLED" && !ledgerEntry && amount > 0) {
-        wallet = await getOrCreateAdminWallet(record.influencerId);
-        const availableBalance = Math.max(0, money((wallet.availableBalance || 0) - amount));
-        const reversedAmount = money((wallet.reversedAmount || 0) + amount);
-        wallet = await InfluencerWallet.findByIdAndUpdate(
-          wallet._id,
-          { $set: { availableBalance, reversedAmount } },
-          { returnDocument: "after", runValidators: true }
-        );
-        [ledgerEntry] = await InfluencerLedger.create([{
-          influencerId: record.influencerId,
-          orderId: record.orderId,
-          type: "DEBIT",
-          amount,
-          source: "REVERSAL",
-          idempotencyKey: ledgerKey,
-          balanceAfter: wallet.availableBalance,
-          meta: { commissionRecordId: record._id, adminAction: "reverse", previousState, note },
-        }]);
-      }
-      record.reversedAt = record.reversedAt || new Date();
-    }
-
-    record.state = nextState;
-    record.metadata = {
-      ...(record.metadata || {}),
-      adminNote: note,
-      lastAdminAction: payload.action || nextState.toLowerCase(),
-      lastAdminActionAt: new Date(),
-      lastAdminActorId: actor?.sub || actor?._id || null,
-      ...(ledgerEntry ? { lastAdminLedgerId: ledgerEntry._id } : {}),
-    };
-    await record.save();
-    await auditService.log({
-      actor,
-      action: `admin.influencer_commerce.commission.${nextState.toLowerCase()}`,
-      entityType: "CommissionRecord",
-      entityId: record._id,
-      metadata: { previousState, nextState, amount, note, ledgerId: ledgerEntry?._id },
-    }).catch(() => {});
-    return await CommissionRecord.findById(record._id).populate("vendorId", "shopName companyName").populate({ path: "influencerId", populate: { path: "userId", select: "name email" } }).populate("campaignId", "title campaignType").populate("orderId", "orderNumber status paymentStatus totalAmount").lean();
-  }
-
-  async settlements(query = {}) {
-    const records = await this.commissions({ ...query, status: query.status || "HOLD" });
     return {
-      ...records,
-      items: records.items.map((row) => ({
+      items: items.map((row) => ({
         ...row,
         escrowAmount: row.influencerShare,
         commissionHold: row.influencerShare,
         settlementStatus: row.state,
         releasedDate: row.settledAt,
       })),
+      pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
   }
 
@@ -1265,253 +886,6 @@ class AdminInfluencerCommerceService {
       items: wallets.map((wallet) => ({ ...wallet, influencerName: influencerName(wallet.influencerId), payoutAccount: accountMap.get(String(wallet.influencerId?._id || wallet.influencerId)) })),
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
-  }
-
-  async creatorPerformance(query = {}) {
-    const { page, limit } = pageOptions(query, 25);
-    const { start, end } = parseRange(query);
-    const commissionMatch = { createdAt: { $gte: start, $lte: end } };
-    if (oid(query.vendorId)) commissionMatch.vendorId = oid(query.vendorId);
-    if (oid(query.influencerId)) commissionMatch.influencerId = oid(query.influencerId);
-    if (oid(query.campaignId)) commissionMatch.campaignId = oid(query.campaignId);
-    if (["HOLD", "SETTLED", "CANCELLED", "REVERSED"].includes(String(query.status || query.state || "").toUpperCase())) {
-      commissionMatch.state = String(query.status || query.state).toUpperCase();
-    }
-
-    const trackingMatch = { createdAt: { $gte: start, $lte: end } };
-    if (oid(query.influencerId)) trackingMatch.influencerId = oid(query.influencerId);
-    if (oid(query.campaignId)) trackingMatch.campaignId = oid(query.campaignId);
-    if (oid(query.productId)) trackingMatch.productId = oid(query.productId);
-
-    const [commissionRows, trackingRows] = await Promise.all([
-      CommissionRecord.aggregate([
-        { $match: commissionMatch },
-        {
-          $group: {
-            _id: "$influencerId",
-            revenue: { $sum: "$gross" },
-            commission: { $sum: "$influencerShare" },
-            orders: { $sum: 1 },
-            settledCommission: { $sum: { $cond: [{ $eq: ["$state", "SETTLED"] }, "$influencerShare", 0] } },
-            heldCommission: { $sum: { $cond: [{ $eq: ["$state", "HOLD"] }, "$influencerShare", 0] } },
-            reversedCommission: { $sum: { $cond: [{ $eq: ["$state", "REVERSED"] }, "$influencerShare", 0] } },
-          },
-        },
-      ]),
-      TrackingSession.aggregate([
-        { $match: trackingMatch },
-        { $group: { _id: "$influencerId", clicks: { $sum: 1 }, surfaces: { $addToSet: "$surface" } } },
-      ]),
-    ]);
-
-    const ids = [...new Set([
-      ...commissionRows.map((row) => String(row._id || "")),
-      ...trackingRows.map((row) => String(row._id || "")),
-    ].filter((id) => mongoose.Types.ObjectId.isValid(id)))].map((id) => new mongoose.Types.ObjectId(id));
-
-    const profileFilter = ids.length ? { _id: { $in: ids } } : {};
-    if (oid(query.influencerId)) profileFilter._id = oid(query.influencerId);
-    if (query.status && !["HOLD", "SETTLED", "CANCELLED", "REVERSED"].includes(String(query.status).toUpperCase())) {
-      profileFilter.state = String(query.status).toLowerCase();
-    }
-    if (query.category) {
-      const category = String(query.category).trim();
-      profileFilter.$or = [
-        { primaryCategory: category },
-        { categories: category },
-        { secondaryCategories: category },
-        { contentNiche: category },
-        { customCategory: category },
-      ];
-    }
-    if (query.search) {
-      const re = new RegExp(escapeRegex(query.search), "i");
-      const searchClause = { $or: [{ displayName: re }, { storeName: re }, { storeSlug: re }, { influencerCode: re }, { primaryCategory: re }, { customCategory: re }] };
-      if (profileFilter.$or) {
-        profileFilter.$and = [{ $or: profileFilter.$or }, searchClause];
-        delete profileFilter.$or;
-      } else {
-        Object.assign(profileFilter, searchClause);
-      }
-    }
-
-    const [profiles, reels] = ids.length || Object.keys(profileFilter).length ? await Promise.all([
-      InfluencerProfile.find(profileFilter).populate("userId", "name email").lean(),
-      Reel.aggregate([{ $match: ids.length ? { influencerId: { $in: ids } } : {} }, { $group: { _id: "$influencerId", reelClicks: { $sum: "$metrics.clicks" }, engagement: { $sum: { $add: ["$metrics.likes", "$metrics.comments", "$metrics.shares"] } }, views: { $sum: "$metrics.views" } } }]),
-    ]) : [[], []];
-
-    const profileMap = new Map(profiles.map((row) => [String(row._id), row]));
-    const commissionMap = new Map(commissionRows.map((row) => [String(row._id), row]));
-    const trackingMap = new Map(trackingRows.map((row) => [String(row._id), row]));
-    const reelMap = new Map(reels.map((row) => [String(row._id), row]));
-    const profileIds = profiles.map((profile) => String(profile._id));
-    const allIds = [...new Set([...profileIds, ...ids.map(String)])].filter((id) => profileMap.has(id) || !Object.keys(profileFilter).length);
-
-    const items = allIds.map((id) => {
-      const profile = profileMap.get(id) || {};
-      const commission = commissionMap.get(id) || {};
-      const tracking = trackingMap.get(id) || {};
-      const reel = reelMap.get(id) || {};
-      const clicks = Number(tracking.clicks || 0) + Number(reel.reelClicks || 0);
-      const orders = Number(commission.orders || 0);
-      const revenue = money(commission.revenue || profile.stats?.revenue || 0);
-      const commissionEarned = money(commission.commission || 0);
-      const ctr = clicks ? money((orders / clicks) * 100) : 0;
-      const roi = commissionEarned ? money(((revenue - commissionEarned) / commissionEarned) * 100) : 0;
-      const engagement = Number(reel.engagement || 0);
-      return {
-        influencerId: profile._id || id,
-        influencer: profile,
-        name: influencerName(profile),
-        state: profile.state || "",
-        category: profile.primaryCategory || profile.categories?.[0] || profile.customCategory || "",
-        followers: Number(profile.followers || 0),
-        revenue,
-        revenueGenerated: revenue,
-        orders,
-        ordersGenerated: orders,
-        clicks,
-        conversions: orders,
-        ctr,
-        roi,
-        engagement,
-        averageOrderValue: orders ? money(revenue / orders) : 0,
-        commission: commissionEarned,
-        commissionEarned,
-        settledCommission: money(commission.settledCommission || 0),
-        heldCommission: money(commission.heldCommission || 0),
-        reversedCommission: money(commission.reversedCommission || 0),
-        score: money(revenue / 100 + orders * 8 + clicks * 0.5 + engagement * 0.1 + roi * 0.05),
-      };
-    }).sort((a, b) => b.score - a.score || b.revenue - a.revenue);
-
-    const total = items.length;
-    const paged = items.slice((page - 1) * limit, page * limit).map((item, index) => ({ ...item, rank: (page - 1) * limit + index + 1 }));
-    return { items: paged, leaderboard: paged, pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 } };
-  }
-
-  async vendorPerformance(query = {}) {
-    const rows = await CommissionRecord.aggregate([{ $match: this.commissionFilter(query) }, { $group: { _id: "$vendorId", revenue: { $sum: "$gross" }, commission: { $sum: "$influencerShare" }, pending: { $sum: { $cond: [{ $eq: ["$state", "HOLD"] }, "$influencerShare", 0] } }, orders: { $sum: 1 } } }, { $sort: { revenue: -1 } }]);
-    const ids = rows.map((row) => row._id).filter(Boolean);
-    const [vendors, campaigns, relationships] = await Promise.all([
-      Vendor.find({ _id: { $in: ids } }).lean(),
-      Campaign.aggregate([{ $match: { vendorId: { $in: ids } } }, { $group: { _id: "$vendorId", activeCampaigns: { $sum: { $cond: [{ $eq: ["$state", "active"] }, 1, 0] } }, approvedCampaigns: { $sum: 1 }, campaignSpend: { $sum: "$fixedFee" } } }]),
-      VendorInfluencerRelationship.aggregate([{ $match: { vendorId: { $in: ids } } }, { $group: { _id: "$vendorId", activeInfluencers: { $sum: 1 } } }]),
-    ]);
-    const vendorMap = new Map(vendors.map((row) => [String(row._id), row]));
-    const campaignMap = new Map(campaigns.map((row) => [String(row._id), row]));
-    const relMap = new Map(relationships.map((row) => [String(row._id), row]));
-    return { items: rows.map((row) => {
-      const campaign = campaignMap.get(String(row._id)) || {};
-      return {
-        vendorId: row._id,
-        name: vendorName(vendorMap.get(String(row._id))),
-        campaignRevenue: money(row.revenue),
-        campaignSpend: money(campaign.campaignSpend || 0),
-        commissionPaid: money(row.commission),
-        commissionPending: money(row.pending),
-        activeInfluencers: relMap.get(String(row._id))?.activeInfluencers || 0,
-        approvedCampaigns: campaign.approvedCampaigns || 0,
-        productPromotions: 0,
-        roi: row.commission ? money(((row.revenue - row.commission) / row.commission) * 100) : 0,
-        conversionRate: 0,
-      };
-    }) };
-  }
-
-  async campaignAnalytics(query = {}) {
-    const dashboard = await this.dashboard(query);
-    const campaigns = await this.campaigns({ ...query, limit: 100 });
-    const applications = await this.applications(query);
-    return {
-      kpis: {
-        campaignRevenue: dashboard.kpis.campaignRevenue,
-        campaignSpend: campaigns.items.reduce((sum, row) => sum + Number(row.fixedFee || 0), 0),
-        roi: dashboard.kpis.commissionPaid ? money(((dashboard.kpis.campaignRevenue - dashboard.kpis.commissionPaid) / dashboard.kpis.commissionPaid) * 100) : 0,
-        commissionPaid: dashboard.kpis.commissionPaid,
-        conversions: dashboard.charts.revenueTrend.reduce((sum, row) => sum + Number(row.orders || 0), 0),
-        orders: dashboard.charts.revenueTrend.reduce((sum, row) => sum + Number(row.orders || 0), 0),
-        clicks: await TrackingSession.countDocuments({}),
-        applications: applications.items.length,
-        approvalRate: applications.items.length ? money((applications.items.filter((row) => row.status === "approved").length / applications.items.length) * 100) : 0,
-      },
-      charts: dashboard.charts,
-      campaignComparison: campaigns.items,
-      applicationFunnel: [
-        { label: "Submitted", value: applications.items.filter((row) => row.status === "submitted").length },
-        { label: "Approved", value: applications.items.filter((row) => row.status === "approved").length },
-        { label: "Rejected", value: applications.items.filter((row) => row.status === "rejected").length },
-      ],
-    };
-  }
-
-  async revenueAnalytics(query = {}) {
-    const commissionMatch = this.commissionFilter(query);
-    const [summary, byCampaign, byVendor, byInfluencer, byProduct, byCategory] = await Promise.all([
-      CommissionRecord.aggregate([{ $match: commissionMatch }, { $group: { _id: null, gross: { $sum: "$gross" }, influencerRevenue: { $sum: "$influencerShare" }, vendorNet: { $sum: "$vendorNet" }, platformCommission: { $sum: "$platformFee" }, paid: { $sum: { $cond: [{ $eq: ["$state", "SETTLED"] }, "$influencerShare", 0] } }, pending: { $sum: { $cond: [{ $eq: ["$state", "HOLD"] }, "$influencerShare", 0] } }, reversed: { $sum: { $cond: [{ $eq: ["$state", "REVERSED"] }, "$influencerShare", 0] } } } }]),
-      CommissionRecord.aggregate([{ $match: commissionMatch }, { $group: { _id: "$campaignId", revenue: { $sum: "$gross" } } }, { $sort: { revenue: -1 } }, { $limit: 20 }]),
-      CommissionRecord.aggregate([{ $match: commissionMatch }, { $group: { _id: "$vendorId", revenue: { $sum: "$gross" } } }, { $sort: { revenue: -1 } }, { $limit: 20 }]),
-      CommissionRecord.aggregate([{ $match: commissionMatch }, { $group: { _id: "$influencerId", revenue: { $sum: "$gross" } } }, { $sort: { revenue: -1 } }, { $limit: 20 }]),
-      CommissionRecord.aggregate([{ $match: commissionMatch }, { $group: { _id: "$metadata.productId", revenue: { $sum: "$gross" } } }, { $sort: { revenue: -1 } }, { $limit: 20 }]),
-      Order.aggregate([{ $match: { attribution: { $exists: true, $ne: null } } }, { $unwind: "$items" }, { $group: { _id: "$items.category", revenue: { $sum: "$items.total" } } }, { $sort: { revenue: -1 } }, { $limit: 20 }]),
-    ]);
-    return { metrics: summary[0] || {}, charts: { byCampaign, byVendor, byInfluencer, byProduct, byCategory } };
-  }
-
-  async fraud(query = {}) {
-    const { page, limit, skip } = pageOptions(query);
-    const filter = {};
-    if (query.status) filter.status = query.status;
-    if (query.severity) filter.severity = query.severity;
-    const [items, total] = await Promise.all([
-      InfluencerCommerceFraudAlert.find(filter).populate("vendorId", "shopName companyName").populate({ path: "influencerId", populate: { path: "userId", select: "name email" } }).populate("campaignId", "title").populate("orderId", "orderNumber").sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      InfluencerCommerceFraudAlert.countDocuments(filter),
-    ]);
-    return { items, pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 } };
-  }
-
-  async updateFraud(actor, alertId, payload = {}) {
-    const update = { status: payload.status || "UNDER_REVIEW", notes: payload.notes || "" };
-    if (["SAFE", "RESOLVED"].includes(update.status)) {
-      update.resolvedAt = new Date();
-      update.resolvedBy = actor.sub || actor._id;
-    }
-    const alert = await InfluencerCommerceFraudAlert.findByIdAndUpdate(alertId, { $set: update }, { returnDocument: "after" });
-    if (!alert) throw new AppError("Fraud alert not found", 404, "NOT_FOUND");
-    await auditService.log({ actor, action: "admin.influencer_commerce.fraud.update", entityType: "InfluencerCommerceFraudAlert", entityId: alert._id, metadata: update }).catch(() => {});
-    return alert;
-  }
-
-  async communication(query = {}) {
-    const [vendorTickets, userTickets] = await Promise.all([
-      require("../../models/SupportTicket").SupportTicket.find({}).sort({ updatedAt: -1 }).limit(50).lean().catch(() => []),
-      require("../../models/UserSupportTicket").UserSupportTicket.find({}).sort({ updatedAt: -1 }).limit(50).lean().catch(() => []),
-    ]);
-    return { conversations: [...vendorTickets, ...userTickets].sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)).slice(0, 50) };
-  }
-
-  async reports(query = {}) {
-    const schedules = await InfluencerCommerceReportSchedule.find({}).sort({ createdAt: -1 }).lean();
-    return {
-      reports: [
-        "campaigns",
-        "influencers",
-        "vendors",
-        "revenue",
-        "commissions",
-        "settlements",
-        "content",
-        "conversions",
-        "fraud",
-      ].map((id) => ({ id, name: `${id[0].toUpperCase()}${id.slice(1)} Report`, exportFormats: ["csv", "excel", "pdf"] })),
-      schedules,
-    };
-  }
-
-  async saveReportSchedule(actor, payload = {}) {
-    const schedule = await InfluencerCommerceReportSchedule.create({ ...payload, createdBy: actor.sub || actor._id });
-    await auditService.log({ actor, action: "admin.influencer_commerce.report_schedule.create", entityType: "InfluencerCommerceReportSchedule", entityId: schedule._id, metadata: payload }).catch(() => {});
-    return schedule;
   }
 
   async settings() {

@@ -80,6 +80,20 @@ const dashboardQuery = Joi.object({
   limit: Joi.number().integer().min(1).max(50).optional(),
 });
 
+const earningsQuery = Joi.object({
+  paymentModel: Joi.string().valid("all", "fixed", "commission", "hybrid", "free_product").default("all"),
+  range: Joi.string().valid("today", "7d", "30d", "90d", "12m", "custom").optional(),
+  startDate: Joi.date().iso().optional(),
+  endDate: Joi.date().iso().optional(),
+  page: Joi.number().integer().min(1).optional(),
+  limit: Joi.number().integer().min(1).max(50).optional(),
+});
+
+const withdrawalRequestSchema = Joi.object({
+  amount: Joi.number().positive().precision(2).required(),
+  bankAccountId: Joi.string().trim().allow("").optional(),
+});
+
 const collectionTypes = ["recommended_products", "tech_essentials", "fashion_picks", "creator_favorites", "trending_products", "custom", "featured", "seasonal", "campaign", "affiliate", "bundle", "brand"];
 const collectionSchema = Joi.object({
   title: Joi.string().trim().max(140).required(),
@@ -585,6 +599,8 @@ router.put("/services", authRequired, requireRole("influencer"), validate(servic
 router.get("/requirements", authRequired, requireRole("influencer"), controller.commerceProfile);
 router.put("/requirements", authRequired, requireRole("influencer"), validate(requirementsSchema), controller.saveRequirements);
 router.post("/generate-affiliate-link", authRequired, requireRole("influencer"), validate(affiliateLinkSchema), controller.generateAffiliateLink);
+router.get("/earnings-withdrawals", authRequired, requireRole("influencer"), validate(earningsQuery, "query"), controller.earningsDashboard);
+router.post("/earnings-withdrawals/withdrawals", authRequired, requireRole("influencer"), validate(withdrawalRequestSchema), controller.requestWithdrawal);
 router.get("/dashboard", authRequired, requireRole("influencer"), validate(dashboardQuery, "query"), controller.dashboard);
 router.get("/list", authOptional, controller.list);
 router.get("/admin/list", authRequired, requireRole("admin", "super_admin", "support_admin", "finance_admin"), controller.list);

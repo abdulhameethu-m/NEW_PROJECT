@@ -1,6 +1,9 @@
 import { logger } from "../services/logger/logger.js";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import vendorModuleService from "../services/vendorModule.service";
+
+const ACCESSIBLE_MODULES_POLL_INTERVAL_MS = 60_000;
+const ACCESSIBLE_MODULES_RATE_LIMIT_BACKOFF_MS = 60_000;
 
 /**
  * Hook to manage vendor modules in admin panel
@@ -200,20 +203,36 @@ export const useAccessibleVendorModules = () => {
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const rateLimitedUntilRef = useRef(0);
+  const modulesRef = useRef([]);
 
   const fetchAccessibleModules = useCallback(async ({ silent = false } = {}) => {
+    if (Date.now() < rateLimitedUntilRef.current) {
+      if (!silent) {
+        setLoading(false);
+      }
+      return modulesRef.current;
+    }
+
     try {
       if (!silent) {
         setLoading(true);
       }
       const data = await vendorModuleService.getAccessibleModules();
+      modulesRef.current = data;
       setModules(data);
       setError(null);
       return data;
     } catch (err) {
+      if (err?.response?.status === 429) {
+        rateLimitedUntilRef.current = Date.now() + ACCESSIBLE_MODULES_RATE_LIMIT_BACKOFF_MS;
+        setError(null);
+        return modulesRef.current;
+      }
+
       setError(err.message || "Failed to fetch accessible modules");
       logger.error("Error fetching accessible modules:", { error: err });
-      return [];
+      return modulesRef.current;
     } finally {
       if (!silent) {
         setLoading(false);
@@ -224,10 +243,10 @@ export const useAccessibleVendorModules = () => {
   useEffect(() => {
     fetchAccessibleModules();
 
-    // Poll every 10 seconds so admin toggles remove access quickly.
+    // Poll gently so admin toggles eventually sync without hammering the API.
     const intervalId = setInterval(() => {
       fetchAccessibleModules({ silent: true });
-    }, 10000);
+    }, ACCESSIBLE_MODULES_POLL_INTERVAL_MS);
 
     const handleWindowFocus = () => {
       fetchAccessibleModules({ silent: true });

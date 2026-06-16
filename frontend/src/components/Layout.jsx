@@ -58,6 +58,7 @@ const INFLUENCER_WORKSPACE_SEGMENTS = new Set([
   "collections",
   "content",
   "dashboard",
+  "earnings-withdrawals",
   "reels",
   "welcome",
 ]);

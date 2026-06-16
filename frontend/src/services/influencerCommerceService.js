@@ -11,6 +11,16 @@ export async function getInfluencerDashboard(params = {}) {
   return data;
 }
 
+export async function getInfluencerEarningsWithdrawals(params = {}) {
+  const { data } = await api.get("/api/influencer/earnings-withdrawals", { params: compactParams(params) });
+  return data;
+}
+
+export async function requestInfluencerWithdrawal(payload = {}) {
+  const { data } = await api.post("/api/influencer/earnings-withdrawals/withdrawals", payload);
+  return data;
+}
+
 export async function getInfluencerStorefront(params = {}) {
   const { data } = await api.get("/api/influencer/storefront", { params });
   return data;
@@ -201,13 +211,54 @@ export async function getVendorInfluencerCommerceDashboard(params = {}) {
   return data;
 }
 
-export async function getVendorInfluencerSubscriptionPlans() {
-  const { data } = await api.get("/api/vendor/influencer-commerce/subscription/plans");
-  return data;
+const SUBSCRIPTION_PLANS_CACHE_TTL_MS = 60_000;
+let subscriptionPlansCache = {
+  data: null,
+  expiresAt: 0,
+  promise: null,
+};
+
+function clearVendorInfluencerSubscriptionPlansCache() {
+  subscriptionPlansCache = {
+    data: null,
+    expiresAt: 0,
+    promise: null,
+  };
+}
+
+export async function getVendorInfluencerSubscriptionPlans({ force = false } = {}) {
+  if (!force && subscriptionPlansCache.data && Date.now() < subscriptionPlansCache.expiresAt) {
+    return subscriptionPlansCache.data;
+  }
+
+  if (!force && subscriptionPlansCache.promise) {
+    return subscriptionPlansCache.promise;
+  }
+
+  subscriptionPlansCache.promise = api
+    .get("/api/vendor/influencer-commerce/subscription/plans")
+    .then(({ data }) => {
+      subscriptionPlansCache.data = data;
+      subscriptionPlansCache.expiresAt = Date.now() + SUBSCRIPTION_PLANS_CACHE_TTL_MS;
+      return data;
+    })
+    .catch((err) => {
+      if (err?.response?.status === 429 && subscriptionPlansCache.data) {
+        subscriptionPlansCache.expiresAt = Date.now() + SUBSCRIPTION_PLANS_CACHE_TTL_MS;
+        return subscriptionPlansCache.data;
+      }
+      throw err;
+    })
+    .finally(() => {
+      subscriptionPlansCache.promise = null;
+    });
+
+  return subscriptionPlansCache.promise;
 }
 
 export async function activateVendorInfluencerSubscription(payload = {}) {
   const { data } = await api.post("/api/vendor/influencer-commerce/subscription", payload);
+  clearVendorInfluencerSubscriptionPlansCache();
   return data;
 }
 
@@ -218,6 +269,7 @@ export async function createVendorInfluencerSubscriptionOrder(payload = {}) {
 
 export async function verifyVendorInfluencerSubscriptionPayment(payload = {}) {
   const { data } = await api.post("/api/vendor/influencer-commerce/subscription/verify", payload);
+  clearVendorInfluencerSubscriptionPlansCache();
   return data;
 }
 
@@ -233,11 +285,13 @@ export async function createVendorInfluencerSubscriptionChangeOrder(payload = {}
 
 export async function confirmVendorInfluencerSubscriptionChange(payload = {}) {
   const { data } = await api.post("/api/vendor/influencer-commerce/subscription/change-plan/confirm", payload);
+  clearVendorInfluencerSubscriptionPlansCache();
   return data;
 }
 
 export async function cancelVendorInfluencerSubscription() {
   const { data } = await api.post("/api/vendor/influencer-commerce/subscription/cancel");
+  clearVendorInfluencerSubscriptionPlansCache();
   return data;
 }
 

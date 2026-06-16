@@ -1,5 +1,7 @@
+const crypto = require("crypto");
 const mongoose = require("mongoose");
 const { Order } = require("../../models/Order");
+const CampaignPaymentRelease = require("../../models/CampaignPaymentRelease");
 const { AppError } = require("../../utils/AppError");
 const { emitDomainEvent, registerHandler } = require("../events/event-bus");
 const { INFLUENCER_EVENTS } = require("../shared/constants");
@@ -18,16 +20,22 @@ const {
   InfluencerLedger,
   CommissionRecord,
   InfluencerPayoutAccount,
+  InfluencerWithdrawalRequest,
   RULE_TYPES,
   COMMISSION_METHODS,
 } = require("./models");
 const { Reel } = require("../reel/model");
 const { Campaign } = require("../campaign/model");
+const { DeliverablePayout } = require("../campaign/executionModel");
 const {
   InfluencerProfile,
   InfluencerSocialAccount,
+  InfluencerBusinessProfile,
+  InfluencerPaymentProfile,
+  InfluencerProductAssignment,
 } = require("../influencer/model");
 const auditService = require("../../services/audit.service");
+const notificationService = require("../../services/notification.service");
 
 const HOLD_DAYS = Number(process.env.INFLUENCER_HOLD_DAYS || 7);
 const RULE_PRECEDENCE = {
@@ -1427,6 +1435,505 @@ class CommissionService {
         items: [],
       },
     };
+  }
+
+  paymentModelDefinitions() {
+    return [
+      { key: "all", label: "All", ledgerSources: [] },
+      { key: "fixed", label: "Fixed Payment", ledgerSources: ["CAMPAIGN"] },
+      { key: "commission", label: "Commission", ledgerSources: ["COMMISSION"] },
+      { key: "hybrid", label: "Hybrid", ledgerSources: ["CAMPAIGN", "COMMISSION"] },
+      { key: "free_product", label: "Free Product Promotion", ledgerSources: [] },
+    ];
+  }
+
+  normalizePaymentModelFilter(value = "all") {
+    const key = String(value || "all").trim().toLowerCase();
+    return this.paymentModelDefinitions().some((item) => item.key === key) ? key : "all";
+  }
+
+  buildLedgerDescription(row = {}) {
+    const source = String(row.source || "").toLowerCase().replace(/_/g, " ");
+    if (row.meta?.releaseId) return "Escrow release";
+    if (row.meta?.withdrawalRequestId) return "Withdrawal request";
+    if (row.source === "COMMISSION") return "Commission earned";
+    if (row.source === "REVERSAL") return "Earnings reversal";
+    return source ? `${source[0].toUpperCase()}${source.slice(1)}` : "Wallet transaction";
+  }
+
+  ledgerPaymentModel(row = {}) {
+    if (row.source === "CAMPAIGN") return "fixed";
+    if (row.source === "COMMISSION") return "commission";
+    return row.meta?.paymentModel || "";
+  }
+
+  async aggregateInfluencerLedger(influencerId, match = {}) {
+    const rows = await InfluencerLedger.aggregate([
+      { $match: { influencerId, ...match } },
+      {
+        $group: {
+          _id: { type: "$type", source: "$source" },
+          total: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+    const bySource = {};
+    let credit = 0;
+    let debit = 0;
+    for (const row of rows) {
+      const source = row._id.source || "UNKNOWN";
+      const amount = roundMoney(row.total || 0);
+      bySource[source] = bySource[source] || { credit: 0, debit: 0, count: 0 };
+      bySource[source].count += Number(row.count || 0);
+      if (row._id.type === "CREDIT") {
+        credit = roundMoney(credit + amount);
+        bySource[source].credit = roundMoney(bySource[source].credit + amount);
+      } else {
+        debit = roundMoney(debit + amount);
+        bySource[source].debit = roundMoney(bySource[source].debit + amount);
+      }
+    }
+    return { credit, debit, balance: roundMoney(credit - debit), bySource };
+  }
+
+  async getInfluencerEarningsDashboard(userId, query = {}) {
+    const profile = await require("../influencer/service").getProfile(userId);
+    const influencerId = profile._id;
+    const paymentModel = this.normalizePaymentModelFilter(query.paymentModel);
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(query.limit) || 10));
+    const { start, end } = parseDashboardRange(query);
+    const createdAtMatch = { createdAt: { $gte: start, $lte: end } };
+    const modelDefinition = this.paymentModelDefinitions().find((item) => item.key === paymentModel);
+    const ledgerMatch = paymentModel === "all" || paymentModel === "free_product"
+      ? {}
+      : { source: { $in: modelDefinition.ledgerSources } };
+
+    const [
+      ledgerTotals,
+      periodLedgerTotals,
+      wallet,
+      withdrawalRows,
+      withdrawalTotals,
+      pendingCommissionLedger,
+      pendingCommissionRecords,
+      commissionStatusRows,
+      commissionRows,
+      fixedReleaseRows,
+      fixedPendingRows,
+      freeProductRows,
+      payoutAccounts,
+      paymentProfile,
+      businessProfile,
+      ledgerRows,
+      ledgerTotalCount,
+      trendRows,
+    ] = await Promise.all([
+      this.aggregateInfluencerLedger(influencerId),
+      this.aggregateInfluencerLedger(influencerId, { ...createdAtMatch, ...ledgerMatch }),
+      getOrCreateWallet(influencerId),
+      InfluencerWithdrawalRequest.find({ influencerId }).populate("bankAccountId").sort({ requestedAt: -1 }).limit(20).lean(),
+      InfluencerWithdrawalRequest.aggregate([
+        { $match: { influencerId } },
+        { $group: { _id: "$status", amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+      ]),
+      CommissionLedger.aggregate([
+        { $match: { influencerId, state: { $in: ["PENDING", "APPROVED"] } } },
+        { $group: { _id: "$state", amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+      ]),
+      CommissionRecord.aggregate([
+        { $match: { influencerId, state: "HOLD" } },
+        { $group: { _id: "$state", amount: { $sum: "$influencerShare" }, count: { $sum: 1 } } },
+      ]),
+      CommissionRecord.aggregate([
+        { $match: { influencerId } },
+        { $group: { _id: "$state", amount: { $sum: "$influencerShare" }, count: { $sum: 1 } } },
+      ]),
+      CommissionRecord.find({ influencerId })
+        .populate({ path: "campaignId", select: "title paymentType campaignType state" })
+        .populate({
+          path: "orderId",
+          select: "orderNumber items totalAmount subtotal createdAt",
+          populate: { path: "items.productId", select: "name" },
+        })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean(),
+      CampaignPaymentRelease.find({ influencerId })
+        .populate("campaignId", "title paymentType campaignType state")
+        .sort({ releasedAt: -1, createdAt: -1 })
+        .limit(100)
+        .lean(),
+      DeliverablePayout.find({ influencerId, status: { $in: ["eligible", "generated"] } })
+        .populate("campaignId", "title paymentType campaignType state")
+        .populate("deliverableId", "deliverableType title approvalStatus paymentEligibility completedAt")
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean(),
+      InfluencerProductAssignment.find({ influencerId, status: { $in: ["assigned", "accepted", "approved", "active"] } })
+        .populate("campaignId", "title paymentType campaignType state")
+        .populate("productId", "name price discountPrice")
+        .sort({ updatedAt: -1 })
+        .limit(100)
+        .lean(),
+      InfluencerPayoutAccount.find({ influencerId, isActive: true }).sort({ isDefault: -1, createdAt: -1 }).lean(),
+      InfluencerPaymentProfile.findOne({ influencerId }).sort({ updatedAt: -1 }).lean(),
+      InfluencerBusinessProfile.findOne({ influencerId }).sort({ updatedAt: -1 }).lean(),
+      InfluencerLedger.find({ influencerId, ...ledgerMatch })
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      InfluencerLedger.countDocuments({ influencerId, ...ledgerMatch }),
+      InfluencerLedger.aggregate([
+        { $match: { influencerId, ...createdAtMatch, ...ledgerMatch } },
+        {
+          $group: {
+            _id: {
+              month: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+              source: "$source",
+              type: "$type",
+            },
+            amount: { $sum: "$amount" },
+          },
+        },
+        { $sort: { "_id.month": 1 } },
+      ]),
+    ]);
+
+    const pendingWithdrawalStatuses = new Set(["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING"]);
+    const pendingWithdrawals = withdrawalTotals
+      .filter((row) => pendingWithdrawalStatuses.has(row._id))
+      .reduce((sum, row) => roundMoney(sum + Number(row.amount || 0)), 0);
+    const completedWithdrawals = withdrawalTotals
+      .filter((row) => row._id === "COMPLETED")
+      .reduce((sum, row) => roundMoney(sum + Number(row.amount || 0)), 0);
+    const pendingCommissionFromEngine = pendingCommissionLedger.reduce((sum, row) => roundMoney(sum + Number(row.amount || 0)), 0);
+    const pendingCommission = pendingCommissionFromEngine || roundMoney(pendingCommissionRecords[0]?.amount || 0);
+    const pendingFixed = fixedPendingRows.reduce((sum, row) => roundMoney(sum + Number(row.approvedAmount || 0)), 0);
+    const fixedEarnings = roundMoney(ledgerTotals.bySource.CAMPAIGN?.credit || 0);
+    const commissionEarnings = roundMoney(ledgerTotals.bySource.COMMISSION?.credit || 0);
+    const totalEarnings = roundMoney(ledgerTotals.credit);
+    const availableBalance = roundMoney(ledgerTotals.balance);
+    const pendingBalance = roundMoney(pendingCommission + pendingFixed);
+    const currentWalletSnapshot = {
+      id: wallet?._id,
+      storedAvailableBalance: roundMoney(wallet?.availableBalance || 0),
+      storedPendingBalance: roundMoney(wallet?.pendingBalance || 0),
+      storedTotalEarnings: roundMoney(wallet?.totalEarnings || 0),
+      storedWithdrawnBalance: roundMoney(wallet?.withdrawnBalance || wallet?.withdrawnAmount || 0),
+      calculatedAvailableBalance: availableBalance,
+      calculatedPendingBalance: pendingBalance,
+      calculatedTotalEarnings: totalEarnings,
+      calculatedWithdrawnAmount: completedWithdrawals,
+      source: "influencer_ledgers",
+    };
+
+    const commissionByState = commissionStatusRows.reduce((acc, row) => {
+      acc[row._id] = { amount: roundMoney(row.amount), count: Number(row.count || 0) };
+      return acc;
+    }, {});
+    const fixedReleasedAmount = fixedReleaseRows.reduce((sum, row) => roundMoney(sum + Number(row.netAmount || row.totalAmount || 0)), 0);
+    const freeProductDelivered = freeProductRows.filter((row) => ["active", "approved"].includes(String(row.status))).length;
+    const freeProductValue = freeProductRows.reduce((sum, row) => {
+      const product = row.productId || {};
+      return roundMoney(sum + Number(product.discountPrice || product.price || row.metadata?.productValue || 0));
+    }, 0);
+
+    const trendMap = new Map();
+    for (const row of trendRows) {
+      const month = row._id.month;
+      const source = row._id.source;
+      const type = row._id.type;
+      const item = trendMap.get(month) || { month, fixed: 0, commission: 0, hybrid: 0, withdrawals: 0, total: 0 };
+      const amount = roundMoney(row.amount || 0);
+      if (source === "CAMPAIGN" && type === "CREDIT") item.fixed = roundMoney(item.fixed + amount);
+      if (source === "COMMISSION" && type === "CREDIT") item.commission = roundMoney(item.commission + amount);
+      if (source === "WITHDRAWAL" && type === "DEBIT") item.withdrawals = roundMoney(item.withdrawals + amount);
+      if (type === "CREDIT") item.total = roundMoney(item.total + amount);
+      trendMap.set(month, item);
+    }
+
+    const kpis = [
+      { key: "available_balance", label: "Available Balance", value: availableBalance, format: "currency", formula: "Approved ledger credits less withdrawal and reversal debits" },
+      { key: "pending_balance", label: "Pending Balance", value: pendingBalance, format: "currency", formula: "Pending commission plus approved deliverables awaiting release" },
+      { key: "total_earnings", label: "Total Earnings", value: totalEarnings, format: "currency", formula: "All wallet credit ledger records" },
+      { key: "withdrawn_amount", label: "Withdrawn Amount", value: completedWithdrawals, format: "currency", formula: "Completed withdrawal requests" },
+    ];
+
+    const bankAccounts = payoutAccounts.map((account) => ({
+      id: String(account._id),
+      label: account.bankName || account.paymentMethod || "Payout account",
+      paymentMethod: account.paymentMethod,
+      accountHolderName: account.accountHolderName,
+      accountNumberMask: account.accountNumberMask || "",
+      isDefault: Boolean(account.isDefault),
+      isVerified: Boolean(account.isVerified),
+      verificationStatus: account.verificationStatus,
+    }));
+    if (!bankAccounts.length && paymentProfile) {
+      bankAccounts.push({
+        id: "",
+        label: paymentProfile.bankName || paymentProfile.payoutMethod || "Registered payment profile",
+        paymentMethod: paymentProfile.payoutMethod,
+        accountHolderName: paymentProfile.accountHolderName,
+        accountNumberMask: paymentProfile.accountNumberMask || "",
+        isDefault: true,
+        isVerified: paymentProfile.status === "verified",
+        verificationStatus: String(paymentProfile.status || "draft").toUpperCase(),
+      });
+    }
+
+    const kycApproved = ["active", "verified"].includes(String(profile.state || "").toLowerCase()) || businessProfile?.status === "verified";
+    const bankVerified = bankAccounts.some((account) => account.isVerified || account.verificationStatus === "VERIFIED");
+    const minimumWithdrawalAmount = Number(profile.preferences?.minimumPayoutThreshold || process.env.INFLUENCER_MIN_PAYOUT_THRESHOLD || 500);
+
+    return {
+      filters: { paymentModel, range: query.range || "30d", startDate: start, endDate: end },
+      paymentModels: this.paymentModelDefinitions(),
+      wallet: currentWalletSnapshot,
+      kpis,
+      breakdown: [
+        { key: "fixed", label: "Fixed Earnings", value: fixedEarnings, format: "currency" },
+        { key: "commission", label: "Commission Earnings", value: commissionEarnings, format: "currency" },
+        { key: "hybrid", label: "Hybrid Earnings", value: roundMoney(fixedEarnings + commissionEarnings), format: "currency" },
+        { key: "free_product", label: "Free Product Campaigns", value: freeProductDelivered, unit: "Products Received", format: "number" },
+      ],
+      views: {
+        fixed: {
+          cards: [
+            { key: "released_amount", label: "Released Amount", value: fixedReleasedAmount, format: "currency" },
+            { key: "unreleased_amount", label: "Unreleased Amount", value: pendingFixed, format: "currency" },
+          ],
+          rows: [
+            ...fixedReleaseRows.flatMap((release) => (release.deliverables || []).map((deliverable) => ({
+              id: `${release._id}-${deliverable.deliverableId}`,
+              campaignName: release.campaignId?.title || "Campaign",
+              deliverable: deliverable.title || deliverable.type || "Deliverable",
+              amount: deliverable.amount || release.netAmount || 0,
+              status: "Approved",
+              releaseStatus: release.status === "settled" ? "Released" : release.status,
+              releasedDate: release.releasedAt || release.settledAt || release.updatedAt,
+            }))),
+            ...fixedPendingRows.map((row) => ({
+              id: String(row._id),
+              campaignName: row.campaignId?.title || "Campaign",
+              deliverable: row.deliverableId?.title || row.deliverableId?.deliverableType || "Deliverable",
+              amount: row.approvedAmount,
+              status: row.deliverableId?.approvalStatus || "approved",
+              releaseStatus: "Not Released",
+              releasedDate: null,
+            })),
+          ],
+        },
+        commission: {
+          cards: [
+            { key: "commission_earnings", label: "Commission Earnings", value: roundMoney(commissionEarnings + pendingCommission), format: "currency" },
+            { key: "pending_commission", label: "Pending Commission", value: pendingCommission, format: "currency" },
+            { key: "approved_commission", label: "Approved Commission", value: roundMoney(commissionByState.SETTLED?.amount || 0), format: "currency" },
+            { key: "paid_commission", label: "Paid Commission", value: roundMoney(ledgerTotals.bySource.COMMISSION?.credit || 0), format: "currency" },
+          ],
+          rows: commissionRows.slice(0, 50).map((row) => ({
+            id: String(row._id),
+            campaign: row.campaignId?.title || "Campaign",
+            product: row.metadata?.productName || row.orderId?.items?.[0]?.name || row.orderId?.items?.[0]?.productId?.name || "Product",
+            saleAmount: row.gross,
+            commissionPercent: row.commissionPercent,
+            commissionAmount: row.influencerShare,
+            status: row.state,
+          })),
+        },
+        hybrid: {
+          cards: [
+            { key: "released_amount", label: "Released Amount", value: fixedReleasedAmount, format: "currency" },
+            { key: "unreleased_amount", label: "Unreleased Amount", value: pendingFixed, format: "currency" },
+            { key: "commission_earned", label: "Commission Earned", value: commissionEarnings, format: "currency" },
+            { key: "pending_commission", label: "Pending Commission", value: pendingCommission, format: "currency" },
+            { key: "approved_commission", label: "Approved Commission", value: roundMoney(commissionByState.SETTLED?.amount || 0), format: "currency" },
+          ],
+          rows: fixedReleaseRows.slice(0, 50).map((row) => {
+            const commission = commissionRows
+              .filter((record) => String(record.campaignId?._id || record.campaignId) === String(row.campaignId?._id || row.campaignId))
+              .reduce((sum, record) => roundMoney(sum + Number(record.influencerShare || 0)), 0);
+            return {
+              id: String(row._id),
+              campaign: row.campaignId?.title || "Campaign",
+              fixedAmount: row.netAmount || row.totalAmount || 0,
+              commissionAmount: commission,
+              totalEarnings: roundMoney(Number(row.netAmount || row.totalAmount || 0) + commission),
+              status: row.status,
+            };
+          }),
+        },
+        freeProduct: {
+          cards: [
+            { key: "products_received", label: "Products Received", value: freeProductDelivered, format: "number" },
+            { key: "products_pending", label: "Products Pending Shipment", value: freeProductRows.filter((row) => ["assigned", "accepted"].includes(String(row.status))).length, format: "number" },
+            { key: "products_delivered", label: "Products Delivered", value: freeProductDelivered, format: "number" },
+            { key: "product_value_received", label: "Product Value Received", value: freeProductValue, format: "currency" },
+          ],
+          rows: freeProductRows.map((row) => ({
+            id: String(row._id),
+            campaign: row.campaignId?.title || "Campaign",
+            product: row.productId?.name || "Product",
+            value: Number(row.productId?.discountPrice || row.productId?.price || row.metadata?.productValue || 0),
+            shipmentStatus: row.metadata?.shipmentStatus || row.status,
+            deliveryDate: row.metadata?.deliveredAt || row.approvedAt || row.updatedAt,
+          })),
+        },
+      },
+      withdrawals: {
+        availableBalance,
+        minimumWithdrawalAmount,
+        pendingWithdrawals,
+        kycStatus: kycApproved ? "APPROVED" : "PENDING",
+        bankAccountVerified: bankVerified,
+        bankAccounts,
+        eligibility: {
+          kycApproved,
+          bankAccountVerified: bankVerified,
+          amountMeetsMinimum: availableBalance >= minimumWithdrawalAmount,
+          hasAvailableBalance: availableBalance > 0,
+          noPendingComplianceIssues: wallet?.status === "active",
+          canWithdraw: kycApproved && bankVerified && availableBalance >= minimumWithdrawalAmount && wallet?.status === "active",
+        },
+        history: withdrawalRows.map((row) => ({
+          id: String(row._id),
+          requestId: String(row._id).slice(-8).toUpperCase(),
+          amount: row.amount,
+          status: row.status,
+          requestedDate: row.requestedAt || row.createdAt,
+          processedDate: row.completedAt || row.processedAt || row.approvedAt || null,
+          transactionReference: row.transactionReference || "",
+          bankAccount: row.bankAccountId?.bankName || row.bankAccountId?.paymentMethod || "",
+        })),
+      },
+      transactionLedger: {
+        rows: ledgerRows.map((row) => ({
+          id: String(row._id),
+          date: row.createdAt,
+          description: this.buildLedgerDescription(row),
+          source: row.source,
+          paymentModel: this.ledgerPaymentModel(row),
+          credit: row.type === "CREDIT" ? row.amount : 0,
+          debit: row.type === "DEBIT" ? row.amount : 0,
+          balance: row.balanceAfter,
+          reference: row.meta?.releaseId || row.meta?.withdrawalRequestId || row.orderId || row.idempotencyKey,
+        })),
+        pagination: { total: ledgerTotalCount, page, limit, pages: Math.ceil(ledgerTotalCount / limit) || 1 },
+      },
+      analytics: {
+        monthlyEarnings: [...trendMap.values()],
+        fixedEarningsTrend: [...trendMap.values()].map(({ month, fixed }) => ({ month, value: fixed })),
+        commissionTrend: [...trendMap.values()].map(({ month, commission }) => ({ month, value: commission })),
+        hybridTrend: [...trendMap.values()].map(({ month, fixed, commission }) => ({ month, value: roundMoney(fixed + commission) })),
+        withdrawalTrend: [...trendMap.values()].map(({ month, withdrawals }) => ({ month, value: withdrawals })),
+      },
+      sourceSummary: {
+        periodLedgerTotals,
+        pendingCommissionRecords: pendingCommissionFromEngine ? "commission_ledgers" : "commission_records_legacy",
+      },
+    };
+  }
+
+  async requestInfluencerWithdrawal(userId, payload = {}, actor = {}, meta = {}) {
+    const profile = await require("../influencer/service").getProfile(userId);
+    const influencerId = profile._id;
+    const amount = roundMoney(payload.amount);
+    const minimumWithdrawalAmount = Number(profile.preferences?.minimumPayoutThreshold || process.env.INFLUENCER_MIN_PAYOUT_THRESHOLD || 500);
+    if (!amount || amount <= 0) throw new AppError("Withdrawal amount is required", 400, "VALIDATION_ERROR");
+    if (amount < minimumWithdrawalAmount) {
+      throw new AppError(`Minimum withdrawal amount is ${minimumWithdrawalAmount}`, 400, "MIN_WITHDRAWAL_NOT_MET");
+    }
+
+    const [businessProfile, paymentProfile, payoutAccount, pendingRequest] = await Promise.all([
+      InfluencerBusinessProfile.findOne({ influencerId }).sort({ updatedAt: -1 }).lean(),
+      InfluencerPaymentProfile.findOne({ influencerId }).sort({ updatedAt: -1 }).lean(),
+      payload.bankAccountId && mongoose.isValidObjectId(payload.bankAccountId)
+        ? InfluencerPayoutAccount.findOne({ _id: payload.bankAccountId, influencerId, isActive: true }).lean()
+        : InfluencerPayoutAccount.findOne({ influencerId, isActive: true, isDefault: true }).lean(),
+      InfluencerWithdrawalRequest.findOne({ influencerId, status: { $in: ["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING"] } }).lean(),
+    ]);
+
+    const kycApproved = ["active", "verified"].includes(String(profile.state || "").toLowerCase()) || businessProfile?.status === "verified";
+    if (!kycApproved) throw new AppError("KYC must be approved before withdrawal", 400, "KYC_NOT_APPROVED");
+    const bankVerified = Boolean(payoutAccount?.isVerified || payoutAccount?.verificationStatus === "VERIFIED" || paymentProfile?.status === "verified");
+    if (!bankVerified) throw new AppError("Verified bank account is required before withdrawal", 400, "BANK_ACCOUNT_NOT_VERIFIED");
+    if (pendingRequest) throw new AppError("A withdrawal request is already pending review", 409, "PENDING_WITHDRAWAL_EXISTS");
+
+    const result = await executeWithOptionalTransaction(async (session) => {
+      const wallet = await getOrCreateWallet(influencerId, session);
+      if (wallet.status !== "active") throw new AppError("Influencer wallet is not active", 400, "WALLET_NOT_ACTIVE");
+      const ledgerTotals = await this.aggregateInfluencerLedger(influencerId);
+      if (roundMoney(ledgerTotals.balance) < amount) {
+        throw new AppError("Withdrawal amount exceeds available balance", 400, "INSUFFICIENT_BALANCE");
+      }
+
+      const nextAvailable = roundMoney(wallet.availableBalance) >= amount
+        ? roundMoney(wallet.availableBalance) - amount
+        : roundMoney(ledgerTotals.balance) - amount;
+      const idempotencyKey = `withdrawal:${influencerId}:${crypto.randomUUID()}`;
+      const [request] = await InfluencerWithdrawalRequest.create([{
+        influencerId,
+        walletId: wallet._id,
+        amount,
+        status: "REQUESTED",
+        bankAccountId: payoutAccount?._id,
+        requestedAt: new Date(),
+        idempotencyKey,
+        metadata: {
+          requestedBy: actor?.sub || actor?._id || userId,
+          ipAddress: meta?.ipAddress || "",
+        },
+      }], { session: session || undefined });
+
+      const updatedWallet = await InfluencerWallet.findByIdAndUpdate(
+        wallet._id,
+        { $set: { availableBalance: Math.max(0, nextAvailable) } },
+        { returnDocument: "after", runValidators: true, session: session || undefined }
+      );
+
+      const [ledgerEntry] = await InfluencerLedger.create([{
+        influencerId,
+        type: "DEBIT",
+        amount,
+        source: "WITHDRAWAL",
+        idempotencyKey,
+        balanceAfter: updatedWallet.availableBalance,
+        meta: {
+          withdrawalRequestId: request._id,
+          bankAccountId: payoutAccount?._id || null,
+          status: "REQUESTED",
+        },
+      }], { session: session || undefined });
+
+      await auditService.log({
+        actor,
+        action: "influencer.withdrawal.requested",
+        entityType: "InfluencerWithdrawalRequest",
+        entityId: request._id,
+        metadata: { influencerId: String(influencerId), amount, ledgerEntryId: String(ledgerEntry._id) },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      }).catch(() => {});
+
+      return { request, wallet: updatedWallet, ledgerEntry };
+    });
+
+    if (typeof notificationService.notifyOperations === "function") {
+      await notificationService.notifyOperations({
+        module: "FINANCE",
+        subModule: "INFLUENCER_WITHDRAWALS",
+        type: "WITHDRAWAL_REQUESTED",
+        title: "New influencer withdrawal request",
+        message: `An influencer requested a withdrawal of INR ${amount}.`,
+        referenceId: result.request._id,
+        meta: { influencerId, amount },
+      }, "payouts.read").catch(() => null);
+    }
+
+    return result;
   }
 
   async simulateCommission(payload = {}) {

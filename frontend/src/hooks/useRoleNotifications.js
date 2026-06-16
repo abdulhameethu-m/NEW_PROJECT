@@ -10,20 +10,45 @@ const EMPTY_SUMMARY = {
   subModules: {},
 };
 
+const DEFAULT_RATE_LIMIT_BACKOFF_MS = 60_000;
+
+function retryAfterDelay(error) {
+  const retryAfter = error?.response?.headers?.["retry-after"];
+  const retrySeconds = Number(retryAfter);
+  return Number.isFinite(retrySeconds) && retrySeconds > 0
+    ? retrySeconds * 1000
+    : DEFAULT_RATE_LIMIT_BACKOFF_MS;
+}
+
 export function useRoleNotifications(role, activeTarget = null, pollingInterval = 15000) {
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const inFlightAutoReadRef = useRef(null);
+  const rateLimitedUntilRef = useRef(0);
+  const summaryRef = useRef(EMPTY_SUMMARY);
 
   const refresh = useCallback(async () => {
+    if (Date.now() < rateLimitedUntilRef.current) {
+      setLoading(false);
+      return summaryRef.current;
+    }
+
     try {
       const response = await getNotificationSummary(role);
-      setSummary(response.data || EMPTY_SUMMARY);
+      const nextSummary = response.data || EMPTY_SUMMARY;
+      summaryRef.current = nextSummary;
+      setSummary(nextSummary);
       setError("");
-      return response.data || EMPTY_SUMMARY;
+      return nextSummary;
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to load notifications.");
+      if (err?.response?.status === 429) {
+        rateLimitedUntilRef.current = Date.now() + retryAfterDelay(err);
+        setError("");
+        return summaryRef.current;
+      } else {
+        setError(err?.response?.data?.message || "Failed to load notifications.");
+      }
       return EMPTY_SUMMARY;
     } finally {
       setLoading(false);
@@ -32,8 +57,13 @@ export function useRoleNotifications(role, activeTarget = null, pollingInterval 
 
   const markRead = useCallback(
     async (payload = {}) => {
+      if (Date.now() < rateLimitedUntilRef.current) {
+        return null;
+      }
+
       const response = await markNotificationsRead(role, payload);
       if (response?.data?.summary) {
+        summaryRef.current = response.data.summary;
         setSummary(response.data.summary);
       } else {
         await refresh();
@@ -54,13 +84,15 @@ export function useRoleNotifications(role, activeTarget = null, pollingInterval 
     }
 
     load();
-    const intervalId = window.setInterval(() => {
-      refresh();
-    }, pollingInterval);
+    const intervalId = pollingInterval > 0
+      ? window.setInterval(() => {
+          refresh();
+        }, pollingInterval)
+      : null;
 
     return () => {
       active = false;
-      window.clearInterval(intervalId);
+      if (intervalId) window.clearInterval(intervalId);
     };
   }, [pollingInterval, refresh]);
 
@@ -82,6 +114,12 @@ export function useRoleNotifications(role, activeTarget = null, pollingInterval 
     markRead({
       module: activeTarget.module,
       subModule: activeTarget.subModule,
+    }).catch((err) => {
+      if (err?.response?.status === 429) {
+        rateLimitedUntilRef.current = Date.now() + retryAfterDelay(err);
+        return;
+      }
+      setError(err?.response?.data?.message || "Failed to mark notifications as read.");
     }).finally(() => {
       if (inFlightAutoReadRef.current === key) {
         inFlightAutoReadRef.current = null;

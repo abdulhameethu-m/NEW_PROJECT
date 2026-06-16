@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useMemo, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { confirmAction } from "../services/notificationService";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -124,6 +124,9 @@ const defaultFilters = {
   sort: "trending",
   page: 1,
 };
+
+const FOUNDATION_REFRESH_TTL_MS = 60_000;
+const ACTIVE_TAB_REFRESH_INTERVAL_MS = 60_000;
 
 function numberValue(value) {
   return Number(value || 0).toLocaleString();
@@ -701,6 +704,31 @@ function DynamicCampaignField({ field, value, onChange }) {
   );
 }
 
+function CampaignFormSection({ title, description, children, className = "" }) {
+  return (
+    <div className={`rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950/60 ${className}`}>
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{title}</h3>
+        {description ? <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{description}</p> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function FieldHint({ children }) {
+  return <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{children}</p>;
+}
+
+function PriceSummaryRow({ label, value, strong = false }) {
+  return (
+    <div className={`flex items-center justify-between gap-3 ${strong ? "pt-2 text-sm font-semibold text-slate-950 dark:text-white" : "text-xs text-slate-600 dark:text-slate-300"}`}>
+      <span>{label}</span>
+      <span>{formatCurrency(value || 0)}</span>
+    </div>
+  );
+}
+
 function CampaignForm({ influencers, products, configuration = {}, onCreate, busy, initialInfluencerId = "", initialProductIds = [] }) {
   const initialProductKey = initialProductIds.join("|");
   const rules = useMemo(() => campaignRuleConfig(configuration), [configuration]);
@@ -1002,159 +1030,232 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     setPreview(null);
   }
 
+  const canSubmit = !busy && form.title.trim() && form.productIds.length && form.campaignType && form.paymentType && !previewError;
+  const submitHelp = !form.title.trim()
+    ? "Add a campaign title to continue."
+    : !form.productIds.length
+      ? "Select at least one product."
+      : !form.campaignType || !form.paymentType
+        ? "Choose campaign and payment rules."
+        : previewError || "";
+
   return (
-    <form onSubmit={submit} className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-      <label className="block space-y-1.5 xl:col-span-2">
-        <FieldLabel>Campaign Title</FieldLabel>
-        <input value={form.title} onChange={(event) => setField("title", event.target.value)} placeholder="Campaign title" className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Campaign title" />
-      </label>
-      <label className="block space-y-1.5">
-        <FieldLabel>Influencer</FieldLabel>
-        <select value={form.influencerId} onChange={(event) => setForm((current) => ({ ...current, influencerId: event.target.value, selectedServices: [] }))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Invite influencer">
-          <option value="">Public marketplace campaign</option>
-          {influencerOptions.map((row) => {
-            const id = influencerRowId(row);
-            const username = influencerRowUsername(row);
-            return <option key={id} value={id}>{influencerRowName(row)}{username ? ` @${username}` : ""}</option>;
-          })}
-        </select>
-      </label>
-      <label className="block space-y-1.5">
-        <FieldLabel>Campaign Type</FieldLabel>
-        <select value={form.campaignType} onChange={(event) => setCampaignType(event.target.value)} disabled={!rules.campaignTypes.length} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:opacity-60" aria-label="Campaign type">
-          {!rules.campaignTypes.length ? <option value="">No campaign rules configured</option> : null}
-          {rules.campaignTypes.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
-        </select>
-      </label>
-      <fieldset className="block space-y-1.5 xl:col-span-2">
-        <FieldLabel>Campaign Products</FieldLabel>
-        <div className="max-h-36 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-950">
-          {products.map((row) => {
-            const product = row.product || row;
-            const productId = productRowId(row);
-            if (!productId) return null;
-            return (
-              <label key={productId} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-900">
-                <input type="checkbox" checked={form.productIds.includes(productId)} onChange={() => toggleProduct(productId)} />
-                <span className="min-w-0 flex-1 truncate" title={product.name}>{shortText(product.name, 82)}</span>
-              </label>
-            );
-          })}
-          {!products.length ? <p className="px-2 py-4 text-sm text-slate-500">Add approved products before creating a campaign.</p> : null}
+    <form onSubmit={submit} className="space-y-5">
+      <CampaignFormSection
+        title="1. Campaign Basics"
+        description="Name the campaign, decide whether it is public or invite-only, and choose the rule set that controls pricing."
+      >
+        <div className="grid gap-4 lg:grid-cols-3">
+          <label className="block space-y-1.5 lg:col-span-2">
+            <FieldLabel>Campaign Title</FieldLabel>
+            <input value={form.title} onChange={(event) => setField("title", event.target.value)} placeholder="Example: Summer phone launch with reels" className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Campaign title" />
+            <FieldHint>Use a clear title your team and creators can recognize later.</FieldHint>
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>Influencer</FieldLabel>
+            <select value={form.influencerId} onChange={(event) => setForm((current) => ({ ...current, influencerId: event.target.value, selectedServices: [] }))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Invite influencer">
+              <option value="">Public marketplace campaign</option>
+              {influencerOptions.map((row) => {
+                const id = influencerRowId(row);
+                const username = influencerRowUsername(row);
+                return <option key={id} value={id}>{influencerRowName(row)}{username ? ` @${username}` : ""}</option>;
+              })}
+            </select>
+            <FieldHint>Leave public to let eligible creators apply.</FieldHint>
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>Campaign Type</FieldLabel>
+            <select value={form.campaignType} onChange={(event) => setCampaignType(event.target.value)} disabled={!rules.campaignTypes.length} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:opacity-60" aria-label="Campaign type">
+              {!rules.campaignTypes.length ? <option value="">No campaign rules configured</option> : null}
+              {rules.campaignTypes.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
+            </select>
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>Campaign Deadline</FieldLabel>
+            <input type="date" value={form.deadline} onChange={(event) => setField("deadline", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Campaign deadline" />
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>Visibility</FieldLabel>
+            <span className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200">
+              <input type="checkbox" checked={form.marketplace.public} onChange={(event) => setForm((current) => ({ ...current, marketplace: { ...current.marketplace, public: event.target.checked } }))} />
+              Marketplace
+            </span>
+          </label>
         </div>
-        <p className="text-xs text-slate-500">{form.productIds.length} selected</p>
-      </fieldset>
-      <label className="block space-y-1.5">
-        <FieldLabel>Payment Model</FieldLabel>
-        <select value={form.paymentType} onChange={(event) => setPaymentType(event.target.value)} disabled={!paymentModels.length} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:opacity-60" aria-label="Payment model">
-          {!paymentModels.length ? <option value="">No valid payment models</option> : null}
-          {paymentModels.map((model) => <option key={model.key} value={model.key}>{model.label}</option>)}
-        </select>
-      </label>
-      {(dynamicNames.has("selectedServices") || dynamicNames.has("services")) ? (
-        <fieldset className="block space-y-1.5 xl:col-span-3">
-          <FieldLabel>Creator Services</FieldLabel>
-          <div className="max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-950">
-            {selectedRateCard.length ? selectedRateCard.map((service) => (
-              <div key={service._id || service.id} className="rounded-lg px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-900">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{service.serviceName}</span>
-                  <span className="text-xs font-semibold text-slate-500">{service.minimumNoticePeriod ? `${service.minimumNoticePeriod}d notice` : ""}</span>
-                </div>
-                <div className="mt-2 grid gap-2">
-                  {servicePackages(service).map((pkg) => {
-                    const selected = isPackageSelected(service, pkg);
-                    const price = packagePrice(pkg, service);
-                    return (
-                      <label key={packageKey(service, pkg)} className={`grid min-h-10 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border px-2 py-1.5 text-sm ${selected ? "border-indigo-300 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/30" : "border-slate-100 dark:border-slate-800"}`}>
-                        <input type="checkbox" checked={selected} onChange={() => togglePackageSelection(service, pkg)} />
-                        <span className="min-w-0">
-                          <span className="block truncate font-medium text-slate-800 dark:text-slate-100">{pkg.packageName || pkg.name || "Package"}</span>
-                          <span className="text-xs text-slate-500">{Number(pkg.quantity || 1)} deliverable{Number(pkg.quantity || 1) === 1 ? "" : "s"} - {pkg.deliveryDays ?? service.deliveryDays ?? 0}d - {pkg.revisionCount ?? service.revisionCount ?? 0} rev</span>
-                        </span>
-                        <span className="text-sm font-semibold text-slate-950 dark:text-white">{price ? formatCurrency(price) : "Request"}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )) : (
-              <p className="px-2 py-4 text-sm text-slate-500">Select a creator with active services or enter a fallback fixed fee.</p>
-            )}
+      </CampaignFormSection>
+
+      <CampaignFormSection
+        title="2. Products & Payment"
+        description="Choose the products creators should promote, then set the payment terms used for attribution and budgeting."
+      >
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+          <fieldset className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <FieldLabel>Campaign Products</FieldLabel>
+              <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                {form.productIds.length} selected
+              </span>
+            </div>
+            <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-950">
+              {products.map((row) => {
+                const product = row.product || row;
+                const productId = productRowId(row);
+                const selected = form.productIds.includes(productId);
+                if (!productId) return null;
+                return (
+                  <label key={productId} className={`grid cursor-pointer grid-cols-[auto_1fr] gap-3 rounded-lg border px-3 py-2 text-sm transition ${selected ? "border-indigo-300 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/30" : "border-transparent hover:border-slate-200 hover:bg-slate-50 dark:hover:border-slate-800 dark:hover:bg-slate-900"}`}>
+                    <input className="mt-1" type="checkbox" checked={selected} onChange={() => toggleProduct(productId)} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold text-slate-900 dark:text-white" title={product.name}>{product.name || "Untitled product"}</span>
+                      <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+                        {[product.category, product.price ? formatCurrency(product.price) : null, product.stock != null ? `${product.stock} in stock` : null].filter(Boolean).join(" - ") || "Ready for campaign selection"}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+              {!products.length ? <p className="px-2 py-4 text-sm text-slate-500">Add approved products before creating a campaign.</p> : null}
+            </div>
+          </fieldset>
+
+          <div className="space-y-4">
+            <label className="block space-y-1.5">
+              <FieldLabel>Payment Model</FieldLabel>
+              <select value={form.paymentType} onChange={(event) => setPaymentType(event.target.value)} disabled={!paymentModels.length} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:opacity-60" aria-label="Payment model">
+                {!paymentModels.length ? <option value="">No valid payment models</option> : null}
+                {paymentModels.map((model) => <option key={model.key} value={model.key}>{model.label}</option>)}
+              </select>
+              <FieldHint>{selectedPaymentModel?.description || "The model controls creator payout, commission reserve, and campaign budget behavior."}</FieldHint>
+            </label>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(dynamicNames.has("fixedFee") || dynamicNames.has("fixedAmount")) && !form.selectedServices.length ? (
+                <label className="block space-y-1.5">
+                  <FieldLabel>{dynamicFields.find((field) => ["fixedFee", "fixedAmount"].includes(field.fieldName || field.key))?.label || "Fixed Fee"}</FieldLabel>
+                  <input type="number" min="0" value={form.fixedFee} onChange={(event) => setField("fixedFee", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Fixed fee" />
+                </label>
+              ) : null}
+              {(dynamicNames.has("commissionPercent") || dynamicNames.has("commissionPercentage")) ? (
+                <label className="block space-y-1.5">
+                  <FieldLabel>{dynamicFields.find((field) => ["commissionPercent", "commissionPercentage"].includes(field.fieldName || field.key))?.label || "Commission %"}</FieldLabel>
+                  <input type="number" min="0" max="50" value={form.commissionPercent} onChange={(event) => setField("commissionPercent", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Commission percent" />
+                </label>
+              ) : null}
+              {dynamicNames.has("attributionDays") ? (
+                <label className="block space-y-1.5">
+                  <FieldLabel>{dynamicFields.find((field) => (field.fieldName || field.key) === "attributionDays")?.label || "Attribution Window"}</FieldLabel>
+                  <select value={form.attributionDays} onChange={(event) => setField("attributionDays", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Attribution window">
+                    {attributionWindows.map((window) => <option key={window.key || window.days} value={window.days}>{window.label || `${window.days} days`}</option>)}
+                  </select>
+                </label>
+              ) : null}
+              {(dynamicNames.has("expectedBudget") || dynamicNames.has("maximumBudget")) ? (
+                <label className="block space-y-1.5">
+                  <FieldLabel>{dynamicFields.find((field) => ["expectedBudget", "maximumBudget"].includes(field.fieldName || field.key))?.label || "Maximum Budget"}</FieldLabel>
+                  <input type="number" min="0" value={form.expectedBudget} onChange={(event) => setField("expectedBudget", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Expected budget" />
+                </label>
+              ) : null}
+              {dynamicNames.has("productValue") ? (
+                <label className="block space-y-1.5">
+                  <FieldLabel>{dynamicFields.find((field) => (field.fieldName || field.key) === "productValue")?.label || "Product Value"}</FieldLabel>
+                  <input type="number" min="0" value={form.productValue} onChange={(event) => setField("productValue", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Product value" />
+                </label>
+              ) : null}
+              {dynamicNames.has("shippingCost") ? (
+                <label className="block space-y-1.5">
+                  <FieldLabel>{dynamicFields.find((field) => (field.fieldName || field.key) === "shippingCost")?.label || "Shipping Cost"}</FieldLabel>
+                  <input type="number" min="0" value={form.shippingCost} onChange={(event) => setField("shippingCost", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Shipping cost" />
+                </label>
+              ) : null}
+            </div>
           </div>
-        </fieldset>
-      ) : null}
-      {(dynamicNames.has("fixedFee") || dynamicNames.has("fixedAmount")) && !form.selectedServices.length ? (
-        <label className="block space-y-1.5">
-          <FieldLabel>{dynamicFields.find((field) => ["fixedFee", "fixedAmount"].includes(field.fieldName || field.key))?.label || "Fixed Fee"}</FieldLabel>
-          <input type="number" min="0" value={form.fixedFee} onChange={(event) => setField("fixedFee", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Fixed fee" />
-        </label>
-      ) : null}
-      {(dynamicNames.has("commissionPercent") || dynamicNames.has("commissionPercentage")) ? (
-        <label className="block space-y-1.5">
-          <FieldLabel>{dynamicFields.find((field) => ["commissionPercent", "commissionPercentage"].includes(field.fieldName || field.key))?.label || "Commission Percent"}</FieldLabel>
-          <input type="number" min="0" max="50" value={form.commissionPercent} onChange={(event) => setField("commissionPercent", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Commission percent" />
-        </label>
-      ) : null}
-      {dynamicNames.has("attributionDays") ? (
-        <label className="block space-y-1.5">
-          <FieldLabel>{dynamicFields.find((field) => (field.fieldName || field.key) === "attributionDays")?.label || "Attribution Window"}</FieldLabel>
-          <select value={form.attributionDays} onChange={(event) => setField("attributionDays", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Attribution window">
-            {attributionWindows.map((window) => <option key={window.key || window.days} value={window.days}>{window.label || `${window.days} days`}</option>)}
-          </select>
-        </label>
-      ) : null}
-      {(dynamicNames.has("expectedBudget") || dynamicNames.has("maximumBudget")) ? (
-        <label className="block space-y-1.5">
-          <FieldLabel>{dynamicFields.find((field) => ["expectedBudget", "maximumBudget"].includes(field.fieldName || field.key))?.label || "Maximum Budget"}</FieldLabel>
-          <input type="number" min="0" value={form.expectedBudget} onChange={(event) => setField("expectedBudget", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Expected budget" />
-        </label>
-      ) : null}
-      {dynamicNames.has("productValue") ? (
-        <label className="block space-y-1.5">
-          <FieldLabel>{dynamicFields.find((field) => (field.fieldName || field.key) === "productValue")?.label || "Product Value"}</FieldLabel>
-          <input type="number" min="0" value={form.productValue} onChange={(event) => setField("productValue", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Product value" />
-        </label>
-      ) : null}
-      {dynamicNames.has("shippingCost") ? (
-        <label className="block space-y-1.5">
-          <FieldLabel>{dynamicFields.find((field) => (field.fieldName || field.key) === "shippingCost")?.label || "Shipping Cost"}</FieldLabel>
-          <input type="number" min="0" value={form.shippingCost} onChange={(event) => setField("shippingCost", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Shipping cost" />
-        </label>
-      ) : null}
-      {genericDynamicFields.map((field) => (
-        <DynamicCampaignField key={field.fieldName || field.key} field={field} value={form.dynamicFields?.[field.fieldName || field.key]} onChange={setDynamicField} />
-      ))}
-      <label className="block space-y-1.5">
-        <FieldLabel>Campaign Deadline</FieldLabel>
-        <input type="date" value={form.deadline} onChange={(event) => setField("deadline", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Campaign deadline" />
-      </label>
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-800 dark:bg-slate-950 xl:col-span-2">
-        <p className="font-semibold text-slate-950 dark:text-white">{selectedPaymentModel?.label || "Payment Model"}</p>
-        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300">
-          <span>Fixed</span><b className="text-right">{formatCurrency(preview?.pricing?.fixedCost || 0)}</b>
-          <span>Reserve</span><b className="text-right">{formatCurrency(preview?.pricing?.commissionReserve || 0)}</b>
-          <span>Product/Shipping</span><b className="text-right">{formatCurrency((preview?.pricing?.productCost || 0) + (preview?.pricing?.shippingCost || 0))}</b>
-          <span>Total</span><b className="text-right text-slate-950 dark:text-white">{formatCurrency(preview?.pricing?.totalBudget || 0)}</b>
         </div>
-        {previewError ? <p className="mt-2 text-xs font-semibold text-rose-600 dark:text-rose-300">{previewError}</p> : null}
-      </div>
-      {fixedPaymentSummary ? (
-        <div className="xl:col-span-6">
-          <BudgetSummaryPanel campaign={{ title: form.title }} {...fixedPaymentSummary} />
+
+        {(dynamicNames.has("selectedServices") || dynamicNames.has("services")) ? (
+          <fieldset className="mt-5 space-y-2">
+            <FieldLabel>Creator Services</FieldLabel>
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-950">
+              {selectedRateCard.length ? selectedRateCard.map((service) => (
+                <div key={service._id || service.id} className="rounded-lg px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-900">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{service.serviceName}</span>
+                    <span className="text-xs font-semibold text-slate-500">{service.minimumNoticePeriod ? `${service.minimumNoticePeriod}d notice` : ""}</span>
+                  </div>
+                  <div className="mt-2 grid gap-2 md:grid-cols-2">
+                    {servicePackages(service).map((pkg) => {
+                      const selected = isPackageSelected(service, pkg);
+                      const price = packagePrice(pkg, service);
+                      return (
+                        <label key={packageKey(service, pkg)} className={`grid min-h-10 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border px-2 py-1.5 text-sm ${selected ? "border-indigo-300 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/30" : "border-slate-100 dark:border-slate-800"}`}>
+                          <input type="checkbox" checked={selected} onChange={() => togglePackageSelection(service, pkg)} />
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-slate-800 dark:text-slate-100">{pkg.packageName || pkg.name || "Package"}</span>
+                            <span className="text-xs text-slate-500">{Number(pkg.quantity || 1)} deliverable{Number(pkg.quantity || 1) === 1 ? "" : "s"} - {pkg.deliveryDays ?? service.deliveryDays ?? 0}d - {pkg.revisionCount ?? service.revisionCount ?? 0} rev</span>
+                          </span>
+                          <span className="text-sm font-semibold text-slate-950 dark:text-white">{price ? formatCurrency(price) : "Request"}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )) : (
+                <p className="px-2 py-4 text-sm text-slate-500">Select a creator with active services or enter a fallback fixed fee.</p>
+              )}
+            </div>
+          </fieldset>
+        ) : null}
+
+        {genericDynamicFields.length ? (
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {genericDynamicFields.map((field) => (
+              <DynamicCampaignField key={field.fieldName || field.key} field={field} value={form.dynamicFields?.[field.fieldName || field.key]} onChange={setDynamicField} />
+            ))}
+          </div>
+        ) : null}
+      </CampaignFormSection>
+
+      <CampaignFormSection
+        title="3. Review & Create"
+        description="Check the estimated campaign cost before creating the campaign. Fixed-fee campaigns may require escrow funding after acceptance."
+      >
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-slate-950 dark:text-white">{selectedPaymentModel?.label || "Payment Model"}</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{form.productIds.length} product{form.productIds.length === 1 ? "" : "s"} selected</p>
+              </div>
+              <StatusBadge value={form.marketplace.public ? "marketplace" : "invite only"} />
+            </div>
+            <div className="mt-4 space-y-2">
+              <PriceSummaryRow label="Fixed fee" value={preview?.pricing?.fixedCost || 0} />
+              <PriceSummaryRow label="Commission reserve" value={preview?.pricing?.commissionReserve || 0} />
+              <PriceSummaryRow label="Product and shipping" value={(preview?.pricing?.productCost || 0) + (preview?.pricing?.shippingCost || 0)} />
+              <PriceSummaryRow label="Estimated total budget" value={preview?.pricing?.totalBudget || 0} strong />
+            </div>
+            {previewError ? <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">{previewError}</p> : null}
+          </div>
+
+          <div className="flex flex-col justify-between rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+            <div className="space-y-2 text-sm">
+              <p className="font-semibold text-slate-950 dark:text-white">Ready to launch?</p>
+              <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                The campaign will use the selected products, payment model, and marketplace visibility settings.
+              </p>
+              {submitHelp ? <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">{submitHelp}</p> : null}
+            </div>
+            <button type="submit" disabled={!canSubmit} className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
+              <Send className="h-4 w-4" aria-hidden="true" />
+              {busy ? "Creating..." : form.paymentType === "fixed" ? "Send Invitation" : "Create Campaign"}
+            </button>
+          </div>
         </div>
-      ) : null}
-      <label className="block space-y-1.5">
-        <FieldLabel>Visibility</FieldLabel>
-        <span className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200">
-          <input type="checkbox" checked={form.marketplace.public} onChange={(event) => setForm((current) => ({ ...current, marketplace: { ...current.marketplace, public: event.target.checked } }))} />
-          Marketplace
-        </span>
-      </label>
-      <button type="submit" disabled={busy || !form.title.trim() || !form.productIds.length || !form.campaignType || !form.paymentType || Boolean(previewError)} className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
-        <Send className="h-4 w-4" aria-hidden="true" />
-        {form.paymentType === "fixed" ? "Send Invitation" : "Create"}
-      </button>
+        {fixedPaymentSummary ? (
+          <div className="mt-5">
+            <BudgetSummaryPanel campaign={{ title: form.title }} {...fixedPaymentSummary} />
+          </div>
+        ) : null}
+      </CampaignFormSection>
     </form>
   );
 }
@@ -1177,6 +1278,8 @@ export function VendorInfluencerPage() {
   const [planChangePreview, setPlanChangePreview] = useState(null);
   const [selectedInvite, setSelectedInvite] = useState(null);
   const [campaignPayment, setCampaignPayment] = useState(null);
+  const foundationInFlightRef = useRef(null);
+  const foundationLoadedAtRef = useRef(0);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -1209,24 +1312,38 @@ export function VendorInfluencerPage() {
   const discovery = arrayValue(data.discover?.items);
   const campaignInfluencers = useMemo(() => mergeInfluencerOptions([selectedInvite, ...relationships, ...discovery]), [selectedInvite, relationships, discovery]);
 
-  const loadFoundation = useCallback(async () => {
-    const [campaignResponse, productResponse, relationshipResponse, discoveryResponse, subscriptionResponse, configurationResponse] = await Promise.all([
+  const loadFoundation = useCallback(async ({ force = false } = {}) => {
+    if (!force && foundationInFlightRef.current) {
+      return foundationInFlightRef.current;
+    }
+
+    if (!force && Date.now() - foundationLoadedAtRef.current < FOUNDATION_REFRESH_TTL_MS) {
+      return null;
+    }
+
+    foundationInFlightRef.current = Promise.all([
       getVendorInfluencerCampaigns({ limit: 100 }),
       getVendorPromotionProducts({ limit: 100 }),
       getVendorInfluencerRelationships({ limit: 100 }),
       discoverVendorInfluencers({ limit: 100, sort: "trending" }).catch(() => ({ data: { items: [] } })),
       getVendorInfluencerSubscriptionPlans(),
       getVendorInfluencerCommerceConfiguration(),
-    ]);
-    setData((current) => ({
-      ...current,
-      campaigns: campaignResponse?.data || { items: [] },
-      products: productResponse?.data || { items: [] },
-      relationships: relationshipResponse?.data || { items: [] },
-      discover: current.discover?.items?.length ? current.discover : discoveryResponse?.data || { items: [] },
-      subscription: subscriptionResponse?.data || {},
-      configuration: configurationResponse?.data || {},
-    }));
+    ]).then(([campaignResponse, productResponse, relationshipResponse, discoveryResponse, subscriptionResponse, configurationResponse]) => {
+      foundationLoadedAtRef.current = Date.now();
+      setData((current) => ({
+        ...current,
+        campaigns: campaignResponse?.data || { items: [] },
+        products: productResponse?.data || { items: [] },
+        relationships: relationshipResponse?.data || { items: [] },
+        discover: current.discover?.items?.length ? current.discover : discoveryResponse?.data || { items: [] },
+        subscription: subscriptionResponse?.data || {},
+        configuration: configurationResponse?.data || {},
+      }));
+    }).finally(() => {
+      foundationInFlightRef.current = null;
+    });
+
+    return foundationInFlightRef.current;
   }, []);
 
   const loadTab = useCallback(async ({ silent = false } = {}) => {
@@ -1304,10 +1421,9 @@ export function VendorInfluencerPage() {
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible" || busyId) return;
       loadTab({ silent: true }).catch(() => {});
-      loadFoundation().catch(() => {});
-    }, 15000);
+    }, ACTIVE_TAB_REFRESH_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [busyId, commerceLoading, influencerCommerceEnabled, loadFoundation, loadTab]);
+  }, [busyId, commerceLoading, influencerCommerceEnabled, loadTab]);
 
   if (!commerceLoading && !influencerCommerceEnabled) {
     return <Navigate to="/vendor/dashboard" replace />;
@@ -1321,7 +1437,7 @@ export function VendorInfluencerPage() {
       await action();
       setMessage(successText);
       try {
-        await Promise.all([loadTab({ silent: true }), loadFoundation()]);
+        await Promise.all([loadTab({ silent: true }), loadFoundation({ force: true })]);
       } catch {
         // The action itself succeeded; stale data is better than blocking the workflow.
       }
@@ -1351,7 +1467,7 @@ export function VendorInfluencerPage() {
     setMessage(campaign?.paymentType === "fixed"
       ? "Campaign invitation sent. Escrow funding becomes available after the influencer accepts."
       : "Campaign synchronized with the influencer ecosystem.");
-    await Promise.all([loadTab({ silent: true }), loadFoundation()]).catch(() => {});
+    await Promise.all([loadTab({ silent: true }), loadFoundation({ force: true })]).catch(() => {});
     setBusyId("");
     return true;
   }
@@ -1376,7 +1492,7 @@ export function VendorInfluencerPage() {
         ? "Payment verified by Razorpay. Escrow is funded and the campaign is active."
         : "Payment captured. Escrow funding is waiting for Razorpay webhook verification.");
       setCampaignPayment(null);
-      await Promise.all([loadTab({ silent: true }), loadFoundation()]);
+      await Promise.all([loadTab({ silent: true }), loadFoundation({ force: true })]);
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "Payment verification failed.");
       throw err;
@@ -1456,7 +1572,7 @@ export function VendorInfluencerPage() {
       const order = orderResponse?.data || orderResponse;
       if (!order?.requiresPayment) {
         setMessage("Subscription activated.");
-        await loadTab({ silent: true });
+        await Promise.all([loadTab({ silent: true }), loadFoundation({ force: true })]);
         return;
       }
       const ready = await loadRazorpayScript();
@@ -1488,7 +1604,7 @@ export function VendorInfluencerPage() {
         checkout.open();
       });
       setMessage("Subscription payment verified and plan activated.");
-      await loadTab({ silent: true });
+      await Promise.all([loadTab({ silent: true }), loadFoundation({ force: true })]);
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "Subscription purchase failed.");
     } finally {
@@ -1512,7 +1628,7 @@ export function VendorInfluencerPage() {
       if (!order?.requiresPayment) {
         setPlanChangePreview(null);
         setMessage("Subscription changed.");
-        await Promise.all([loadTab({ silent: true }), loadFoundation()]);
+        await Promise.all([loadTab({ silent: true }), loadFoundation({ force: true })]);
         return;
       }
       const ready = await loadRazorpayScript();
@@ -1544,7 +1660,7 @@ export function VendorInfluencerPage() {
       });
       setPlanChangePreview(null);
       setMessage("Subscription changed.");
-      await Promise.all([loadTab({ silent: true }), loadFoundation()]);
+      await Promise.all([loadTab({ silent: true }), loadFoundation({ force: true })]);
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "Subscription change failed.");
     } finally {
@@ -1556,7 +1672,7 @@ export function VendorInfluencerPage() {
     setMessage("");
     setError("");
     try {
-      await Promise.all([loadFoundation(), loadTab()]);
+      await Promise.all([loadFoundation({ force: true }), loadTab()]);
       setMessage("Influencer commerce data refreshed.");
     } catch (err) {
       setError(err?.response?.data?.message || "Unable to refresh influencer commerce data.");

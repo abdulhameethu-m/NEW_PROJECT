@@ -153,7 +153,7 @@ const pageMeta = {
   },
   "/admin/influencer-commerce": {
     title: "Influencer Commerce",
-    subtitle: "Control campaigns, creators, vendors, payouts, analytics, fraud, and reporting.",
+    subtitle: "Control campaigns, creators, vendors, settlements, payouts, and configuration.",
   },
   "/admin/influencer-commerce/influencers": {
     title: "Influencer Commerce",
@@ -171,37 +171,17 @@ const pageMeta = {
     title: "Influencer Commerce",
     subtitle: "Configure fixed campaign platform, gateway, tax, and refund fees with effective dates.",
   },
-  "/admin/influencer-commerce/applications": {
-    title: "Influencer Commerce",
-    subtitle: "Oversee creator applications and campaign approval workflows.",
-  },
   "/admin/influencer-commerce/matching": {
     title: "Influencer Commerce",
     subtitle: "Review recommendation-powered creator, vendor, product, and campaign matches.",
-  },
-  "/admin/influencer-commerce/affiliate-products": {
-    title: "Influencer Commerce",
-    subtitle: "Track promoted products, attribution, commissions, and conversion quality.",
   },
   "/admin/influencer-commerce/tracking": {
     title: "Influencer Commerce",
     subtitle: "Inspect affiliate click sessions, attribution, token expiry, and risk signals.",
   },
-  "/admin/influencer-commerce/content": {
-    title: "Influencer Commerce",
-    subtitle: "Moderate creator content using the existing content and reel workflow.",
-  },
   "/admin/influencer-commerce/promotions": {
     title: "Influencer Commerce",
     subtitle: "Monitor product promotions across campaigns, vendors, and creators.",
-  },
-  "/admin/influencer-commerce/commission-engine": {
-    title: "Influencer Commerce",
-    subtitle: "Configure rule-driven creator commissions, settlements, payout preparation, simulation, and audit.",
-  },
-  "/admin/influencer-commerce/commissions": {
-    title: "Influencer Commerce",
-    subtitle: "Manage affiliate, campaign, bonus, reversed, and paid commissions.",
   },
   "/admin/influencer-commerce/settlements": {
     title: "Influencer Commerce",
@@ -210,34 +190,6 @@ const pageMeta = {
   "/admin/influencer-commerce/payouts": {
     title: "Influencer Commerce",
     subtitle: "Review creator wallets, payout readiness, and account verification.",
-  },
-  "/admin/influencer-commerce/creator-performance": {
-    title: "Influencer Commerce",
-    subtitle: "Rank creators by revenue, conversions, engagement, ROI, and growth.",
-  },
-  "/admin/influencer-commerce/vendor-performance": {
-    title: "Influencer Commerce",
-    subtitle: "Rank vendors by campaign revenue, ROI, creator retention, and spend.",
-  },
-  "/admin/influencer-commerce/campaign-analytics": {
-    title: "Influencer Commerce",
-    subtitle: "Analyze campaign revenue, spend, funnels, products, and creator performance.",
-  },
-  "/admin/influencer-commerce/revenue-analytics": {
-    title: "Influencer Commerce",
-    subtitle: "Track gross revenue, influencer revenue, vendor net, escrow, and commissions.",
-  },
-  "/admin/influencer-commerce/fraud": {
-    title: "Influencer Commerce",
-    subtitle: "Investigate suspicious attribution, content, KYC, and commission patterns.",
-  },
-  "/admin/influencer-commerce/communication": {
-    title: "Influencer Commerce",
-    subtitle: "Monitor vendor, influencer, campaign, and escalation conversations.",
-  },
-  "/admin/influencer-commerce/reports": {
-    title: "Influencer Commerce",
-    subtitle: "Export and schedule campaign, creator, vendor, revenue, commission, and fraud reports.",
   },
   "/admin/influencer-commerce/configuration": {
     title: "Influencer Tier & Score",

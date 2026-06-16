@@ -503,7 +503,7 @@ export default function InfluencerCollectionsPage() {
                 ))}
               </div>
               <div className="mt-5 h-72 rounded-2xl border border-slate-100 p-3 dark:border-slate-800">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <AreaChart data={analytics?.trend || []}>
                     <defs><linearGradient id="collectionViews" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#4f46e5" stopOpacity={0.3} /><stop offset="100%" stopColor="#4f46e5" stopOpacity={0} /></linearGradient></defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />

@@ -117,6 +117,20 @@ const moderate = asyncHandler(async (req, res) => ok(res, await influencerServic
 const dashboard = asyncHandler(async (req, res) =>
   ok(res, await commissionService.getInfluencerDashboard(req.user.sub, req.query), "Influencer dashboard loaded")
 );
+const earningsDashboard = asyncHandler(async (req, res) =>
+  ok(res, await commissionService.getInfluencerEarningsDashboard(req.user.sub, req.query), "Influencer earnings dashboard loaded")
+);
+const requestWithdrawal = asyncHandler(async (req, res) =>
+  ok(
+    res,
+    await commissionService.requestInfluencerWithdrawal(req.user.sub, req.body, req.user, {
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    }),
+    "Withdrawal request submitted",
+    201
+  )
+);
 const commerceProfile = asyncHandler(async (req, res) =>
   ok(res, await influencerRateCardService.getMyCommerceProfile(req.user.sub), "Influencer commerce profile loaded")
 );
@@ -181,6 +195,8 @@ module.exports = {
   list,
   moderate,
   dashboard,
+  earningsDashboard,
+  requestWithdrawal,
   commerceProfile,
   saveServices,
   saveRequirements,

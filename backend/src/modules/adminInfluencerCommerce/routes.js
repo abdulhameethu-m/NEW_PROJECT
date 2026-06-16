@@ -11,11 +11,9 @@ const querySchema = Joi.object({
   search: Joi.string().trim().allow("").optional(),
   status: Joi.string().trim().allow("").optional(),
   state: Joi.string().trim().allow("").optional(),
-  severity: Joi.string().trim().allow("").optional(),
   category: Joi.string().trim().allow("").optional(),
   country: Joi.string().trim().allow("").optional(),
   campaignType: Joi.string().trim().allow("").optional(),
-  contentType: Joi.string().trim().allow("").optional(),
   vendorId: Joi.string().trim().allow("").optional(),
   influencerId: Joi.string().trim().allow("").optional(),
   campaignId: Joi.string().trim().allow("").optional(),
@@ -101,16 +99,6 @@ router.patch(
   ),
   controller.updateCampaign
 );
-router.get("/campaign-applications", validate(querySchema, "query"), controller.applications);
-router.patch(
-  "/campaigns/:campaignId/applications/:influencerId",
-  validate(Joi.object({
-    decision: Joi.string().valid("approve", "reject", "reopen").optional(),
-    status: Joi.string().valid("approved", "rejected", "submitted").optional(),
-    note: Joi.string().trim().max(1000).allow("").default(""),
-  }).or("decision", "status")),
-  controller.reviewCampaignApplication
-);
 router.get("/matching", validate(querySchema, "query"), controller.matching);
 router.post(
   "/matching/recommend",
@@ -122,45 +110,11 @@ router.post(
   })),
   controller.recommendMatch
 );
-router.get("/affiliate-products", validate(querySchema, "query"), controller.affiliateProducts);
 router.get("/affiliate-links", validate(querySchema, "query"), controller.affiliateLinks);
 router.get("/affiliate-tracking", validate(querySchema, "query"), controller.tracking);
-router.get("/content-moderation", validate(querySchema, "query"), controller.content);
-router.patch(
-  "/content-moderation/:reelId",
-  validate(Joi.object({ decision: Joi.string().valid("approve", "reject", "changes", "publish").required(), note: Joi.string().trim().max(1000).allow("").default(""), requestedChanges: Joi.string().trim().max(1000).allow("").default("") })),
-  controller.moderateContent
-);
 router.get("/product-promotions", validate(querySchema, "query"), controller.productPromotions);
-router.get("/commissions", validate(querySchema, "query"), controller.commissions);
-router.patch(
-  "/commissions/:commissionId",
-  validate(Joi.object({
-    action: Joi.string().valid("hold", "settle", "reverse", "cancel").optional(),
-    state: Joi.string().valid("HOLD", "SETTLED", "CANCELLED", "REVERSED").optional(),
-    note: Joi.string().trim().max(1000).allow("").optional(),
-  }).or("action", "state")),
-  controller.updateCommission
-);
 router.get("/settlements", validate(querySchema, "query"), controller.settlements);
 router.get("/payouts", validate(querySchema, "query"), controller.payouts);
-router.get("/creator-performance", validate(querySchema, "query"), controller.creatorPerformance);
-router.get("/vendor-performance", validate(querySchema, "query"), controller.vendorPerformance);
-router.get("/campaign-analytics", validate(querySchema, "query"), controller.campaignAnalytics);
-router.get("/revenue-analytics", validate(querySchema, "query"), controller.revenueAnalytics);
-router.get("/fraud", validate(querySchema, "query"), controller.fraud);
-router.patch(
-  "/fraud/:alertId",
-  validate(Joi.object({ status: Joi.string().valid("OPEN", "UNDER_REVIEW", "SAFE", "ESCALATED", "RESOLVED").required(), notes: Joi.string().trim().max(2000).allow("").default("") })),
-  controller.updateFraud
-);
-router.get("/communication", validate(querySchema, "query"), controller.communication);
-router.get("/reports", validate(querySchema, "query"), controller.reports);
-router.post(
-  "/reports/schedules",
-  validate(Joi.object({ reportType: Joi.string().required(), frequency: Joi.string().valid("daily", "weekly", "monthly").required(), format: Joi.string().valid("csv", "excel", "pdf").default("csv"), recipients: Joi.array().items(Joi.string().email()).default([]), filters: Joi.object().unknown(true).default({}), enabled: Joi.boolean().default(true) })),
-  controller.saveReportSchedule
-);
 router.get("/settings", controller.settings);
 router.patch("/settings", validate(Joi.object({ enabled: Joi.boolean().optional() }).unknown(true)), controller.updateSettings);
 router.get("/audit-logs", validate(querySchema, "query"), controller.auditLogs);

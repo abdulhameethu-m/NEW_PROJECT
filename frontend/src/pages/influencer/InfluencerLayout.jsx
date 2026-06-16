@@ -41,6 +41,13 @@ const INFLUENCER_SECTIONS = [
     ],
   },
   {
+    section: "Influencer Commerce",
+    key: "influencer-commerce",
+    items: [
+      { name: "Earnings & Withdrawals", path: "/influencer/earnings-withdrawals", icon: Wallet },
+    ],
+  },
+  {
     section: "Affiliate Product",
     key: "growth",
     items: [
@@ -83,41 +90,6 @@ const INFLUENCER_SECTIONS = [
   },
 ];
 
-const PAGE_META = {
-  "/influencer/dashboard": {
-    title: "Creator overview",
-    subtitle: "Campaigns, content, collections, and affiliate performance.",
-  },
-  "/influencer/collections": {
-    title: "Collections",
-    subtitle: "Curate products and share creator recommendations.",
-  },
-  "/influencer/affiliate-links": {
-    title: "Affiliate links",
-    subtitle: "Generate product, collection, campaign, and storefront tracking URLs.",
-  },
-  "/influencer/affiliate-products": {
-    title: "Affiliate Products",
-    subtitle: "Discover products, generate tracking links, save opportunities, and analyze affiliate performance.",
-  },
-  "/influencer/campaigns": {
-    title: "Campaign Marketplace",
-    subtitle: "Configure services, discover campaigns, manage deliverables, and analyze brand performance.",
-  },
-  "/influencer/reels/upload": {
-    title: "Upload a reel",
-    subtitle: "Attach content to an active campaign and tag eligible products.",
-  },
-  "/influencer/content": {
-    title: "Videos & Content",
-    subtitle: "Upload, schedule, monetize, and analyze product videos, reels, live commerce, and media assets.",
-  },
-  "/influencer/reels": {
-    title: "Reel performance",
-    subtitle: "Moderation status, engagement metrics, and storefront attribution.",
-  },
-};
-
 function withQueryPath(item) {
   return item.matchSearch ? { ...item, to: `${item.path}${item.matchSearch}`, matchPath: item.path } : item;
 }
@@ -129,19 +101,54 @@ function sectionWithQueryPaths(section) {
   };
 }
 
+const pageMeta = {
+  "/influencer/dashboard": {
+    title: "Dashboard",
+    subtitle: "Track earnings, campaign performance, and creator growth metrics.",
+  },
+  "/influencer/collections": {
+    title: "Collections",
+    subtitle: "Create, manage, and showcase your curated product collections.",
+  },
+  "/influencer/earnings-withdrawals": {
+    title: "Earnings & Withdrawals",
+    subtitle: "Monitor commission earnings, wallet balance, and withdrawal requests.",
+  },
+  "/influencer/affiliate-products": {
+    title: "Affiliate Products",
+    subtitle: "Promote products, generate affiliate links, and track performance.",
+  },
+  "/influencer/affiliate-links": {
+    title: "Affiliate Links",
+    subtitle: "Create and manage your personal affiliate links for products.",
+  },
+  "/influencer/campaigns": {
+    title: "Campaign Marketplace",
+    subtitle: "Browse available campaigns, manage invitations, and track accepted campaigns.",
+  },
+  "/influencer/campaign-execution": {
+    title: "Campaign Execution",
+    subtitle: "Execute campaigns and manage deliverables with real-time tracking.",
+  },
+  "/influencer/content": {
+    title: "Content Center",
+    subtitle: "Upload videos, manage content library, and schedule publications.",
+  },
+  "/influencer/reels": {
+    title: "Reels",
+    subtitle: "View and manage your uploaded reels and shorts.",
+  },
+  "/influencer/reel-upload": {
+    title: "Upload Reel",
+    subtitle: "Create and upload new reels to your content portfolio.",
+  },
+};
+
 export function InfluencerLayout() {
+  const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const { influencerCommerceEnabled, loading: commerceLoading } = usePlatformFeatures();
-  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  const meta = useMemo(() => {
-    const hit = Object.keys(PAGE_META).find(
-      (path) => location.pathname === path || location.pathname.startsWith(`${path}/`)
-    );
-    return PAGE_META[hit] || PAGE_META["/influencer/dashboard"];
-  }, [location.pathname]);
-
   const sidebarSections = useMemo(() => INFLUENCER_SECTIONS.map(sectionWithQueryPaths), []);
 
   const userRoles = Array.from(new Set([user?.role, ...(user?.roles || [])].filter(Boolean)));
@@ -151,6 +158,19 @@ export function InfluencerLayout() {
 
   if (!commerceLoading && !influencerCommerceEnabled) {
     return <Navigate to="/" replace />;
+  }
+
+  let meta = pageMeta[location.pathname] || pageMeta["/influencer/dashboard"];
+  if (location.pathname.startsWith("/influencer/campaigns/")) {
+    meta = pageMeta["/influencer/campaigns"];
+  } else if (location.pathname.startsWith("/influencer/collections/")) {
+    meta = pageMeta["/influencer/collections"];
+  } else if (location.pathname.startsWith("/influencer/campaign-execution/")) {
+    meta = pageMeta["/influencer/campaign-execution"];
+  }
+
+  function handleMenuToggle() {
+    setSidebarOpen((open) => !open);
   }
 
   return (
@@ -168,7 +188,7 @@ export function InfluencerLayout() {
         <Topbar
           title={meta.title}
           subtitle={meta.subtitle}
-          onMenuToggle={() => setSidebarOpen((open) => !open)}
+          onMenuToggle={handleMenuToggle}
           sidebarOpen={sidebarOpen}
         />
         <main className="min-w-0 max-w-full flex-1 overflow-x-hidden px-4 py-4 sm:px-6 lg:px-8">
