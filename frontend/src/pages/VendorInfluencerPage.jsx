@@ -108,6 +108,7 @@ function campaignBuilderPath({ influencerId = "", productId = "" } = {}) {
 const defaultFilters = {
   search: "",
   status: "",
+  paymentModel: "all",
   category: "",
   campaignId: "",
   productId: "",
@@ -124,6 +125,14 @@ const defaultFilters = {
   sort: "trending",
   page: 1,
 };
+
+const PAYMENT_MODEL_FILTER_OPTIONS = [
+  { value: "all", label: "All payment models" },
+  { value: "fixed", label: "Fixed Payment model" },
+  { value: "commission", label: "Commission Payment model" },
+  { value: "hybrid", label: "Hybrid model" },
+  { value: "free_product", label: "Free Product model" },
+];
 
 const FOUNDATION_REFRESH_TTL_MS = 60_000;
 const ACTIVE_TAB_REFRESH_INTERVAL_MS = 60_000;
@@ -552,6 +561,12 @@ function Filters({ filters, setFilters, campaigns = [], products = [], configura
           <option value="cancelled">Cancelled</option>
           <option value="paused">Paused</option>
           <option value="rejected">Rejected</option>
+        </select>
+      </label>
+      <label className="block space-y-1.5">
+        <FieldLabel>Payment Model</FieldLabel>
+        <select value={filters.paymentModel || "all"} onChange={(event) => updateFilter("paymentModel", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Payment model filter">
+          {PAYMENT_MODEL_FILTER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
       </label>
       <label className="block space-y-1.5">
@@ -1301,6 +1316,7 @@ export function VendorInfluencerPage() {
   const query = useMemo(() => {
     const clean = {};
     Object.entries(filters).forEach(([key, value]) => {
+      if (key === "paymentModel" && value === "all") return;
       if (value) clean[key] = value;
     });
     return clean;
@@ -1895,7 +1911,10 @@ function DashboardView({ dashboard = {} }) {
         <Metric label="Campaign Spend" value={formatCurrency(widgets.campaignSpend || 0)} />
         <Metric label="Commission Paid" value={formatCurrency(widgets.commissionPaid || 0)} />
         <Metric label="Pending Commission" value={formatCurrency(widgets.pendingCommissions || 0)} />
+        <Metric label="Clicks" value={numberValue(widgets.clicks || 0)} />
+        <Metric label="Orders Generated" value={numberValue(widgets.ordersGenerated || widgets.campaignConversions || 0)} />
         <Metric label="Conversions" value={numberValue(widgets.campaignConversions)} />
+        <Metric label="Conversion Rate" value={percentValue(widgets.conversionRate || 0)} />
         <Metric label="ROI" value={percentValue(widgets.roi)} />
         <Metric label="Content Queue" value={numberValue(widgets.pendingContentApprovals)} />
         <Metric label="Applications" value={numberValue(widgets.pendingApplications)} />

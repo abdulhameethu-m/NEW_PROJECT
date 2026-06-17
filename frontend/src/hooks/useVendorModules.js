@@ -1,5 +1,6 @@
 import { logger } from "../services/logger/logger.js";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useAuthStore } from "../context/authStore";
 import vendorModuleService from "../services/vendorModule.service";
 
 const ACCESSIBLE_MODULES_POLL_INTERVAL_MS = 60_000;
@@ -199,7 +200,9 @@ export const useVendorModuleAccess = () => {
  * Hook to get vendor-accessible modules
  * ✅ Fetches only enabled modules for vendors
  */
-export const useAccessibleVendorModules = () => {
+export const useAccessibleVendorModules = ({ enabled } = {}) => {
+  const user = useAuthStore((state) => state.user);
+  const shouldFetch = enabled ?? user?.role === "vendor";
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -207,6 +210,14 @@ export const useAccessibleVendorModules = () => {
   const modulesRef = useRef([]);
 
   const fetchAccessibleModules = useCallback(async ({ silent = false } = {}) => {
+    if (!shouldFetch) {
+      modulesRef.current = [];
+      setModules([]);
+      setError(null);
+      if (!silent) setLoading(false);
+      return [];
+    }
+
     if (Date.now() < rateLimitedUntilRef.current) {
       if (!silent) {
         setLoading(false);
@@ -238,9 +249,17 @@ export const useAccessibleVendorModules = () => {
         setLoading(false);
       }
     }
-  }, []);
+  }, [shouldFetch]);
 
   useEffect(() => {
+    if (!shouldFetch) {
+      modulesRef.current = [];
+      setModules([]);
+      setError(null);
+      setLoading(false);
+      return undefined;
+    }
+
     fetchAccessibleModules();
 
     // Poll gently so admin toggles eventually sync without hammering the API.
@@ -266,7 +285,7 @@ export const useAccessibleVendorModules = () => {
       window.removeEventListener("focus", handleWindowFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [fetchAccessibleModules]);
+  }, [fetchAccessibleModules, shouldFetch]);
 
   return { modules, loading, error, refreshModules: fetchAccessibleModules };
 };

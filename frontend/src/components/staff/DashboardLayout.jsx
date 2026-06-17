@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useStaffAuthStore } from "../../context/staffAuthStore";
 import { StaffSidebar } from "./Sidebar";
@@ -29,12 +29,14 @@ export function StaffDashboardLayout({ children }) {
 
   // Calculate active module and notification target before any hooks (for consistency)
   const activeModule = getStaffModuleByRoute(location.pathname);
-  const activeNotificationTarget = activeModule?.notificationModule || activeModule?.notificationSubModule
-    ? {
-        module: activeModule.notificationModule,
-        subModule: activeModule.notificationSubModule,
-      }
-    : null;
+  const activeNotificationTarget = useMemo(() => (
+    activeModule?.notificationModule || activeModule?.notificationSubModule
+      ? {
+          module: activeModule.notificationModule,
+          subModule: activeModule.notificationSubModule,
+        }
+      : null
+  ), [activeModule?.notificationModule, activeModule?.notificationSubModule]);
 
   // Call all hooks at the top level before any conditional returns
   const { summary } = useRoleNotifications("staff", activeNotificationTarget);

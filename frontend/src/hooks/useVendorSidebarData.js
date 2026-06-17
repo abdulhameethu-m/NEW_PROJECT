@@ -40,8 +40,6 @@ export function useVendorSidebarData({ unreadCount = 0, summary = { modules: {},
           icon: meta.icon,
           title: module.description,
           moduleKey: module.key,
-          notificationModule: meta.notificationModule,
-          notificationSubModule: meta.notificationSubModule,
         });
       });
 
@@ -50,10 +48,10 @@ export function useVendorSidebarData({ unreadCount = 0, summary = { modules: {},
       const existingPaths = new Set(financeItems.map((item) => item.path));
 
       [
-        { name: "Commission", path: "/vendor/finance/commission", notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
-        { name: "Payout History", path: "/vendor/finance/payouts", notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
-        { name: "Ledger", path: "/vendor/finance/ledger", notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
-        { name: "Payout Account", path: "/vendor/finance/account", notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
+        { name: "Commission", path: "/vendor/finance/commission" },
+        { name: "Payout History", path: "/vendor/finance/payouts" },
+        { name: "Ledger", path: "/vendor/finance/ledger" },
+        { name: "Payout Account", path: "/vendor/finance/account" },
       ].forEach((item) => {
         if (!existingPaths.has(item.path)) {
           financeItems.push(item);
@@ -66,33 +64,33 @@ export function useVendorSidebarData({ unreadCount = 0, summary = { modules: {},
     return Array.from(grouped.entries()).map(([section, items]) => ({
       section,
       key: normalizeSectionKey(section),
-      badgeCount: Number(summary.modules?.[String(section || "").toUpperCase()] || 0),
+      badgeCount: 0,
       items: items.map((item) => ({
         ...item,
-        badgeCount: Number(summary.subModules?.[item.notificationSubModule] || 0),
+        badgeCount: 0,
       })),
     }));
-  }, [modules, summary.modules, summary.subModules]);
+  }, [modules]);
 
   const staticSections = useMemo(() => {
     const hideInfluencerCommerce = !platformFeaturesLoading && !influencerCommerceEnabled;
 
     return VENDOR_STATIC_ITEMS.map((section) => ({
       ...section,
-      badgeCount: Number(summary.modules?.[section.notificationModule] || 0),
+      badgeCount: 0,
       items: section.items
         .filter((item) => !(hideInfluencerCommerce && item.path?.startsWith("/vendor/influencer-commerce")))
         .map((item) => ({
           ...item,
-          notificationModule: item.notificationModule,
-          notificationSubModule: item.notificationSubModule,
+          notificationModule: item.badgeKey === "notificationsUnread" ? item.notificationModule : undefined,
+          notificationSubModule: item.badgeKey === "notificationsUnread" ? item.notificationSubModule : undefined,
           badgeCount:
             item.badgeKey === "notificationsUnread"
               ? unreadCount
-              : Number(summary.subModules?.[item.notificationSubModule] || 0),
+              : 0,
         })),
     }));
-  }, [summary.modules, summary.subModules, unreadCount, platformFeaturesLoading, influencerCommerceEnabled]);
+  }, [unreadCount, platformFeaturesLoading, influencerCommerceEnabled]);
 
   return {
     title: "Vendor Central",

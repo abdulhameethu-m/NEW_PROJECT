@@ -11,6 +11,7 @@ const EMPTY_SUMMARY = {
 };
 
 const DEFAULT_RATE_LIMIT_BACKOFF_MS = 60_000;
+const AUTO_READ_COOLDOWN_MS = 60_000;
 
 function retryAfterDelay(error) {
   const retryAfter = error?.response?.headers?.["retry-after"];
@@ -25,6 +26,8 @@ export function useRoleNotifications(role, activeTarget = null, pollingInterval 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const inFlightAutoReadRef = useRef(null);
+  const inFlightSummaryRef = useRef(null);
+  const lastAutoReadAtRef = useRef({});
   const rateLimitedUntilRef = useRef(0);
   const summaryRef = useRef(EMPTY_SUMMARY);
 
@@ -33,14 +36,21 @@ export function useRoleNotifications(role, activeTarget = null, pollingInterval 
       setLoading(false);
       return summaryRef.current;
     }
+    if (inFlightSummaryRef.current) {
+      return inFlightSummaryRef.current;
+    }
 
-    try {
+    inFlightSummaryRef.current = (async () => {
       const response = await getNotificationSummary(role);
       const nextSummary = response.data || EMPTY_SUMMARY;
       summaryRef.current = nextSummary;
       setSummary(nextSummary);
       setError("");
       return nextSummary;
+    })();
+
+    try {
+      return await inFlightSummaryRef.current;
     } catch (err) {
       if (err?.response?.status === 429) {
         rateLimitedUntilRef.current = Date.now() + retryAfterDelay(err);
@@ -51,6 +61,7 @@ export function useRoleNotifications(role, activeTarget = null, pollingInterval 
       }
       return EMPTY_SUMMARY;
     } finally {
+      inFlightSummaryRef.current = null;
       setLoading(false);
     }
   }, [role]);
@@ -102,15 +113,21 @@ export function useRoleNotifications(role, activeTarget = null, pollingInterval 
     }
 
     const key = `${activeTarget.module || ""}:${activeTarget.subModule || ""}`;
+    const now = Date.now();
     const unreadCount = activeTarget.subModule
       ? Number(summary.subModules?.[activeTarget.subModule] || 0)
       : Number(summary.modules?.[activeTarget.module] || 0);
 
-    if (unreadCount <= 0 || inFlightAutoReadRef.current === key) {
+    if (
+      unreadCount <= 0 ||
+      inFlightAutoReadRef.current === key ||
+      now - Number(lastAutoReadAtRef.current[key] || 0) < AUTO_READ_COOLDOWN_MS
+    ) {
       return;
     }
 
     inFlightAutoReadRef.current = key;
+    lastAutoReadAtRef.current[key] = now;
     markRead({
       module: activeTarget.module,
       subModule: activeTarget.subModule,

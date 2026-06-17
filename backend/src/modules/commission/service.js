@@ -1061,36 +1061,57 @@ class CommissionService {
     const previousStart = new Date(previousEnd.getTime() - (end.getTime() - start.getTime()));
     const campaignId = objectIdOrNull(query.campaignId);
     const productId = objectIdOrNull(query.productId);
+    const paymentModel = this.normalizePaymentModelFilter(query.paymentModel);
     const category = query.category ? String(query.category).trim().toLowerCase() : "";
     const brand = query.brand ? String(query.brand).trim().toLowerCase() : "";
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(50, Math.max(1, Number(query.limit) || 8));
 
+    const campaignMembership = {
+      $or: [
+        { influencerId },
+        { "applications.influencerId": influencerId },
+      ],
+    };
+    const campaignOptionFilter = { ...campaignMembership };
+    if (paymentModel !== "all") campaignOptionFilter.paymentType = paymentModel;
+    if (productId) campaignOptionFilter.productIds = productId;
+
+    const campaignFilter = { ...campaignOptionFilter };
+    if (campaignId) campaignFilter._id = campaignId;
+    const scopedCampaigns = await Campaign.find(campaignFilter)
+      .select("_id title campaignType state commissionPercent fixedFee deadline vendorId createdAt paymentType productIds")
+      .populate("productIds", "name category brand images")
+      .populate("vendorId", "shopName companyName")
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+    const scopedCampaignIds = scopedCampaigns.map((campaign) => campaign._id);
+    const campaignScopeActive = paymentModel !== "all" || Boolean(campaignId);
+
     const baseRecordMatch = {
       influencerId,
       createdAt: { $gte: start, $lte: end },
     };
-    if (campaignId) baseRecordMatch.campaignId = campaignId;
+    if (campaignScopeActive) baseRecordMatch.campaignId = { $in: scopedCampaignIds };
 
     const previousRecordMatch = {
       influencerId,
       createdAt: { $gte: previousStart, $lte: previousEnd },
     };
-    if (campaignId) previousRecordMatch.campaignId = campaignId;
-
-    const campaignFilter = { influencerId };
-    if (campaignId) campaignFilter._id = campaignId;
+    if (campaignScopeActive) previousRecordMatch.campaignId = { $in: scopedCampaignIds };
 
     const reelFilter = { influencerId };
-    if (campaignId) reelFilter.campaignId = campaignId;
+    if (campaignScopeActive) reelFilter.campaignId = { $in: scopedCampaignIds };
     if (productId) reelFilter.productIds = productId;
 
     const [
       currentAgg,
       previousAgg,
       records,
+      attributedOrders,
       reels,
-      campaigns,
+      campaignOptions,
       socialAccounts,
       activeProfile,
     ] = await Promise.all([
@@ -1130,16 +1151,29 @@ class CommissionService {
         .sort({ createdAt: -1 })
         .limit(500)
         .lean(),
+      Order.find({
+        "attribution.influencerId": influencerId,
+        createdAt: { $gte: start, $lte: end },
+        ...(campaignScopeActive ? { "attribution.campaignId": { $in: scopedCampaignIds } } : {}),
+        ...(productId ? { "attribution.productId": productId } : {}),
+      })
+        .select("orderNumber userId items totalAmount subtotal status paymentStatus attribution createdAt")
+        .populate("userId", "name email")
+        .populate("items.productId", "name images category brand price discountPrice analytics")
+        .sort({ createdAt: -1 })
+        .limit(500)
+        .lean(),
       Reel.find(reelFilter)
         .populate({ path: "campaignId", select: "state commissionPercent fixedFee deadline vendorId", populate: { path: "vendorId", select: "shopName companyName" } })
         .sort({ "metrics.orders": -1, "metrics.clicks": -1, createdAt: -1 })
         .limit(10)
         .lean(),
-      Campaign.find(campaignFilter)
+      Campaign.find(campaignOptionFilter)
+        .select("_id title campaignType state paymentType vendorId productIds createdAt")
         .populate("productIds", "name category brand images")
         .populate("vendorId", "shopName companyName")
         .sort({ createdAt: -1 })
-        .limit(12)
+        .limit(100)
         .lean(),
       InfluencerSocialAccount.find({ influencerId }).select("platform followersCount engagementRate updatedAt").lean(),
       InfluencerProfile.findById(influencerId).select("followers stats permissions").lean(),
@@ -1147,6 +1181,18 @@ class CommissionService {
 
     const filteredRecords = records.filter((record) => {
       const order = record.orderId;
+      if (!includesProduct(order, productId)) return false;
+      if (!category && !brand) return true;
+      return (order?.items || []).some((item) => {
+        const product = item.productId || {};
+        const productCategory = String(product.category || "").toLowerCase();
+        const productBrand = String(product.brand || "").toLowerCase();
+        return (!category || productCategory === category) && (!brand || productBrand.includes(brand));
+      });
+    });
+    const filteredRecordOrderIds = new Set(filteredRecords.map((record) => String(record.orderId?._id || record.orderId || "")).filter(Boolean));
+    const filteredAttributedOrders = attributedOrders.filter((order) => {
+      if (filteredRecordOrderIds.has(String(order._id))) return false;
       if (!includesProduct(order, productId)) return false;
       if (!category && !brand) return true;
       return (order?.items || []).some((item) => {
@@ -1198,9 +1244,10 @@ class CommissionService {
     const previous = previousAgg[0] || {};
     const totalClicks = reels.reduce((sum, reel) => sum + Number(reel.metrics?.clicks || 0), 0);
     const totalViews = reels.reduce((sum, reel) => sum + Number(reel.metrics?.views || 0), 0);
-    const totalOrders = filteredRecords.length;
+    const totalOrders = filteredRecords.length + filteredAttributedOrders.length;
     const totalCommission = roundMoney(filteredRecords.reduce((sum, record) => sum + Number(record.influencerShare || 0), 0));
-    const grossRevenue = roundMoney(filteredRecords.reduce((sum, record) => sum + Number(record.gross || 0), 0));
+    const attributedOrderRevenue = filteredAttributedOrders.reduce((sum, order) => sum + Number(order.totalAmount || order.subtotal || 0), 0);
+    const grossRevenue = roundMoney(filteredRecords.reduce((sum, record) => sum + Number(record.gross || 0), 0) + attributedOrderRevenue);
     const conversionRate = totalClicks > 0 ? roundMoney((totalOrders / totalClicks) * 100) : 0;
     const averageOrderValue = totalOrders > 0 ? roundMoney(grossRevenue / totalOrders) : 0;
     const followers = Number(activeProfile?.followers || socialAccounts.reduce((sum, account) => sum + Number(account.followersCount || 0), 0));
@@ -1226,6 +1273,14 @@ class CommissionService {
       if (row) {
         row.revenue = roundMoney(row.revenue + Number(record.gross || 0));
         row.commission = roundMoney(row.commission + Number(record.influencerShare || 0));
+        row.orders += 1;
+      }
+    }
+    for (const order of filteredAttributedOrders) {
+      const key = new Date(order.createdAt).toISOString().slice(0, 10);
+      const row = revenueMap.get(key);
+      if (row) {
+        row.revenue = roundMoney(row.revenue + Number(order.totalAmount || order.subtotal || 0));
         row.orders += 1;
       }
     }
@@ -1259,6 +1314,30 @@ class CommissionService {
           row.appliedRule = row.appliedRule || appliedRule;
           row.appliedRuleCounts[appliedRule.ruleTypeLabel || "Rule"] = Number(row.appliedRuleCounts[appliedRule.ruleTypeLabel || "Rule"] || 0) + 1;
         }
+        productRows.set(id, row);
+      }
+    }
+    for (const order of filteredAttributedOrders) {
+      for (const item of order?.items || []) {
+        const product = item.productId || {};
+        const id = String(product._id || item.productId || "");
+        if (!id) continue;
+        if (productId && id !== String(productId)) continue;
+        const row = productRows.get(id) || {
+          id,
+          name: product.name || item.name || "Product",
+          image: productImage(product) || item.image || "",
+          category: product.category || "",
+          brand: product.brand || "",
+          orders: 0,
+          revenue: 0,
+          commission: 0,
+          clicks: 0,
+          appliedRule: null,
+          appliedRuleCounts: {},
+        };
+        row.orders += Number(item.quantity || 1);
+        row.revenue = roundMoney(row.revenue + Number(item.price || 0) * Number(item.quantity || 1));
         productRows.set(id, row);
       }
     }
@@ -1312,14 +1391,16 @@ class CommissionService {
       };
     });
 
-    const activeCampaigns = campaigns.map((campaign) => {
+    const activeCampaigns = scopedCampaigns.map((campaign) => {
       const campaignRecords = filteredRecords.filter((record) => String(record.campaignId?._id || record.campaignId) === String(campaign._id));
+      const campaignOrders = filteredAttributedOrders.filter((order) => String(order.attribution?.campaignId || "") === String(campaign._id));
       const campaignRule = dominantRuleSummary(new Map(campaignRecords.map((record) => [String(record._id), ruleByRecordId.get(String(record._id))])));
       return {
         id: String(campaign._id),
-        name: campaign.productIds?.[0]?.name || `${campaign.vendorId?.shopName || campaign.vendorId?.companyName || "Brand"} campaign`,
+        name: campaign.title || campaign.productIds?.[0]?.name || `${campaign.vendorId?.shopName || campaign.vendorId?.companyName || "Brand"} campaign`,
         brand: campaign.vendorId?.shopName || campaign.vendorId?.companyName || "Brand",
         category: campaign.productIds?.[0]?.category || "",
+        paymentModel: campaign.paymentType || "",
         status: campaign.state,
         startDate: campaign.createdAt,
         endDate: campaign.deadline,
@@ -1327,11 +1408,13 @@ class CommissionService {
         commissionPercent: Number(campaignRule?.commissionPercent ?? campaign.commissionPercent ?? 0),
         appliedRule: campaignRule,
         appliedRuleType: campaignRule?.ruleTypeLabel || "",
+        orders: campaignRecords.length + campaignOrders.length,
         revenueEarned: roundMoney(campaignRecords.reduce((sum, record) => sum + Number(record.influencerShare || 0), 0)),
+        grossRevenue: roundMoney(campaignRecords.reduce((sum, record) => sum + Number(record.gross || 0), 0) + campaignOrders.reduce((sum, order) => sum + Number(order.totalAmount || order.subtotal || 0), 0)),
       };
     });
 
-    const recentOrders = filteredRecords.slice((page - 1) * limit, page * limit).map((record) => {
+    const recordOrderRows = filteredRecords.map((record) => {
       const order = record.orderId || {};
       const firstItem = order.items?.[0] || {};
       const appliedRule = ruleByRecordId.get(String(record._id));
@@ -1351,6 +1434,27 @@ class CommissionService {
         createdAt: order.createdAt || record.createdAt,
       };
     });
+    const attributedOrderRows = filteredAttributedOrders.map((order) => {
+      const firstItem = order.items?.[0] || {};
+      return {
+        id: String(order._id),
+        orderNumber: order.orderNumber || String(order._id).slice(-8),
+        product: firstItem.name || firstItem.productId?.name || "Product",
+        productId: String(firstItem.productId?._id || firstItem.productId || ""),
+        customer: order.userId?.name || order.userId?.email || "Customer",
+        amount: Number(order.totalAmount || order.subtotal || 0),
+        commission: 0,
+        commissionPercent: 0,
+        appliedRule: null,
+        appliedRuleType: paymentModel === "fixed" ? "Fixed payment" : "",
+        status: order.paymentStatus || order.status,
+        orderStatus: order.status,
+        createdAt: order.createdAt,
+      };
+    });
+    const allRecentOrders = [...recordOrderRows, ...attributedOrderRows]
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    const recentOrders = allRecentOrders.slice((page - 1) * limit, page * limit);
 
     const dominantHistoricalRule = dominantRuleSummary(ruleByRecordId);
     const recentActivity = [
@@ -1375,9 +1479,18 @@ class CommissionService {
         endDate: end,
         campaignId: campaignId ? String(campaignId) : "",
         productId: productId ? String(productId) : "",
+        paymentModel,
         category,
         brand,
       },
+      paymentModels: this.paymentModelDefinitions(),
+      campaignOptions: campaignOptions.map((campaign) => ({
+        id: String(campaign._id),
+        name: campaign.title || campaign.productIds?.[0]?.name || `${campaign.vendorId?.shopName || campaign.vendorId?.companyName || "Brand"} campaign`,
+        brand: campaign.vendorId?.shopName || campaign.vendorId?.companyName || "",
+        paymentModel: campaign.paymentType || "",
+        status: campaign.state,
+      })),
       totalOrders,
       totalClicks,
       conversionRate,
@@ -1424,8 +1537,8 @@ class CommissionService {
         rows: recentOrders,
         page,
         limit,
-        total: filteredRecords.length,
-        totalPages: Math.ceil(filteredRecords.length / limit) || 1,
+        total: allRecentOrders.length,
+        totalPages: Math.ceil(allRecentOrders.length / limit) || 1,
       },
       quickActions: [
         { key: "affiliate", label: "Create Affiliate Link", href: "/influencer/affiliate-links", enabled: Boolean(profile.permissions?.affiliateLinks) },

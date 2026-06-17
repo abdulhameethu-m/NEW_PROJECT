@@ -70,6 +70,7 @@ const dashboardQuery = Joi.object({
   range: Joi.string().valid("today", "7d", "30d", "90d", "12m", "custom").optional(),
   startDate: Joi.date().iso().optional(),
   endDate: Joi.date().iso().optional(),
+  paymentModel: Joi.string().valid("all", "fixed", "commission", "hybrid", "free_product").default("all"),
   campaignId: Joi.string().allow("").optional(),
   productId: Joi.string().allow("").optional(),
   category: Joi.string().allow("").optional(),

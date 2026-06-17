@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo } from "react";
+import { useAuthStore } from "./authStore";
 import { useAccessibleVendorModules } from "../hooks/useVendorModules";
 
 // Create context
@@ -8,7 +9,9 @@ const VendorModuleContext = createContext(null);
  * Provider component for vendor module access
  */
 export function VendorModuleProvider({ children }) {
-  const { modules, loading, error, refreshModules } = useAccessibleVendorModules();
+  const user = useAuthStore((state) => state.user);
+  const enabled = user?.role === "vendor";
+  const { modules, loading, error, refreshModules } = useAccessibleVendorModules({ enabled });
   const moduleMap = useMemo(
     () => Object.fromEntries(modules.map((module) => [module.key, module])),
     [modules]
