@@ -9,6 +9,12 @@ const campaignFeeConfigurationSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    paymentModel: {
+      type: String,
+      enum: ["all", "fixed", "commission", "hybrid", "free_product"],
+      default: "all",
+      index: true,
+    },
     feeType: {
       type: String,
       enum: ["percentage", "fixed", "hybrid"],
@@ -33,7 +39,7 @@ const campaignFeeConfigurationSchema = new mongoose.Schema(
   }
 );
 
-campaignFeeConfigurationSchema.index({ feeCode: 1, isActive: 1, effectiveFrom: -1 });
+campaignFeeConfigurationSchema.index({ paymentModel: 1, feeCode: 1, isActive: 1, effectiveFrom: -1 });
 
 module.exports =
   mongoose.models.CampaignFeeConfiguration ||

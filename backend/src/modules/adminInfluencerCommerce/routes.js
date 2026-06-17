@@ -18,6 +18,7 @@ const querySchema = Joi.object({
   influencerId: Joi.string().trim().allow("").optional(),
   campaignId: Joi.string().trim().allow("").optional(),
   productId: Joi.string().trim().allow("").optional(),
+  paymentModel: Joi.string().valid("all", "fixed", "commission", "hybrid", "free_product").optional(),
   startDate: Joi.date().iso().optional(),
   endDate: Joi.date().iso().optional(),
   sort: Joi.string().trim().allow("").optional(),

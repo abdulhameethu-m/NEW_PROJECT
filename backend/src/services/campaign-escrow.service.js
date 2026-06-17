@@ -34,8 +34,8 @@ function platformFeePercentageFromSnapshot(feeLines = []) {
 
 class CampaignEscrowService {
   standaloneReleaseEnabled() {
-    return process.env.NODE_ENV !== "production"
-      && process.env.ALLOW_STANDALONE_ESCROW_RELEASES === "true";
+    if (process.env.NODE_ENV === "production") return false;
+    return String(process.env.ALLOW_STANDALONE_ESCROW_RELEASES || "true").toLowerCase() !== "false";
   }
 
   async calculateCampaignCost(campaignId, vendorId = null) {
@@ -54,7 +54,9 @@ class CampaignEscrowService {
 
     return campaignFeeService.calculateFundingSummary(
       budgetAmount,
-      campaign.pricing?.currency || "INR"
+      campaign.pricing?.currency || "INR",
+      new Date(),
+      campaign.paymentType
     );
   }
 

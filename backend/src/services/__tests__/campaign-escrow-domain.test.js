@@ -89,7 +89,26 @@ test("campaign releases use the influencer ledger and unique deliverable protect
   assert.ok(uniqueIndex);
   assert.ok(InfluencerLedger.schema.path("source").enumValues.includes("CAMPAIGN"));
   assert.ok(InfluencerWallet.schema.path("creditedCampaignReleaseIds"));
-  assert.equal(campaignEscrowService.standaloneReleaseEnabled(), false);
+});
+
+test("standalone escrow release recovery is development-only", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalFlag = process.env.ALLOW_STANDALONE_ESCROW_RELEASES;
+  try {
+    process.env.NODE_ENV = "development";
+    delete process.env.ALLOW_STANDALONE_ESCROW_RELEASES;
+    assert.equal(campaignEscrowService.standaloneReleaseEnabled(), true);
+    process.env.ALLOW_STANDALONE_ESCROW_RELEASES = "false";
+    assert.equal(campaignEscrowService.standaloneReleaseEnabled(), false);
+    process.env.NODE_ENV = "production";
+    process.env.ALLOW_STANDALONE_ESCROW_RELEASES = "true";
+    assert.equal(campaignEscrowService.standaloneReleaseEnabled(), false);
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+    if (originalFlag === undefined) delete process.env.ALLOW_STANDALONE_ESCROW_RELEASES;
+    else process.env.ALLOW_STANDALONE_ESCROW_RELEASES = originalFlag;
+  }
 });
 
 test("campaign gateway receipts are stable and payment order fields are uniquely indexed", () => {

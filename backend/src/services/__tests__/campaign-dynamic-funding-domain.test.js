@@ -19,6 +19,7 @@ test("fixed campaign accounting separates platform revenue and gateway expense",
   assert.ok(CampaignEscrowLedger.schema.path("entryType").enumValues.includes("gateway_expense"));
   assert.ok(CampaignEscrowLedger.schema.path("entryType").enumValues.includes("tax_collected"));
   assert.equal(PlatformRevenueTransaction.schema.path("paymentModel").enumValues.includes("fixed"), true);
+  assert.equal(CampaignFeeConfiguration.schema.path("paymentModel").enumValues.includes("hybrid"), true);
   const idempotencyIndex = PlatformRevenueTransaction.schema.indexes().find(
     ([fields, options]) => fields.idempotencyKey === 1 && options.unique
   );
@@ -53,6 +54,7 @@ test("funding summary includes every active configuration with the same fee code
       "Commission for Platform",
     ]);
     assert.deepEqual(summary.feeLines.map((line) => line.amount), [30, 75]);
+    assert.deepEqual(summary.feeLines.map((line) => line.paymentModel), ["all", "all"]);
   } finally {
     feeService.activeConfigurations = original;
   }

@@ -11,6 +11,7 @@ const adminAuth = [authRequired, requireRole("admin")];
 const feeConfigurationSchema = Joi.object({
   feeName: Joi.string().trim().max(120).required(),
   feeCode: Joi.string().valid("platform_fee", "gateway_fee", "gst", "refund_processing_fee", "partial_refund_fee").required(),
+  paymentModel: Joi.string().valid("all", "fixed", "commission", "hybrid", "free_product").default("all"),
   feeType: Joi.string().valid("percentage", "fixed", "hybrid").required(),
   percentageValue: Joi.number().min(0).max(100).default(0),
   fixedValue: Joi.number().min(0).default(0),

@@ -48,6 +48,7 @@ const { Product } = require("../../models/Product");
 const { Order } = require("../../models/Order");
 const { AuditLog } = require("../../models/AuditLog");
 const PlatformConfig = require("../../models/PlatformConfig");
+const CampaignFeeConfiguration = require("../../models/CampaignFeeConfiguration");
 const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
 const PlatformRevenueTransaction = require("../../models/PlatformRevenueTransaction");
 const { VendorInfluencerRelationship } = require("../influencerCommerce/model");
@@ -118,6 +119,11 @@ const REVENUE_MODEL_LABELS = {
 function revenueModel(value = "commission") {
   const next = String(value || "commission").toLowerCase();
   return REVENUE_MODEL_LABELS[next] ? next : "commission";
+}
+
+function selectedRevenueModel(value = "all") {
+  const next = String(value || "all").toLowerCase();
+  return next === "all" || REVENUE_MODEL_LABELS[next] ? next : "all";
 }
 
 function campaignBudget(campaign = {}, fallback = 0) {
@@ -927,6 +933,7 @@ class AdminInfluencerCommerceService {
   async revenueDashboard(query = {}) {
     const { start, end } = parseRange(query);
     const { limit } = pageOptions(query, 50);
+    const selectedPaymentModel = selectedRevenueModel(query.paymentModel);
     const baseDateMatch = { createdAt: { $gte: start, $lte: end } };
     const scopedMatch = { ...baseDateMatch };
     const campaignMatch = { ...baseDateMatch };
@@ -954,37 +961,54 @@ class AdminInfluencerCommerceService {
       const match = { createdAt: { $gte: periodStart, $lte: periodEnd } };
       if (vendorId) match.vendorId = vendorId;
       if (campaignId) match.campaignId = campaignId;
-      const [fixedRows, commissionRows] = await Promise.all([
-        PlatformRevenueTransaction.aggregate([{ $match: match }, { $group: { _id: null, amount: { $sum: "$platformFeeAmount" } } }]),
-        CommissionRecord.aggregate([{ $match: match }, { $group: { _id: null, amount: { $sum: "$platformFee" } } }]),
+      const [fixedPeriodRows, commissionPeriodRows] = await Promise.all([
+        PlatformRevenueTransaction.find(match).populate("campaignId", "paymentType").lean(),
+        CommissionRecord.find(match).populate("campaignId", "paymentType").lean(),
       ]);
-      return money((fixedRows[0]?.amount || 0) + (commissionRows[0]?.amount || 0));
+      const fixedTotal = fixedPeriodRows.reduce((sum, row) => {
+        const modelKey = revenueModel(row.campaignId?.paymentType || row.paymentModel || "fixed");
+        return selectedPaymentModel === "all" || selectedPaymentModel === modelKey ? sum + Number(row.platformFeeAmount || 0) : sum;
+      }, 0);
+      const commissionTotal = commissionPeriodRows.reduce((sum, row) => {
+        const modelKey = revenueModel(row.campaignId?.paymentType === "hybrid" ? "hybrid" : "commission");
+        return selectedPaymentModel === "all" || selectedPaymentModel === modelKey ? sum + Number(row.platformFee || 0) : sum;
+      }, 0);
+      return money(fixedTotal + commissionTotal);
     };
 
     const [
       fixedRows,
       commissionRows,
       freeProductCampaigns,
+      configuredFeeRows,
       todaysRevenue,
       monthlyRevenue,
     ] = await Promise.all([
       PlatformRevenueTransaction.find(scopedMatch)
-        .populate("campaignId", "title state paymentType fixedFee pricing fixedPaymentWorkflow createdAt")
+        .populate("campaignId", "title description category state paymentType fixedFee pricing fixedPaymentWorkflow createdAt")
         .populate("vendorId", "shopName companyName")
         .sort({ createdAt: -1 })
         .limit(500)
         .lean(),
       CommissionRecord.find(scopedMatch)
-        .populate("campaignId", "title state paymentType fixedFee pricing createdAt")
+        .populate("campaignId", "title description category state paymentType fixedFee pricing createdAt")
         .populate("vendorId", "shopName companyName")
         .sort({ createdAt: -1 })
         .limit(1000)
         .lean(),
-      Campaign.find({ ...campaignMatch, paymentType: "free_product" })
+      selectedPaymentModel === "all" || selectedPaymentModel === "free_product" ? Campaign.find({ ...campaignMatch, paymentType: "free_product" })
         .populate("vendorId", "shopName companyName")
         .sort({ createdAt: -1 })
         .limit(200)
-        .lean(),
+        .lean() : [],
+      CampaignFeeConfiguration.find(selectedPaymentModel === "all" ? {} : {
+        $or: [
+          { paymentModel: selectedPaymentModel },
+          { paymentModel: "all" },
+          { paymentModel: "" },
+          { paymentModel: { $exists: false } },
+        ],
+      }).sort({ feeCode: 1, effectiveFrom: -1, createdAt: -1 }).lean(),
       periodTotal(todayStart, now),
       periodTotal(monthStart, now),
     ]);
@@ -997,6 +1021,7 @@ class AdminInfluencerCommerceService {
       const haystack = `${campaign.title || ""} ${campaign.description || ""} ${campaign.category || ""}`.toLowerCase();
       return haystack.includes(String(query.search).toLowerCase());
     };
+    const modelAllows = (modelKey) => selectedPaymentModel === "all" || selectedPaymentModel === modelKey;
 
     const modelMap = new Map(Object.keys(REVENUE_MODEL_LABELS).map((key) => [key, {
       model: key,
@@ -1010,6 +1035,7 @@ class AdminInfluencerCommerceService {
       transactionCount: 0,
     }]));
     const campaignMap = new Map();
+    const feeMap = new Map();
     const ensureModel = (key) => modelMap.get(key) || modelMap.get("commission");
     const ensureCampaign = (key, seed = {}) => {
       if (!campaignMap.has(key)) {
@@ -1038,11 +1064,51 @@ class AdminInfluencerCommerceService {
       }
       return campaignMap.get(key);
     };
+    const ensureFeeRow = (key, seed = {}) => {
+      if (!feeMap.has(key)) {
+        feeMap.set(key, {
+          id: key,
+          feeName: seed.feeName || "Fee",
+          feeCode: seed.feeCode || "",
+          paymentModel: seed.paymentModel || selectedPaymentModel,
+          paymentModelLabel: seed.paymentModelLabel || REVENUE_MODEL_LABELS[seed.paymentModel] || "All Models",
+          feeType: seed.feeType || "",
+          percentageValue: Number(seed.percentageValue || 0),
+          fixedValue: money(seed.fixedValue),
+          calculationBase: seed.calculationBase || "",
+          source: seed.source || "",
+          amount: 0,
+          baseAmount: 0,
+          campaignIds: new Set(),
+          transactionCount: 0,
+          configured: Boolean(seed.configured),
+        });
+      }
+      return feeMap.get(key);
+    };
+    const addFeeLine = (line = {}, modelKey, campaignId, source) => {
+      const key = `${modelKey}:${line.configurationId || line.feeCode || line.feeName || "fee"}:${line.feeCode || line.feeName || "Fee"}`;
+      const feeRow = ensureFeeRow(key, {
+        feeName: line.feeName || line.label || "Fee",
+        feeCode: line.feeCode || "",
+        paymentModel: modelKey,
+        paymentModelLabel: REVENUE_MODEL_LABELS[modelKey],
+        feeType: line.feeType || "",
+        percentageValue: line.percentageValue,
+        fixedValue: line.fixedValue,
+        calculationBase: line.calculationBase,
+        source,
+      });
+      feeRow.amount += money(line.amount);
+      feeRow.baseAmount += money(line.baseAmount);
+      feeRow.transactionCount += 1;
+      if (campaignId) feeRow.campaignIds.add(String(campaignId));
+    };
 
     fixedRows.forEach((row) => {
       const campaign = row.campaignId || {};
-      if (!campaignAllows(campaign)) return;
       const modelKey = revenueModel(campaign.paymentType || row.paymentModel || "fixed");
+      if (!modelAllows(modelKey) || !campaignAllows(campaign)) return;
       const model = ensureModel(modelKey);
       const campaignKey = String(campaign._id || row.campaignId || `platform-${row._id}`);
       const campaignRow = ensureCampaign(campaignKey, {
@@ -1071,12 +1137,15 @@ class AdminInfluencerCommerceService {
         recordedAt: row.createdAt,
         id: String(row._id),
       });
+      (row.feeConfigurationSnapshot || []).forEach((line) => {
+        addFeeLine(line, modelKey, campaignRow.campaignId, "platform_revenue_transactions.feeConfigurationSnapshot");
+      });
     });
 
     commissionRows.forEach((row) => {
       const campaign = row.campaignId || {};
-      if (!campaignAllows(campaign)) return;
       const modelKey = revenueModel(campaign.paymentType === "hybrid" ? "hybrid" : "commission");
+      if (!modelAllows(modelKey) || !campaignAllows(campaign)) return;
       const model = ensureModel(modelKey);
       const campaignKey = String(campaign._id || row.campaignId || `commission-${row._id}`);
       const campaignRow = ensureCampaign(campaignKey, {
@@ -1109,6 +1178,14 @@ class AdminInfluencerCommerceService {
         recordedAt: row.createdAt,
         id: String(row._id),
       });
+      addFeeLine({
+        feeName: "Commission Platform Fee",
+        feeCode: "platform_fee",
+        feeType: "commission",
+        amount: fee,
+        baseAmount: gross,
+        percentageValue: row.commissionPercent,
+      }, modelKey, campaignRow.campaignId, "commission_records.platformFee");
     });
 
     freeProductCampaigns.forEach((campaign) => {
@@ -1129,6 +1206,23 @@ class AdminInfluencerCommerceService {
         amount: 0,
         recordedAt: campaign.createdAt,
         id: String(campaign._id),
+      });
+    });
+
+    configuredFeeRows.forEach((config) => {
+      const modelKey = selectedPaymentModel === "all" ? selectedRevenueModel(config.paymentModel) : selectedPaymentModel;
+      const rowModel = modelKey === "all" ? "all" : revenueModel(modelKey);
+      ensureFeeRow(`${rowModel}:${config._id}:${config.feeCode || config.feeName || "Fee"}`, {
+        feeName: config.feeName,
+        feeCode: config.feeCode,
+        paymentModel: rowModel,
+        paymentModelLabel: rowModel === "all" ? "All Models" : REVENUE_MODEL_LABELS[rowModel],
+        feeType: config.feeType,
+        percentageValue: config.percentageValue,
+        fixedValue: config.fixedValue,
+        calculationBase: config.calculationBase,
+        source: "campaign_fee_configurations",
+        configured: true,
       });
     });
 
@@ -1173,10 +1267,29 @@ class AdminInfluencerCommerceService {
       }))
       .sort((a, b) => b.totalPlatformRevenue - a.totalPlatformRevenue || new Date(b.createdDate || 0) - new Date(a.createdDate || 0))
       .slice(0, limit);
+    const feeTableRows = Array.from(feeMap.values())
+      .map((row) => ({
+        ...row,
+        amount: money(row.amount),
+        baseAmount: money(row.baseAmount),
+        fixedValue: money(row.fixedValue),
+        campaignCount: row.campaignIds.size,
+      }))
+      .sort((a, b) => b.amount - a.amount || a.feeName.localeCompare(b.feeName));
+    const feeCards = feeTableRows.map((row) => ({
+      id: row.id,
+      label: row.feeName,
+      feeCode: row.feeCode,
+      amount: row.amount,
+      paymentModel: row.paymentModel,
+      paymentModelLabel: row.paymentModelLabel,
+      source: row.source,
+    }));
     const modelTotal = (key) => money(modelMap.get(key)?.totalPlatformRevenue || 0);
     const totalPlatformRevenue = money(modelBreakdown.reduce((total, row) => total + row.totalPlatformRevenue, 0));
 
     return {
+      selectedPaymentModel,
       kpis: {
         fixedPaymentRevenue: modelTotal("fixed"),
         commissionRevenue: modelTotal("commission"),
@@ -1191,6 +1304,8 @@ class AdminInfluencerCommerceService {
         fixedFeeSourceRevenue: sourceBreakdown[0].amount,
         commissionFeeSourceRevenue: sourceBreakdown[1].amount,
       },
+      feeCards,
+      feeTableRows,
       modelBreakdown,
       sourceBreakdown,
       campaignWiseRevenue,

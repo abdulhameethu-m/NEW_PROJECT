@@ -69,6 +69,7 @@ const defaultFilters = {
   influencerId: "",
   campaignId: "",
   productId: "",
+  paymentModel: "all",
   category: "",
   status: "",
   startDate: "",
@@ -426,7 +427,7 @@ function renderModule(moduleId, data, items, pagination, setFilters, runAction, 
   if (moduleId === "promotions") return <ProductPromotionsView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "tracking") return <TrackingView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "settlements") return <SettlementsView items={items} fixedPayments={data.fixedPayments || []} refunds={data.refunds || []} releaseQueue={data.releaseQueue || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
-  if (moduleId === "revenue") return <RevenueDashboardView data={data} />;
+  if (moduleId === "revenue") return <RevenueDashboardView data={data} setFilters={setFilters} />;
   if (moduleId === "payouts") return <PayoutsView items={items} withdrawalRequests={data.withdrawalRequests || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "configuration") return <ConfigurationEngineView data={data} runAction={runAction} busyId={busyId} />;
   if (moduleId === "settings") return <SettingsView data={data} runAction={runAction} busyId={busyId} />;
@@ -469,18 +470,43 @@ function DashboardView({ data }) {
   );
 }
 
-function RevenueDashboardView({ data }) {
+function RevenueDashboardView({ data, setFilters }) {
   const kpis = data.kpis || {};
+  const selectedPaymentModel = data.selectedPaymentModel || "all";
   const modelRows = data.modelBreakdown || [];
   const sourceRows = data.sourceBreakdown || [];
   const campaignRows = data.campaignWiseRevenue || [];
+  const feeCards = data.feeCards || [];
+  const feeRows = data.feeTableRows || [];
+  const paymentModels = [
+    { key: "all", label: "All Models" },
+    { key: "fixed", label: "Fixed Payment" },
+    { key: "commission", label: "Commission" },
+    { key: "hybrid", label: "Hybrid" },
+    { key: "free_product", label: "Free Product" },
+  ];
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        {paymentModels.map((option) => {
+          const active = selectedPaymentModel === option.key;
+          return (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setFilters((current) => ({ ...current, paymentModel: option.key, page: 1 }))}
+              className={`h-10 rounded-xl px-4 text-sm font-semibold transition ${active ? "bg-indigo-600 text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"}`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <Metric label="Total Platform Revenue" value={formatCurrency(kpis.totalPlatformRevenue || 0)} hint="Fixed + commission + hybrid + free product fees" />
-        <Metric label="Fixed Payment Revenue" value={formatCurrency(kpis.fixedPaymentRevenue || 0)} hint="platform_revenue_transactions.platformFeeAmount" />
-        <Metric label="Commission Revenue" value={formatCurrency(kpis.commissionRevenue || 0)} hint="commission_records.platformFee" />
-        <Metric label="Hybrid Revenue" value={formatCurrency(kpis.hybridRevenue || 0)} hint="Fixed source + commission source" />
+        <Metric label="Total Platform Revenue" value={formatCurrency(kpis.totalPlatformRevenue || 0)} hint="All selected-model fee revenue" />
+        <Metric label="Fixed Payment Revenue" value={formatCurrency(kpis.fixedPaymentRevenue || 0)} hint="Fixed funding platform fees" />
+        <Metric label="Commission Revenue" value={formatCurrency(kpis.commissionRevenue || 0)} hint="Order commission platform fees" />
+        <Metric label="Hybrid Revenue" value={formatCurrency(kpis.hybridRevenue || 0)} hint="Fixed fee + commission fee" />
         <Metric label="Free Product Revenue" value={formatCurrency(kpis.freeProductRevenue || 0)} hint="Usually zero unless configured" />
         <Metric label="Today" value={formatCurrency(kpis.todaysRevenue || 0)} />
         <Metric label="This Month" value={formatCurrency(kpis.monthlyRevenue || 0)} />
@@ -488,6 +514,14 @@ function RevenueDashboardView({ data }) {
         <Metric label="Gross Sales Tracked" value={formatCurrency(kpis.grossRevenue || 0)} />
         <Metric label="Influencer Payouts" value={formatCurrency(kpis.influencerPayout || 0)} />
       </div>
+
+      <Section title="Collected Extra Fees" icon={WalletCards}>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {feeCards.length ? feeCards.map((row) => (
+            <Metric key={row.id} label={row.label} value={formatCurrency(row.amount || 0)} hint={`${statusText(row.feeCode || row.source)} · ${row.paymentModelLabel || "Selected model"}`} />
+          )) : <p className="text-sm text-slate-500 dark:text-slate-400">No fee collections found for this payment model and date range.</p>}
+        </div>
+      </Section>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Section title="Fee Source Reconciliation" icon={Calculator}>
@@ -530,6 +564,23 @@ function RevenueDashboardView({ data }) {
             <td className="px-3 py-3">{formatCurrency(row.grossRevenue || 0)}</td>
             <td className="px-3 py-3"><StatusBadge value={row.campaignStatus || "active"} /></td>
             <td className="px-3 py-3 text-slate-500 dark:text-slate-400">{dateValue(row.createdDate)}</td>
+          </tr>
+        )} />
+      </Section>
+
+      <Section title="Collected Fee Table" icon={Calculator}>
+        <ResponsiveTable headers={["Fee", "Model", "Code", "Type", "Rate", "Fixed", "Base", "Collected", "Campaigns", "Source"]} rows={feeRows} renderRow={(row) => (
+          <tr key={row.id}>
+            <td className="px-3 py-3 font-medium text-slate-900 dark:text-white">{text(row.feeName)}</td>
+            <td className="px-3 py-3"><StatusBadge value={row.paymentModelLabel || row.paymentModel} /></td>
+            <td className="px-3 py-3 font-mono text-xs text-slate-500">{text(row.feeCode)}</td>
+            <td className="px-3 py-3"><StatusBadge value={row.feeType || "configured"} /></td>
+            <td className="px-3 py-3">{Number(row.percentageValue || 0)}%</td>
+            <td className="px-3 py-3">{formatCurrency(row.fixedValue || 0)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.baseAmount || 0)}</td>
+            <td className="px-3 py-3 font-semibold text-slate-900 dark:text-white">{formatCurrency(row.amount || 0)}</td>
+            <td className="px-3 py-3">{numberValue(row.campaignCount)}</td>
+            <td className="px-3 py-3 text-slate-500 dark:text-slate-400">{text(row.source)}</td>
           </tr>
         )} />
       </Section>
@@ -849,6 +900,7 @@ function VendorCampaignCommissionView({ items, runAction, busyId }) {
   const emptyForm = () => ({
     feeName: "Platform Fee",
     feeCode: "platform_fee",
+    paymentModel: "fixed",
     feeType: "percentage",
     percentageValue: 0,
     fixedValue: 0,
@@ -864,6 +916,7 @@ function VendorCampaignCommissionView({ items, runAction, busyId }) {
   const payloadFor = (value) => ({
     feeName: value.feeName,
     feeCode: value.feeCode,
+    paymentModel: value.paymentModel,
     feeType: value.feeType,
     percentageValue: Number(value.percentageValue || 0),
     fixedValue: Number(value.fixedValue || 0),
@@ -881,6 +934,7 @@ function VendorCampaignCommissionView({ items, runAction, busyId }) {
     setForm({
       feeName: row.feeName || "",
       feeCode: row.feeCode || "platform_fee",
+      paymentModel: row.paymentModel || "all",
       feeType: row.feeType || "percentage",
       percentageValue: Number(row.percentageValue || 0),
       fixedValue: Number(row.fixedValue || 0),
@@ -926,6 +980,15 @@ function VendorCampaignCommissionView({ items, runAction, busyId }) {
               <option value="partial_refund_fee">Partial Refund Fee</option>
             </select>
           </FieldShell>
+          <FieldShell label="Payment Model">
+            <select className={inputClass} value={form.paymentModel} onChange={(event) => setForm((current) => ({ ...current, paymentModel: event.target.value }))}>
+              <option value="all">All Models</option>
+              <option value="fixed">Fixed Payment</option>
+              <option value="commission">Commission</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="free_product">Free Product</option>
+            </select>
+          </FieldShell>
           <FieldShell label="Fee Type">
             <select className={inputClass} value={form.feeType} onChange={(event) => setForm((current) => ({ ...current, feeType: event.target.value }))}>
               <option value="percentage">Percentage</option>
@@ -963,9 +1026,10 @@ function VendorCampaignCommissionView({ items, runAction, busyId }) {
         </div>
       </Section>
       <Section title="Configured Campaign Fees" icon={Percent}>
-        <ResponsiveTable headers={["Fee", "Code", "Type", "Percentage", "Fixed", "Base", "Effective", "Status", "Actions"]} rows={items} renderRow={(row) => (
+        <ResponsiveTable headers={["Fee", "Model", "Code", "Type", "Percentage", "Fixed", "Base", "Effective", "Status", "Actions"]} rows={items} renderRow={(row) => (
           <tr key={idOf(row)}>
             <td className="px-3 py-3 font-medium text-slate-900 dark:text-white">{row.feeName}</td>
+            <td className="px-3 py-3"><StatusBadge value={row.paymentModel || "all"} /></td>
             <td className="px-3 py-3 text-slate-500">{row.feeCode}</td>
             <td className="px-3 py-3"><StatusBadge value={row.feeType} /></td>
             <td className="px-3 py-3">{Number(row.percentageValue || 0)}%</td>

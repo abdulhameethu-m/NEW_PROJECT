@@ -4,10 +4,16 @@ const { ApiError } = require("../utils/ApiError");
 
 const FUNDING_FEE_CODES = ["platform_fee", "gateway_fee", "gst"];
 const REFUND_FEE_CODES = ["refund_processing_fee", "partial_refund_fee"];
+const PAYMENT_MODELS = ["all", "fixed", "commission", "hybrid", "free_product"];
 
 function money(value) {
   const number = Number(value || 0);
   return Number.isFinite(number) ? Number(number.toFixed(2)) : 0;
+}
+
+function normalizePaymentModel(value = "all") {
+  const next = String(value || "all").toLowerCase();
+  return PAYMENT_MODELS.includes(next) ? next : "all";
 }
 
 function feeAmount(config, baseAmount) {
@@ -33,6 +39,7 @@ function snapshot(config, amount, baseAmount) {
     configurationId: config._id,
     feeName: config.feeName,
     feeCode: config.feeCode,
+    paymentModel: normalizePaymentModel(config.paymentModel),
     feeType: config.feeType,
     percentageValue: config.percentageValue,
     fixedValue: config.fixedValue,
@@ -65,12 +72,26 @@ function sumFees(configs, baseFor) {
 }
 
 class CampaignFeeService {
-  async activeConfigurations(codes, at = new Date()) {
+  async activeConfigurations(codes, at = new Date(), paymentModel = "all") {
+    const model = normalizePaymentModel(paymentModel);
+    const modelScope = model === "all"
+      ? {}
+      : {
+          $or: [
+            { paymentModel: model },
+            { paymentModel: "all" },
+            { paymentModel: "" },
+            { paymentModel: { $exists: false } },
+          ],
+        };
     const rows = await CampaignFeeConfiguration.find({
       feeCode: { $in: codes },
       isActive: true,
       effectiveFrom: { $lte: at },
-      $or: [{ effectiveTo: null }, { effectiveTo: { $exists: false } }, { effectiveTo: { $gte: at } }],
+      $and: [
+        { $or: [{ effectiveTo: null }, { effectiveTo: { $exists: false } }, { effectiveTo: { $gte: at } }] },
+        modelScope,
+      ],
     }).sort({ feeCode: 1, effectiveFrom: -1, createdAt: -1 }).lean();
     const byCode = new Map();
     rows.forEach((row) => {
@@ -80,10 +101,10 @@ class CampaignFeeService {
     return byCode;
   }
 
-  async calculateFundingSummary(budgetAmount, currency = "INR", at = new Date()) {
+  async calculateFundingSummary(budgetAmount, currency = "INR", at = new Date(), paymentModel = "fixed") {
     const budget = money(budgetAmount);
     if (budget <= 0) throw new ApiError(400, "Fixed payment campaign budget must be greater than zero");
-    const configs = await this.activeConfigurations(FUNDING_FEE_CODES, at);
+    const configs = await this.activeConfigurations(FUNDING_FEE_CODES, at, paymentModel);
     const platformFees = sumFees(configurationsFor(configs, "platform_fee"), () => budget);
     const gatewayFees = sumFees(configurationsFor(configs, "gateway_fee"), () => budget);
     const platformFeeAmount = platformFees.amount;
@@ -112,6 +133,7 @@ class CampaignFeeService {
       feeLines,
       feeConfigurationSnapshot: feeLines,
       feeSource: "Configured by Admin",
+      paymentModel: normalizePaymentModel(paymentModel),
     };
   }
 
