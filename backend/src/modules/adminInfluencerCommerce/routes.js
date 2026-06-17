@@ -115,6 +115,7 @@ router.get("/affiliate-tracking", validate(querySchema, "query"), controller.tra
 router.get("/product-promotions", validate(querySchema, "query"), controller.productPromotions);
 router.get("/settlements", validate(querySchema, "query"), controller.settlements);
 router.get("/payouts", validate(querySchema, "query"), controller.payouts);
+router.get("/revenue-dashboard", validate(querySchema, "query"), controller.revenueDashboard);
 router.get("/fixed-revenue", validate(querySchema, "query"), controller.fixedRevenueDashboard);
 router.patch(
   "/withdrawals/:requestId",

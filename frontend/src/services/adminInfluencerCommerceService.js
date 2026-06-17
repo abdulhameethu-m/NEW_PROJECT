@@ -62,6 +62,11 @@ export async function listAdminInfluencerPayouts(params = {}) {
   return data;
 }
 
+export async function getAdminInfluencerCommerceRevenueDashboard(params = {}) {
+  const { data } = await api.get(`${base}/revenue-dashboard`, { params });
+  return data;
+}
+
 export async function getAdminFixedCampaignRevenue(params = {}) {
   const { data } = await api.get(`${base}/fixed-revenue`, { params });
   return data;

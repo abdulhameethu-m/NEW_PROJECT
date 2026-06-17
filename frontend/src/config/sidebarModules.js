@@ -89,6 +89,7 @@ export const ADMIN_SECTION_ITEMS = [
         icon: Wallet,
         children: [
           { name: "Escrow & Settlements", path: "/admin/influencer-commerce/settlements", permission: "influencerCommerce.read", icon: Wallet, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
+          { name: "Revenue Dashboard", path: "/admin/influencer-commerce/revenue", permission: "influencerCommerce.read", icon: Percent, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
           { name: "Payout Management", path: "/admin/influencer-commerce/payouts", permission: "influencerCommerce.read", icon: Wallet, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
         ],
       },

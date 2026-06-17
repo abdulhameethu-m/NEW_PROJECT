@@ -22,7 +22,7 @@ const platformRevenueTransactionSchema = new mongoose.Schema(
     },
     paymentModel: {
       type: String,
-      enum: ["fixed"],
+      enum: ["fixed", "hybrid", "free_product"],
       required: true,
       default: "fixed",
       index: true,

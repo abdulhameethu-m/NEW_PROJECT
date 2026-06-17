@@ -108,6 +108,23 @@ function money(value) {
   return Number(Number(value || 0).toFixed(2));
 }
 
+const REVENUE_MODEL_LABELS = {
+  fixed: "Fixed Payment",
+  commission: "Commission",
+  hybrid: "Hybrid",
+  free_product: "Free Product",
+};
+
+function revenueModel(value = "commission") {
+  const next = String(value || "commission").toLowerCase();
+  return REVENUE_MODEL_LABELS[next] ? next : "commission";
+}
+
+function campaignBudget(campaign = {}, fallback = 0) {
+  const pricing = campaign.pricing || {};
+  return money(pricing.totalBudget || pricing.fixedCost || campaign.fixedFee || fallback || 0);
+}
+
 function buckets(start, end) {
   const rows = [];
   const cursor = startOfDay(start);
@@ -904,6 +921,280 @@ class AdminInfluencerCommerceService {
         accountLabel: request.bankAccountId?.bankName || request.bankAccountId?.paymentMethod || "",
       })),
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
+    };
+  }
+
+  async revenueDashboard(query = {}) {
+    const { start, end } = parseRange(query);
+    const { limit } = pageOptions(query, 50);
+    const baseDateMatch = { createdAt: { $gte: start, $lte: end } };
+    const scopedMatch = { ...baseDateMatch };
+    const campaignMatch = { ...baseDateMatch };
+    const vendorId = oid(query.vendorId);
+    const campaignId = oid(query.campaignId);
+    if (vendorId) {
+      scopedMatch.vendorId = vendorId;
+      campaignMatch.vendorId = vendorId;
+    }
+    if (campaignId) {
+      scopedMatch.campaignId = campaignId;
+      campaignMatch._id = campaignId;
+    }
+    if (query.status || query.state) campaignMatch.state = query.status || query.state;
+    if (query.category) campaignMatch.category = query.category;
+    if (query.search) {
+      const re = new RegExp(escapeRegex(query.search), "i");
+      campaignMatch.$or = [{ title: re }, { description: re }, { category: re }];
+    }
+
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const periodTotal = async (periodStart, periodEnd) => {
+      const match = { createdAt: { $gte: periodStart, $lte: periodEnd } };
+      if (vendorId) match.vendorId = vendorId;
+      if (campaignId) match.campaignId = campaignId;
+      const [fixedRows, commissionRows] = await Promise.all([
+        PlatformRevenueTransaction.aggregate([{ $match: match }, { $group: { _id: null, amount: { $sum: "$platformFeeAmount" } } }]),
+        CommissionRecord.aggregate([{ $match: match }, { $group: { _id: null, amount: { $sum: "$platformFee" } } }]),
+      ]);
+      return money((fixedRows[0]?.amount || 0) + (commissionRows[0]?.amount || 0));
+    };
+
+    const [
+      fixedRows,
+      commissionRows,
+      freeProductCampaigns,
+      todaysRevenue,
+      monthlyRevenue,
+    ] = await Promise.all([
+      PlatformRevenueTransaction.find(scopedMatch)
+        .populate("campaignId", "title state paymentType fixedFee pricing fixedPaymentWorkflow createdAt")
+        .populate("vendorId", "shopName companyName")
+        .sort({ createdAt: -1 })
+        .limit(500)
+        .lean(),
+      CommissionRecord.find(scopedMatch)
+        .populate("campaignId", "title state paymentType fixedFee pricing createdAt")
+        .populate("vendorId", "shopName companyName")
+        .sort({ createdAt: -1 })
+        .limit(1000)
+        .lean(),
+      Campaign.find({ ...campaignMatch, paymentType: "free_product" })
+        .populate("vendorId", "shopName companyName")
+        .sort({ createdAt: -1 })
+        .limit(200)
+        .lean(),
+      periodTotal(todayStart, now),
+      periodTotal(monthStart, now),
+    ]);
+
+    const campaignAllows = (campaign = {}) => {
+      if (!campaign || !campaign._id) return true;
+      if ((query.status || query.state) && String(campaign.state || "") !== String(query.status || query.state)) return false;
+      if (query.category && String(campaign.category || "") !== String(query.category)) return false;
+      if (!query.search) return true;
+      const haystack = `${campaign.title || ""} ${campaign.description || ""} ${campaign.category || ""}`.toLowerCase();
+      return haystack.includes(String(query.search).toLowerCase());
+    };
+
+    const modelMap = new Map(Object.keys(REVENUE_MODEL_LABELS).map((key) => [key, {
+      model: key,
+      label: REVENUE_MODEL_LABELS[key],
+      fixedFeeRevenue: 0,
+      commissionFeeRevenue: 0,
+      totalPlatformRevenue: 0,
+      grossRevenue: 0,
+      influencerPayout: 0,
+      campaignIds: new Set(),
+      transactionCount: 0,
+    }]));
+    const campaignMap = new Map();
+    const ensureModel = (key) => modelMap.get(key) || modelMap.get("commission");
+    const ensureCampaign = (key, seed = {}) => {
+      if (!campaignMap.has(key)) {
+        campaignMap.set(key, {
+          id: key,
+          campaignId: seed.campaignId || null,
+          campaignName: seed.campaignName || "Campaign",
+          vendor: seed.vendor || "Vendor",
+          vendorId: seed.vendorId || null,
+          paymentModel: seed.paymentModel || "commission",
+          paymentModelLabel: REVENUE_MODEL_LABELS[seed.paymentModel] || REVENUE_MODEL_LABELS.commission,
+          campaignBudget: money(seed.campaignBudget || 0),
+          fixedFeeRevenue: 0,
+          commissionFeeRevenue: 0,
+          totalPlatformRevenue: 0,
+          gatewayFeeAmount: 0,
+          taxAmount: 0,
+          grossRevenue: 0,
+          influencerPayout: 0,
+          transactionCount: 0,
+          commissionRecordCount: 0,
+          campaignStatus: seed.campaignStatus || "",
+          createdDate: seed.createdDate || null,
+          sources: [],
+        });
+      }
+      return campaignMap.get(key);
+    };
+
+    fixedRows.forEach((row) => {
+      const campaign = row.campaignId || {};
+      if (!campaignAllows(campaign)) return;
+      const modelKey = revenueModel(campaign.paymentType || row.paymentModel || "fixed");
+      const model = ensureModel(modelKey);
+      const campaignKey = String(campaign._id || row.campaignId || `platform-${row._id}`);
+      const campaignRow = ensureCampaign(campaignKey, {
+        campaignId: campaign._id || row.campaignId,
+        campaignName: campaign.title || "Campaign",
+        vendor: vendorName(row.vendorId),
+        vendorId: row.vendorId?._id || row.vendorId,
+        paymentModel: modelKey,
+        campaignBudget: campaignBudget(campaign, row.campaignBudget),
+        campaignStatus: campaign.fixedPaymentWorkflow?.status || campaign.state || row.status,
+        createdDate: campaign.createdAt || row.createdAt,
+      });
+      const fee = money(row.platformFeeAmount);
+      model.fixedFeeRevenue += fee;
+      model.totalPlatformRevenue += fee;
+      model.transactionCount += 1;
+      if (campaignRow.campaignId) model.campaignIds.add(String(campaignRow.campaignId));
+      campaignRow.fixedFeeRevenue += fee;
+      campaignRow.totalPlatformRevenue += fee;
+      campaignRow.gatewayFeeAmount += money(row.gatewayFeeAmount);
+      campaignRow.taxAmount += money(row.taxAmount);
+      campaignRow.transactionCount += 1;
+      campaignRow.sources.push({
+        source: "platform_revenue_transactions.platformFeeAmount",
+        amount: fee,
+        recordedAt: row.createdAt,
+        id: String(row._id),
+      });
+    });
+
+    commissionRows.forEach((row) => {
+      const campaign = row.campaignId || {};
+      if (!campaignAllows(campaign)) return;
+      const modelKey = revenueModel(campaign.paymentType === "hybrid" ? "hybrid" : "commission");
+      const model = ensureModel(modelKey);
+      const campaignKey = String(campaign._id || row.campaignId || `commission-${row._id}`);
+      const campaignRow = ensureCampaign(campaignKey, {
+        campaignId: campaign._id || row.campaignId,
+        campaignName: campaign.title || "Unassigned commission traffic",
+        vendor: vendorName(row.vendorId),
+        vendorId: row.vendorId?._id || row.vendorId,
+        paymentModel: modelKey,
+        campaignBudget: campaignBudget(campaign),
+        campaignStatus: campaign.state || row.state,
+        createdDate: campaign.createdAt || row.createdAt,
+      });
+      const fee = money(row.platformFee);
+      const gross = money(row.gross);
+      const influencerShare = money(row.influencerShare);
+      model.commissionFeeRevenue += fee;
+      model.totalPlatformRevenue += fee;
+      model.grossRevenue += gross;
+      model.influencerPayout += influencerShare;
+      model.transactionCount += 1;
+      if (campaignRow.campaignId) model.campaignIds.add(String(campaignRow.campaignId));
+      campaignRow.commissionFeeRevenue += fee;
+      campaignRow.totalPlatformRevenue += fee;
+      campaignRow.grossRevenue += gross;
+      campaignRow.influencerPayout += influencerShare;
+      campaignRow.commissionRecordCount += 1;
+      campaignRow.sources.push({
+        source: "commission_records.platformFee",
+        amount: fee,
+        recordedAt: row.createdAt,
+        id: String(row._id),
+      });
+    });
+
+    freeProductCampaigns.forEach((campaign) => {
+      const model = ensureModel("free_product");
+      model.campaignIds.add(String(campaign._id));
+      const campaignRow = ensureCampaign(String(campaign._id), {
+        campaignId: campaign._id,
+        campaignName: campaign.title || "Free product campaign",
+        vendor: vendorName(campaign.vendorId),
+        vendorId: campaign.vendorId?._id || campaign.vendorId,
+        paymentModel: "free_product",
+        campaignBudget: campaignBudget(campaign),
+        campaignStatus: campaign.state,
+        createdDate: campaign.createdAt,
+      });
+      campaignRow.sources.push({
+        source: "No cash platform fee configured",
+        amount: 0,
+        recordedAt: campaign.createdAt,
+        id: String(campaign._id),
+      });
+    });
+
+    const modelBreakdown = Array.from(modelMap.values()).map((row) => ({
+      model: row.model,
+      label: row.label,
+      fixedFeeRevenue: money(row.fixedFeeRevenue),
+      commissionFeeRevenue: money(row.commissionFeeRevenue),
+      totalPlatformRevenue: money(row.totalPlatformRevenue),
+      grossRevenue: money(row.grossRevenue),
+      influencerPayout: money(row.influencerPayout),
+      campaignCount: row.campaignIds.size,
+      transactionCount: row.transactionCount,
+    }));
+    const sourceBreakdown = [
+      {
+        source: "platform_revenue_transactions.platformFeeAmount",
+        description: "Fixed payment cash platform fees, including the fixed-fee side of hybrid campaigns.",
+        amount: money(modelBreakdown.reduce((total, row) => total + row.fixedFeeRevenue, 0)),
+      },
+      {
+        source: "commission_records.platformFee",
+        description: "Commission platform fees, including the commission side of hybrid campaigns.",
+        amount: money(modelBreakdown.reduce((total, row) => total + row.commissionFeeRevenue, 0)),
+      },
+      {
+        source: "Free Product",
+        description: "No cash platform fee unless separately configured and recorded.",
+        amount: money(modelMap.get("free_product")?.totalPlatformRevenue || 0),
+      },
+    ];
+    const campaignWiseRevenue = Array.from(campaignMap.values())
+      .map((row) => ({
+        ...row,
+        fixedFeeRevenue: money(row.fixedFeeRevenue),
+        commissionFeeRevenue: money(row.commissionFeeRevenue),
+        totalPlatformRevenue: money(row.totalPlatformRevenue),
+        gatewayFeeAmount: money(row.gatewayFeeAmount),
+        taxAmount: money(row.taxAmount),
+        grossRevenue: money(row.grossRevenue),
+        influencerPayout: money(row.influencerPayout),
+      }))
+      .sort((a, b) => b.totalPlatformRevenue - a.totalPlatformRevenue || new Date(b.createdDate || 0) - new Date(a.createdDate || 0))
+      .slice(0, limit);
+    const modelTotal = (key) => money(modelMap.get(key)?.totalPlatformRevenue || 0);
+    const totalPlatformRevenue = money(modelBreakdown.reduce((total, row) => total + row.totalPlatformRevenue, 0));
+
+    return {
+      kpis: {
+        fixedPaymentRevenue: modelTotal("fixed"),
+        commissionRevenue: modelTotal("commission"),
+        hybridRevenue: modelTotal("hybrid"),
+        freeProductRevenue: modelTotal("free_product"),
+        totalPlatformRevenue,
+        todaysRevenue,
+        monthlyRevenue,
+        periodRevenue: totalPlatformRevenue,
+        grossRevenue: money(modelBreakdown.reduce((total, row) => total + row.grossRevenue, 0)),
+        influencerPayout: money(modelBreakdown.reduce((total, row) => total + row.influencerPayout, 0)),
+        fixedFeeSourceRevenue: sourceBreakdown[0].amount,
+        commissionFeeSourceRevenue: sourceBreakdown[1].amount,
+      },
+      modelBreakdown,
+      sourceBreakdown,
+      campaignWiseRevenue,
+      range: { start, end },
     };
   }
 

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import {
   getAdminInfluencerCommerceDashboard,
+  getAdminInfluencerCommerceRevenueDashboard,
   getAdminInfluencerSettings,
   getAdminInfluencerVendorMatching,
   getInfluencerCommerceConfiguration,
@@ -55,6 +56,7 @@ const MODULES = {
   tracking: { label: "Affiliate Tracking", icon: LinkIcon, path: "/admin/influencer-commerce/tracking" },
   promotions: { label: "Product Promotions", icon: Package, path: "/admin/influencer-commerce/promotions" },
   settlements: { label: "Escrow & Settlements", icon: WalletCards, path: "/admin/influencer-commerce/settlements" },
+  revenue: { label: "Revenue Dashboard", icon: Percent, path: "/admin/influencer-commerce/revenue" },
   payouts: { label: "Payout Management", icon: WalletCards, path: "/admin/influencer-commerce/payouts" },
   configuration: { label: "Tier & Score", icon: SlidersHorizontal, path: "/admin/influencer-commerce/configuration" },
   settings: { label: "Settings", icon: Settings, path: "/admin/influencer-commerce/settings" },
@@ -337,6 +339,7 @@ export function AdminInfluencerCommercePage() {
         },
       };
     },
+    revenue: getAdminInfluencerCommerceRevenueDashboard,
     payouts: listAdminInfluencerPayouts,
     configuration: async (query) => {
       const [overview, audit] = await Promise.all([
@@ -423,6 +426,7 @@ function renderModule(moduleId, data, items, pagination, setFilters, runAction, 
   if (moduleId === "promotions") return <ProductPromotionsView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "tracking") return <TrackingView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "settlements") return <SettlementsView items={items} fixedPayments={data.fixedPayments || []} refunds={data.refunds || []} releaseQueue={data.releaseQueue || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
+  if (moduleId === "revenue") return <RevenueDashboardView data={data} />;
   if (moduleId === "payouts") return <PayoutsView items={items} withdrawalRequests={data.withdrawalRequests || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "configuration") return <ConfigurationEngineView data={data} runAction={runAction} busyId={busyId} />;
   if (moduleId === "settings") return <SettingsView data={data} runAction={runAction} busyId={busyId} />;
@@ -461,6 +465,74 @@ function DashboardView({ data }) {
         <MiniList title="Top Vendors" rows={widgets.topVendors} label={pickVendorName} value={(row) => formatCurrency(row.revenue || row.campaignRevenue || 0)} />
         <MiniList title="Recent Subscriptions" rows={widgets.recentSubscriptionPayments} label={(row) => pickVendorName(row.vendorId || row.vendor)} value={(row) => formatCurrency(row.amount || 0)} />
       </div>
+    </div>
+  );
+}
+
+function RevenueDashboardView({ data }) {
+  const kpis = data.kpis || {};
+  const modelRows = data.modelBreakdown || [];
+  const sourceRows = data.sourceBreakdown || [];
+  const campaignRows = data.campaignWiseRevenue || [];
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <Metric label="Total Platform Revenue" value={formatCurrency(kpis.totalPlatformRevenue || 0)} hint="Fixed + commission + hybrid + free product fees" />
+        <Metric label="Fixed Payment Revenue" value={formatCurrency(kpis.fixedPaymentRevenue || 0)} hint="platform_revenue_transactions.platformFeeAmount" />
+        <Metric label="Commission Revenue" value={formatCurrency(kpis.commissionRevenue || 0)} hint="commission_records.platformFee" />
+        <Metric label="Hybrid Revenue" value={formatCurrency(kpis.hybridRevenue || 0)} hint="Fixed source + commission source" />
+        <Metric label="Free Product Revenue" value={formatCurrency(kpis.freeProductRevenue || 0)} hint="Usually zero unless configured" />
+        <Metric label="Today" value={formatCurrency(kpis.todaysRevenue || 0)} />
+        <Metric label="This Month" value={formatCurrency(kpis.monthlyRevenue || 0)} />
+        <Metric label="Period Revenue" value={formatCurrency(kpis.periodRevenue || 0)} />
+        <Metric label="Gross Sales Tracked" value={formatCurrency(kpis.grossRevenue || 0)} />
+        <Metric label="Influencer Payouts" value={formatCurrency(kpis.influencerPayout || 0)} />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Section title="Fee Source Reconciliation" icon={Calculator}>
+          <ResponsiveTable headers={["Source", "What It Counts", "Revenue"]} rows={sourceRows} renderRow={(row) => (
+            <tr key={row.source}>
+              <td className="px-3 py-3 font-mono text-xs text-slate-700 dark:text-slate-200">{row.source}</td>
+              <td className="px-3 py-3 text-slate-500 dark:text-slate-400">{row.description}</td>
+              <td className="px-3 py-3 font-semibold text-slate-900 dark:text-white">{formatCurrency(row.amount || 0)}</td>
+            </tr>
+          )} />
+        </Section>
+
+        <Section title="Payment Model Breakdown" icon={Percent}>
+          <ResponsiveTable headers={["Payment Model", "Fixed Fee Source", "Commission Source", "Total", "Campaigns", "Transactions"]} rows={modelRows} renderRow={(row) => (
+            <tr key={row.model}>
+              <td className="px-3 py-3 font-medium text-slate-900 dark:text-white">{row.label}</td>
+              <td className="px-3 py-3">{formatCurrency(row.fixedFeeRevenue || 0)}</td>
+              <td className="px-3 py-3">{formatCurrency(row.commissionFeeRevenue || 0)}</td>
+              <td className="px-3 py-3 font-semibold text-slate-900 dark:text-white">{formatCurrency(row.totalPlatformRevenue || 0)}</td>
+              <td className="px-3 py-3">{numberValue(row.campaignCount)}</td>
+              <td className="px-3 py-3">{numberValue(row.transactionCount)}</td>
+            </tr>
+          )} />
+        </Section>
+      </div>
+
+      <Section title="Campaign-Wise Revenue" icon={BarChart3}>
+        <ResponsiveTable headers={["Campaign", "Vendor", "Model", "Fixed Fee", "Commission Fee", "Total Fee", "Budget", "Gross Sales", "Status", "Created"]} rows={campaignRows} renderRow={(row) => (
+          <tr key={row.id || row.campaignId}>
+            <td className="px-3 py-3">
+              <div className="font-medium text-slate-900 dark:text-white" title={text(row.campaignName)}>{shortText(row.campaignName, 36)}</div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{numberValue(row.transactionCount + row.commissionRecordCount)} fee records</div>
+            </td>
+            <td className="px-3 py-3 text-slate-500 dark:text-slate-400">{text(row.vendor)}</td>
+            <td className="px-3 py-3"><StatusBadge value={row.paymentModelLabel || row.paymentModel} /></td>
+            <td className="px-3 py-3">{formatCurrency(row.fixedFeeRevenue || 0)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.commissionFeeRevenue || 0)}</td>
+            <td className="px-3 py-3 font-semibold text-slate-900 dark:text-white">{formatCurrency(row.totalPlatformRevenue || 0)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.campaignBudget || 0)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.grossRevenue || 0)}</td>
+            <td className="px-3 py-3"><StatusBadge value={row.campaignStatus || "active"} /></td>
+            <td className="px-3 py-3 text-slate-500 dark:text-slate-400">{dateValue(row.createdDate)}</td>
+          </tr>
+        )} />
+      </Section>
     </div>
   );
 }

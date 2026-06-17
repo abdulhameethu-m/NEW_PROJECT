@@ -187,6 +187,10 @@ const pageMeta = {
     title: "Influencer Commerce",
     subtitle: "Control escrow holds, settlement release, reversal, and ledger visibility.",
   },
+  "/admin/influencer-commerce/revenue": {
+    title: "Influencer Commerce Revenue",
+    subtitle: "Track platform fees by fixed, commission, hybrid, and free product campaign models.",
+  },
   "/admin/influencer-commerce/payouts": {
     title: "Influencer Commerce",
     subtitle: "Review creator wallets, payout readiness, and account verification.",

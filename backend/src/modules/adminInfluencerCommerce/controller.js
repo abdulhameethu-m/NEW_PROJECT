@@ -15,6 +15,7 @@ const tracking = asyncHandler(async (req, res) => ok(res, await service.tracking
 const productPromotions = asyncHandler(async (req, res) => ok(res, await service.productPromotions(req.query), "Product promotions loaded"));
 const settlements = asyncHandler(async (req, res) => ok(res, await service.settlements(req.query), "Settlements loaded"));
 const payouts = asyncHandler(async (req, res) => ok(res, await service.payouts(req.query), "Payouts loaded"));
+const revenueDashboard = asyncHandler(async (req, res) => ok(res, await service.revenueDashboard(req.query), "Influencer commerce revenue dashboard loaded"));
 const fixedRevenueDashboard = asyncHandler(async (req, res) => ok(res, await service.fixedRevenueDashboard(req.query), "Fixed campaign revenue dashboard loaded"));
 const updateWithdrawalRequest = asyncHandler(async (req, res) => ok(res, await service.updateWithdrawalRequest(req.user, req.params.requestId, req.body), "Withdrawal request updated"));
 const settings = asyncHandler(async (req, res) => ok(res, await service.settings(), "Settings loaded"));
@@ -42,6 +43,7 @@ module.exports = {
   productPromotions,
   settlements,
   payouts,
+  revenueDashboard,
   fixedRevenueDashboard,
   updateWithdrawalRequest,
   settings,
