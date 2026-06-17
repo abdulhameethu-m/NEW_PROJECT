@@ -6,6 +6,7 @@ const CampaignPaymentRelease = require("../models/CampaignPaymentRelease");
 const CampaignRefund = require("../models/CampaignRefund");
 const CampaignDeliverableFunding = require("../models/CampaignDeliverableFunding");
 const CampaignEscrowLedger = require("../models/CampaignEscrowLedger");
+const PlatformRevenueTransaction = require("../models/PlatformRevenueTransaction");
 const { Campaign } = require("../modules/campaign/model");
 const { CampaignDeliverable, DeliverablePayout } = require("../modules/campaign/executionModel");
 const campaignExecutionService = require("../modules/campaign/executionService");
@@ -24,6 +25,11 @@ function money(value) {
 
 function withSession(query, session) {
   return session ? query.session(session) : query;
+}
+
+function platformFeePercentageFromSnapshot(feeLines = []) {
+  const platformLines = (feeLines || []).filter((line) => line?.feeCode === "platform_fee");
+  return money(platformLines.reduce((sum, line) => sum + Number(line.percentageValue || 0), 0));
 }
 
 class CampaignEscrowService {
@@ -276,6 +282,84 @@ class CampaignEscrowService {
         metadata: { webhookEventId, paidAmount: paymentOrder.totalAmount },
       },
     }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
+    await PlatformRevenueTransaction.findOneAndUpdate({
+      idempotencyKey: `campaign-platform-revenue:${paymentOrder._id}`,
+    }, {
+      $setOnInsert: {
+        campaignId: campaign._id,
+        vendorId: paymentOrder.vendorId,
+        paymentOrderId: paymentOrder._id,
+        paymentModel: "fixed",
+        platformFeePercentage: platformFeePercentageFromSnapshot(paymentOrder.feeConfigurationSnapshot),
+        platformFeeAmount: paymentOrder.platformFeeAmount,
+        gatewayFeeAmount: paymentOrder.gatewayFeeAmount,
+        taxAmount: paymentOrder.taxAmount,
+        campaignBudget: paymentOrder.budgetAmount,
+        grossPaidAmount: paymentOrder.totalAmount,
+        currency: paymentOrder.currency,
+        status: "collected",
+        feeConfigurationSnapshot: paymentOrder.feeConfigurationSnapshot,
+        idempotencyKey: `campaign-platform-revenue:${paymentOrder._id}`,
+        metadata: { webhookEventId, escrowWalletId: escrowWallet._id },
+      },
+    }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
+    if (money(paymentOrder.platformFeeAmount) > 0) {
+      await CampaignEscrowLedger.findOneAndUpdate({
+        idempotencyKey: `campaign-platform-revenue:${paymentOrder._id}`,
+      }, {
+        $setOnInsert: {
+          campaignId: campaign._id,
+          escrowWalletId: escrowWallet._id,
+          paymentOrderId: paymentOrder._id,
+          vendorId: paymentOrder.vendorId,
+          entryType: "platform_revenue",
+          direction: "credit",
+          amount: paymentOrder.platformFeeAmount,
+          balanceAfter: paymentOrder.platformFeeAmount,
+          currency: paymentOrder.currency,
+          idempotencyKey: `campaign-platform-revenue:${paymentOrder._id}`,
+          metadata: { webhookEventId },
+        },
+      }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
+    }
+    if (money(paymentOrder.gatewayFeeAmount) > 0) {
+      await CampaignEscrowLedger.findOneAndUpdate({
+        idempotencyKey: `campaign-gateway-expense:${paymentOrder._id}`,
+      }, {
+        $setOnInsert: {
+          campaignId: campaign._id,
+          escrowWalletId: escrowWallet._id,
+          paymentOrderId: paymentOrder._id,
+          vendorId: paymentOrder.vendorId,
+          entryType: "gateway_expense",
+          direction: "debit",
+          amount: paymentOrder.gatewayFeeAmount,
+          balanceAfter: 0,
+          currency: paymentOrder.currency,
+          idempotencyKey: `campaign-gateway-expense:${paymentOrder._id}`,
+          metadata: { webhookEventId },
+        },
+      }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
+    }
+    if (money(paymentOrder.taxAmount) > 0) {
+      await CampaignEscrowLedger.findOneAndUpdate({
+        idempotencyKey: `campaign-tax-collected:${paymentOrder._id}`,
+      }, {
+        $setOnInsert: {
+          campaignId: campaign._id,
+          escrowWalletId: escrowWallet._id,
+          paymentOrderId: paymentOrder._id,
+          vendorId: paymentOrder.vendorId,
+          entryType: "tax_collected",
+          direction: "credit",
+          amount: paymentOrder.taxAmount,
+          balanceAfter: paymentOrder.taxAmount,
+          currency: paymentOrder.currency,
+          idempotencyKey: `campaign-tax-collected:${paymentOrder._id}`,
+          metadata: { webhookEventId },
+        },
+      }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
+    }
     return escrowWallet;
   }
 

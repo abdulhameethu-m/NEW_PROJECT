@@ -11,7 +11,16 @@ const campaignEscrowLedgerSchema = new mongoose.Schema(
     influencerId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerProfile", index: true },
     entryType: {
       type: String,
-      enum: ["vendor_payment", "escrow_funding", "deliverable_release", "refund", "settlement"],
+      enum: [
+        "vendor_payment",
+        "escrow_funding",
+        "platform_revenue",
+        "gateway_expense",
+        "tax_collected",
+        "deliverable_release",
+        "refund",
+        "settlement",
+      ],
       required: true,
       index: true,
     },

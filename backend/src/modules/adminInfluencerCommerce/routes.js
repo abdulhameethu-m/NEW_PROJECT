@@ -115,6 +115,21 @@ router.get("/affiliate-tracking", validate(querySchema, "query"), controller.tra
 router.get("/product-promotions", validate(querySchema, "query"), controller.productPromotions);
 router.get("/settlements", validate(querySchema, "query"), controller.settlements);
 router.get("/payouts", validate(querySchema, "query"), controller.payouts);
+router.get("/fixed-revenue", validate(querySchema, "query"), controller.fixedRevenueDashboard);
+router.patch(
+  "/withdrawals/:requestId",
+  validate(Joi.object({ requestId: Joi.string().trim().required() }), "params"),
+  validate(
+    Joi.object({
+      status: Joi.string().valid("UNDER_REVIEW", "APPROVED", "PROCESSING", "COMPLETED", "REJECTED", "CANCELLED", "FAILED").required(),
+      transactionReference: Joi.string().trim().max(180).allow("").optional(),
+      reason: Joi.string().trim().max(1000).allow("").optional(),
+      rejectionReason: Joi.string().trim().max(1000).allow("").optional(),
+      note: Joi.string().trim().max(1000).allow("").optional(),
+    })
+  ),
+  controller.updateWithdrawalRequest
+);
 router.get("/settings", controller.settings);
 router.patch("/settings", validate(Joi.object({ enabled: Joi.boolean().optional() }).unknown(true)), controller.updateSettings);
 router.get("/audit-logs", validate(querySchema, "query"), controller.auditLogs);

@@ -4,12 +4,25 @@ const assert = require("node:assert/strict");
 const CampaignFeeConfiguration = require("../../models/CampaignFeeConfiguration");
 const CampaignDeliverableFunding = require("../../models/CampaignDeliverableFunding");
 const CampaignEscrowLedger = require("../../models/CampaignEscrowLedger");
+const PlatformRevenueTransaction = require("../../models/PlatformRevenueTransaction");
 const feeService = require("../campaign-fee.service");
 
 test("campaign funding models use isolated fixed-campaign collections", () => {
   assert.equal(CampaignFeeConfiguration.collection.collectionName, "campaign_fee_configurations");
   assert.equal(CampaignDeliverableFunding.collection.collectionName, "campaign_deliverable_funding");
   assert.equal(CampaignEscrowLedger.collection.collectionName, "campaign_escrow_ledger");
+  assert.equal(PlatformRevenueTransaction.collection.collectionName, "platform_revenue_transactions");
+});
+
+test("fixed campaign accounting separates platform revenue and gateway expense", () => {
+  assert.ok(CampaignEscrowLedger.schema.path("entryType").enumValues.includes("platform_revenue"));
+  assert.ok(CampaignEscrowLedger.schema.path("entryType").enumValues.includes("gateway_expense"));
+  assert.ok(CampaignEscrowLedger.schema.path("entryType").enumValues.includes("tax_collected"));
+  assert.equal(PlatformRevenueTransaction.schema.path("paymentModel").enumValues.includes("fixed"), true);
+  const idempotencyIndex = PlatformRevenueTransaction.schema.indexes().find(
+    ([fields, options]) => fields.idempotencyKey === 1 && options.unique
+  );
+  assert.ok(idempotencyIndex);
 });
 
 test("fee calculator supports percentage, fixed, and hybrid admin rules", () => {

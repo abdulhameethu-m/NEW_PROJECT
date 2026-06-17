@@ -37,6 +37,7 @@ import {
   deleteInfluencerCommerceConfig,
   recommendAdminInfluencerVendorMatch,
   updateAdminInfluencerCommerceCampaign,
+  updateAdminInfluencerWithdrawal,
   updateAdminInfluencerSettings,
   updateInfluencerCommerceConfig,
 } from "../services/adminInfluencerCommerceService";
@@ -422,7 +423,7 @@ function renderModule(moduleId, data, items, pagination, setFilters, runAction, 
   if (moduleId === "promotions") return <ProductPromotionsView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "tracking") return <TrackingView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "settlements") return <SettlementsView items={items} fixedPayments={data.fixedPayments || []} refunds={data.refunds || []} releaseQueue={data.releaseQueue || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
-  if (moduleId === "payouts") return <PayoutsView items={items} pagination={pagination} setFilters={setFilters} />;
+  if (moduleId === "payouts") return <PayoutsView items={items} withdrawalRequests={data.withdrawalRequests || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "configuration") return <ConfigurationEngineView data={data} runAction={runAction} busyId={busyId} />;
   if (moduleId === "settings") return <SettingsView data={data} runAction={runAction} busyId={busyId} />;
   return null;
@@ -924,22 +925,83 @@ function VendorCampaignCommissionView({ items, runAction, busyId }) {
   );
 }
 
-function PayoutsView({ items, pagination, setFilters }) {
+function withdrawalActions(row = {}) {
+  const status = String(row.status || "").toUpperCase();
+  if (status === "REQUESTED") return ["UNDER_REVIEW", "APPROVED", "REJECTED"];
+  if (status === "UNDER_REVIEW") return ["APPROVED", "REJECTED"];
+  if (status === "APPROVED") return ["PROCESSING", "CANCELLED"];
+  if (status === "PROCESSING") return ["COMPLETED", "FAILED"];
+  if (status === "FAILED") return ["PROCESSING", "CANCELLED"];
+  return [];
+}
+
+function withdrawalTone(status = "") {
+  if (status === "APPROVED" || status === "PROCESSING") return "amber";
+  if (status === "COMPLETED") return "green";
+  if (["REJECTED", "CANCELLED", "FAILED"].includes(status)) return "red";
+  return "slate";
+}
+
+function PayoutsView({ items, withdrawalRequests = [], pagination, setFilters, runAction, busyId }) {
   return (
-    <Section title="Payout Management" icon={WalletCards}>
-      <ResponsiveTable headers={["Influencer", "Available", "Pending", "Approved", "Withdrawn", "Method", "Verification"]} rows={items} renderRow={(row) => (
-        <tr key={idOf(row)}>
-          <td className="px-3 py-3 font-medium text-slate-900 dark:text-white">{pickUserName(row.influencerId || row.influencer)}</td>
-          <td className="px-3 py-3">{formatCurrency(row.availableBalance || 0)}</td>
-          <td className="px-3 py-3">{formatCurrency(row.pendingBalance || 0)}</td>
-          <td className="px-3 py-3">{formatCurrency(row.approvedEarnings || 0)}</td>
-          <td className="px-3 py-3">{formatCurrency(row.withdrawnBalance || 0)}</td>
-          <td className="px-3 py-3">{text(row.payoutMethod || row.method)}</td>
-          <td className="px-3 py-3"><StatusBadge value={row.accountVerificationStatus || row.verificationStatus} /></td>
-        </tr>
-      )} />
-      <Pagination pagination={pagination} setFilters={setFilters} />
-    </Section>
+    <div className="space-y-4">
+      <Section title="Withdrawal Requests" icon={WalletCards}>
+        <ResponsiveTable headers={["Influencer", "Amount", "Status", "Requested", "Account", "Reference", "Actions"]} rows={withdrawalRequests} renderRow={(row) => {
+          const actions = withdrawalActions(row);
+          return (
+            <tr key={idOf(row)}>
+              <td className="px-3 py-3 font-medium text-slate-900 dark:text-white">{row.influencerName || pickUserName(row.influencerId)}</td>
+              <td className="px-3 py-3">{formatCurrency(row.amount || 0)}</td>
+              <td className="px-3 py-3"><StatusBadge value={row.status} /></td>
+              <td className="px-3 py-3">{dateValue(row.requestedAt)}</td>
+              <td className="px-3 py-3">{text(row.accountLabel || row.bankAccountId?.bankName || row.bankAccountId?.paymentMethod)}</td>
+              <td className="px-3 py-3">{text(row.transactionReference)}</td>
+              <td className="px-3 py-3">
+                <div className="flex flex-wrap gap-2">
+                  {actions.map((status) => (
+                    <ActionButton
+                      key={status}
+                      tone={withdrawalTone(status)}
+                      disabled={busyId === `withdrawal-${idOf(row)}-${status}`}
+                      onClick={() => {
+                        const transactionReference = status === "COMPLETED" && !row.transactionReference
+                          ? window.prompt("Bank transfer reference") || ""
+                          : row.transactionReference || "";
+                        const reason = ["REJECTED", "CANCELLED", "FAILED"].includes(status)
+                          ? window.prompt("Reason") || ""
+                          : "";
+                        return runAction(
+                          `withdrawal-${idOf(row)}-${status}`,
+                          () => updateAdminInfluencerWithdrawal(idOf(row), { status, transactionReference, reason }),
+                          `Withdrawal moved to ${status.replace(/_/g, " ").toLowerCase()}.`
+                        );
+                      }}
+                    >
+                      {status.replace(/_/g, " ")}
+                    </ActionButton>
+                  ))}
+                </div>
+              </td>
+            </tr>
+          );
+        }} />
+      </Section>
+
+      <Section title="Influencer Wallets" icon={WalletCards}>
+        <ResponsiveTable headers={["Influencer", "Available", "Pending", "Approved", "Withdrawn", "Method", "Verification"]} rows={items} renderRow={(row) => (
+          <tr key={idOf(row)}>
+            <td className="px-3 py-3 font-medium text-slate-900 dark:text-white">{pickUserName(row.influencerId || row.influencer)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.availableBalance || 0)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.pendingBalance || 0)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.approvedEarnings || 0)}</td>
+            <td className="px-3 py-3">{formatCurrency(row.withdrawnBalance || 0)}</td>
+            <td className="px-3 py-3">{text(row.payoutMethod || row.method || row.payoutAccount?.paymentMethod)}</td>
+            <td className="px-3 py-3"><StatusBadge value={row.accountVerificationStatus || row.verificationStatus || row.payoutAccount?.verificationStatus} /></td>
+          </tr>
+        )} />
+        <Pagination pagination={pagination} setFilters={setFilters} />
+      </Section>
+    </div>
   );
 }
 

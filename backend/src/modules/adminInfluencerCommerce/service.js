@@ -18,6 +18,8 @@ const {
   CommissionRecord,
   InfluencerWallet,
   InfluencerPayoutAccount,
+  InfluencerLedger,
+  InfluencerWithdrawalRequest,
 } = require("../commission/models");
 const { TrackingSession } = require("../tracking/model");
 
@@ -46,6 +48,8 @@ const { Product } = require("../../models/Product");
 const { Order } = require("../../models/Order");
 const { AuditLog } = require("../../models/AuditLog");
 const PlatformConfig = require("../../models/PlatformConfig");
+const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
+const PlatformRevenueTransaction = require("../../models/PlatformRevenueTransaction");
 const { VendorInfluencerRelationship } = require("../influencerCommerce/model");
 const {
   VendorSubscription,
@@ -875,17 +879,240 @@ class AdminInfluencerCommerceService {
 
   async payouts(query = {}) {
     const { page, limit, skip } = pageOptions(query);
-    const [wallets, total] = await Promise.all([
+    const requestFilter = {};
+    if (query.status) requestFilter.status = String(query.status).toUpperCase();
+    if (oid(query.influencerId)) requestFilter.influencerId = oid(query.influencerId);
+    if (query.startDate || query.endDate) Object.assign(requestFilter, this.dateMatch(query));
+    const [wallets, total, withdrawals] = await Promise.all([
       InfluencerWallet.find({}).populate({ path: "influencerId", populate: { path: "userId", select: "name email" } }).sort({ totalEarnings: -1 }).skip(skip).limit(limit).lean(),
       InfluencerWallet.countDocuments({}),
+      InfluencerWithdrawalRequest.find(requestFilter)
+        .populate({ path: "influencerId", populate: { path: "userId", select: "name email" } })
+        .populate("bankAccountId")
+        .sort({ requestedAt: -1 })
+        .limit(100)
+        .lean(),
     ]);
     const accountIds = wallets.map((wallet) => wallet.influencerId?._id || wallet.influencerId);
     const accounts = await InfluencerPayoutAccount.find({ influencerId: { $in: accountIds }, isActive: true }).lean();
     const accountMap = new Map(accounts.map((account) => [String(account.influencerId), account]));
     return {
       items: wallets.map((wallet) => ({ ...wallet, influencerName: influencerName(wallet.influencerId), payoutAccount: accountMap.get(String(wallet.influencerId?._id || wallet.influencerId)) })),
+      withdrawalRequests: withdrawals.map((request) => ({
+        ...request,
+        influencerName: influencerName(request.influencerId),
+        accountLabel: request.bankAccountId?.bankName || request.bankAccountId?.paymentMethod || "",
+      })),
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
+  }
+
+  async fixedRevenueDashboard(query = {}) {
+    const { start, end } = parseRange(query);
+    const match = {
+      paymentModel: "fixed",
+      createdAt: { $gte: start, $lte: end },
+    };
+    if (oid(query.vendorId)) match.vendorId = oid(query.vendorId);
+    if (oid(query.campaignId)) match.campaignId = oid(query.campaignId);
+
+    const todayStart = startOfDay(new Date());
+    const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+    const [
+      summaryRows,
+      todayRows,
+      monthRows,
+      campaignRows,
+      escrowRows,
+      releaseRows,
+    ] = await Promise.all([
+      PlatformRevenueTransaction.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: null,
+            totalPlatformRevenue: { $sum: "$platformFeeAmount" },
+            gatewayExpense: { $sum: "$gatewayFeeAmount" },
+            taxCollected: { $sum: "$taxAmount" },
+            grossPaidAmount: { $sum: "$grossPaidAmount" },
+            campaignBudget: { $sum: "$campaignBudget" },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      PlatformRevenueTransaction.aggregate([
+        { $match: { ...match, createdAt: { $gte: todayStart, $lte: new Date() } } },
+        { $group: { _id: null, amount: { $sum: "$platformFeeAmount" } } },
+      ]),
+      PlatformRevenueTransaction.aggregate([
+        { $match: { ...match, createdAt: { $gte: monthStart, $lte: new Date() } } },
+        { $group: { _id: null, amount: { $sum: "$platformFeeAmount" } } },
+      ]),
+      PlatformRevenueTransaction.find(match)
+        .populate("campaignId", "title state fixedPaymentWorkflow")
+        .populate("vendorId", "shopName companyName")
+        .sort({ createdAt: -1 })
+        .limit(Math.min(100, Number(query.limit) || 50))
+        .lean(),
+      CampaignEscrowWallet.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: start, $lte: end },
+            ...(oid(query.vendorId) ? { vendorId: oid(query.vendorId) } : {}),
+            ...(oid(query.campaignId) ? { campaignId: oid(query.campaignId) } : {}),
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            pendingEscrowAmount: { $sum: "$amountRemaining" },
+            releasedAmount: { $sum: "$amountReleased" },
+            refundAmount: { $sum: "$amountRefunded" },
+          },
+        },
+      ]),
+      CampaignEscrowWallet.find({
+        createdAt: { $gte: start, $lte: end },
+        ...(oid(query.vendorId) ? { vendorId: oid(query.vendorId) } : {}),
+        ...(oid(query.campaignId) ? { campaignId: oid(query.campaignId) } : {}),
+      }).select("campaignId vendorId amountRemaining amountReleased amountRefunded").lean(),
+    ]);
+
+    const summary = summaryRows[0] || {};
+    const escrow = escrowRows[0] || {};
+    return {
+      kpis: {
+        totalFixedCampaignRevenue: money(summary.totalPlatformRevenue),
+        revenueFromFixedCampaigns: money(summary.totalPlatformRevenue),
+        todaysRevenue: money(todayRows[0]?.amount || 0),
+        monthlyRevenue: money(monthRows[0]?.amount || 0),
+        pendingEscrowAmount: money(escrow.pendingEscrowAmount),
+        releasedAmount: money(escrow.releasedAmount),
+        refundAmount: money(escrow.refundAmount),
+        gatewayExpense: money(summary.gatewayExpense),
+        taxCollected: money(summary.taxCollected),
+        grossPaidAmount: money(summary.grossPaidAmount),
+      },
+      campaignWiseRevenue: campaignRows.map((row) => ({
+        id: String(row._id),
+        campaignId: row.campaignId?._id || row.campaignId,
+        campaignName: row.campaignId?.title || "Campaign",
+        vendor: vendorName(row.vendorId),
+        vendorId: row.vendorId?._id || row.vendorId,
+        campaignBudget: row.campaignBudget,
+        platformFeePercentage: row.platformFeePercentage,
+        platformRevenue: row.platformFeeAmount,
+        gatewayFeeAmount: row.gatewayFeeAmount,
+        taxAmount: row.taxAmount,
+        campaignStatus: row.campaignId?.fixedPaymentWorkflow?.status || row.campaignId?.state || row.status,
+        createdDate: row.createdAt,
+      })),
+      escrowSummaryRows: releaseRows,
+      range: { start, end },
+    };
+  }
+
+  async updateWithdrawalRequest(actor, requestId, payload = {}) {
+    const nextStatus = String(payload.status || payload.action || "").toUpperCase();
+    const allowed = ["UNDER_REVIEW", "APPROVED", "PROCESSING", "COMPLETED", "REJECTED", "CANCELLED", "FAILED"];
+    if (!allowed.includes(nextStatus)) throw new AppError("Unsupported withdrawal status", 400, "INVALID_WITHDRAWAL_STATUS");
+
+    const request = await InfluencerWithdrawalRequest.findById(requestId);
+    if (!request) throw new AppError("Withdrawal request not found", 404, "NOT_FOUND");
+    const current = request.status;
+    const transitions = {
+      REQUESTED: ["UNDER_REVIEW", "APPROVED", "REJECTED", "CANCELLED"],
+      UNDER_REVIEW: ["APPROVED", "REJECTED", "CANCELLED"],
+      APPROVED: ["PROCESSING", "REJECTED", "CANCELLED"],
+      PROCESSING: ["COMPLETED", "FAILED"],
+      FAILED: ["PROCESSING", "CANCELLED"],
+    };
+    if (!transitions[current]?.includes(nextStatus)) {
+      throw new AppError(`Cannot move withdrawal from ${current} to ${nextStatus}`, 409, "INVALID_WITHDRAWAL_TRANSITION");
+    }
+
+    const now = new Date();
+    const update = {
+      status: nextStatus,
+      transactionReference: payload.transactionReference || request.transactionReference || "",
+      rejectionReason: ["REJECTED", "FAILED", "CANCELLED"].includes(nextStatus) ? payload.reason || payload.rejectionReason || "" : request.rejectionReason,
+      metadata: {
+        ...(request.metadata || {}),
+        lastActionBy: actor?.sub || actor?._id || actor?.id || null,
+        lastActionAt: now,
+        lastActionReason: payload.reason || payload.note || "",
+      },
+    };
+    if (nextStatus === "APPROVED") update.approvedAt = now;
+    if (nextStatus === "PROCESSING") update.processedAt = now;
+    if (nextStatus === "COMPLETED") update.completedAt = now;
+
+    request.set(update);
+    await request.save();
+
+    if (["REJECTED", "CANCELLED", "FAILED"].includes(nextStatus)) {
+      const ledgerEntry = await InfluencerLedger.findOne({
+        influencerId: request.influencerId,
+        "meta.withdrawalRequestId": request._id,
+        type: "DEBIT",
+        source: "WITHDRAWAL",
+      }).lean();
+      const alreadyReversed = await InfluencerLedger.findOne({
+        idempotencyKey: `withdrawal-reversal:${request._id}`,
+      }).lean();
+      if (ledgerEntry && !alreadyReversed) {
+        const wallet = await InfluencerWallet.findByIdAndUpdate(
+          request.walletId,
+          { $inc: { availableBalance: request.amount } },
+          { returnDocument: "after", runValidators: true }
+        );
+        await InfluencerLedger.create({
+          influencerId: request.influencerId,
+          type: "CREDIT",
+          amount: request.amount,
+          source: "WITHDRAWAL_REVERSAL",
+          idempotencyKey: `withdrawal-reversal:${request._id}`,
+          balanceAfter: wallet.availableBalance,
+          meta: {
+            withdrawalRequestId: request._id,
+            originalLedgerId: ledgerEntry._id,
+            status: nextStatus,
+          },
+        });
+      }
+    }
+    if (nextStatus === "COMPLETED") {
+      await InfluencerWallet.findByIdAndUpdate(
+        request.walletId,
+        { $inc: { withdrawnBalance: request.amount } },
+        { runValidators: true }
+      );
+    }
+
+    await auditService.log({
+      actor,
+      action: "admin.influencer_commerce.withdrawal.status_updated",
+      entityType: "InfluencerWithdrawalRequest",
+      entityId: request._id,
+      metadata: { oldStatus: current, newStatus: nextStatus, amount: request.amount },
+    }).catch(() => {});
+
+    const influencer = await InfluencerProfile.findById(request.influencerId).select("userId").lean();
+    if (influencer?.userId && ["APPROVED", "COMPLETED", "REJECTED", "FAILED"].includes(nextStatus)) {
+      await notificationService.createNotification({
+        userId: influencer.userId,
+        role: "INFLUENCER",
+        module: "FINANCE",
+        subModule: "INFLUENCER_WITHDRAWALS",
+        type: "WITHDRAWAL_STATUS_UPDATED",
+        title: "Withdrawal status updated",
+        message: `Your withdrawal request is now ${nextStatus.replace(/_/g, " ").toLowerCase()}.`,
+        referenceId: request._id,
+        meta: { withdrawalRequestId: String(request._id), status: nextStatus },
+      }).catch(() => null);
+    }
+
+    return request.toObject();
   }
 
   async settings() {
