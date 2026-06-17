@@ -40,6 +40,14 @@ const RANGE_OPTIONS = [
   { value: "custom", label: "Custom" },
 ];
 
+const PAYMENT_MODEL_OPTIONS = [
+  { value: "all", label: "All payment models" },
+  { value: "fixed", label: "Fixed model" },
+  { value: "commission", label: "Commission model" },
+  { value: "hybrid", label: "Hybrid model" },
+  { value: "free_product", label: "Free product model" },
+];
+
 function formatValue(value, format) {
   if (format === "currency") return formatCurrency(value || 0);
   if (format === "percent") return `${Number(value || 0).toFixed(2)}%`;
@@ -108,9 +116,14 @@ function KpiCard({ item, loading }) {
   );
 }
 
-function DashboardFilters({ filters, onChange, onRefresh, loading }) {
+function DashboardFilters({ filters, campaignOptions = [], onChange, onRefresh, loading }) {
   function update(key, value) {
-    onChange((current) => ({ ...current, [key]: value, page: 1 }));
+    onChange((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === "paymentModel" ? { campaignId: "" } : {}),
+      page: 1,
+    }));
   }
 
   return (
@@ -129,7 +142,7 @@ function DashboardFilters({ filters, onChange, onRefresh, loading }) {
       }
       className="overflow-hidden"
     >
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-9">
         <label className="xl:col-span-2">
           <span className="sr-only">Search</span>
           <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
@@ -142,8 +155,17 @@ function DashboardFilters({ filters, onChange, onRefresh, loading }) {
             />
           </div>
         </label>
-        <select value={filters.range} onChange={(event) => update("range", event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+        <select value={filters.range} onChange={(event) => update("range", event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Date range">
           {RANGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <select value={filters.paymentModel} onChange={(event) => update("paymentModel", event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Payment model">
+          {PAYMENT_MODEL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <select value={filters.campaignId} onChange={(event) => update("campaignId", event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Campaign">
+          <option value="">All campaigns</option>
+          {campaignOptions.map((campaign) => (
+            <option key={campaign.id} value={campaign.id}>{shortText(campaign.name || campaign.brand || "Campaign", 48)}</option>
+          ))}
         </select>
         <input type="date" value={filters.startDate} onChange={(event) => update("startDate", event.target.value)} disabled={filters.range !== "custom"} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
         <input type="date" value={filters.endDate} onChange={(event) => update("endDate", event.target.value)} disabled={filters.range !== "custom"} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
@@ -421,6 +443,7 @@ function QuickActions({ rows = [] }) {
 export default function InfluencerDashboardPage() {
   const [filters, setFilters] = useState({
     range: "30d",
+    paymentModel: "all",
     startDate: "",
     endDate: "",
     campaignId: "",
@@ -451,6 +474,7 @@ export default function InfluencerDashboardPage() {
     }
     delete next.search;
     Object.keys(next).forEach((key) => {
+      if (key === "paymentModel" && next[key] === "all") delete next[key];
       if (next[key] === "") delete next[key];
     });
     return next;
@@ -487,7 +511,7 @@ export default function InfluencerDashboardPage() {
 
   return (
     <div className="mx-auto flex max-w-[1500px] flex-col gap-5">
-      <DashboardFilters filters={filters} onChange={setFilters} onRefresh={load} loading={loading} />
+      <DashboardFilters filters={filters} campaignOptions={data?.campaignOptions || []} onChange={setFilters} onRefresh={load} loading={loading} />
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100">

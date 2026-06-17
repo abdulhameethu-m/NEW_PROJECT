@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { Topbar } from "./Topbar";
 import { Sidebar } from "./sidebar/Sidebar";
@@ -195,19 +195,20 @@ function VendorLayoutInner() {
   const { can } = useModuleAccess();
   const [subscriptionPlanName, setSubscriptionPlanName] = useState("");
   const baseSidebarData = useVendorSidebarData();
-  let activeNotificationTarget = null;
-  for (const section of baseSidebarData.sections) {
-    const item = section.items.find(
-      (entry) => location.pathname === entry.path || location.pathname.startsWith(`${entry.path}/`)
-    );
-    if (item?.notificationModule || item?.notificationSubModule) {
-      activeNotificationTarget = {
-        module: item.notificationModule,
-        subModule: item.notificationSubModule,
-      };
-      break;
+  const activeNotificationTarget = useMemo(() => {
+    for (const section of baseSidebarData.sections) {
+      const item = section.items.find(
+        (entry) => location.pathname === entry.path || location.pathname.startsWith(`${entry.path}/`)
+      );
+      if (item?.notificationModule || item?.notificationSubModule) {
+        return {
+          module: item.notificationModule,
+          subModule: item.notificationSubModule,
+        };
+      }
     }
-  }
+    return null;
+  }, [baseSidebarData.sections, location.pathname]);
   const { summary } = useRoleNotifications("vendor", activeNotificationTarget);
   const sidebarData = useVendorSidebarData({
     unreadCount: summary.total,

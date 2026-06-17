@@ -28,6 +28,8 @@ const listQuery = Joi.object({
   status: Joi.string().trim().allow("").optional(),
   state: Joi.string().trim().allow("").optional(),
   campaignType: Joi.string().trim().allow("").optional(),
+  paymentModel: Joi.string().valid("", "all", "fixed", "commission", "hybrid", "free_product").optional(),
+  paymentType: Joi.string().valid("", "all", "fixed", "commission", "hybrid", "free_product").optional(),
   campaignId: Joi.string().trim().allow("").optional(),
   influencerId: Joi.string().trim().allow("").optional(),
   productId: Joi.string().trim().allow("").optional(),

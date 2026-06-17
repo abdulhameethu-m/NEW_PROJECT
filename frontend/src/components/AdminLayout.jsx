@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Topbar } from "./Topbar";
 import { useAdminSidebarData } from "../hooks/useAdminSidebarData";
@@ -232,19 +232,25 @@ const pageMeta = {
 export function AdminLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  let activeNotificationTarget = null;
-  for (const section of ADMIN_SECTION_ITEMS) {
-    const item = section.items.find(
-      (entry) => location.pathname === entry.path || location.pathname.startsWith(`${entry.path}/`)
-    );
-    if (item?.notificationModule || item?.notificationSubModule) {
-      activeNotificationTarget = {
-        module: item.notificationModule,
-        subModule: item.notificationSubModule,
-      };
-      break;
+  const activeNotificationTarget = useMemo(() => {
+    for (const section of ADMIN_SECTION_ITEMS) {
+      for (const item of section.items) {
+        const entries = item.children || [item];
+        const match = entries.find(
+          (entry) => entry.path && (entry.exact
+            ? location.pathname === entry.path
+            : location.pathname === entry.path || location.pathname.startsWith(`${entry.path}/`))
+        );
+        if (match?.notificationModule || match?.notificationSubModule) {
+          return {
+            module: match.notificationModule,
+            subModule: match.notificationSubModule,
+          };
+        }
+      }
     }
-  }
+    return null;
+  }, [location.pathname]);
   const { summary } = useRoleNotifications("admin", activeNotificationTarget);
   const sidebarData = useAdminSidebarData(summary);
 
