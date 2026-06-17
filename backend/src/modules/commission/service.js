@@ -243,7 +243,10 @@ function parseDashboardRange(query = {}) {
   }
 
   if (Number.isNaN(start.getTime())) start = addDays(now, -29);
-  return { start: startOfDay(start), end };
+  // Set end to end of day (23:59:59.999) for inclusive range queries
+  const endOfDayDate = new Date(end);
+  endOfDayDate.setUTCHours(23, 59, 59, 999);
+  return { start: startOfDay(start), end: endOfDayDate };
 }
 
 function objectIdOrNull(value) {

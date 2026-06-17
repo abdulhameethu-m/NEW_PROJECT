@@ -102,7 +102,10 @@ function parseRange(query = {}) {
   if (Number.isNaN(end.getTime())) end = now;
   let start = query.startDate ? new Date(query.startDate) : addDays(now, -29);
   if (Number.isNaN(start.getTime())) start = addDays(now, -29);
-  return { start: startOfDay(start), end };
+  // Set end to end of day (23:59:59.999) for inclusive range queries
+  const endOfDayDate = new Date(end);
+  endOfDayDate.setUTCHours(23, 59, 59, 999);
+  return { start: startOfDay(start), end: endOfDayDate };
 }
 
 function money(value) {
@@ -967,7 +970,7 @@ class AdminInfluencerCommerceService {
       ]);
       const fixedTotal = fixedPeriodRows.reduce((sum, row) => {
         const modelKey = revenueModel(row.campaignId?.paymentType || row.paymentModel || "fixed");
-        return selectedPaymentModel === "all" || selectedPaymentModel === modelKey ? sum + Number(row.platformFeeAmount || 0) : sum;
+        return selectedPaymentModel === "all" || selectedPaymentModel === modelKey ? sum + Number(row.platformFeeAmount || 0) + Number(row.taxAmount || 0) + Number(row.gatewayFeeAmount || 0) : sum;
       }, 0);
       const commissionTotal = commissionPeriodRows.reduce((sum, row) => {
         const modelKey = revenueModel(row.campaignId?.paymentType === "hybrid" ? "hybrid" : "commission");
@@ -1028,6 +1031,8 @@ class AdminInfluencerCommerceService {
       label: REVENUE_MODEL_LABELS[key],
       fixedFeeRevenue: 0,
       commissionFeeRevenue: 0,
+      taxAmount: 0,
+      gatewayFeeAmount: 0,
       totalPlatformRevenue: 0,
       grossRevenue: 0,
       influencerPayout: 0,
@@ -1122,14 +1127,19 @@ class AdminInfluencerCommerceService {
         createdDate: campaign.createdAt || row.createdAt,
       });
       const fee = money(row.platformFeeAmount);
+      const gatewayFee = money(row.gatewayFeeAmount);
+      const taxFee = money(row.taxAmount);
+      const totalFees = fee + gatewayFee + taxFee;
       model.fixedFeeRevenue += fee;
-      model.totalPlatformRevenue += fee;
+      model.taxAmount += taxFee;
+      model.gatewayFeeAmount += gatewayFee;
+      model.totalPlatformRevenue += totalFees;
       model.transactionCount += 1;
       if (campaignRow.campaignId) model.campaignIds.add(String(campaignRow.campaignId));
       campaignRow.fixedFeeRevenue += fee;
-      campaignRow.totalPlatformRevenue += fee;
-      campaignRow.gatewayFeeAmount += money(row.gatewayFeeAmount);
-      campaignRow.taxAmount += money(row.taxAmount);
+      campaignRow.totalPlatformRevenue += totalFees;
+      campaignRow.gatewayFeeAmount += gatewayFee;
+      campaignRow.taxAmount += taxFee;
       campaignRow.transactionCount += 1;
       campaignRow.sources.push({
         source: "platform_revenue_transactions.platformFeeAmount",
@@ -1231,6 +1241,8 @@ class AdminInfluencerCommerceService {
       label: row.label,
       fixedFeeRevenue: money(row.fixedFeeRevenue),
       commissionFeeRevenue: money(row.commissionFeeRevenue),
+      taxAmount: money(row.taxAmount),
+      gatewayFeeAmount: money(row.gatewayFeeAmount),
       totalPlatformRevenue: money(row.totalPlatformRevenue),
       grossRevenue: money(row.grossRevenue),
       influencerPayout: money(row.influencerPayout),
@@ -1240,8 +1252,18 @@ class AdminInfluencerCommerceService {
     const sourceBreakdown = [
       {
         source: "platform_revenue_transactions.platformFeeAmount",
-        description: "Fixed payment cash platform fees, including the fixed-fee side of hybrid campaigns.",
+        description: "Fixed payment platform fees, including the fixed-fee side of hybrid campaigns.",
         amount: money(modelBreakdown.reduce((total, row) => total + row.fixedFeeRevenue, 0)),
+      },
+      {
+        source: "platform_revenue_transactions.taxAmount",
+        description: "GST and tax collected on fixed payment transactions.",
+        amount: money(modelBreakdown.reduce((total, row) => total + row.taxAmount, 0)),
+      },
+      {
+        source: "platform_revenue_transactions.gatewayFeeAmount",
+        description: "Payment gateway fees from fixed payment processing.",
+        amount: money(modelBreakdown.reduce((total, row) => total + row.gatewayFeeAmount, 0)),
       },
       {
         source: "commission_records.platformFee",
@@ -1287,6 +1309,8 @@ class AdminInfluencerCommerceService {
     }));
     const modelTotal = (key) => money(modelMap.get(key)?.totalPlatformRevenue || 0);
     const totalPlatformRevenue = money(modelBreakdown.reduce((total, row) => total + row.totalPlatformRevenue, 0));
+    const fixedFeeAmount = sourceBreakdown.find((s) => s.source === "platform_revenue_transactions.platformFeeAmount")?.amount || 0;
+    const commissionFeeAmount = sourceBreakdown.find((s) => s.source === "commission_records.platformFee")?.amount || 0;
 
     return {
       selectedPaymentModel,
@@ -1301,8 +1325,8 @@ class AdminInfluencerCommerceService {
         periodRevenue: totalPlatformRevenue,
         grossRevenue: money(modelBreakdown.reduce((total, row) => total + row.grossRevenue, 0)),
         influencerPayout: money(modelBreakdown.reduce((total, row) => total + row.influencerPayout, 0)),
-        fixedFeeSourceRevenue: sourceBreakdown[0].amount,
-        commissionFeeSourceRevenue: sourceBreakdown[1].amount,
+        fixedFeeSourceRevenue: fixedFeeAmount,
+        commissionFeeSourceRevenue: commissionFeeAmount,
       },
       feeCards,
       feeTableRows,
