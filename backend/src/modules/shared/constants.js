@@ -32,8 +32,11 @@ const CAMPAIGN_WORKFLOW_STATUSES = [
   "tracking_active",
   "partially_completed",
   "completed",
+  "budget_exhausted",
+  "commission_cap_reached",
   "cancelled",
   "expired",
+  "stopped",
 ];
 const CAMPAIGN_STATES = CAMPAIGN_WORKFLOW_STATUSES;
 const CAMPAIGN_INVITATION_STATUSES = ["invitation_sent", "viewed", "accepted", "rejected", "expired", "cancelled"];

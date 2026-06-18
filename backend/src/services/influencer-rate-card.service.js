@@ -392,6 +392,7 @@ class InfluencerRateCardService {
       if (!selectedPackage) throw new AppError("Selected creator package is not available", 400, "PACKAGE_NOT_AVAILABLE");
       const quantity = Math.max(1, Number(item.units ?? item.orderQuantity ?? item.selectedQuantity ?? item.quantity ?? 1) || 1);
       const rate = money(selectedPackage.price);
+      const commissionPercentage = Math.max(0, Math.min(50, Number(item.commissionPercentage ?? item.commissionPercent ?? 0) || 0));
       return {
         serviceId: service._id,
         packageId: selectedPackage._id || null,
@@ -402,6 +403,7 @@ class InfluencerRateCardService {
         rate,
         currency: selectedPackage.currency || service.currency,
         quantity,
+        commissionPercentage,
         total: money(rate * quantity),
         deliveryDays: selectedPackage.deliveryDays ?? service.deliveryDays,
         revisionCount: selectedPackage.revisionCount ?? service.revisionCount,
@@ -468,6 +470,14 @@ class InfluencerRateCardService {
     const selectedInput = paymentInput.services || paymentInput.selectedServices || payload.services || payload.selectedServices || [];
     const influencerSnapshot = await this.buildInfluencerSnapshot(influencerId, selectedInput);
     const selectedTotal = influencerSnapshot.selectedServices.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    const deliverableCommissionRates = influencerSnapshot.selectedServices.map((item) => ({
+      serviceId: item.serviceId,
+      packageId: item.packageId,
+      serviceTypeKey: item.serviceTypeKey,
+      serviceName: item.serviceName,
+      packageName: item.packageName,
+      commissionPercentage: item.commissionPercentage,
+    }));
     const fixedCost = ["fixed", "hybrid"].includes(paymentType)
       ? money(selectedInput.length && influencerId ? selectedTotal : Number(paymentInput.fixedFee ?? payload.fixedFee ?? 0))
       : 0;
@@ -521,6 +531,7 @@ class InfluencerRateCardService {
       totalBudget,
       currency: pricing.currency,
       selectedServices: influencerSnapshot.selectedServices,
+      deliverableCommissionRates,
       ruleEngine: {
         campaignType: ruleEvaluation.campaignType,
         campaignTypeLabel: ruleEvaluation.campaignTypeConfig?.label || "",

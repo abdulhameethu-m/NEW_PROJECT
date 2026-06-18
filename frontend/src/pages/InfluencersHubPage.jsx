@@ -28,6 +28,7 @@ import {
   listInfluencers,
   getReelFeed,
   listReelComments,
+  recordReelProductClick,
   recordReelStoreVisit,
   toggleReelLike,
   unfollowPublicInfluencer,
@@ -35,6 +36,8 @@ import {
 import { getMyFollowedStores } from "../services/vendorStorefrontService";
 import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
+import { saveTrackingContext } from "../utils/influencerTracking";
+import { saveProductPreview } from "../utils/productPreviewCache";
 
 const HUB_ITEMS = [
   ["home", "Home", Home],
@@ -76,6 +79,32 @@ function influencerId(row = {}) {
 
 function productImage(row = {}) {
   return resolveApiAssetUrl(row.image || row.thumbnail || row.images?.[0]?.url || "");
+}
+
+function productIdOf(product = {}) {
+  return product?._id || product?.id || "";
+}
+
+function getAnonymousId() {
+  if (typeof window === "undefined") return "";
+  let anonymousId = window.localStorage.getItem("anonInfluencerId") || "";
+  if (!anonymousId) {
+    anonymousId = `anon_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    window.localStorage.setItem("anonInfluencerId", anonymousId);
+  }
+  return anonymousId;
+}
+
+function buildAffiliateProductPath(reel = {}, product = {}, tracking = {}) {
+  const productId = productIdOf(product);
+  if (!productId) return "";
+  const params = new URLSearchParams();
+  if (reel?._id) params.set("reel", reel._id);
+  if (tracking?.trackingToken) params.set("trackingToken", tracking.trackingToken);
+  if (tracking?.anonymousId) params.set("anonymousId", tracking.anonymousId);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const trackingCode = product?.affiliateTrackingCode || product?.trackingCode || reel?.affiliateTrackingCode || "";
+  return trackingCode ? `/ref/${encodeURIComponent(trackingCode)}/product/${encodeURIComponent(productId)}${suffix}` : `/product/${productId}${suffix}`;
 }
 
 function normalizeInfluencers(payload) {
@@ -251,6 +280,28 @@ export function InfluencersHubPage() {
     navigate(href);
   }
 
+  function openProduct(reel, product) {
+    const productId = productIdOf(product);
+    if (!productId) return;
+    saveProductPreview(product);
+    navigate(buildAffiliateProductPath(reel, product));
+    if (!reel?._id || reel.synthetic) return;
+    recordReelProductClick(reel._id, {
+            productId,
+            anonymousId: getAnonymousId(),
+            source: "hub_product_card",
+            attributionWindowDays: 30,
+          })
+      .then((response) => {
+      const tracking = response?.data || {};
+      if (typeof window !== "undefined" && tracking.anonymousId) window.localStorage.setItem("anonInfluencerId", tracking.anonymousId);
+      if (tracking.trackingToken) {
+        saveTrackingContext({ trackingToken: tracking.trackingToken, anonymousId: tracking.anonymousId, reelId: reel?._id, productId });
+      }
+      })
+      .catch(() => null);
+  }
+
   return (
     <div className={`mx-auto grid min-h-[calc(100vh-170px)] max-w-[1600px] gap-5 ${showSuggestionsPanel ? "lg:grid-cols-[260px_minmax(0,720px)_350px]" : "lg:grid-cols-[260px_minmax(0,720px)] lg:justify-center"}`}>
       <aside className="sticky top-28 hidden h-[calc(100vh-140px)] rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:block">
@@ -298,6 +349,7 @@ export function InfluencersHubPage() {
             onLike={handleLike}
             onComment={openComments}
             onVisitStore={visitStore}
+            onProductOpen={openProduct}
           />
         )}
       </main>
@@ -440,7 +492,7 @@ function HomeCommentsModal({ reel, isAuthenticated, onClose, onLoginRequired, on
   );
 }
 
-function HubContent({ section, loading, query, setQuery, creators, reels, products, followedStores, followedIds, savedIds, likedIds, followBusy = {}, onFollow, onSave, onLike, onComment, onVisitStore }) {
+function HubContent({ section, loading, query, setQuery, creators, reels, products, followedStores, followedIds, savedIds, likedIds, followBusy = {}, onFollow, onSave, onLike, onComment, onVisitStore, onProductOpen }) {
   if (section === "search") {
     return (
       <FeedShell title="Search" subtitle="Find influencers, products, collections, stores, hashtags, campaigns, and categories.">
@@ -468,7 +520,7 @@ function HubContent({ section, loading, query, setQuery, creators, reels, produc
   if (section === "saved") {
     return (
       <FeedShell title="Saved" subtitle="Saved posts, reels, products, collections, influencers, and campaigns.">
-        <PostFeed reels={reels.filter((row) => savedIds[row._id])} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onVisitStore={onVisitStore} empty="No saved content yet." />
+        <PostFeed reels={reels.filter((row) => savedIds[row._id])} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onVisitStore={onVisitStore} onProductOpen={onProductOpen} empty="No saved content yet." />
       </FeedShell>
     );
   }
@@ -486,7 +538,7 @@ function HubContent({ section, loading, query, setQuery, creators, reels, produc
     return (
       <FeedShell title="Trending" subtitle="Creators, reels, products, collections, and campaigns ranked by engagement and revenue signals.">
         <CreatorGrid creators={creators} followedIds={followedIds} followBusy={followBusy} onFollow={onFollow} />
-        <PostFeed reels={reels} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onVisitStore={onVisitStore} />
+        <PostFeed reels={reels} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onVisitStore={onVisitStore} onProductOpen={onProductOpen} />
       </FeedShell>
     );
   }
@@ -495,7 +547,7 @@ function HubContent({ section, loading, query, setQuery, creators, reels, produc
     <FeedShell title="Home" subtitle="Stories, creator posts, reels, product showcases, campaign promotions, and storefront updates.">
       <Stories creators={creators} />
       {loading ? <div className="rounded-3xl bg-white p-8 text-sm font-bold text-slate-500 dark:bg-slate-900">Loading creator feed...</div> : null}
-      <PostFeed reels={reels} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onVisitStore={onVisitStore} />
+      <PostFeed reels={reels} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onVisitStore={onVisitStore} onProductOpen={onProductOpen} />
     </FeedShell>
   );
 }
@@ -519,7 +571,7 @@ function Stories({ creators = [] }) {
   );
 }
 
-function PostFeed({ reels = [], creators = [], products = [], followedIds, followBusy = {}, savedIds, likedIds = {}, onFollow, onSave, onLike, onComment, onVisitStore, empty = "No creator content found." }) {
+function PostFeed({ reels = [], creators = [], products = [], followedIds, followBusy = {}, savedIds, likedIds = {}, onFollow, onSave, onLike, onComment, onVisitStore, onProductOpen, empty = "No creator content found." }) {
   const mixed = reels.length ? reels : products.slice(0, 4).map((product) => ({ _id: product._id, products: [product], title: product.name, caption: "Creator product pick", metrics: {}, synthetic: true }));
   if (!mixed.length) return <div className="rounded-3xl bg-white p-8 text-center text-sm font-bold text-slate-500 dark:bg-slate-900">{empty}</div>;
   return (
@@ -547,7 +599,7 @@ function PostFeed({ reels = [], creators = [], products = [], followedIds, follo
                 <button onClick={() => onSave(id)} className="ml-auto text-slate-700 dark:text-slate-200"><Bookmark className={`h-5 w-5 ${savedIds[id] ? "fill-current" : ""}`} /></button>
               </div>
               <p className="text-sm text-slate-700 dark:text-slate-200"><Link to={profileHref} className="font-bold">{creator.storeSlug || influencerName(creator)}</Link> {post.caption || post.title || "Creator commerce update"}</p>
-              {post.products?.length ? <div className="flex gap-2 overflow-x-auto">{post.products.slice(0, 4).map((product) => <ProductChip key={product._id || product.id} product={product} />)}</div> : null}
+              {post.products?.length ? <div className="flex gap-2 overflow-x-auto">{post.products.slice(0, 4).map((product) => <ProductChip key={product._id || product.id} reel={post} product={product} onOpen={onProductOpen} />)}</div> : null}
             </div>
           </article>
         );
@@ -560,8 +612,8 @@ function ProductShowcase({ product }) {
   return <div className="flex aspect-square items-center justify-center bg-slate-100 dark:bg-slate-950">{product ? <img src={productImage(product)} alt="" className="h-full w-full object-cover" /> : <Video className="h-10 w-10 text-slate-400" />}</div>;
 }
 
-function ProductChip({ product }) {
-  return <Link to={`/product/${product._id || product.id}`} className="flex min-w-[220px] items-center gap-3 rounded-2xl bg-slate-50 p-2 dark:bg-slate-950"><img src={productImage(product)} alt="" className="h-12 w-12 rounded-xl object-cover" /><span className="min-w-0"><span className="block truncate text-sm font-black text-slate-950 dark:text-white">{product.name}</span><span className="text-xs font-bold text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span></span></Link>;
+function ProductChip({ reel, product, onOpen }) {
+  return <button type="button" onClick={() => onOpen?.(reel, product)} className="flex min-w-[220px] items-center gap-3 rounded-2xl bg-slate-50 p-2 text-left dark:bg-slate-950"><img src={productImage(product)} alt="" className="h-12 w-12 rounded-xl object-cover" /><span className="min-w-0"><span className="block truncate text-sm font-black text-slate-950 dark:text-white">{product.name}</span><span className="text-xs font-bold text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span></span></button>;
 }
 
 function CreatorGrid({ creators = [], followedIds, followBusy = {}, onFollow, empty = "No creators found." }) {

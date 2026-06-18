@@ -36,6 +36,7 @@ import {
 import { formatCurrency } from "../../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../../utils/resolveUrl";
 import { saveTrackingContext } from "../../utils/influencerTracking";
+import { saveProductPreview } from "../../utils/productPreviewCache";
 
 const FEED_TABS = [
   ["for_you", "For You"],
@@ -65,7 +66,7 @@ function buildAffiliateProductPath(reel = {}, product = {}, tracking = {}) {
   if (tracking?.trackingToken) params.set("trackingToken", tracking.trackingToken);
   if (tracking?.anonymousId) params.set("anonymousId", tracking.anonymousId);
   const suffix = params.toString() ? `?${params.toString()}` : "";
-  const trackingCode = reel?.affiliateTrackingCode || product?.affiliateTrackingCode || product?.trackingCode || "";
+  const trackingCode = product?.affiliateTrackingCode || product?.trackingCode || reel?.affiliateTrackingCode || "";
   return trackingCode ? `/ref/${encodeURIComponent(trackingCode)}/product/${encodeURIComponent(productId)}${suffix}` : `/product/${productId}${suffix}`;
 }
 
@@ -595,19 +596,16 @@ export function ReelFeed({ detailId = "" }) {
     return data;
   }
 
-  async function handleProductOpen(reel, product) {
+  function handleProductOpen(reel, product) {
     const productId = productIdOf(product);
     if (!productId) return;
     setBusyProductId(productId);
     setError("");
-    try {
-      const tracking = await attributeClick(reel, product);
-      navigate(buildAffiliateProductPath(reel, product, tracking));
-    } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "Could not prepare affiliate link.");
-    } finally {
-      setBusyProductId("");
-    }
+    saveProductPreview(product);
+    navigate(buildAffiliateProductPath(reel, product));
+    attributeClick(reel, product)
+      .catch(() => null)
+      .finally(() => setBusyProductId(""));
   }
 
   async function toggleFollow(reel) {

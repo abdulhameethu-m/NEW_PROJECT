@@ -11,10 +11,15 @@ export function AffiliateRedirectPage() {
   useEffect(() => {
     let alive = true;
 
-    async function prepareAffiliateContext() {
+    function prepareAffiliateContext() {
       const trackingToken = searchParams.get("trackingToken") || "";
       const anonymousId = searchParams.get("anonymousId") || "";
       const reelId = searchParams.get("reel") || "";
+      const nextParams = new URLSearchParams();
+      if (reelId) nextParams.set("reel", reelId);
+      if (trackingCode) nextParams.set("ref", trackingCode);
+      const suffix = nextParams.toString() ? `?${nextParams.toString()}` : "";
+
       if (trackingToken) {
         saveTrackingContext({
           trackingToken,
@@ -24,14 +29,14 @@ export function AffiliateRedirectPage() {
           trackingCode,
         });
       } else if (trackingCode && productId) {
-        try {
-          const existingAnonymousId = typeof window !== "undefined" ? window.localStorage.getItem("anonInfluencerId") || "" : "";
-          const response = await clickTracking({
+        const existingAnonymousId = typeof window !== "undefined" ? window.localStorage.getItem("anonInfluencerId") || "" : "";
+        clickTracking({
             trackingCode,
             productId,
             anonymousId: existingAnonymousId,
             surface: "affiliate_link",
-          });
+          })
+          .then((response) => {
           const payload = response?.data || response || {};
           if (payload.anonymousId && typeof window !== "undefined") window.localStorage.setItem("anonInfluencerId", payload.anonymousId);
           if (payload.trackingToken) {
@@ -42,14 +47,10 @@ export function AffiliateRedirectPage() {
               trackingCode,
             });
           }
-        } catch {
-          // Product still opens if attribution preparation fails.
-        }
+          })
+          .catch(() => null);
       }
 
-      const nextParams = new URLSearchParams();
-      if (reelId) nextParams.set("reel", reelId);
-      const suffix = nextParams.toString() ? `?${nextParams.toString()}` : "";
       if (alive) navigate(`/product/${productId}${suffix}`, { replace: true });
     }
 

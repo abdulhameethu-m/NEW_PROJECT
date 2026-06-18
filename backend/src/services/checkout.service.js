@@ -729,14 +729,18 @@ class CheckoutService {
             trackingContext.session.campaignId ? require("../modules/campaign/model").Campaign.findById(trackingContext.session.campaignId).lean() : null,
             require("../modules/influencer/model").InfluencerAffiliateSetting.findOne({ influencerId: trackingContext.session.influencerId, status: "active" }).lean(),
           ]);
-          const frozenCommissionPercent = Number(campaign?.termsFrozen?.commissionPercent ?? campaign?.commissionPercent ?? affiliateSetting?.commissionRate ?? 0);
+          const paymentType = String(campaign?.paymentType || campaign?.termsFrozen?.paymentType || "").toLowerCase();
+          const commissionEligible = !campaign || ["commission", "hybrid"].includes(paymentType);
+          const frozenCommissionPercent = commissionEligible
+            ? Number(campaign?.termsFrozen?.commissionPercent ?? campaign?.commissionPercent ?? affiliateSetting?.commissionRate ?? 0)
+            : 0;
           const finalCommission = calculateAttributionCommission({
             subtotal,
             commissionPercent: frozenCommissionPercent,
             platformCommissionAmount: commission,
           });
 
-          sellerAmount = finalCommission.vendorNet;
+          if (commissionEligible) sellerAmount = finalCommission.vendorNet;
           attribution = {
             influencerId: trackingContext.session.influencerId,
             campaignId: trackingContext.session.campaignId,
@@ -1241,14 +1245,18 @@ class CheckoutService {
             trackingContext.session.campaignId ? require("../modules/campaign/model").Campaign.findById(trackingContext.session.campaignId).lean() : null,
             require("../modules/influencer/model").InfluencerAffiliateSetting.findOne({ influencerId: trackingContext.session.influencerId, status: "active" }).lean(),
           ]);
-          const frozenCommissionPercent = Number(campaign?.termsFrozen?.commissionPercent ?? campaign?.commissionPercent ?? affiliateSetting?.commissionRate ?? 0);
+          const paymentType = String(campaign?.paymentType || campaign?.termsFrozen?.paymentType || "").toLowerCase();
+          const commissionEligible = !campaign || ["commission", "hybrid"].includes(paymentType);
+          const frozenCommissionPercent = commissionEligible
+            ? Number(campaign?.termsFrozen?.commissionPercent ?? campaign?.commissionPercent ?? affiliateSetting?.commissionRate ?? 0)
+            : 0;
           const finalCommission = calculateAttributionCommission({
             subtotal,
             commissionPercent: frozenCommissionPercent,
             platformCommissionAmount: commission,
           });
 
-          sellerAmount = finalCommission.vendorNet;
+          if (commissionEligible) sellerAmount = finalCommission.vendorNet;
           attribution = {
             influencerId: trackingContext.session.influencerId,
             campaignId: trackingContext.session.campaignId,
@@ -1518,6 +1526,9 @@ class CheckoutService {
           );
 
           if (order.attribution?.influencerId) {
+            await runNonBlocking(`record affiliate conversion for ${order.orderNumber}`, () =>
+              commissionService.recordAttributedOrderConversion(order)
+            );
             await runNonBlocking(`create commission hold for ${order.orderNumber}`, () =>
               commissionService.createHoldRecord(order)
             );

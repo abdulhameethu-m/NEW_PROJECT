@@ -6,6 +6,7 @@ const { Reel } = require("../reel/model");
 const { signTrackingToken, verifyTrackingToken } = require("./token");
 const { TrackingSession } = require("./model");
 const { CampaignAttributionRule } = require("../influencerCommerce/model");
+const commissionService = require("../commission/service");
 const { emitDomainEvent } = require("../events/event-bus");
 const { INFLUENCER_EVENTS } = require("../shared/constants");
 const { nowPlusHours } = require("../shared/helpers");
@@ -84,6 +85,19 @@ async function resolveStorefrontContext({ reelId, storefrontId, collectionId, po
   }
 
   if (trackingCode) {
+    const campaignLink = await commissionService.findAffiliateLinkByCode(trackingCode);
+    if (campaignLink) {
+      return {
+        influencerId: campaignLink.influencerId,
+        campaignId: campaignLink.campaignId,
+        surface: "affiliate_link",
+        assertProduct(productId) {
+          if (String(campaignLink.productId) !== String(productId)) {
+            throw new AppError("Product is not linked to this affiliate link", 400, "INVALID_PRODUCT");
+          }
+        },
+      };
+    }
     const affiliate = await InfluencerAffiliateSetting.findOne({ trackingCode, status: "active" }).lean();
     if (!affiliate) throw new AppError("Affiliate link not found", 404, "NOT_FOUND");
     return { influencerId: affiliate.influencerId, surface: "affiliate_link", assertProduct() {} };
@@ -94,10 +108,13 @@ async function resolveStorefrontContext({ reelId, storefrontId, collectionId, po
 }
 
 class TrackingService {
-  async click({ user, reelId, productId, anonymousId, storefrontId, collectionId, postId, influencerId, trackingCode, surface = "", security = null }) {
-    if (security && security.counted === false) {
+  async click({ user, reelId, productId, anonymousId, storefrontId, collectionId, postId, influencerId, trackingCode, surface = "", security = null, requestMeta = {} }) {
+    const uncountedReason = security && security.counted === false ? security.reason : "";
+    const allowAttributionOnly = ["RATE_LIMITED", "DUPLICATE_EVENT"].includes(uncountedReason);
+    if (security && security.counted === false && !allowAttributionOnly) {
       return { tracked: true, counted: false, reason: security.reason, fraudScore: security.fraudScore, fraudLevel: security.fraudLevel, anonymousId: security.anonymousId || anonymousId || "" };
     }
+    const counted = !security || security.counted !== false;
 
     if (!(await isInfluencerCommerceEnabled())) {
       throw new AppError("Influencer commerce is disabled", 403, "INFLUENCER_COMMERCE_DISABLED");
@@ -155,11 +172,11 @@ class TrackingService {
     });
 
     await Promise.all([
-      reelId ? Reel.updateOne({ _id: reelId }, { $inc: { "metrics.clicks": 1 } }) : Promise.resolve(),
-      collectionId ? InfluencerCollection.updateOne({ _id: collectionId }, { $inc: { "analytics.clicks": 1 } }) : Promise.resolve(),
-      postId ? InfluencerPost.updateOne({ _id: postId }, { $inc: { "metrics.clicks": 1 } }) : Promise.resolve(),
-      storefrontId ? InfluencerStorefront.updateOne({ _id: storefrontId }, { $inc: { "analytics.clicks": 1 } }) : Promise.resolve(),
-      InfluencerProfile.updateOne({ _id: context.influencerId }, { $inc: { "stats.clicks": 1 } }),
+      counted && reelId ? Reel.updateOne({ _id: reelId }, { $inc: { "metrics.clicks": 1 } }) : Promise.resolve(),
+      counted && collectionId ? InfluencerCollection.updateOne({ _id: collectionId }, { $inc: { "analytics.clicks": 1 } }) : Promise.resolve(),
+      counted && postId ? InfluencerPost.updateOne({ _id: postId }, { $inc: { "metrics.clicks": 1 } }) : Promise.resolve(),
+      counted && storefrontId ? InfluencerStorefront.updateOne({ _id: storefrontId }, { $inc: { "analytics.clicks": 1 } }) : Promise.resolve(),
+      counted ? InfluencerProfile.updateOne({ _id: context.influencerId }, { $inc: { "stats.clicks": 1 } }) : Promise.resolve(),
       InfluencerStorefrontEvent.create({
         influencerId: context.influencerId,
         storefrontId: storefrontId || context.storefront?._id,
@@ -180,10 +197,17 @@ class TrackingService {
       campaignId: session.campaignId,
       influencerId: session.influencerId,
       productId,
+      counted,
+      reason: uncountedReason,
     });
+    await commissionService.recordAffiliateClickFromSession(session, { ...requestMeta, metadata: { ...(requestMeta.metadata || {}), counted, reason: uncountedReason } }).catch(() => null);
 
     return {
-      counted: true,
+      tracked: true,
+      counted,
+      reason: uncountedReason,
+      fraudScore: security?.fraudScore,
+      fraudLevel: security?.fraudLevel,
       trackingToken: signed.token,
       expiresAt,
       session,

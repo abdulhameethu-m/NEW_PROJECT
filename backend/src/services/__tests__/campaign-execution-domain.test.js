@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const { CampaignDeliverable, DeliverableSubmission, DeliverableReview, DeliverablePayout } = require("../../modules/campaign/executionModel");
 const executionService = require("../../modules/campaign/executionService");
 
-const { deriveDeliverables, progress } = executionService.__private__;
+const { deriveDeliverables, progress, requiredPublishedContentCount, allDeliverablesPublished } = executionService.__private__;
 
 test("campaign execution models use requested collection boundaries", () => {
   assert.equal(CampaignDeliverable.collection.collectionName, "campaign_deliverables");
@@ -30,6 +30,21 @@ test("deriveDeliverables builds dynamic deliverables from selected services", ()
   assert.equal(deliverables[1].unitPrice, 1000);
 });
 
+test("deriveDeliverables expands package quantity into required published deliverables", () => {
+  const deliverables = deriveDeliverables({
+    pricing: { currency: "INR" },
+    influencerRateSnapshot: {
+      selectedServices: [
+        { serviceTypeKey: "reel", serviceName: "Reel Bundle", quantity: 1, packageQuantity: 3, total: 3000 },
+      ],
+    },
+  });
+
+  assert.equal(deliverables.length, 1);
+  assert.equal(deliverables[0].quantity, 3);
+  assert.equal(deliverables[0].unitPrice, 1000);
+});
+
 test("deriveDeliverables falls back to vendor required deliverables without hardcoded types", () => {
   const deliverables = deriveDeliverables({
     marketplace: { requiredDeliverables: ["Podcast Clip", "Newsletter Mention"] },
@@ -44,4 +59,15 @@ test("progress supports partial completion percentages", () => {
     { status: "pending", completionStatus: "pending" },
     { status: "under_review", completionStatus: "pending" },
   ]), { completed: 1, total: 3, completionPercent: 33 });
+});
+
+test("publication requirement uses deliverable quantities", () => {
+  const deliverables = [
+    { quantity: 3 },
+    { quantity: 1 },
+  ];
+
+  assert.equal(requiredPublishedContentCount(deliverables), 4);
+  assert.deepEqual(allDeliverablesPublished(deliverables, 3), { requiredCount: 4, publishedCount: 3, complete: false });
+  assert.deepEqual(allDeliverablesPublished(deliverables, 4), { requiredCount: 4, publishedCount: 4, complete: true });
 });

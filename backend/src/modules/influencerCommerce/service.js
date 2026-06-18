@@ -9,9 +9,10 @@ const notificationService = require("../../services/notification.service");
 const paymentService = require("../../services/payment.service");
 const influencerCommerceEngine = require("../../services/influencer-commerce-engine.service");
 const influencerRateCardService = require("../../services/influencer-rate-card.service");
+const analyticsAggregator = require("../analytics/service");
 const { AppError } = require("../../utils/AppError");
 const { Campaign, CampaignStatusHistory } = require("../campaign/model");
-const { CommissionRecord } = require("../commission/models");
+const { CampaignAffiliateClick, CommissionRecord } = require("../commission/models");
 const { InfluencerProfile, InfluencerSocialAccount, InfluencerProductAssignment } = require("../influencer/model");
 const { Reel } = require("../reel/model");
 const { TrackingSession } = require("../tracking/model");
@@ -407,7 +408,7 @@ class InfluencerCommerceVendorService {
     if (objectId(query.productId)) trackingMatch.productId = objectId(query.productId);
     if (objectId(query.influencerId)) trackingMatch.influencerId = objectId(query.influencerId);
 
-    const [campaigns, relationshipsTotal, activeInfluencers, pendingApplications, pendingContent, campaignSpend, clicksAgg, topProducts, attributedOrders] = await Promise.all([
+    const [campaigns, relationshipsTotal, activeInfluencers, pendingApplications, pendingContent, campaignSpend, trackingClicksAgg, affiliateClicksAgg, topProducts, attributedOrders] = await Promise.all([
       Campaign.find(campaignFilter).select("title campaignType state fixedFee applications productIds analytics").lean(),
       VendorInfluencerRelationship.countDocuments({ vendorId: vendor._id }),
       VendorInfluencerRelationship.countDocuments({ vendorId: vendor._id, status: { $in: ["approved", "active"] } }),
@@ -420,6 +421,7 @@ class InfluencerCommerceVendorService {
       Reel.countDocuments({ campaignId: { $in: campaignIds }, state: { $in: ["uploaded", "pending_review"] } }),
       Campaign.aggregate([{ $match: campaignFilter }, { $group: { _id: null, total: { $sum: "$fixedFee" } } }]),
       TrackingSession.countDocuments(trackingMatch),
+      CampaignAffiliateClick.countDocuments(trackingMatch),
       CommissionRecord.aggregate([
         { $match: commissionProductMatch },
         { $group: { _id: "$metadata.productId", revenue: { $sum: "$gross" }, commission: { $sum: "$influencerShare" }, orders: { $sum: 1 } } },
@@ -428,7 +430,7 @@ class InfluencerCommerceVendorService {
       ]),
       Order.aggregate([
         { $match: orderMatch },
-        { $group: { _id: null, revenue: { $sum: "$totalAmount" }, orders: { $sum: 1 } } },
+        { $group: { _id: null, revenue: { $sum: "$totalAmount" }, commission: { $sum: { $ifNull: ["$attribution.commission.influencerShare", 0] } }, orders: { $sum: 1 } } },
       ]),
     ]);
 
@@ -444,32 +446,43 @@ class InfluencerCommerceVendorService {
 
     const orderSummary = attributedOrders[0] || { revenue: 0, orders: 0 };
     const summary = { ...commissionSummary };
-    if (["fixed", "free_product"].includes(paymentModel) && Number(orderSummary.orders || 0) > 0) {
-      summary.revenue = orderSummary.revenue;
-      summary.orders = orderSummary.orders;
+    if (Number(orderSummary.orders || 0) > Number(summary.orders || 0)) summary.orders = orderSummary.orders;
+    if (Number(orderSummary.revenue || 0) > Number(summary.revenue || 0)) summary.revenue = orderSummary.revenue;
+    if (Number(orderSummary.commission || 0) > Number(summary.commission || 0)) {
+      summary.commission = orderSummary.commission;
+      summary.pending = Math.max(Number(summary.pending || 0), Number(orderSummary.commission || 0));
     }
     const revenue = money(summary.revenue);
     const spend = money((campaignSpend[0]?.total || 0) + (summary.commission || 0));
     const roi = spend ? money(((revenue - spend) / spend) * 100) : 0;
-    const clicks = Number(clicksAgg || 0);
+    const clicks = Math.max(Number(trackingClicksAgg || 0), Number(affiliateClicksAgg || 0));
     const ordersGenerated = Number(summary.orders || 0);
+    const unified = await analyticsAggregator.getVendorAnalytics(userId, query).catch(() => null);
+    const unifiedMetrics = unified?.metrics || {};
+    const unifiedClicks = (unified?.campaigns || []).reduce((total, row) => total + Number(row.clicks || 0), 0);
+    const unifiedOrders = Number(unifiedMetrics.orders || 0) || (unified?.campaigns || []).reduce((total, row) => total + Number(row.orders || 0), 0);
+    const dashboardRevenue = money(unifiedMetrics.campaignRevenue || revenue);
+    const dashboardSpend = money(unifiedMetrics.totalCampaignSpend || spend);
+    const dashboardClicks = Number(unifiedClicks || clicks);
+    const dashboardOrders = Number(unifiedOrders || ordersGenerated);
 
     return {
       widgets: {
         totalInfluencers: relationshipsTotal,
         activeInfluencers,
-        campaignRevenue: revenue,
-        campaignSpend: spend,
-        commissionPaid: money(summary.paid),
-        pendingCommissions: money(summary.pending),
-        campaignConversions: ordersGenerated,
-        clicks,
-        ordersGenerated,
-        conversionRate: clicks ? money((ordersGenerated / clicks) * 100) : 0,
-        roi,
+        campaignRevenue: dashboardRevenue,
+        campaignSpend: dashboardSpend,
+        commissionPaid: money(unifiedMetrics.commissionPaid || summary.paid),
+        pendingCommissions: money((unified?.campaigns || []).reduce((total, row) => total + Number(row.pendingCommission || 0), 0) || summary.pending),
+        campaignConversions: dashboardOrders,
+        clicks: dashboardClicks,
+        ordersGenerated: dashboardOrders,
+        conversionRate: dashboardClicks ? money((dashboardOrders / dashboardClicks) * 100) : 0,
+        roi: dashboardSpend ? money(((dashboardRevenue - dashboardSpend) / dashboardSpend) * 100) : roi,
         pendingContentApprovals: pendingContent,
         pendingApplications: pendingApplications[0]?.total || 0,
       },
+      unified,
       charts: {
         campaignRevenueTrend: trend,
         influencerPerformanceTrend: byInfluencer.slice(0, 10).map((row) => {
@@ -2127,18 +2140,28 @@ class InfluencerCommerceVendorService {
     const totalRevenue = money(commission.summary.revenue);
     const commissionPaid = money(commission.summary.paid);
     const campaignSpend = money((commission.summary.commission || 0) + campaigns.items.reduce((sum, item) => sum + Number(item.fixedFee || item.budget || 0), 0));
+    const unified = await analyticsAggregator.getVendorAnalytics(userId, query).catch(() => null);
+    const unifiedMetrics = unified?.metrics || {};
+    const unifiedClicks = (unified?.campaigns || []).reduce((sum, row) => sum + Number(row.clicks || 0), 0);
+    const unifiedOrders = Number(unifiedMetrics.orders || 0) || (unified?.campaigns || []).reduce((sum, row) => sum + Number(row.orders || 0), 0);
+    const kpiRevenue = money(unifiedMetrics.campaignRevenue || totalRevenue);
+    const kpiSpend = money(unifiedMetrics.totalCampaignSpend || campaignSpend);
+    const kpiClicks = Number(unifiedClicks || clicks);
+    const kpiOrders = Number(unifiedOrders || commission.summary.orders || 0);
+    const kpiCommissionPaid = money(unifiedMetrics.commissionPaid || commissionPaid);
     return {
       kpis: {
-        campaignRevenue: totalRevenue,
-        campaignSpend,
-        roi: campaignSpend ? money(((totalRevenue - campaignSpend) / campaignSpend) * 100) : 0,
-        commissionPaid,
-        conversions: Number(commission.summary.orders || 0),
-        orders: Number(commission.summary.orders || 0),
-        clicks,
-        conversionRate: clicks ? money((Number(commission.summary.orders || 0) / clicks) * 100) : 0,
-        averageOrderValue: commission.summary.orders ? money(totalRevenue / Number(commission.summary.orders || 0)) : 0,
+        campaignRevenue: kpiRevenue,
+        campaignSpend: kpiSpend,
+        roi: kpiSpend ? money(((kpiRevenue - kpiSpend) / kpiSpend) * 100) : 0,
+        commissionPaid: kpiCommissionPaid,
+        conversions: kpiOrders,
+        orders: kpiOrders,
+        clicks: kpiClicks,
+        conversionRate: kpiClicks ? money((kpiOrders / kpiClicks) * 100) : 0,
+        averageOrderValue: kpiOrders ? money(kpiRevenue / kpiOrders) : 0,
       },
+      unified,
       charts: {
         revenueTrend: commission.trend,
         commissionTrend: commission.trend.map((row) => ({ date: row.date, commission: row.commission })),

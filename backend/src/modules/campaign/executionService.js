@@ -4,9 +4,11 @@ const auditService = require("../../services/audit.service");
 const notificationService = require("../../services/notification.service");
 const vendorRepo = require("../../repositories/vendor.repository");
 const influencerService = require("../influencer/service");
+const commissionService = require("../commission/service");
 const { CommissionRecord } = require("../commission/models");
 const { Campaign, CampaignStatusHistory } = require("./model");
 const { Reel } = require("../reel/model");
+const { InfluencerProfile } = require("../influencer/model");
 const CampaignDeliverableFunding = require("../../models/CampaignDeliverableFunding");
 const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
 const {
@@ -74,7 +76,9 @@ function fallbackDeliverables(campaign = {}) {
 }
 
 function normalizeServiceDeliverable(row = {}, campaign = {}) {
-  const quantity = Math.max(1, Number(row.quantity || row.units || 1));
+  const packageQuantity = Math.max(1, Number(row.packageQuantity || row.snapshot?.package?.packageQuantity || 1));
+  const packageCount = Math.max(1, Number(row.quantity || row.units || 1));
+  const quantity = packageQuantity * packageCount;
   const total = money(row.total || row.totalPrice || row.price || row.packagePrice || 0);
   const unitPrice = money(row.unitPrice || (quantity ? total / quantity : total));
   const serviceName = row.serviceName || row.packageName || row.serviceType || row.serviceTypeKey || row.type || "Deliverable";
@@ -113,6 +117,19 @@ function progress(deliverables = []) {
     completed,
     total,
     completionPercent: total ? Math.round((completed / total) * 100) : 0,
+  };
+}
+
+function requiredPublishedContentCount(deliverables = []) {
+  return deliverables.reduce((sum, row) => sum + Math.max(1, Number(row.quantity || 1)), 0);
+}
+
+function allDeliverablesPublished(deliverables = [], publishedCount = 0) {
+  const requiredCount = requiredPublishedContentCount(deliverables);
+  return {
+    requiredCount,
+    publishedCount: Number(publishedCount || 0),
+    complete: requiredCount > 0 && Number(publishedCount || 0) >= requiredCount,
   };
 }
 
@@ -374,6 +391,30 @@ class CampaignExecutionService {
           },
         }, "influencerCommerce.read").catch(() => null);
       }
+      if (campaign.paymentType === "commission") {
+        campaign.commissionWorkflow = {
+          ...(campaign.commissionWorkflow || {}),
+          contentEnabled: true,
+          publishEnabled: true,
+          contentApprovedAt: new Date(),
+        };
+        await campaign.save();
+        await commissionService.ensureCampaignAffiliateLinks(campaign._id, { activate: false, actor: { _id: userId, role: "vendor" } });
+        const influencerProfile = await InfluencerProfile.findById(deliverable.influencerId).select("userId").lean();
+        if (influencerProfile?.userId) {
+          await notificationService.createNotification({
+            userId: influencerProfile.userId,
+            role: "INFLUENCER",
+            module: "GROWTH",
+            subModule: "INFLUENCER_COMMERCE",
+            type: "CONTENT_APPROVED",
+            title: "Content approved",
+            message: `${campaign.title || "Campaign"} content was approved. Publishing is now enabled.`,
+            referenceId: campaign._id,
+            meta: { campaignId: String(campaign._id), deliverableId: String(deliverable._id) },
+          }).catch(() => null);
+        }
+      }
     } else {
       submission.status = decision === "reject" ? "rejected" : "revision_requested";
       deliverable.status = decision === "reject" ? "rejected" : "revision_requested";
@@ -395,7 +436,8 @@ class CampaignExecutionService {
     let nextStatus = campaign.state;
     // Only set to partially_completed or under_review, NOT completed
     // Campaign should only be marked completed when influencer publishes content
-    if (current.completed > 0) nextStatus = "partially_completed";
+    if (current.total > 0 && current.completed === current.total) nextStatus = "approved";
+    else if (current.completed > 0) nextStatus = "partially_completed";
     else if (deliverables.some((row) => row.status === "under_review")) nextStatus = "under_review";
     
     if (nextStatus !== campaign.state) {
@@ -465,9 +507,10 @@ class CampaignExecutionService {
     }).lean().catch(() => []);
     
     const publishedCount = publishedContent.length;
-    const totalDeliverables = deliverables.length;
+    const publication = allDeliverablesPublished(deliverables, publishedCount);
+    const totalDeliverables = publication.requiredCount;
     
-    if (publishedCount === totalDeliverables && campaign.state !== "completed") {
+    if (publication.complete && campaign.state !== "completed") {
       // All deliverables have been published - mark campaign as completed
       await CampaignStatusHistory.create({
         campaignId,
@@ -508,4 +551,4 @@ class CampaignExecutionService {
 }
 
 module.exports = new CampaignExecutionService();
-module.exports.__private__ = { deriveDeliverables, progress, money };
+module.exports.__private__ = { deriveDeliverables, progress, money, requiredPublishedContentCount, allDeliverablesPublished };

@@ -75,7 +75,7 @@ test("campaign rule engine blocks invalid campaign payment combinations", () => 
   );
 });
 
-test("campaign rule engine enables affiliate infrastructure only for commission-bearing models", () => {
+test("campaign rule engine enables affiliate infrastructure for every campaign payment model", () => {
   const commission = campaignRuleEngine.evaluateCampaignRules({
     campaignType: "affiliate",
     paymentType: "commission",
@@ -91,8 +91,9 @@ test("campaign rule engine enables affiliate infrastructure only for commission-
     paymentType: "free_product",
     productIds: ["product-1"],
   });
-  assert.equal(freeProduct.affiliateInfrastructure.enabled, false);
-  assert.equal(freeProduct.attributionDays, 0);
+  assert.equal(freeProduct.affiliateInfrastructure.enabled, true);
+  assert.equal(freeProduct.affiliateInfrastructure.commissionLedger, false);
+  assert.equal(freeProduct.attributionDays, 30);
 });
 
 test("campaign rule engine rejects vendor-defined custom attribution windows", () => {
