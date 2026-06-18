@@ -104,7 +104,7 @@ exports.adjustStock = async (req, res, next) => {
   try {
     const { productId, variantId } = req.params;
     const { quantityChange, reason, notes } = req.body;
-    const userId = req.user?._id;
+    const userId = req.user?.sub || req.user?._id;
     const sellerId = await resolveVendorIdForUser(req.user);
 
     if (!reason) {
@@ -138,7 +138,7 @@ exports.updateThreshold = async (req, res, next) => {
   try {
     const { productId, variantId } = req.params;
     const { threshold } = req.body;
-    const userId = req.user?._id;
+    const userId = req.user?.sub || req.user?._id;
     const sellerId = await resolveVendorIdForUser(req.user);
 
     if (threshold === undefined) {

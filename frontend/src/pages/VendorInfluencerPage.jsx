@@ -810,6 +810,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     rules.fieldsByCombination[`${form.campaignType}:${form.paymentType}`] || []
   ), [rules.fieldsByCombination, form.campaignType, form.paymentType]);
   const dynamicNames = useMemo(() => fieldNames(dynamicFields), [dynamicFields]);
+  const allowsServiceSelection = form.paymentType === "commission" || dynamicNames.has("selectedServices") || dynamicNames.has("services");
   const handledDynamicNames = new Set([
     "fixedFee",
     "fixedAmount",
@@ -817,6 +818,8 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     "services",
     "commissionPercent",
     "commissionPercentage",
+    "deliverableCommissionRates",
+    "commissionRules",
     "attributionDays",
     "expectedBudget",
     "maximumBudget",
@@ -898,7 +901,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       paymentType: value,
       commissionPercent: Number(defaults.commissionPercent ?? defaults.commissionPercentage ?? current.commissionPercent ?? 0),
       attributionDays: Number(defaults.attributionDays ?? current.attributionDays ?? rules.attributionWindows[0]?.days ?? 0),
-      selectedServices: nextNames.has("selectedServices") || nextNames.has("services") ? current.selectedServices : [],
+      selectedServices: value === "commission" || nextNames.has("selectedServices") || nextNames.has("services") ? current.selectedServices : [],
       fixedFee: nextNames.has("fixedFee") || nextNames.has("fixedAmount") ? current.fixedFee : 0,
       dynamicFields: { ...defaults, paymentType: value },
     }));
@@ -920,7 +923,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     setForm((current) => {
       const exists = current.selectedServices.some((item) => String(item.selectionKey || "") === key);
       const existing = current.selectedServices.filter((item) => String(item.selectionKey || "") !== key);
-      if (exists) return { ...current, selectedServices: existing, dynamicFields: { ...current.dynamicFields, selectedServices: existing } };
+      if (exists) return { ...current, selectedServices: existing, dynamicFields: { ...current.dynamicFields, selectedServices: existing, deliverableCommissionRates: existing } };
       const selectedServices = [
         ...existing,
         {
@@ -928,16 +931,36 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
           serviceId,
           packageId: pkgId || undefined,
           packageName: pkg.packageName || pkg.name || service.serviceName,
+          packageQuantity: Math.max(1, Number(pkg.quantity || pkg.packageQuantity || 1)),
           serviceTypeKey: service.serviceTypeKey,
           serviceName: service.serviceName,
           quantity: 1,
           units: 1,
+          commissionPercentage: Math.max(0, Math.min(50, Number(current.commissionPercent || 0))),
+          price: packagePrice(pkg, service),
+          currency: pkg.currency || service.currency || "INR",
         },
       ];
       return {
         ...current,
         selectedServices,
-        dynamicFields: { ...current.dynamicFields, selectedServices },
+        dynamicFields: { ...current.dynamicFields, selectedServices, deliverableCommissionRates: selectedServices },
+      };
+    });
+  }
+
+  function setDeliverableCommission(selectionKey, value) {
+    const commissionPercentage = Math.max(0, Math.min(50, Number(value || 0)));
+    setForm((current) => {
+      const selectedServices = current.selectedServices.map((item) => (
+        String(item.selectionKey || "") === String(selectionKey || "")
+          ? { ...item, commissionPercentage }
+          : item
+      ));
+      return {
+        ...current,
+        selectedServices,
+        dynamicFields: { ...current.dynamicFields, selectedServices, deliverableCommissionRates: selectedServices },
       };
     });
   }
@@ -945,6 +968,11 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   function isPackageSelected(service, pkg) {
     const key = packageKey(service, pkg);
     return form.selectedServices.some((item) => String(item.selectionKey || "") === key);
+  }
+
+  function selectedPackage(service, pkg) {
+    const key = packageKey(service, pkg);
+    return form.selectedServices.find((item) => String(item.selectionKey || "") === key) || null;
   }
 
   async function refreshPreview(nextForm = form) {
@@ -970,13 +998,31 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     return () => window.clearTimeout(timer);
   }, [form.influencerId, form.productIds, form.campaignType, form.paymentType, form.commissionPercent, form.fixedFee, form.attributionDays, form.expectedBudget, form.productValue, form.shippingCost, form.selectedServices, form.dynamicFields]);
 
+  function deliverableCommissionRatesFrom(rows = [], fallbackPercent = form.commissionPercent) {
+    return rows.map((item) => ({
+      selectionKey: item.selectionKey,
+      serviceId: item.serviceId,
+      packageId: item.packageId,
+      serviceTypeKey: item.serviceTypeKey,
+      serviceName: item.serviceName,
+      packageName: item.packageName,
+      commissionPercentage: Math.max(0, Math.min(50, Number(item.commissionPercentage ?? fallbackPercent ?? 0) || 0)),
+    }));
+  }
+
   function buildPayload(source = form) {
     const selectedServices = source.selectedServices.map(({ selectionKey, ...item }) => item);
+    const deliverableCommissionRates = deliverableCommissionRatesFrom(source.selectedServices, source.commissionPercent);
+    const fallbackCommissionPercent = source.paymentType === "commission" && deliverableCommissionRates.length
+      ? Math.max(...deliverableCommissionRates.map((item) => Number(item.commissionPercentage || 0)))
+      : Number(source.commissionPercent || 0);
     const dynamicFieldValues = {
       ...(source.dynamicFields || {}),
       selectedServices,
+      deliverableCommissionRates,
       fixedFee: Number(source.fixedFee || 0),
-      commissionPercent: Number(source.commissionPercent || 0),
+      commissionPercent: fallbackCommissionPercent,
+      commissionPercentage: fallbackCommissionPercent,
       attributionDays: Number(source.attributionDays || 0),
       expectedBudget: Number(source.expectedBudget || 0),
       productValue: Number(source.productValue || 0),
@@ -985,9 +1031,10 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     return {
       ...source,
       selectedServices,
+      deliverableCommissionRates,
       dynamicFields: dynamicFieldValues,
       deadline: source.deadline || null,
-      commissionPercent: Number(source.commissionPercent || 0),
+      commissionPercent: fallbackCommissionPercent,
       fixedFee: Number(source.fixedFee || 0),
       marketplace: {
         ...source.marketplace,
@@ -1001,9 +1048,10 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
         paymentType: source.paymentType,
         selectedServices,
         services: selectedServices,
+        deliverableCommissionRates,
         dynamicFields: dynamicFieldValues,
         fixedFee: Number(source.fixedFee || 0),
-        commissionPercentage: Number(source.commissionPercent || 0),
+        commissionPercentage: fallbackCommissionPercent,
         attributionDays: Number(source.attributionDays || 0),
         expectedBudget: Number(source.expectedBudget || 0),
         commissionCap: Number(dynamicFieldValues.commissionCap || 0),
@@ -1045,14 +1093,20 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     setPreview(null);
   }
 
-  const canSubmit = !busy && form.title.trim() && form.productIds.length && form.campaignType && form.paymentType && !previewError;
+  const commissionNeedsDeliverables = form.paymentType === "commission" && !form.selectedServices.length;
+  const commissionNeedsRates = form.paymentType === "commission" && form.selectedServices.some((item) => Number(item.commissionPercentage || 0) <= 0);
+  const canSubmit = !busy && form.title.trim() && form.productIds.length && form.campaignType && form.paymentType && !commissionNeedsDeliverables && !commissionNeedsRates && !previewError;
   const submitHelp = !form.title.trim()
     ? "Add a campaign title to continue."
     : !form.productIds.length
       ? "Select at least one product."
       : !form.campaignType || !form.paymentType
         ? "Choose campaign and payment rules."
-        : previewError || "";
+        : commissionNeedsDeliverables
+          ? "Select the creator deliverables before creating a commission campaign."
+          : commissionNeedsRates
+            ? "Set a commission percentage for each selected deliverable."
+          : previewError || "";
 
   return (
     <form onSubmit={submit} className="space-y-5">
@@ -1150,7 +1204,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                   <input type="number" min="0" value={form.fixedFee} onChange={(event) => setField("fixedFee", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Fixed fee" />
                 </label>
               ) : null}
-              {(dynamicNames.has("commissionPercent") || dynamicNames.has("commissionPercentage")) ? (
+              {(dynamicNames.has("commissionPercent") || dynamicNames.has("commissionPercentage")) && form.paymentType !== "commission" ? (
                 <label className="block space-y-1.5">
                   <FieldLabel>{dynamicFields.find((field) => ["commissionPercent", "commissionPercentage"].includes(field.fieldName || field.key))?.label || "Commission %"}</FieldLabel>
                   <input type="number" min="0" max="50" value={form.commissionPercent} onChange={(event) => setField("commissionPercent", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Commission percent" />
@@ -1186,9 +1240,16 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
           </div>
         </div>
 
-        {(dynamicNames.has("selectedServices") || dynamicNames.has("services")) ? (
+        {allowsServiceSelection ? (
           <fieldset className="mt-5 space-y-2">
-            <FieldLabel>Creator Services</FieldLabel>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <FieldLabel>Creator Deliverables</FieldLabel>
+              {form.paymentType === "commission" ? (
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Commission starts only for each published deliverable
+                </span>
+              ) : null}
+            </div>
             <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-950">
               {selectedRateCard.length ? selectedRateCard.map((service) => (
                 <div key={service._id || service.id} className="rounded-lg px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-900">
@@ -1198,17 +1259,53 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                   </div>
                   <div className="mt-2 grid gap-2 md:grid-cols-2">
                     {servicePackages(service).map((pkg) => {
-                      const selected = isPackageSelected(service, pkg);
+                      const selectedItem = selectedPackage(service, pkg);
+                      const selected = Boolean(selectedItem);
                       const price = packagePrice(pkg, service);
+                      const commissionMode = form.paymentType === "commission";
                       return (
-                        <label key={packageKey(service, pkg)} className={`grid min-h-10 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border px-2 py-1.5 text-sm ${selected ? "border-indigo-300 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/30" : "border-slate-100 dark:border-slate-800"}`}>
-                          <input type="checkbox" checked={selected} onChange={() => togglePackageSelection(service, pkg)} />
+                        <div
+                          key={packageKey(service, pkg)}
+                          role="checkbox"
+                          tabIndex={0}
+                          aria-checked={selected}
+                          onClick={() => togglePackageSelection(service, pkg)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              togglePackageSelection(service, pkg);
+                            }
+                          }}
+                          className={`grid min-h-10 cursor-pointer grid-cols-[auto_1fr_minmax(96px,auto)] items-center gap-2 rounded-lg border px-2 py-1.5 text-sm ${selected ? "border-indigo-300 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/30" : "border-slate-100 dark:border-slate-800"}`}
+                        >
+                          <input type="checkbox" checked={selected} onClick={(event) => event.stopPropagation()} onChange={() => togglePackageSelection(service, pkg)} />
                           <span className="min-w-0">
                             <span className="block truncate font-medium text-slate-800 dark:text-slate-100">{pkg.packageName || pkg.name || "Package"}</span>
                             <span className="text-xs text-slate-500">{Number(pkg.quantity || 1)} deliverable{Number(pkg.quantity || 1) === 1 ? "" : "s"} - {pkg.deliveryDays ?? service.deliveryDays ?? 0}d - {pkg.revisionCount ?? service.revisionCount ?? 0} rev</span>
                           </span>
-                          <span className="text-sm font-semibold text-slate-950 dark:text-white">{price ? formatCurrency(price) : "Request"}</span>
-                        </label>
+                          {commissionMode ? (
+                            selected ? (
+                              <span className="flex items-center justify-end gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="50"
+                                  step="0.1"
+                                  value={selectedItem?.commissionPercentage ?? ""}
+                                  onClick={(event) => event.stopPropagation()}
+                                  onChange={(event) => setDeliverableCommission(selectedItem.selectionKey, event.target.value)}
+                                  className="h-9 w-20 rounded-lg border border-slate-200 bg-white px-2 text-right text-sm font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                                  aria-label={`${pkg.packageName || service.serviceName} commission percent`}
+                                />
+                                <span className="text-sm font-semibold text-slate-500">%</span>
+                              </span>
+                            ) : (
+                              <span className="text-right text-xs font-semibold text-slate-400">Select</span>
+                            )
+                          ) : (
+                            <span className="text-sm font-semibold text-slate-950 dark:text-white">{price ? formatCurrency(price) : "Request"}</span>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

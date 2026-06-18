@@ -16,6 +16,7 @@ const auditService = require("./audit.service");
 const campaignFeeService = require("./campaign-fee.service");
 const notificationService = require("./notification.service");
 const { InfluencerProfile } = require("../modules/influencer/model");
+const { emitDomainEvent } = require("../modules/events/event-bus");
 const { ApiError } = require("../utils/ApiError");
 
 function money(value) {
@@ -592,6 +593,13 @@ class CampaignEscrowService {
       entityId: result.releaseId,
       metadata: { campaignId, influencerId, amount: result.totalAmount, deliverableIds: uniqueIds },
     }).catch(() => {});
+    await emitDomainEvent("ESCROW_RELEASED", {
+      campaignId,
+      influencerId,
+      releaseId: result.releaseId,
+      amount: result.totalAmount,
+      deliverableIds: uniqueIds,
+    }).catch(() => null);
     const influencer = await InfluencerProfile.findById(influencerId).select("userId").lean();
     if (influencer?.userId) {
       await notificationService.createNotification({

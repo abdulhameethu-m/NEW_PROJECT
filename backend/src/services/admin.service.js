@@ -20,6 +20,7 @@ const { normalizeShippingMode } = require("./shipping.service");
 const notificationService = require("./notification.service");
 const productAnalyticsService = require("./product-analytics.service");
 const cancellationRefundService = require("./cancellation-refund.service");
+const analyticsAggregator = require("../modules/analytics/service");
 
 function resolveGlobalShippingModes(configValue = {}) {
   const modes = [];
@@ -55,7 +56,7 @@ async function getDashboardOverview() {
 const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
 
 async function getAnalytics({ range, startDate, endDate, vendorId, categoryId, paymentMethod, orderStatus } = {}) {
-  return await productAnalyticsService.getAdminDashboard({
+  const filters = {
     range,
     startDate,
     endDate,
@@ -63,7 +64,12 @@ async function getAnalytics({ range, startDate, endDate, vendorId, categoryId, p
     categoryId,
     paymentMethod,
     orderStatus,
-  });
+  };
+  const [productAnalytics, unified] = await Promise.all([
+    productAnalyticsService.getAdminDashboard(filters),
+    analyticsAggregator.getAdminAnalytics(filters).catch(() => null),
+  ]);
+  return { ...productAnalytics, unified };
 }
 
 async function getProductAnalyticsDetail(productId, filters = {}) {

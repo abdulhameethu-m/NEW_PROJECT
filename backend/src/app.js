@@ -57,6 +57,7 @@ const reelRoutes = require("./modules/reel/routes");
 const trackingRoutes = require("./modules/tracking/routes");
 const commissionRoutes = require("./modules/commission/routes");
 const recommendationRoutes = require("./modules/recommendation/routes");
+const analyticsRoutes = require("./modules/analytics/routes");
 const { authOptional } = require("./middleware/auth");
 const { influencerCommerceGate } = require("./middleware/influencerCommerceGate");
 const { assertNoProductionBootstrapRoutes } = require("./utils/bootstrapRouteScanner");
@@ -291,6 +292,7 @@ function createApp() {
   app.use("/api/tracking", authOptional, influencerCommerceGate, trackingRoutes);
   app.use("/api/commission", authOptional, influencerCommerceGate, commissionRoutes);
   app.use("/api/recommendations", recommendationRoutes);
+  app.use("/api", analyticsRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

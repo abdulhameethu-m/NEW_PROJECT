@@ -28,8 +28,13 @@ const LEDGER_STATES = ["PENDING", "APPROVED", "SETTLED", "PAID", "REVERSED"];
 const LEDGER_ENTRY_TYPES = ["COMMISSION", "PERFORMANCE_BONUS", "CAMPAIGN_BONUS", "MANUAL_ADJUSTMENT", "REVERSAL", "PENALTY", "REFUND_ADJUSTMENT"];
 const TRAFFIC_SOURCES = ["reels", "posts", "stories", "livestream", "storefront", "collection", "affiliate_link", "campaign_landing_page", "creator_feed"];
 const WITHDRAWAL_STATUSES = ["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING", "COMPLETED", "REJECTED", "CANCELLED", "FAILED"];
+const CAMPAIGN_COMMISSION_RULE_STATUSES = ["draft", "active", "paused", "closed", "archived"];
+const AFFILIATE_LINK_STATUSES = ["pending_content", "active", "paused", "expired", "disabled"];
+const AFFILIATE_ATTRIBUTION_STATUSES = ["pending", "converted", "expired", "reversed"];
+const COMMISSION_EARNING_STATUSES = ["PENDING", "APPROVED", "CREDITED", "BLOCKED", "REVERSED", "CANCELLED"];
 
 const moneyField = { type: Number, min: 0, default: 0 };
+const objectIdField = { type: mongoose.Schema.Types.ObjectId };
 
 const commissionRuleConditionSchema = new mongoose.Schema(
   {
@@ -379,6 +384,211 @@ const influencerWithdrawalRequestSchema = new mongoose.Schema(
 influencerWithdrawalRequestSchema.index({ influencerId: 1, status: 1, requestedAt: -1 });
 influencerWithdrawalRequestSchema.index({ bankAccountId: 1, requestedAt: -1 });
 
+const campaignCommissionRuleSchema = new mongoose.Schema(
+  {
+    campaignId: { ...objectIdField, ref: "Campaign", required: true, unique: true, index: true },
+    vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
+    influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
+    commissionPercentage: { type: Number, min: 0, max: 50, required: true },
+    deliverableCommissionRates: {
+      type: [
+        {
+          selectionKey: { type: String, trim: true, default: "" },
+          serviceId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerService" },
+          packageId: { type: mongoose.Schema.Types.ObjectId },
+          serviceTypeKey: { type: String, trim: true, lowercase: true, default: "" },
+          serviceName: { type: String, trim: true, default: "" },
+          packageName: { type: String, trim: true, default: "" },
+          commissionPercentage: { type: Number, min: 0, max: 50, required: true },
+        },
+      ],
+      default: [],
+    },
+    attributionWindowDays: { type: Number, min: 0, required: true },
+    maxCampaignBudget: moneyField,
+    commissionCap: moneyField,
+    returnWindowDays: { type: Number, min: 0, default: 0 },
+    currency: { type: String, trim: true, uppercase: true, default: "INR" },
+    autoStopEnabled: { type: Boolean, default: true, index: true },
+    status: { type: String, enum: CAMPAIGN_COMMISSION_RULE_STATUSES, default: "active", index: true },
+    version: { type: Number, min: 1, default: 1 },
+    source: { type: String, trim: true, default: "campaign_payment_model" },
+    lockedAt: { type: Date },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, collection: "campaign_commission_rules" }
+);
+
+campaignCommissionRuleSchema.index({ vendorId: 1, status: 1, createdAt: -1 });
+campaignCommissionRuleSchema.index({ influencerId: 1, status: 1, createdAt: -1 });
+
+const affiliateLinkSchema = new mongoose.Schema(
+  {
+    campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
+    vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
+    influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
+    productId: { ...objectIdField, ref: "Product", required: true, index: true },
+    trackingId: { type: String, required: true, trim: true, uppercase: true, unique: true, index: true },
+    trackingCode: { type: String, required: true, trim: true, unique: true, index: true },
+    destinationUrl: { type: String, trim: true, default: "" },
+    status: { type: String, enum: AFFILIATE_LINK_STATUSES, default: "pending_content", index: true },
+    activatedAt: { type: Date },
+    expiresAt: { type: Date, index: true },
+    lastClickedAt: { type: Date },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, collection: "affiliate_links" }
+);
+
+affiliateLinkSchema.index({ campaignId: 1, influencerId: 1, productId: 1 }, { unique: true });
+affiliateLinkSchema.index({ campaignId: 1, status: 1 });
+
+const affiliateClickSchema = new mongoose.Schema(
+  {
+    affiliateLinkId: { ...objectIdField, ref: "AffiliateLink", index: true },
+    campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
+    vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
+    influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
+    productId: { ...objectIdField, ref: "Product", required: true, index: true },
+    clickId: { type: String, required: true, trim: true, unique: true, index: true },
+    trackingSessionId: { ...objectIdField, ref: "TrackingSession", index: true },
+    trackingTokenId: { type: String, trim: true, index: true, default: "" },
+    userId: { ...objectIdField, ref: "User", index: true },
+    anonymousId: { type: String, trim: true, index: true, default: "" },
+    ipAddress: { type: String, trim: true, maxlength: 80, default: "" },
+    device: { type: String, trim: true, maxlength: 120, default: "" },
+    browser: { type: String, trim: true, maxlength: 120, default: "" },
+    referrer: { type: String, trim: true, maxlength: 500, default: "" },
+    utmParameters: { type: mongoose.Schema.Types.Mixed, default: {} },
+    source: { type: String, trim: true, default: "affiliate_link", index: true },
+    clickedAt: { type: Date, default: Date.now, index: true },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, collection: "affiliate_clicks" }
+);
+
+affiliateClickSchema.index({ campaignId: 1, influencerId: 1, clickedAt: -1 });
+affiliateClickSchema.index({ trackingSessionId: 1, productId: 1 });
+
+const affiliateAttributionSchema = new mongoose.Schema(
+  {
+    affiliateClickId: { ...objectIdField, ref: "AffiliateClick", index: true },
+    affiliateLinkId: { ...objectIdField, ref: "AffiliateLink", index: true },
+    campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
+    vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
+    influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
+    productId: { ...objectIdField, ref: "Product", required: true, index: true },
+    userId: { ...objectIdField, ref: "User", index: true },
+    anonymousId: { type: String, trim: true, index: true, default: "" },
+    trackingSessionId: { ...objectIdField, ref: "TrackingSession", index: true },
+    trackingTokenId: { type: String, trim: true, index: true, default: "" },
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
+    status: { type: String, enum: AFFILIATE_ATTRIBUTION_STATUSES, default: "pending", index: true },
+    attributedAt: { type: Date, default: Date.now, index: true },
+    expiresAt: { type: Date, required: true, index: true },
+    convertedAt: { type: Date },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, collection: "affiliate_attributions" }
+);
+
+affiliateAttributionSchema.index({ trackingSessionId: 1, status: 1 });
+affiliateAttributionSchema.index({ orderId: 1 }, { unique: true, sparse: true });
+
+const affiliateConversionSchema = new mongoose.Schema(
+  {
+    affiliateAttributionId: { ...objectIdField, ref: "AffiliateAttribution", index: true },
+    affiliateClickId: { ...objectIdField, ref: "AffiliateClick", index: true },
+    affiliateLinkId: { ...objectIdField, ref: "AffiliateLink", index: true },
+    campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
+    vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
+    influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
+    productId: { ...objectIdField, ref: "Product", index: true },
+    orderId: { ...objectIdField, ref: "Order", required: true, unique: true, index: true },
+    orderNumber: { type: String, trim: true, index: true, default: "" },
+    orderRevenue: moneyField,
+    commissionAmount: moneyField,
+    status: { type: String, enum: ["PENDING", "APPROVED", "REVERSED", "CANCELLED"], default: "PENDING", index: true },
+    convertedAt: { type: Date, default: Date.now, index: true },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, collection: "affiliate_conversions" }
+);
+
+affiliateConversionSchema.index({ campaignId: 1, convertedAt: -1 });
+
+const commissionEarningSchema = new mongoose.Schema(
+  {
+    orderId: { ...objectIdField, ref: "Order", required: true, unique: true, index: true },
+    orderNumber: { type: String, trim: true, index: true, default: "" },
+    campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
+    vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
+    influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
+    productId: { ...objectIdField, ref: "Product", index: true },
+    commissionRuleId: { ...objectIdField, ref: "CampaignCommissionRule", required: true, index: true },
+    commissionRecordId: { ...objectIdField, ref: "CommissionRecord", index: true },
+    commissionSnapshotId: { ...objectIdField, ref: "CommissionSnapshot", index: true },
+    grossRevenue: moneyField,
+    eligibleRevenue: moneyField,
+    commissionPercentage: { type: Number, min: 0, max: 50, required: true },
+    commissionAmount: moneyField,
+    vendorNetAmount: moneyField,
+    status: { type: String, enum: COMMISSION_EARNING_STATUSES, default: "PENDING", index: true },
+    holdUntil: { type: Date, index: true },
+    approvedAt: { type: Date },
+    creditedAt: { type: Date },
+    blockedReason: { type: String, trim: true, maxlength: 500, default: "" },
+    idempotencyKey: { type: String, required: true, unique: true, index: true },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, collection: "commission_earnings" }
+);
+
+commissionEarningSchema.index({ campaignId: 1, status: 1, createdAt: -1 });
+commissionEarningSchema.index({ influencerId: 1, status: 1, createdAt: -1 });
+
+const commissionWalletTransactionSchema = new mongoose.Schema(
+  {
+    influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
+    walletId: { ...objectIdField, ref: "InfluencerWallet", required: true, index: true },
+    commissionEarningId: { ...objectIdField, ref: "CommissionEarning", index: true },
+    orderId: { ...objectIdField, ref: "Order", index: true },
+    campaignId: { ...objectIdField, ref: "Campaign", index: true },
+    type: { type: String, enum: ["CREDIT", "DEBIT"], required: true, index: true },
+    source: { type: String, enum: ["COMMISSION", "WITHDRAWAL", "REVERSAL", "ADJUSTMENT"], required: true, index: true },
+    amount: { type: Number, min: 0, required: true },
+    balanceAfter: { type: Number, min: 0, required: true },
+    idempotencyKey: { type: String, required: true, unique: true, index: true },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, collection: "commission_wallet_transactions" }
+);
+
+commissionWalletTransactionSchema.index({ influencerId: 1, createdAt: -1 });
+
+const campaignBudgetTrackerSchema = new mongoose.Schema(
+  {
+    campaignId: { ...objectIdField, ref: "Campaign", required: true, unique: true, index: true },
+    vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
+    influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
+    maxCampaignBudget: moneyField,
+    commissionCap: moneyField,
+    pendingCommission: moneyField,
+    approvedCommission: moneyField,
+    paidCommission: moneyField,
+    remainingBudget: moneyField,
+    remainingCap: moneyField,
+    currency: { type: String, trim: true, uppercase: true, default: "INR" },
+    status: { type: String, enum: ["ACTIVE", "BUDGET_EXHAUSTED", "COMMISSION_CAP_REACHED", "EXPIRED", "STOPPED", "COMPLETED"], default: "ACTIVE", index: true },
+    closedAt: { type: Date },
+    closedReason: { type: String, trim: true, maxlength: 500, default: "" },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, collection: "campaign_budget_trackers" }
+);
+
+campaignBudgetTrackerSchema.index({ vendorId: 1, status: 1, updatedAt: -1 });
+
 const commissionRecordSchema = new mongoose.Schema(
   {
     orderId: {
@@ -494,12 +704,40 @@ module.exports = {
   CommissionAuditLog:
     mongoose.models.CommissionAuditLog ||
     mongoose.model("CommissionAuditLog", commissionAuditLogSchema),
+  CampaignCommissionRule:
+    mongoose.models.CampaignCommissionRule ||
+    mongoose.model("CampaignCommissionRule", campaignCommissionRuleSchema),
+  AffiliateLink:
+    mongoose.models.AffiliateLink ||
+    mongoose.model("AffiliateLink", affiliateLinkSchema),
+  CampaignAffiliateClick:
+    mongoose.models.CampaignAffiliateClick ||
+    mongoose.model("CampaignAffiliateClick", affiliateClickSchema),
+  CampaignAffiliateAttribution:
+    mongoose.models.CampaignAffiliateAttribution ||
+    mongoose.model("CampaignAffiliateAttribution", affiliateAttributionSchema),
+  AffiliateConversion:
+    mongoose.models.AffiliateConversion ||
+    mongoose.model("AffiliateConversion", affiliateConversionSchema),
+  CommissionEarning:
+    mongoose.models.CommissionEarning ||
+    mongoose.model("CommissionEarning", commissionEarningSchema),
+  CommissionWalletTransaction:
+    mongoose.models.CommissionWalletTransaction ||
+    mongoose.model("CommissionWalletTransaction", commissionWalletTransactionSchema),
+  CampaignBudgetTracker:
+    mongoose.models.CampaignBudgetTracker ||
+    mongoose.model("CampaignBudgetTracker", campaignBudgetTrackerSchema),
   RULE_TYPES,
   COMMISSION_METHODS,
   RULE_STATUSES,
   LEDGER_STATES,
   LEDGER_ENTRY_TYPES,
   TRAFFIC_SOURCES,
+  CAMPAIGN_COMMISSION_RULE_STATUSES,
+  AFFILIATE_LINK_STATUSES,
+  AFFILIATE_ATTRIBUTION_STATUSES,
+  COMMISSION_EARNING_STATUSES,
   InfluencerWallet:
     mongoose.models.InfluencerWallet ||
     mongoose.model("InfluencerWallet", influencerWalletSchema),

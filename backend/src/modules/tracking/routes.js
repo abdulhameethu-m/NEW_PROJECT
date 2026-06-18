@@ -22,6 +22,7 @@ router.post(
         productId: Joi.string().required(),
         anonymousId: Joi.string().allow("", null),
         surface: Joi.string().allow("", null),
+        utmParameters: Joi.object().unknown(true).default({}),
       })
   ),
   controller.click

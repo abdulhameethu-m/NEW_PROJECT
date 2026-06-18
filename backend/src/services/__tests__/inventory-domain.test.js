@@ -1,5 +1,7 @@
 const { logger } = require("../../utils/logger");
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
 const inventoryService = require("../inventory.service");
 const { Product } = require("../../models/Product");
 const { InventoryLedger } = require("../../models/InventoryLedger");
@@ -122,6 +124,21 @@ async function run() {
       ledgerEntries.some((entry) => entry.transactionType === "RETURN"),
       true,
       "ledger should capture returns"
+    );
+
+    const inventoryRoutes = fs.readFileSync(path.join(__dirname, "../../routes/inventory.routes.js"), "utf8");
+    assert.match(inventoryRoutes, /requireRole\("vendor", "admin"\)/, "inventory API must be limited to vendor/admin roles");
+    assert.doesNotMatch(
+      inventoryRoutes,
+      /router\.(?:get|post|patch)\([^,\n]+,\s*authRequired\s*,/,
+      "inventory routes must not expose raw auth-only inventory access"
+    );
+
+    const vendorDashboardService = fs.readFileSync(path.join(__dirname, "../../modules/vendorDashboard/vendor-dashboard.service.js"), "utf8");
+    assert.match(
+      vendorDashboardService,
+      /inventoryService\.adjustStock\(/,
+      "vendor dashboard inventory updates must use inventory service ledger adjustment"
     );
 
     logger.info("script_output", { value: "Inventory domain checks passed." });

@@ -21,6 +21,7 @@ import { getDefaultVariant, getVariantGroups } from "../utils/productVariants";
 import { saveRedirectAfterLogin } from "../utils/loginRedirect";
 import { getFormattedWeight } from "../utils/weight";
 import { loadTrackingContext, saveTrackingContext } from "../utils/influencerTracking";
+import { loadProductPreview, saveProductPreview } from "../utils/productPreviewCache";
 import { useCart } from "../hooks/useCart";
 import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useWishlist } from "../hooks/useWishlist";
@@ -150,9 +151,10 @@ export function ProductDetailsPage() {
     removeItem: removeWishlistItem,
     isInWishlist,
   } = useWishlist();
-  const [loading, setLoading] = useState(true);
+  const initialProduct = loadProductPreview(productId);
+  const [loading, setLoading] = useState(!initialProduct);
   const [error, setError] = useState("");
-  const [product, setProduct] = useState(null);
+  const [product, setProduct] = useState(initialProduct);
   const [adding, setAdding] = useState(false);
   const [wishlistSaved, setWishlistSaved] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
@@ -197,7 +199,15 @@ export function ProductDetailsPage() {
     let cancelled = false;
 
     async function loadProduct() {
-      setLoading(true);
+      const previewProduct = loadProductPreview(productId);
+      if (previewProduct) {
+        setProduct(previewProduct);
+        setSelectedAttributes(getDefaultVariant(previewProduct)?.attributes || {});
+        setLoading(false);
+      } else {
+        setProduct(null);
+        setLoading(true);
+      }
       setError("");
       try {
         const response = await productService.getProductById(productId);
@@ -209,6 +219,7 @@ export function ProductDetailsPage() {
 
         if (!cancelled) {
           setProduct(nextProduct);
+          saveProductPreview(nextProduct);
           const defaultVariant = getDefaultVariant(nextProduct);
           setSelectedAttributes(defaultVariant?.attributes || {});
           const trackingContext = loadTrackingContext();
@@ -224,8 +235,14 @@ export function ProductDetailsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setProduct(null);
-          setError(err?.message === "NOT_PUBLIC" ? "Product not available" : "Failed to load product");
+          const previewProduct = loadProductPreview(productId);
+          if (err?.message === "NOT_PUBLIC" || !previewProduct) {
+            setProduct(null);
+            setError(err?.message === "NOT_PUBLIC" ? "Product not available" : "Failed to load product");
+          } else {
+            setProduct(previewProduct);
+            setError("");
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -530,7 +547,7 @@ export function ProductDetailsPage() {
     }
   }
 
-  if (loading) {
+  if (loading && !product) {
     return <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">Loading product...</div>;
   }
 

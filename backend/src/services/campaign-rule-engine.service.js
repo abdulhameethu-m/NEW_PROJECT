@@ -28,6 +28,7 @@ const FALLBACK_FIELD_MATRIX = {
   commission: [
     { fieldName: "commissionPercent", label: "Commission %", fieldType: "percentage", required: true, defaultValue: 10 },
     { fieldName: "attributionDays", label: "Attribution Window", fieldType: "select", required: true, defaultValue: 30 },
+    { fieldName: "selectedServices", label: "Deliverables", fieldType: "service_selector" },
     { fieldName: "commissionRules", label: "Commission Rules", fieldType: "textarea" },
     { fieldName: "expectedBudget", label: "Maximum Budget", fieldType: "currency" },
     { fieldName: "commissionCap", label: "Commission Cap", fieldType: "currency" },
@@ -250,7 +251,8 @@ class CampaignRuleEngineService {
       .map(normalizeField)
       .sort((a, b) => a.displayOrder - b.displayOrder || a.label.localeCompare(b.label));
     const validationRules = config.validationRulesByCombination[`${campaignType.key}:${paymentType}`] || [];
-    const affiliateTrackingEnabled = ["commission", "hybrid"].includes(paymentType);
+    const affiliateTrackingEnabled = ["fixed", "commission", "hybrid", "free_product"].includes(paymentType);
+    const commissionLedgerEnabled = ["commission", "hybrid"].includes(paymentType);
     const allowedAttributionDays = config.attributionWindows.map((row) => Number(row.days || 0)).filter(Boolean);
     const defaultAttributionDays = allowedAttributionDays[0] || 30;
     const requestedAttributionDays = numericValue(fieldValue(payload, "attributionDays") || defaultAttributionDays);
@@ -280,8 +282,8 @@ class CampaignRuleEngineService {
         attributionWindowDays: attributionDays,
         clickTracking: affiliateTrackingEnabled,
         conversionTracking: affiliateTrackingEnabled,
-        commissionLedger: affiliateTrackingEnabled,
-        payoutTracking: affiliateTrackingEnabled,
+        commissionLedger: commissionLedgerEnabled,
+        payoutTracking: commissionLedgerEnabled,
       },
     };
   }

@@ -24,6 +24,7 @@ const {
 } = require("../../services/shipping.service");
 const notificationService = require("../../services/notification.service");
 const productAnalyticsService = require("../../services/product-analytics.service");
+const analyticsAggregator = require("../analytics/service");
 
 const VENDOR_ORDER_FLOW = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 
@@ -437,17 +438,67 @@ class VendorDashboardService {
       throw new AppError("Product not found", 404, "NOT_FOUND");
     }
 
-    if (payload.stock != null) product.stock = Number(payload.stock);
-    if (payload.lowStockThreshold != null) product.lowStockThreshold = Number(payload.lowStockThreshold);
-    await product.save();
+    const activeVariants = Array.isArray(product.variants)
+      ? product.variants.filter((variant) => variant?.isActive !== false)
+      : [];
+    const requestedVariantId = String(payload.variantId || "").trim();
+    const targetVariantId = requestedVariantId || (!activeVariants.length
+      ? inventoryService.LEGACY_VARIANT_ID
+      : activeVariants.length === 1
+        ? activeVariants[0].variantId
+        : "");
 
-    if (product.stock <= product.lowStockThreshold) {
+    if (payload.stock != null) {
+      if (!targetVariantId) {
+        throw new AppError("Select a variant before adjusting stock for a product with multiple variants", 400, "VARIANT_REQUIRED");
+      }
+      const nextStock = Number(payload.stock);
+      if (!Number.isFinite(nextStock) || nextStock < 0) {
+        throw new AppError("Stock must be a non-negative number", 400, "INVALID_STOCK");
+      }
+      const currentVariant = activeVariants.find((variant) => String(variant.variantId) === String(targetVariantId));
+      const currentStock = currentVariant ? Number(currentVariant.stock || 0) : Number(product.stock || 0);
+      const quantityChange = nextStock - currentStock;
+      if (quantityChange !== 0) {
+        await inventoryService.adjustStock(
+          product._id,
+          targetVariantId,
+          quantityChange,
+          "Vendor inventory update",
+          payload.notes || "",
+          vendor.userId || userId,
+          { expectedSellerId: vendor._id }
+        );
+      }
+    }
+
+    if (payload.lowStockThreshold != null) {
+      const nextThreshold = Number(payload.lowStockThreshold);
+      if (!Number.isFinite(nextThreshold) || nextThreshold < 0) {
+        throw new AppError("Low stock threshold must be a non-negative number", 400, "INVALID_THRESHOLD");
+      }
+      const thresholdUpdate = { lowStockThreshold: nextThreshold };
+      if (targetVariantId && targetVariantId !== inventoryService.LEGACY_VARIANT_ID) {
+        thresholdUpdate["variants.$[variant].threshold"] = nextThreshold;
+      }
+      await Product.updateOne(
+        { _id: product._id, sellerId: vendor._id },
+        { $set: thresholdUpdate },
+        targetVariantId && targetVariantId !== inventoryService.LEGACY_VARIANT_ID
+          ? { arrayFilters: [{ "variant.variantId": targetVariantId }] }
+          : undefined
+      );
+    }
+
+    const updatedProduct = await Product.findOne({ _id: productId, sellerId: vendor._id });
+
+    if (updatedProduct.stock <= updatedProduct.lowStockThreshold) {
       await this.createNotification(vendor._id, {
         type: "PRODUCT",
         title: "Low stock alert",
-        message: `${product.name} is running low with ${product.stock} units left.`,
+        message: `${updatedProduct.name} is running low with ${updatedProduct.stock} units left.`,
         entityType: "Product",
-        entityId: product._id,
+        entityId: updatedProduct._id,
         priority: "high",
       });
       await notificationService.notifyVendorUser(vendor._id, {
@@ -455,16 +506,20 @@ class VendorDashboardService {
         subModule: "INVENTORY",
         type: "INVENTORY_ALERT",
         title: "Low stock alert",
-        message: `${product.name} is running low with ${product.stock} units left.`,
-        referenceId: product._id,
+        message: `${updatedProduct.name} is running low with ${updatedProduct.stock} units left.`,
+        referenceId: updatedProduct._id,
       });
     }
 
-    return product;
+    return updatedProduct;
   }
 
   async getAnalytics(userId, query = {}) {
-    return await productAnalyticsService.getVendorDashboard(userId, query);
+    const [productAnalytics, unified] = await Promise.all([
+      productAnalyticsService.getVendorDashboard(userId, query),
+      analyticsAggregator.getVendorAnalytics(userId, query).catch(() => null),
+    ]);
+    return { ...productAnalytics, unified };
   }
 
   async getProductAnalyticsDetail(userId, productId, query = {}) {

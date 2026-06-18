@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const { logger } = require("../utils/logger");
 const commissionService = require("../modules/commission/service");
+const analyticsAggregator = require("../modules/analytics/service");
 const influencerCommerceService = require("../modules/influencerCommerce/service");
 const trackingService = require("../modules/tracking/service");
 const { InfluencerProfile } = require("../modules/influencer/model");
@@ -48,6 +49,7 @@ function schedule(cronExpression, taskName, handler) {
 
 async function initializeInfluencerCommerceJobs() {
   commissionService.registerEventHandlers();
+  analyticsAggregator.registerEventHandlers();
 
   schedule(process.env.INFLUENCER_SETTLEMENT_SCHEDULE || "15 2 * * *", "commission-settlement", async () => {
     await commissionService.settleEligibleOrders();
@@ -59,6 +61,26 @@ async function initializeInfluencerCommerceJobs() {
 
   schedule(process.env.INFLUENCER_METRICS_SCHEDULE || "30 2 * * *", "metrics-aggregation", async () => {
     await aggregateInfluencerMetrics();
+  });
+
+  schedule(process.env.ANALYTICS_REBUILD_SCHEDULE || "0 * * * *", "analytics-rebuild", async () => {
+    await analyticsAggregator.rebuildAll();
+  });
+
+  schedule(process.env.ANALYTICS_VALIDATION_SCHEDULE || "*/30 * * * *", "analytics-validation", async () => {
+    await analyticsAggregator.auditPipeline();
+  });
+
+  schedule(process.env.REVENUE_RECONCILIATION_SCHEDULE || "20 1 * * *", "revenue-reconciliation", async () => {
+    await analyticsAggregator.rebuildAll();
+  });
+
+  schedule(process.env.COMMISSION_RECONCILIATION_SCHEDULE || "35 1 * * *", "commission-reconciliation", async () => {
+    await analyticsAggregator.rebuildAll({ paymentModel: "commission" });
+  });
+
+  schedule(process.env.ESCROW_RECONCILIATION_SCHEDULE || "50 1 * * *", "escrow-reconciliation", async () => {
+    await analyticsAggregator.auditPipeline();
   });
 
   schedule(process.env.INFLUENCER_SUBSCRIPTION_EXPIRY_SCHEDULE || "5 0 * * *", "subscription-expiry", async () => {

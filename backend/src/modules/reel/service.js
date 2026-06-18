@@ -10,7 +10,7 @@ const { Campaign } = require("../campaign/model");
 const { emitDomainEvent } = require("../events/event-bus");
 const { INFLUENCER_EVENTS } = require("../shared/constants");
 const { Reel } = require("./model");
-const { CommissionRecord } = require("../commission/models");
+const { AffiliateLink, CommissionRecord } = require("../commission/models");
 const {
   ReelLike,
   ReelComment,
@@ -94,6 +94,52 @@ function campaignAllowsInfluencerContent(campaign, influencerId) {
     idOf(application.influencerId) === profileId &&
     ["approved"].includes(String(application.status || "").toLowerCase())
   ));
+}
+
+async function activeCampaignAffiliateLinkMap(reels = []) {
+  const campaignIds = Array.from(new Set(reels.map((reel) => idOf(reel.campaignId)).filter(Boolean)));
+  if (!campaignIds.length) return new Map();
+  let links = await AffiliateLink.find({
+    campaignId: { $in: campaignIds },
+    status: "active",
+  }).select("campaignId productId trackingCode destinationUrl").lean();
+  const linkedCampaigns = new Set(links.map((link) => idOf(link.campaignId)));
+  const missingCampaignIds = campaignIds.filter((campaignId) => !linkedCampaigns.has(campaignId));
+  if (missingCampaignIds.length) {
+    const commissionService = require("../commission/service");
+    await Promise.all(missingCampaignIds.map((campaignId) =>
+      commissionService.ensureCampaignAffiliateLinks(campaignId, { activate: true }).catch(() => [])
+    ));
+    links = await AffiliateLink.find({
+      campaignId: { $in: campaignIds },
+      status: "active",
+    }).select("campaignId productId trackingCode destinationUrl").lean();
+  }
+  return new Map(links.map((link) => [`${idOf(link.campaignId)}:${idOf(link.productId)}`, link]));
+}
+
+function attachProductAffiliateLinks(products = [], campaignId = "", linkByCampaignProduct = new Map()) {
+  return products.map((product) => {
+    const link = linkByCampaignProduct.get(`${idOf(campaignId)}:${idOf(product)}`);
+    if (!link) return product;
+    return {
+      ...product,
+      affiliateTrackingCode: link.trackingCode || "",
+      trackingCode: link.trackingCode || "",
+      affiliateDestinationUrl: link.destinationUrl || "",
+      affiliateLinkId: link._id,
+    };
+  });
+}
+
+async function activateAffiliateLinksForPublishedReel(reel, actor = {}) {
+  if (!reel?.campaignId) return [];
+  const commissionService = require("../commission/service");
+  return commissionService.ensureCampaignAffiliateLinks(reel.campaignId, {
+    activate: true,
+    reelId: reel._id,
+    actor,
+  });
 }
 
 const CONTENT_READY_CAMPAIGN_STATES = new Set([
@@ -332,6 +378,9 @@ class ReelService {
         if (!campaign || !campaignAllowsInfluencerContent(campaign, profile._id) || !campaignAcceptsCreatorContent(campaign)) {
           throw new AppError("Campaign does not allow product tagging", 403, "FORBIDDEN");
         }
+        if (payload.action === "publish" && campaign.paymentType === "commission" && !campaign.commissionWorkflow?.publishEnabled) {
+          throw new AppError("Content must be approved before publishing this commission campaign", 409, "CONTENT_APPROVAL_REQUIRED");
+        }
         const allowedProducts = new Set((campaign.productIds || []).map(String));
         const requestedProducts = (payload.productIds || []).map(String);
         if (requestedProducts.some((productId) => !allowedProducts.has(productId))) {
@@ -366,6 +415,14 @@ class ReelService {
     }
     const reel = await Reel.findOneAndUpdate({ _id: reelId, influencerId: profile._id }, { $set: update }, { returnDocument: "after", runValidators: true }).lean();
     if (!reel) throw new AppError("Content not found", 404, "NOT_FOUND");
+    if (payload.action === "publish" && reel.campaignId) {
+      await activateAffiliateLinksForPublishedReel(reel, { _id: userId, sub: userId, role: "influencer" });
+      await emitDomainEvent(INFLUENCER_EVENTS.REEL_PUBLISHED, {
+        reelId: reel._id,
+        campaignId: reel.campaignId,
+        influencerId: reel.influencerId,
+      });
+    }
     return contentSummary(reel);
   }
 
@@ -500,6 +557,7 @@ class ReelService {
       {
         $set: {
           state: nextState,
+          visibility: nextState === "published" ? "published" : reel.visibility,
           publishedAt: nextState === "published" ? new Date() : reel.publishedAt,
           "moderation.reviewerId": actor.sub,
           "moderation.reviewedAt": new Date(),
@@ -510,6 +568,7 @@ class ReelService {
     );
 
     if (nextState === "published") {
+      await activateAffiliateLinksForPublishedReel(updated, actor);
       await emitDomainEvent(INFLUENCER_EVENTS.REEL_PUBLISHED, {
         reelId: updated._id,
         campaignId: updated.campaignId,
@@ -566,17 +625,18 @@ class ReelService {
       : [];
     const followedInfluencers = new Set(followedRows.map((row) => idOf(row.influencerId)));
     const engagementByReel = await this.buildEngagementState(filtered.map((reel) => reel._id), userId);
+    const linkByCampaignProduct = await activeCampaignAffiliateLinkMap(filtered);
 
     return {
       items: filtered.map((reel) => {
         const tagged = [...(reel.productIds || []), ...(reel.campaignId?.productIds || [])];
         const seen = new Set();
-        const products = tagged.filter((product) => {
+        const products = attachProductAffiliateLinks(tagged.filter((product) => {
           const id = idOf(product);
           if (!id || seen.has(id)) return false;
           seen.add(id);
           return true;
-        });
+        }), reel.campaignId, linkByCampaignProduct);
         return this.mergeEngagement({
           ...reel,
           influencerId: reel.influencerId ? {
@@ -619,12 +679,22 @@ class ReelService {
     ]);
     const row = reel.toObject ? reel.toObject() : reel;
     const engagementByReel = await this.buildEngagementState([row._id], userId);
+    const tagged = [...(row.productIds || []), ...(row.campaignId?.productIds || [])];
+    const seen = new Set();
+    const linkByCampaignProduct = await activeCampaignAffiliateLinkMap([row]);
+    const products = attachProductAffiliateLinks(tagged.filter((product) => {
+      const id = idOf(product);
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    }), row.campaignId, linkByCampaignProduct);
     return this.mergeEngagement({
       ...row,
       influencerId: row.influencerId ? {
         ...row.influencerId,
         isFollowing: Boolean(followRow),
       } : row.influencerId,
+      products,
       affiliateTrackingCode: affiliate?.trackingCode || "",
     }, engagementByReel.get(idOf(row)));
   }
@@ -811,8 +881,6 @@ class ReelService {
   }
 
   async recordProductClick(user, reelId, payload = {}, security = null) {
-    const uncounted = this.uncountedSecurityResponse(security);
-    if (uncounted) return uncounted;
     const reel = await getPublishedReel(reelId);
     const productId = payload.productId;
     if (!productId) throw new AppError("productId is required", 400, "VALIDATION_ERROR");
@@ -823,7 +891,10 @@ class ReelService {
       productId,
       anonymousId: payload.anonymousId || "",
       surface: payload.source || "reel",
+      security,
     });
+    if (!tracking.session) return tracking;
+    const counted = tracking.counted !== false;
     const expiresAt = new Date(Date.now() + windowDays * 24 * 60 * 60 * 1000);
     const click = await AffiliateClick.create({
       reelId,
@@ -861,9 +932,9 @@ class ReelService {
         expiresAt,
         metadata: { reelId, source: payload.source || "reel_product_card" },
       }),
-      incrementAnalytics({ reel, metric: "productClicks", productId, metadata: { eventType: "reel_product_click", userId: user?.sub || null, anonymousId: tracking.anonymousId || payload.anonymousId || "", source: payload.source || "reel_product_card" } }),
+      counted ? incrementAnalytics({ reel, metric: "productClicks", productId, metadata: { eventType: "reel_product_click", userId: user?.sub || null, anonymousId: tracking.anonymousId || payload.anonymousId || "", source: payload.source || "reel_product_card" } }) : Promise.resolve(),
     ]);
-    return { ...tracking, counted: true, attributionWindowDays: windowDays, affiliateClickId: click._id };
+    return { ...tracking, counted, attributionWindowDays: windowDays, affiliateClickId: click._id };
   }
 
   async followCreator(userId, reelId, payload = {}) {

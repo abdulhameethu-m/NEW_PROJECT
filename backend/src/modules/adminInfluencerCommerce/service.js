@@ -3,6 +3,7 @@ const auditService = require("../../services/audit.service");
 const notificationService = require("../../services/notification.service");
 const { isInfluencerCommerceEnabled, invalidateInfluencerCommerceConfigCache } = require("../../services/influencer-commerce-config.service");
 const influencerRateCardService = require("../../services/influencer-rate-card.service");
+const analyticsAggregator = require("../analytics/service");
 const { AppError } = require("../../utils/AppError");
 const { Campaign } = require("../campaign/model");
 const {
@@ -22,6 +23,7 @@ const {
   InfluencerWithdrawalRequest,
 } = require("../commission/models");
 const { TrackingSession } = require("../tracking/model");
+const { emitDomainEvent } = require("../events/event-bus");
 
 async function upsertProductAssignments({ campaign, influencerId, status = "approved", source = "admin_manual", actorId = null }) {
   const now = new Date();
@@ -322,6 +324,8 @@ class AdminInfluencerCommerceService {
     const summary = commissionAgg[0] || {};
     const subscriptionSummary = subscriptionRevenueAgg[0] || {};
     const mostPopularPlan = planDistribution[0] || null;
+    const unified = await analyticsAggregator.getAdminAnalytics(query).catch(() => null);
+    const unifiedMetrics = unified?.metrics || {};
 
     return {
       kpis: {
@@ -329,9 +333,12 @@ class AdminInfluencerCommerceService {
         activeInfluencers,
         totalVendors,
         activeCampaigns,
-        campaignRevenue: money(summary.revenue),
-        commissionPaid: money(summary.paid),
-        escrowBalance: money(summary.pending),
+        campaignRevenue: money(unifiedMetrics.totalRevenue || summary.revenue),
+        commissionPaid: money(unifiedMetrics.totalCommissionPaid || summary.paid),
+        escrowBalance: money(unifiedMetrics.totalEscrowBalance || summary.pending),
+        totalEscrow: money(unifiedMetrics.totalEscrow || 0),
+        totalReleased: money(unifiedMetrics.totalReleased || 0),
+        platformRevenue: money(unifiedMetrics.totalPlatformRevenue || 0),
         totalSubscriptionRevenue: money(subscriptionSummary.gross),
         monthlySubscriptionRevenue: money(monthlySubscriptionRevenueAgg[0]?.gross || 0),
         annualSubscriptionRevenue: money(annualSubscriptionRevenueAgg[0]?.gross || 0),
@@ -345,6 +352,7 @@ class AdminInfluencerCommerceService {
         subscriptionCreditBalance: money(creditWalletAgg[0]?.balance || 0),
         mostPopularPlanId: mostPopularPlan?._id || null,
       },
+      unified,
       charts: {
         revenueTrend: [...trendMap.values()],
         campaignTrend: [...trendMap.values()].map(({ date, campaigns }) => ({ date, campaigns })),
@@ -1493,6 +1501,11 @@ class AdminInfluencerCommerceService {
         { $inc: { withdrawnBalance: request.amount } },
         { runValidators: true }
       );
+      await emitDomainEvent("WITHDRAWAL_COMPLETED", {
+        withdrawalRequestId: request._id,
+        influencerId: request.influencerId,
+        amount: request.amount,
+      }).catch(() => null);
     }
 
     await auditService.log({

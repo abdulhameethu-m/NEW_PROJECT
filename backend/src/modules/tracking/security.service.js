@@ -181,6 +181,28 @@ function buildEventPayload({ req, eventType, identity, status, fraud, dedupKey, 
   };
 }
 
+async function writeDedupEvent({ existingDedup, dedupKey, eventType, visitorId, dedupMs }) {
+  const now = new Date();
+  const duplicateUpdate = { $set: { lastSeenAt: now }, $inc: { duplicateCount: 1 } };
+  if (existingDedup) {
+    return DedupEvent.updateOne({ dedupKey }, duplicateUpdate);
+  }
+
+  try {
+    return await DedupEvent.updateOne(
+      { dedupKey },
+      {
+        $setOnInsert: { dedupKey, eventType, visitorId, firstSeenAt: now, expiresAt: retentionDate(dedupMs) },
+        $set: { lastSeenAt: now },
+      },
+      { upsert: true }
+    );
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    return DedupEvent.updateOne({ dedupKey }, duplicateUpdate);
+  }
+}
+
 async function evaluateEvent(req, eventType) {
   const limit = EVENT_LIMITS[eventType] || EVENT_LIMITS.tracking_event;
   if (limit.authOnly && !req.user?.sub) {
@@ -214,9 +236,7 @@ async function evaluateEvent(req, eventType) {
     ),
     status === "verified" ? VerifiedEvent.create(payload) : Promise.resolve(),
     status === "fraud" || status === "rate_limited" ? FraudEvent.create(payload) : Promise.resolve(),
-    existingDedup
-      ? DedupEvent.updateOne({ dedupKey }, { $set: { lastSeenAt: new Date() }, $inc: { duplicateCount: 1 } })
-      : DedupEvent.create({ dedupKey, eventType, visitorId: identity.visitorId, expiresAt: retentionDate(limit.dedupMs) }),
+    writeDedupEvent({ existingDedup, dedupKey, eventType, visitorId: identity.visitorId, dedupMs: limit.dedupMs }),
   ]);
 
   return {

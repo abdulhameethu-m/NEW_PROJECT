@@ -15,6 +15,12 @@ const click = asyncHandler(async (req, res) => {
     trackingCode: req.body.trackingCode,
     surface: req.body.surface,
     security: req.trackingSecurity,
+    requestMeta: {
+      ipAddress: req.ip || "",
+      browser: req.get("user-agent") || "",
+      referrer: req.get("referer") || req.get("referrer") || "",
+      utmParameters: req.body.utmParameters || {},
+    },
   });
   return ok(res, result, "Tracking session created");
 });

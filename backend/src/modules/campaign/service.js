@@ -6,6 +6,7 @@ const influencerCommerceEngine = require("../../services/influencer-commerce-eng
 const influencerRateCardService = require("../../services/influencer-rate-card.service");
 const auditService = require("../../services/audit.service");
 const notificationService = require("../../services/notification.service");
+const commissionService = require("../commission/service");
 const { emitDomainEvent } = require("../events/event-bus");
 const { INFLUENCER_EVENTS } = require("../shared/constants");
 const { CommissionRecord } = require("../commission/models");
@@ -182,6 +183,12 @@ async function ensureAcceptedWorkflowArtifacts({ campaign, profile, userId }) {
       { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
     ),
   ]);
+  if (campaign.paymentType === "commission") {
+    await Campaign.updateOne(
+      { _id: campaign._id },
+      { $set: { "commissionWorkflow.contentEnabled": true } }
+    );
+  }
   await auditService.log({
     actor: { _id: userId, role: "influencer" },
     action: "campaign.acceptance.confirmed",
@@ -308,6 +315,8 @@ function presentCampaign(campaign, profileId) {
     paymentType: campaign.paymentType,
     paymentModel,
     pricing,
+    commissionConfig: campaign.commissionConfig || null,
+    commissionWorkflow: campaign.commissionWorkflow || null,
     fixedPaymentWorkflow: campaign.fixedPaymentWorkflow || null,
     influencerRateSnapshot: campaign.influencerRateSnapshot || campaign.contractSnapshot?.influencerRateCard || {},
     requirementsSnapshot: campaign.requirementsSnapshot || campaign.contractSnapshot?.requirements || {},
@@ -461,6 +470,16 @@ class CampaignService {
             },
           }
         : {}),
+      ...(pricing.paymentType === "commission"
+        ? {
+            commissionWorkflow: {
+              contentEnabled: false,
+              publishEnabled: false,
+              trackingActive: false,
+              autoStopEnabled: payload.paymentModel?.autoStopEnabled ?? payload.payment?.autoStopEnabled ?? true,
+            },
+          }
+        : {}),
       attributionWindowDays: pricing.attributionDays,
       pricing: pricing.pricing,
       paymentModelSnapshot: pricing.paymentModel,
@@ -471,6 +490,7 @@ class CampaignService {
       history: [pushHistory(initialState, userId, "Campaign invitation sent by vendor")],
     });
     await influencerRateCardService.attachCampaignPricing(campaign, pricing);
+    await commissionService.ensureCampaignCommissionConfiguration(campaign, payload, pricing, { _id: userId, role: "vendor" });
     await createInvitationRecord({ campaign, influencerId: influencer._id, actorId: userId });
     await notifyInfluencerProfile(influencer, {
       title: "Campaign invitation",
@@ -522,6 +542,13 @@ class CampaignService {
                 "fixedPaymentWorkflow.contentEnabled": false,
                 "fixedPaymentWorkflow.acceptedAt": new Date(),
                 "fixedPaymentWorkflow.lastTransitionAt": new Date(),
+              }
+            : {}),
+          ...(campaign.paymentType === "commission"
+            ? {
+                "commissionWorkflow.contentEnabled": true,
+                "commissionWorkflow.publishEnabled": false,
+                "commissionWorkflow.trackingActive": false,
               }
             : {}),
           termsFrozen: {

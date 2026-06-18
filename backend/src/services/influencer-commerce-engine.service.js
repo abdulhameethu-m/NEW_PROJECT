@@ -314,6 +314,7 @@ const CAMPAIGN_DYNAMIC_FIELD_DEFAULTS = {
   commission: [
     ["commissionPercent", "Commission %", "percentage", true, { min: 0, max: 50, defaultValue: 10 }],
     ["attributionDays", "Attribution Window", "select", true, { defaultValue: 30, source: "attributionWindows" }],
+    ["selectedServices", "Deliverables", "service_selector", false, {}],
     ["commissionRules", "Commission Rules", "textarea", false, {}],
     ["expectedBudget", "Maximum Budget", "currency", false, { min: 0 }],
     ["commissionCap", "Commission Cap", "currency", false, { min: 0 }],
