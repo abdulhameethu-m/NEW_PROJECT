@@ -1,12 +1,9 @@
 import axios from "axios";
+import { getApiBaseUrl } from "../config/apiBaseUrl";
 
 const CSRF_COOKIE_NAME = "csrf_token";
 const CSRF_HEADER_NAME = "X-CSRF-TOKEN";
 const SAFE_METHODS = new Set(["get", "head", "options"]);
-
-function apiBaseUrl() {
-  return import.meta.env.VITE_API_URL || "http://localhost:5000";
-}
 
 function readCookie(name) {
   if (typeof document === "undefined") return "";
@@ -33,7 +30,7 @@ export async function ensureCsrfToken() {
   csrfPromise =
     csrfPromise ||
     axios
-      .get(`${apiBaseUrl()}/api/auth/csrf`, { withCredentials: true })
+      .get(`${getApiBaseUrl()}/api/auth/csrf`, { withCredentials: true })
       .then((response) => response.data?.data?.csrfToken || readCookie(CSRF_COOKIE_NAME))
       .finally(() => {
         csrfPromise = null;

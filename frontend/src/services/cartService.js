@@ -8,12 +8,14 @@ export async function getCart() {
   return normalizeCartPayload(data);
 }
 
-export async function addToCart(productId, quantity = 1, variantId = "") {
-  const { data } = await api.post("/api/cart/add", { productId, quantity, variantId });
-  const payload = data?.data || data;
-  const cart = normalizeCartPayload(payload);
+export async function addToCart(productId, quantity = 1, variantId = "", attribution = null) {
+  const requestPayload = { productId, quantity, variantId };
+  if (attribution?.trackingToken) requestPayload.trackingToken = attribution.trackingToken;
+  const { data } = await api.post("/api/cart/add", requestPayload);
+  const responsePayload = data?.data || data;
+  const cart = normalizeCartPayload(responsePayload);
   emitCartChanged(cart);
-  return { cart, addedItem: payload?.addedItem || null };
+  return { cart, addedItem: responsePayload?.addedItem || null };
 }
 
 export async function updateCartItem(productId, quantity, variantId = "") {

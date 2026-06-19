@@ -95,6 +95,7 @@ class CartMergeService {
             userCart.items[existingIdx].variantSku = enriched.variantSku;
             userCart.items[existingIdx].variantTitle = enriched.variantTitle;
             userCart.items[existingIdx].variantAttributes = normalizeVariantAttributes(enriched.variantAttributes);
+            userCart.items[existingIdx].attribution = guestItem.attribution || userCart.items[existingIdx].attribution;
             mergeResult.merged++;
           } catch (validationError) {
             // Quantity too high, keep user's current quantity but report conflict
@@ -117,6 +118,7 @@ class CartMergeService {
             variantSku: guestItem.variantSku,
             variantTitle: guestItem.variantTitle,
             variantAttributes: normalizeVariantAttributes(guestItem.variantAttributes),
+            attribution: guestItem.attribution,
           });
           mergeResult.merged++;
         }

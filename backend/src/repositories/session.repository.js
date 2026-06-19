@@ -30,6 +30,7 @@ async function listActiveForUser(userId) {
     expiresAt: { $gt: new Date() },
   })
     .sort({ lastUsedAt: -1, createdAt: -1 })
+    .select("-refreshTokenHash")
     .exec();
 }
 

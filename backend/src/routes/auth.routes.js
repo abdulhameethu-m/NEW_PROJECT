@@ -31,6 +31,8 @@ router.get("/csrf", authController.csrf);
 // Use authOptional for logout - allows graceful logout even if token is missing
 router.post("/logout", authOptional, authController.logout);
 router.post("/logout-all", authRequired, authController.logoutAll);
+router.get("/sessions", authRequired, authController.listSessions);
+router.delete("/sessions/:id", authRequired, authController.revokeSession);
 router.get("/me", authRequired, authController.me);
 router.patch("/preferences/theme", authRequired, authController.updateThemePreference);
 

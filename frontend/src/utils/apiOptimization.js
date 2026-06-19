@@ -4,6 +4,7 @@
  */
 
 import { performanceMonitor } from './performanceMonitor';
+import { useAuthStore } from '../context/authStore';
 
 /**
  * Cache for API responses
@@ -430,7 +431,7 @@ export const apiClient = createOptimizedApiClient(
 
 // Setup auth interceptor
 apiClient.addRequestInterceptor(async (config) => {
-  const token = localStorage.getItem('authToken');
+  const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

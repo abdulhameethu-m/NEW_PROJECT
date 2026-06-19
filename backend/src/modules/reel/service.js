@@ -33,6 +33,8 @@ const {
 } = require("./engagement.model");
 const { REEL_UPLOAD_DIR } = require("../../middleware/reelUpload");
 
+const PUBLIC_REEL_PRODUCT_SELECT = "name slug price discountPrice images thumbnail category rating averageRating sellerId stock status isActive variants";
+
 function cleanString(value = "") {
   return String(value || "").trim();
 }
@@ -591,11 +593,11 @@ class ReelService {
     const pageNumber = Math.max(1, Number(page) || 1);
     const pageLimit = Math.min(Number(limit || 12), 50);
     const reels = await Reel.find(query)
-      .populate({ path: "productIds", select: "name price discountPrice images thumbnail category rating averageRating sellerId" })
+      .populate({ path: "productIds", select: PUBLIC_REEL_PRODUCT_SELECT })
       .populate({
         path: "campaignId",
         populate: [
-          { path: "productIds", select: "name price discountPrice images thumbnail category rating averageRating sellerId" },
+          { path: "productIds", select: PUBLIC_REEL_PRODUCT_SELECT },
           { path: "vendorId", select: "shopName companyName logoUrl" },
         ],
       })
@@ -659,9 +661,10 @@ class ReelService {
 
   async getById(reelId, userId = "") {
     const reel = await Reel.findById(reelId)
+      .populate({ path: "productIds", select: PUBLIC_REEL_PRODUCT_SELECT })
       .populate({
         path: "campaignId",
-        populate: { path: "productIds", select: "name price discountPrice images category sellerId" },
+        populate: { path: "productIds", select: PUBLIC_REEL_PRODUCT_SELECT },
       })
       .populate({
         path: "influencerId",

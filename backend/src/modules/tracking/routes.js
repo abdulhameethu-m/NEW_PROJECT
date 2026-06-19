@@ -7,6 +7,13 @@ const controller = require("./controller");
 
 const router = express.Router();
 
+router.get("/click", (_req, res) => {
+  res.status(405).json({
+    success: false,
+    message: "Use POST /api/tracking/click to record tracking clicks.",
+  });
+});
+
 router.post(
   "/click",
   authOptional,

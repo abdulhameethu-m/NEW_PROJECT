@@ -11,7 +11,7 @@ export function AffiliateRedirectPage() {
   useEffect(() => {
     let alive = true;
 
-    function prepareAffiliateContext() {
+    async function prepareAffiliateContext() {
       const trackingToken = searchParams.get("trackingToken") || "";
       const anonymousId = searchParams.get("anonymousId") || "";
       const reelId = searchParams.get("reel") || "";
@@ -30,7 +30,7 @@ export function AffiliateRedirectPage() {
         });
       } else if (trackingCode && productId) {
         const existingAnonymousId = typeof window !== "undefined" ? window.localStorage.getItem("anonInfluencerId") || "" : "";
-        clickTracking({
+        await clickTracking({
             trackingCode,
             productId,
             anonymousId: existingAnonymousId,

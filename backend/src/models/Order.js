@@ -223,6 +223,11 @@ const orderSchema = new mongoose.Schema(
         index: true,
       },
       surface: { type: String, trim: true, index: true },
+      affiliateSource: { type: String, trim: true, default: "", index: true },
+      paymentModel: { type: String, trim: true, default: "", index: true },
+      trackingTokenId: { type: String, trim: true, default: "", index: true },
+      trackingToken: { type: String, trim: true, default: "" },
+      clickId: { type: String, trim: true, default: "", index: true },
       trackingSessionId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "TrackingSession",

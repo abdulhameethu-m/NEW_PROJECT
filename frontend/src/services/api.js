@@ -1,17 +1,38 @@
 import axios from "axios";
 import { useAuthStore } from "../context/authStore";
 import { attachCsrfHeader } from "./csrf";
+import { getApiBaseUrl } from "../config/apiBaseUrl";
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
+  baseURL: getApiBaseUrl(),
   timeout: 20000,
   withCredentials: true,
 });
 
-api.interceptors.request.use(attachCsrfHeader);
+api.interceptors.request.use(async (config) => {
+  const accessToken = useAuthStore.getState().accessToken;
+  if (accessToken) {
+    config.headers = config.headers || {};
+    if (!config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+  }
+  return attachCsrfHeader(config);
+});
 
 let refreshPromise = null;
 let refreshUnavailable = false;
+
+export async function refreshAuthSessionRequest() {
+  refreshPromise = refreshPromise || api.post("/api/auth/refresh", {});
+  try {
+    const response = await refreshPromise;
+    refreshUnavailable = false;
+    return response;
+  } finally {
+    refreshPromise = null;
+  }
+}
 
 api.interceptors.response.use(
   (res) => {
@@ -52,17 +73,10 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        refreshPromise =
-          refreshPromise ||
-          api.post("/api/auth/refresh", {});
-
-        const response = await refreshPromise;
-        refreshPromise = null;
-        refreshUnavailable = false;
+        const response = await refreshAuthSessionRequest();
         setAuth(response.data.data);
         return api(originalRequest);
       } catch (refreshError) {
-        refreshPromise = null;
         refreshUnavailable = true;
         logout();
         return Promise.reject(refreshError);

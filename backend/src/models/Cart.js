@@ -25,6 +25,20 @@ const cartItemSchema = new mongoose.Schema(
       of: String,
       default: {},
     },
+    attribution: {
+      campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", index: true },
+      influencerId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerProfile", index: true },
+      productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", index: true },
+      trackingSessionId: { type: mongoose.Schema.Types.ObjectId, ref: "TrackingSession", index: true },
+      trackingToken: { type: String, trim: true, default: "" },
+      trackingTokenId: { type: String, trim: true, default: "", index: true },
+      reelId: { type: mongoose.Schema.Types.ObjectId, ref: "Reel" },
+      postId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerPost" },
+      storefrontId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerStorefront" },
+      collectionId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerCollection" },
+      source: { type: String, trim: true, default: "" },
+      addedAt: { type: Date },
+    },
   },
   { _id: false }
 );

@@ -596,16 +596,15 @@ export function ReelFeed({ detailId = "" }) {
     return data;
   }
 
-  function handleProductOpen(reel, product) {
+  async function handleProductOpen(reel, product) {
     const productId = productIdOf(product);
     if (!productId) return;
     setBusyProductId(productId);
     setError("");
     saveProductPreview(product);
-    navigate(buildAffiliateProductPath(reel, product));
-    attributeClick(reel, product)
-      .catch(() => null)
-      .finally(() => setBusyProductId(""));
+    const tracking = await attributeClick(reel, product).catch(() => ({}));
+    setBusyProductId("");
+    navigate(buildAffiliateProductPath(reel, product, tracking));
   }
 
   async function toggleFollow(reel) {

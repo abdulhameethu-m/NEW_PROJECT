@@ -1,9 +1,48 @@
 import { api } from "./api";
+import { ensureCsrfToken } from "./csrf";
+
+function apiBaseUrl() {
+  return import.meta.env.VITE_API_URL || "http://localhost:5000";
+}
 
 function compactParams(params = {}) {
   return Object.fromEntries(
     Object.entries(params).filter(([, value]) => value !== "" && value !== null && value !== undefined)
   );
+}
+
+async function postTrackingJson(path, payload = {}) {
+  if (typeof window === "undefined") {
+    const { data } = await api.post(path, payload);
+    return data;
+  }
+
+  const request = (async () => {
+    const csrfToken = await ensureCsrfToken();
+    const response = await fetch(`${apiBaseUrl()}${path}`, {
+      method: "POST",
+      credentials: "include",
+      keepalive: true,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(csrfToken ? { "X-CSRF-TOKEN": csrfToken } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data?.message || "Tracking request failed");
+      error.response = { status: response.status, data };
+      throw error;
+    }
+    return data;
+  })().catch(() => ({ success: false, data: {} }));
+
+  return Promise.race([
+    request,
+    new Promise((resolve) => window.setTimeout(() => resolve({ success: false, data: {} }), 2500)),
+  ]);
 }
 
 export async function getInfluencerDashboard(params = {}) {
@@ -553,8 +592,7 @@ export async function recordReelStoreVisit(id, payload = {}) {
 }
 
 export async function recordReelProductClick(id, payload = {}) {
-  const { data } = await api.post(`/api/reel/${id}/product-click`, payload);
-  return data;
+  return await postTrackingJson(`/api/reel/${id}/product-click`, payload);
 }
 
 export async function followReelCreator(id, payload = {}) {
@@ -608,8 +646,7 @@ export async function createInfluencerLiveSession(payload) {
 }
 
 export async function clickTracking(payload) {
-  const { data } = await api.post("/api/tracking/click", payload);
-  return data;
+  return await postTrackingJson("/api/tracking/click", payload);
 }
 
 export async function checkAndCompleteCampaign(campaignId) {

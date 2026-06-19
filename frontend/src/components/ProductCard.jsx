@@ -167,9 +167,14 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
   const stockClass = isEditorial ? "text-emerald-300" : "text-green-600 dark:text-green-400";
   const stockOutClass = isEditorial ? "text-rose-300" : "text-red-600 dark:text-red-400";
   const inStock = hasAvailableVariants && availableStock > 0;
-  const navigateToProduct = () => {
+  const navigateToProduct = async () => {
     if (!productId) return;
-    onProductClick?.(product);
+    if (onProductClick) {
+      await Promise.race([
+        Promise.resolve(onProductClick(product)).catch(() => null),
+        new Promise((resolve) => window.setTimeout(resolve, 3000)),
+      ]);
+    }
     navigate(`/product/${productId}`);
   };
 

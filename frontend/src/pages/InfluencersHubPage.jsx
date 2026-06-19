@@ -280,13 +280,15 @@ export function InfluencersHubPage() {
     navigate(href);
   }
 
-  function openProduct(reel, product) {
+  async function openProduct(reel, product) {
     const productId = productIdOf(product);
     if (!productId) return;
     saveProductPreview(product);
-    navigate(buildAffiliateProductPath(reel, product));
-    if (!reel?._id || reel.synthetic) return;
-    recordReelProductClick(reel._id, {
+    if (!reel?._id || reel.synthetic) {
+      navigate(buildAffiliateProductPath(reel, product));
+      return;
+    }
+    const tracking = await recordReelProductClick(reel._id, {
             productId,
             anonymousId: getAnonymousId(),
             source: "hub_product_card",
@@ -298,8 +300,10 @@ export function InfluencersHubPage() {
       if (tracking.trackingToken) {
         saveTrackingContext({ trackingToken: tracking.trackingToken, anonymousId: tracking.anonymousId, reelId: reel?._id, productId });
       }
+      return tracking;
       })
-      .catch(() => null);
+      .catch(() => ({}));
+    navigate(buildAffiliateProductPath(reel, product, tracking));
   }
 
   return (

@@ -232,7 +232,7 @@ function CreatorProductCard({ product, data, surface = "storefront", collectionI
         product={sharedProduct}
         imageAspectClass="aspect-[4/5]"
         onProductClick={() => {
-          attribute("product_click").catch(() => null);
+          return attribute("product_click").catch(() => null);
         }}
       />
     </div>

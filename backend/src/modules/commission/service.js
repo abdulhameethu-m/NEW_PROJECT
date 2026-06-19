@@ -925,7 +925,17 @@ class CommissionService {
     if (attribution?._id) {
       await CampaignAffiliateAttribution.updateOne(
         { _id: attribution._id },
-        { $set: { status: "converted", orderId: order._id, convertedAt } },
+        {
+          $set: {
+            status: "converted",
+            orderId: order._id,
+            convertedAt,
+            saleAmount: snapshot.eligibleRevenue || snapshot.grossSale || order.subtotal || order.totalAmount || 0,
+            commissionAmount: snapshot.finalEarnings || 0,
+            paymentModel: order.attribution?.paymentModel || "",
+            affiliateSource: order.attribution?.affiliateSource || order.attribution?.surface || "affiliate_link",
+          },
+        },
         { session: session || undefined }
       );
     }
@@ -996,7 +1006,17 @@ class CommissionService {
     if (attribution?._id) {
       await CampaignAffiliateAttribution.updateOne(
         { _id: attribution._id },
-        { $set: { status: "converted", orderId: order._id, convertedAt } },
+        {
+          $set: {
+            status: "converted",
+            orderId: order._id,
+            convertedAt,
+            saleAmount: order.subtotal || order.totalAmount || 0,
+            commissionAmount,
+            paymentModel: campaign.paymentType || order.attribution?.paymentModel || "",
+            affiliateSource: order.attribution?.affiliateSource || order.attribution?.surface || "affiliate_link",
+          },
+        },
         { session: session || undefined }
       );
     }
@@ -1733,6 +1753,7 @@ class CommissionService {
           anonymousId: session.anonymousId || "",
           trackingSessionId: session._id,
           trackingTokenId: session.trackingTokenId || "",
+          clickId: click.clickId || "",
           status: "pending",
           attributedAt: new Date(),
           expiresAt,

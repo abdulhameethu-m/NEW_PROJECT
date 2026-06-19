@@ -28,7 +28,7 @@ import { useWishlist } from "../hooks/useWishlist";
 import pendingActionManager from "../utils/pendingActionManager";
 import { getCartErrorMessage } from "../utils/cartErrors";
 import { SellerCard, SellerNameLink, StoreRatingDisplay } from "../components/seller/SellerNavigation";
-import { trackAffiliateEvent } from "../services/influencerCommerceService";
+import { clickTracking, trackAffiliateEvent } from "../services/influencerCommerceService";
 
 const RECOMMENDATION_CONTAINER_LIMIT = 20;
 
@@ -168,8 +168,52 @@ export function ProductDetailsPage() {
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const trackedProductViewRef = useRef("");
 
-  function trackCurrentAffiliateEvent(eventType, metadata = {}) {
+  async function ensureCurrentTrackingContext() {
     const trackingContext = loadTrackingContext();
+    if (trackingContext?.trackingToken && String(trackingContext.productId || "") === String(productId || "")) {
+      return trackingContext;
+    }
+
+    const trackingCode = searchParams.get("ref") || searchParams.get("trackingCode") || "";
+    const reelId = searchParams.get("reel") || "";
+    if (!trackingCode && !reelId) return trackingContext;
+
+    const anonymousId =
+      searchParams.get("anonymousId") ||
+      (typeof window !== "undefined" ? window.localStorage.getItem("anonInfluencerId") || "" : "");
+
+    try {
+      const response = await clickTracking({
+        trackingCode,
+        reelId,
+        productId,
+        anonymousId,
+        surface: trackingCode ? "affiliate_link" : "product_detail",
+      });
+      const payload = response?.data || response || {};
+      if (payload.anonymousId && typeof window !== "undefined") {
+        window.localStorage.setItem("anonInfluencerId", payload.anonymousId);
+      }
+      if (payload.trackingToken) {
+        const nextContext = {
+          trackingToken: payload.trackingToken,
+          anonymousId: payload.anonymousId || anonymousId,
+          productId,
+          reelId,
+          trackingCode,
+        };
+        saveTrackingContext(nextContext);
+        return nextContext;
+      }
+    } catch {
+      return trackingContext;
+    }
+
+    return trackingContext;
+  }
+
+  async function trackCurrentAffiliateEvent(eventType, metadata = {}) {
+    const trackingContext = await ensureCurrentTrackingContext();
     if (!trackingContext?.trackingToken || String(trackingContext.productId || "") !== String(productId || "")) return Promise.resolve(null);
     return trackAffiliateEvent({
       trackingToken: trackingContext.trackingToken,
@@ -475,6 +519,7 @@ export function ProductDetailsPage() {
     try {
       const quantity = 1;
       const variantId = activeVariant?.variantId || "";
+      await ensureCurrentTrackingContext();
 
       if (!isAuthenticated && redirectTo === "/checkout") {
         const added = await addCartItem(product._id, quantity, variantId);

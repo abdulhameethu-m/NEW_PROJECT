@@ -30,7 +30,12 @@ const add = asyncHandler(async (req, res) => {
   const quantity = Number(raw.quantity || raw.qty || 1);
   const variantId = raw.variantId || raw.variant?.variantId || raw.variant || "";
 
-  const itemPayload = { productId, quantity, variantId };
+  const itemPayload = {
+    productId,
+    quantity,
+    variantId,
+    trackingToken: raw.trackingToken || raw.attribution?.trackingToken || "",
+  };
 
   const result = await cartService.addItem(req.user.sub, itemPayload);
   const responsePayload = result && result.cart ? { ...result.cart, addedItem: result.addedItem } : result;

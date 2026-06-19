@@ -49,6 +49,7 @@ const useGuestCartStore = create(
               quantity: (newItems[existingIdx].quantity || 0) + (item.quantity || 1),
               price: item.price, // Update to latest price
               image: item.image || newItems[existingIdx].image,
+              attribution: item.attribution || newItems[existingIdx].attribution,
             };
           } else {
             // New item
@@ -168,14 +169,25 @@ const useGuestCartStore = create(
        * Updates prices from backend to prevent manipulation
        */
       setValidatedItems: (validatedItems) => {
-        set(() => {
-          const totalAmount = validatedItems.reduce(
+        set((state) => {
+          const items = validatedItems.map((item) => {
+            const existing = state.items.find(
+              (cartItem) =>
+                String(cartItem.productId) === String(item.productId) &&
+                String(cartItem.variantId || "") === String(item.variantId || "")
+            );
+            return {
+              ...item,
+              attribution: item.attribution || existing?.attribution,
+            };
+          });
+          const totalAmount = items.reduce(
             (sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0),
             0
           );
 
-          emitCartChanged({ items: validatedItems, totalAmount });
-          return { items: validatedItems, totalAmount };
+          emitCartChanged({ items, totalAmount });
+          return { items, totalAmount };
         });
       },
     }),

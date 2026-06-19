@@ -17,11 +17,14 @@ clearLegacyAuthStorage();
 
 export const useAuthStore = create((set, get) => ({
   user: null,
+  accessToken: null,
   isAuthenticated: false,
   
-  setAuth: ({ user }) => {
+  setAuth: ({ user, accessToken, token }) => {
+    const providedAccessToken = accessToken ?? token;
     const nextState = {
       user: user || null,
+      accessToken: user ? (providedAccessToken !== undefined ? providedAccessToken : get().accessToken) : null,
       isAuthenticated: Boolean(user),
     };
     set(nextState);
@@ -29,7 +32,7 @@ export const useAuthStore = create((set, get) => ({
   },
   
   logout: () => {
-    set({ user: null, isAuthenticated: false });
+    set({ user: null, accessToken: null, isAuthenticated: false });
     useAuthCartStore.getState().clearCart();
     clearLegacyAuthStorage();
     resetDarkModePreference();
