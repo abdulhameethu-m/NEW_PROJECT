@@ -11,22 +11,24 @@ function cookieOptions(maxAgeMs) {
   return {
     httpOnly: true,
     secure,
-    sameSite: process.env.AUTH_COOKIE_SAMESITE || (secure ? "none" : "lax"),
+    sameSite: process.env.AUTH_COOKIE_SAMESITE || "lax",
     path: "/",
     maxAge: maxAgeMs,
   };
 }
 
 function setSessionCookies(res, result) {
-  if (!result?.accessToken || !result?.refreshToken) return;
-  const accessMaxAgeMs = Number(process.env.JWT_ACCESS_COOKIE_MAX_AGE_MS || 15 * 60 * 1000);
-  const refreshMaxAgeMs = Number(process.env.JWT_REFRESH_TTL_DAYS || 30) * 24 * 60 * 60 * 1000;
-  res.cookie("accessToken", result.accessToken, cookieOptions(accessMaxAgeMs));
+  if (!result?.refreshToken) return;
+  const refreshMaxAgeMs = Number(process.env.JWT_REFRESH_TTL_DAYS || 7) * 24 * 60 * 60 * 1000;
+  res.clearCookie("accessToken", cookieOptions(0));
   res.cookie("refreshToken", result.refreshToken, cookieOptions(refreshMaxAgeMs));
 }
 
 function publicAuthPayload(result) {
-  return { user: result?.user || null };
+  return {
+    user: result?.user || null,
+    accessToken: result?.accessToken || result?.token || null,
+  };
 }
 
 function clearSessionCookies(res) {
@@ -84,6 +86,21 @@ const logoutAll = asyncHandler(async (req, res) => {
   });
   clearSessionCookies(res);
   return ok(res, result, "Logged out from all sessions");
+});
+
+const listSessions = asyncHandler(async (req, res) => {
+  const sessions = await authService.listSessions(req.user.sub, req.cookies?.refreshToken);
+  return ok(res, sessions, "Sessions loaded");
+});
+
+const revokeSession = asyncHandler(async (req, res) => {
+  const result = await authService.revokeSession(req.user.sub, req.params.id, {
+    refreshToken: req.cookies?.refreshToken,
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  if (result.current) clearSessionCookies(res);
+  return ok(res, result, "Session revoked");
 });
 
 const me = asyncHandler(async (req, res) => {
@@ -157,6 +174,8 @@ module.exports = {
   refresh,
   logout,
   logoutAll,
+  listSessions,
+  revokeSession,
   me,
   updateThemePreference,
   mergeGuestData,

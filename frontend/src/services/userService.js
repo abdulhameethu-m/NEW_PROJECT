@@ -217,12 +217,12 @@ export async function replyUserSupportTicket(id, payload) {
 }
 
 export async function getUserSessions() {
-  const { data } = await api.get("/api/user/security/sessions");
+  const { data } = await api.get("/api/auth/sessions");
   return data;
 }
 
 export async function revokeUserSession(id) {
-  const { data } = await api.delete(`/api/user/security/sessions/${id}`);
+  const { data } = await api.delete(`/api/auth/sessions/${id}`);
   return data;
 }
 

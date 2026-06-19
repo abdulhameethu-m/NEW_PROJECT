@@ -5,6 +5,7 @@ import useAuthCartStore from "../context/authCartStore";
 import useGuestCartStore from "../context/guestCartStore";
 import { cartService } from "../services/cartService";
 import { normalizeCartPayload, getCartItemKey } from "../utils/cartState";
+import { loadTrackingContext } from "../utils/influencerTracking";
 
 const pendingAddItemRequests = new Map();
 
@@ -91,6 +92,23 @@ export const useCart = () => {
     async (productId, quantity = 1, variantId = "") => {
       setError(null);
       const requestKey = `${isGuest ? "guest" : "auth"}:${getCartItemKey(productId, variantId)}`;
+      const trackingContext = loadTrackingContext();
+      const attribution =
+        trackingContext?.trackingToken && String(trackingContext.productId || "") === String(productId || "")
+          ? {
+              trackingToken: trackingContext.trackingToken,
+              anonymousId: trackingContext.anonymousId || "",
+              productId,
+              reelId: trackingContext.reelId,
+              campaignId: trackingContext.campaignId,
+              influencerId: trackingContext.influencerId,
+              storefrontId: trackingContext.storefrontId,
+              collectionId: trackingContext.collectionId,
+              postId: trackingContext.postId,
+              source: trackingContext.source || trackingContext.surface || "",
+              addedAt: Date.now(),
+            }
+          : null;
 
       if (pendingAddItemRequests.has(requestKey)) {
         return pendingAddItemRequests.get(requestKey);
@@ -110,6 +128,7 @@ export const useCart = () => {
             guestCart.addItem({
               ...enrichedItem,
               quantity: addQuantity,
+              attribution,
             });
             return {
               ...enrichedItem,
@@ -127,7 +146,7 @@ export const useCart = () => {
 
         try {
           setLoading(true);
-          const result = await cartService.addToCart(productId, quantity, variantId);
+          const result = await cartService.addToCart(productId, quantity, variantId, attribution);
           const normalized = normalizeCartPayload(result?.cart || result);
           setAuthCart(normalized);
           const addedItem = result?.addedItem || normalized;

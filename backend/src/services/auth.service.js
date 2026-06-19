@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 const { AppError } = require("../utils/AppError");
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require("../utils/jwt");
 const userRepo = require("../repositories/user.repository");
@@ -36,8 +37,57 @@ function normalizeUser(user) {
 }
 
 function getRefreshExpiryDate() {
-  const ttlDays = Number(process.env.JWT_REFRESH_TTL_DAYS || 30);
+  const ttlDays = Number(process.env.JWT_REFRESH_TTL_DAYS || 7);
   return new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
+}
+
+function getCurrentSessionId(refreshToken) {
+  if (!refreshToken) return null;
+  try {
+    return verifyRefreshToken(refreshToken).sid || null;
+  } catch {
+    return null;
+  }
+}
+
+function inferBrowser(userAgent = "") {
+  if (/edg\//i.test(userAgent)) return "Microsoft Edge";
+  if (/chrome|crios/i.test(userAgent)) return "Chrome";
+  if (/firefox|fxios/i.test(userAgent)) return "Firefox";
+  if (/safari/i.test(userAgent) && !/chrome|crios|android/i.test(userAgent)) return "Safari";
+  return "Unknown browser";
+}
+
+function inferOs(userAgent = "") {
+  if (/windows/i.test(userAgent)) return "Windows";
+  if (/android/i.test(userAgent)) return "Android";
+  if (/iphone|ipad|ios/i.test(userAgent)) return "iOS";
+  if (/mac os|macintosh/i.test(userAgent)) return "macOS";
+  if (/linux/i.test(userAgent)) return "Linux";
+  return "Unknown OS";
+}
+
+function serializeSession(session, currentSessionId = null) {
+  const userAgent = session.userAgent || "";
+  const browser = inferBrowser(userAgent);
+  const os = inferOs(userAgent);
+  const lastActivity = session.lastUsedAt || session.updatedAt || session.createdAt;
+  return {
+    _id: session._id,
+    deviceId: String(session._id),
+    deviceName: `${browser} on ${os}`,
+    browser,
+    os,
+    userAgent,
+    ipAddress: session.ipAddress || null,
+    location: null,
+    lastActivity,
+    lastUsedAt: lastActivity,
+    expiresAt: session.expiresAt,
+    isActive: !session.revokedAt && session.expiresAt > new Date(),
+    current: String(session._id) === String(currentSessionId),
+    createdAt: session.createdAt,
+  };
 }
 
 async function createSessionTokens(user, meta = {}) {
@@ -238,6 +288,36 @@ async function logoutAll(userId, meta = {}) {
   return { loggedOut: true };
 }
 
+async function listSessions(userId, refreshToken) {
+  const currentSessionId = getCurrentSessionId(refreshToken);
+  const sessions = await sessionRepo.listActiveForUser(userId);
+  return sessions.map((session) => serializeSession(session, currentSessionId));
+}
+
+async function revokeSession(userId, sessionId, meta = {}) {
+  if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+    throw new AppError("Session not found", 404, "NOT_FOUND");
+  }
+
+  const session = await sessionRepo.findById(sessionId);
+  if (!session || String(session.userId) !== String(userId) || session.revokedAt) {
+    throw new AppError("Session not found", 404, "NOT_FOUND");
+  }
+
+  await sessionRepo.revokeById(sessionId);
+  await auditService.log({
+    actor: { _id: userId, role: meta.role },
+    action: "auth.session.revoked",
+    entityType: "Session",
+    entityId: sessionId,
+    ipAddress: meta.ipAddress,
+    userAgent: meta.userAgent,
+  });
+
+  const current = String(sessionId) === String(getCurrentSessionId(meta.refreshToken));
+  return { _id: sessionId, revoked: true, current };
+}
+
 async function me(userId) {
   const user = await userRepo.findById(userId);
   if (!user) throw new AppError("User not found", 404, "NOT_FOUND");
@@ -363,6 +443,8 @@ module.exports = {
   refreshSession,
   logout,
   logoutAll,
+  listSessions,
+  revokeSession,
   me,
   updateThemePreference,
   requestPasswordReset,

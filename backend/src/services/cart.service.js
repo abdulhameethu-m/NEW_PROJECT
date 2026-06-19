@@ -4,6 +4,7 @@ const cartRepo = require("../repositories/cart.repository");
 const productRepo = require("../repositories/product.repository");
 const vendorRepo = require("../repositories/vendor.repository");
 const { resolveBestVariant, resolveNextAvailableVariant } = require("./variantResolver.service");
+const trackingService = require("../modules/tracking/service");
 
 function computeTotal(items = []) {
   return items.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0), 0);
@@ -95,6 +96,30 @@ function invalidatePreparedCheckoutCacheForUser(userId) {
   }
 }
 
+async function resolveCartAttribution({ userId, productId, trackingToken }) {
+  if (!trackingToken) return undefined;
+  const trackingContext = await trackingService.validateTrackingToken(trackingToken, userId);
+  const session = trackingContext?.session;
+  if (!session) throw new AppError("Invalid affiliate tracking token", 400, "INVALID_TRACKING_TOKEN");
+  if (String(session.productId) !== String(productId)) {
+    throw new AppError("Affiliate tracking product mismatch", 400, "ATTRIBUTION_PRODUCT_MISMATCH");
+  }
+  return {
+    campaignId: session.campaignId || undefined,
+    influencerId: session.influencerId || undefined,
+    productId: session.productId,
+    trackingSessionId: session._id,
+    trackingToken,
+    trackingTokenId: session.trackingTokenId || "",
+    reelId: session.reelId || undefined,
+    postId: session.postId || undefined,
+    storefrontId: session.storefrontId || undefined,
+    collectionId: session.collectionId || undefined,
+    source: session.surface || "affiliate",
+    addedAt: new Date(),
+  };
+}
+
 class CartService {
   async getCart(userId) {
     await cartRepo.upsertEmpty(userId);
@@ -102,7 +127,7 @@ class CartService {
     return cart;
   }
 
-  async addItem(userId, { productId, quantity = 1, variantId = "" }) {
+  async addItem(userId, { productId, quantity = 1, variantId = "", trackingToken = "" }) {
     asObjectId(productId, "productId");
     const qty = Number(quantity || 1);
     if (!Number.isFinite(qty) || qty < 1) throw new AppError("Quantity must be >= 1", 400, "VALIDATION_ERROR");
@@ -144,6 +169,7 @@ class CartService {
       product.images?.[0]?.url ||
       "";
     const itemPrice = Number(variant?.discountPrice || variant?.price || product.discountPrice || product.price || 0);
+    const attribution = await resolveCartAttribution({ userId, productId, trackingToken });
     const newItem = {
       productId,
       sellerId: resolvedSellerId,
@@ -154,6 +180,7 @@ class CartService {
       variantSku: variant?.sku || "",
       variantTitle: variant?.title || "",
       variantAttributes: normalizeVariantAttributes(variant?.attributes),
+      attribution,
     };
 
     if (existingIdx >= 0) {
@@ -174,6 +201,7 @@ class CartService {
         variantSku: variant?.sku || "",
         variantTitle: variant?.title || "",
         variantAttributes: normalizeVariantAttributes(variant?.attributes),
+        attribution: attribution || cart.items[existingIdx].attribution,
       };
       newItem.quantity = nextQty;
     } else {

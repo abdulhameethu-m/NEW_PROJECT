@@ -129,6 +129,12 @@ router.post("/:id/comments/:commentId/report", authRequired, validate(Joi.object
 router.post("/:id/share", authOptional, eventSecurity("reel_share", { blockOnLimit: false }), validate(Joi.object({ anonymousId: Joi.string().allow("").max(120).optional(), source: Joi.string().allow("").max(80).optional(), destination: Joi.string().allow("").max(80).optional(), metadata: Joi.object().unknown(true).optional() })), controller.share);
 router.post("/:id/view", authOptional, eventSecurity("reel_view", { blockOnLimit: false }), validate(Joi.object({ anonymousId: Joi.string().allow("").max(120).optional(), source: Joi.string().allow("").max(80).optional(), watchTimeSeconds: Joi.number().min(0).optional(), progressPercent: Joi.number().min(0).max(100).optional(), completed: Joi.boolean().optional(), metadata: Joi.object().unknown(true).optional() })), controller.view);
 router.post("/:id/store-visit", authOptional, eventSecurity("store_visit", { blockOnLimit: false }), validate(Joi.object({ anonymousId: Joi.string().allow("").max(120).optional(), source: Joi.string().allow("").max(80).optional(), metadata: Joi.object().unknown(true).optional() })), controller.storeVisit);
+router.get("/:id/product-click", (_req, res) => {
+  res.status(405).json({
+    success: false,
+    message: "Use POST /api/reel/:id/product-click to record reel product clicks.",
+  });
+});
 router.post("/:id/product-click", authOptional, eventSecurity("product_click", { blockOnLimit: false }), validate(Joi.object({ productId: Joi.string().required(), anonymousId: Joi.string().allow("").max(120).optional(), source: Joi.string().allow("").max(80).optional(), attributionWindowDays: Joi.number().valid(7, 30, 60, 90).optional(), metadata: Joi.object().unknown(true).optional() })), controller.productClick);
 router.post("/:id/follow", authRequired, validate(Joi.object({ following: Joi.boolean().optional(), source: Joi.string().allow("").max(80).optional() })), controller.follow);
 router.get("/content", authRequired, requireRole("influencer"), validate(contentQuery, "query"), controller.contentList);

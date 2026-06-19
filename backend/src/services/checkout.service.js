@@ -251,6 +251,72 @@ function calculateAttributionCommission({ subtotal, commissionPercent, platformC
   };
 }
 
+async function resolveOrderAttribution({ userId, items = [], fallbackTrackingContext = null, subtotal, platformCommissionAmount }) {
+  const attributedItem = items.find((item) => item?.attribution?.trackingToken || item?.attribution?.trackingSessionId);
+  let trackingContext = null;
+
+  if (attributedItem?.attribution?.trackingToken) {
+    trackingContext = await trackingService.validateTrackingToken(attributedItem.attribution.trackingToken, userId);
+  }
+
+  if (!trackingContext?.session && fallbackTrackingContext?.session) {
+    const matchedItem = items.find((item) => String(item.productId) === String(fallbackTrackingContext.session.productId));
+    if (matchedItem) trackingContext = fallbackTrackingContext;
+  }
+
+  const session = trackingContext?.session;
+  if (!session) return { attribution: undefined, trackingToken: "" };
+  const matchedItem = items.find((item) => String(item.productId) === String(session.productId));
+  if (!matchedItem) return { attribution: undefined, trackingToken: "" };
+
+  const [{ Campaign }, { InfluencerAffiliateSetting }, { CampaignAffiliateAttribution }] = await Promise.all([
+    Promise.resolve(require("../modules/campaign/model")),
+    Promise.resolve(require("../modules/influencer/model")),
+    Promise.resolve(require("../modules/commission/models")),
+  ]);
+  const [campaign, affiliateSetting, affiliateAttribution] = await Promise.all([
+    session.campaignId ? Campaign.findById(session.campaignId).lean() : null,
+    InfluencerAffiliateSetting.findOne({ influencerId: session.influencerId, status: "active" }).lean(),
+    CampaignAffiliateAttribution.findOne({
+      trackingSessionId: session._id,
+      productId: session.productId,
+      status: { $in: ["pending", "converted"] },
+    }).lean(),
+  ]);
+  const paymentModel = String(campaign?.paymentType || campaign?.termsFrozen?.paymentType || "").toLowerCase();
+  const commissionEligible = !campaign || ["commission", "hybrid"].includes(paymentModel);
+  const frozenCommissionPercent = commissionEligible
+    ? Number(campaign?.termsFrozen?.commissionPercent ?? campaign?.commissionPercent ?? affiliateSetting?.commissionRate ?? 0)
+    : 0;
+  const commission = calculateAttributionCommission({
+    subtotal,
+    commissionPercent: frozenCommissionPercent,
+    platformCommissionAmount,
+  });
+
+  return {
+    attribution: {
+      influencerId: session.influencerId,
+      campaignId: session.campaignId,
+      reelId: session.reelId,
+      postId: session.postId,
+      storefrontId: session.storefrontId,
+      collectionId: session.collectionId,
+      surface: session.surface,
+      affiliateSource: session.surface || "affiliate",
+      paymentModel,
+      trackingSessionId: session._id,
+      trackingToken: attributedItem?.attribution?.trackingToken || "",
+      trackingTokenId: session.trackingTokenId || attributedItem?.attribution?.trackingTokenId || "",
+      clickId: affiliateAttribution?.affiliateClickId ? String(affiliateAttribution.affiliateClickId) : "",
+      productId: session.productId,
+      commission,
+    },
+    trackingToken: attributedItem?.attribution?.trackingToken || "",
+    commissionEligible,
+  };
+}
+
 function getProductWeightSnapshot(product, variant = null) {
   if (variant?.weight && typeof variant.weight === "object" && Number(variant.weight.value) > 0) {
     return {
@@ -382,6 +448,7 @@ class CheckoutService {
           variantSku: variant?.sku || item.variantSku || "",
           variantTitle: variant?.title || item.variantTitle || "",
           variantAttributes: variant?.attributes || item.variantAttributes || {},
+          attribution: item.attribution || undefined,
           weight: getProductWeightSnapshot(product, variant),
         };
 
@@ -513,6 +580,7 @@ class CheckoutService {
         variantSku: variant?.sku || item.variantSku || "",
         variantTitle: variant?.title || item.variantTitle || "",
         variantAttributes: variant?.attributes || item.variantAttributes || {},
+        attribution: item.attribution || undefined,
         weight: getProductWeightSnapshot(product, variant),
       };
       return {
@@ -722,38 +790,16 @@ class CheckoutService {
       let sellerAmount = Number((totalAmount - commission).toFixed(2));
       let attribution = undefined;
 
-      if (trackingContext) {
-        const matchedItem = items.find((item) => String(item.productId) === String(trackingContext.session.productId));
-        if (matchedItem) {
-          const [campaign, affiliateSetting] = await Promise.all([
-            trackingContext.session.campaignId ? require("../modules/campaign/model").Campaign.findById(trackingContext.session.campaignId).lean() : null,
-            require("../modules/influencer/model").InfluencerAffiliateSetting.findOne({ influencerId: trackingContext.session.influencerId, status: "active" }).lean(),
-          ]);
-          const paymentType = String(campaign?.paymentType || campaign?.termsFrozen?.paymentType || "").toLowerCase();
-          const commissionEligible = !campaign || ["commission", "hybrid"].includes(paymentType);
-          const frozenCommissionPercent = commissionEligible
-            ? Number(campaign?.termsFrozen?.commissionPercent ?? campaign?.commissionPercent ?? affiliateSetting?.commissionRate ?? 0)
-            : 0;
-          const finalCommission = calculateAttributionCommission({
-            subtotal,
-            commissionPercent: frozenCommissionPercent,
-            platformCommissionAmount: commission,
-          });
-
-          if (commissionEligible) sellerAmount = finalCommission.vendorNet;
-          attribution = {
-            influencerId: trackingContext.session.influencerId,
-            campaignId: trackingContext.session.campaignId,
-            reelId: trackingContext.session.reelId,
-            postId: trackingContext.session.postId,
-            storefrontId: trackingContext.session.storefrontId,
-            collectionId: trackingContext.session.collectionId,
-            surface: trackingContext.session.surface,
-            trackingSessionId: trackingContext.session._id,
-            productId: trackingContext.session.productId,
-            commission: finalCommission,
-          };
-        }
+      const attributionResult = await resolveOrderAttribution({
+        userId,
+        items,
+        fallbackTrackingContext: trackingContext,
+        subtotal,
+        platformCommissionAmount: commission,
+      });
+      if (attributionResult.attribution) {
+        attribution = attributionResult.attribution;
+        if (attributionResult.commissionEligible) sellerAmount = attribution.commission.vendorNet;
       }
 
       const orderNumber = generateOrderNumber();
@@ -1112,6 +1158,7 @@ class CheckoutService {
           variantSku: variant?.sku || item.variantSku || "",
           variantTitle: variant?.title || item.variantTitle || "",
           variantAttributes: variant?.attributes || item.variantAttributes || {},
+          attribution: item.attribution || undefined,
           weight: getProductWeightSnapshot(product, variant),
         });
       }
@@ -1238,38 +1285,16 @@ class CheckoutService {
       let sellerAmount = Number((totalAmount - commission).toFixed(2));
       let attribution = undefined;
 
-      if (trackingContext) {
-        const matchedItem = items.find((item) => String(item.productId) === String(trackingContext.session.productId));
-        if (matchedItem) {
-          const [campaign, affiliateSetting] = await Promise.all([
-            trackingContext.session.campaignId ? require("../modules/campaign/model").Campaign.findById(trackingContext.session.campaignId).lean() : null,
-            require("../modules/influencer/model").InfluencerAffiliateSetting.findOne({ influencerId: trackingContext.session.influencerId, status: "active" }).lean(),
-          ]);
-          const paymentType = String(campaign?.paymentType || campaign?.termsFrozen?.paymentType || "").toLowerCase();
-          const commissionEligible = !campaign || ["commission", "hybrid"].includes(paymentType);
-          const frozenCommissionPercent = commissionEligible
-            ? Number(campaign?.termsFrozen?.commissionPercent ?? campaign?.commissionPercent ?? affiliateSetting?.commissionRate ?? 0)
-            : 0;
-          const finalCommission = calculateAttributionCommission({
-            subtotal,
-            commissionPercent: frozenCommissionPercent,
-            platformCommissionAmount: commission,
-          });
-
-          if (commissionEligible) sellerAmount = finalCommission.vendorNet;
-          attribution = {
-            influencerId: trackingContext.session.influencerId,
-            campaignId: trackingContext.session.campaignId,
-            reelId: trackingContext.session.reelId,
-            postId: trackingContext.session.postId,
-            storefrontId: trackingContext.session.storefrontId,
-            collectionId: trackingContext.session.collectionId,
-            surface: trackingContext.session.surface,
-            trackingSessionId: trackingContext.session._id,
-            productId: trackingContext.session.productId,
-            commission: finalCommission,
-          };
-        }
+      const attributionResult = await resolveOrderAttribution({
+        userId,
+        items,
+        fallbackTrackingContext: trackingContext,
+        subtotal,
+        platformCommissionAmount: commission,
+      });
+      if (attributionResult.attribution) {
+        attribution = attributionResult.attribution;
+        if (attributionResult.commissionEligible) sellerAmount = attribution.commission.vendorNet;
       }
 
       const orderNumber = generateOrderNumber();
@@ -1535,7 +1560,7 @@ class CheckoutService {
             await runNonBlocking(`track affiliate order completion for ${order.orderNumber}`, () =>
               trackingService.event({
                 user: { sub: userId },
-                trackingToken,
+                trackingToken: order.attribution?.trackingToken || trackingToken,
                 eventType: "order_completed",
                 metadata: {
                   orderId: order._id,

@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, refreshAuthSessionRequest } from "./api";
 
 export async function register({ name, email, phone, password, role }) {
   const { data } = await api.post("/api/auth/register", {
@@ -25,7 +25,7 @@ export async function getMe() {
 }
 
 export async function refreshSession() {
-  const { data } = await api.post("/api/auth/refresh", {});
+  const { data } = await refreshAuthSessionRequest();
   return data;
 }
 

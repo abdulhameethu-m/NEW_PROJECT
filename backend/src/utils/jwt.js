@@ -28,7 +28,7 @@ function signRefreshToken({ user, sessionId }) {
     roles: Array.from(new Set([user.role, ...(user.roles || [])].filter(Boolean))),
   };
 
-  const expiresIn = process.env.JWT_REFRESH_EXPIRES_IN || "30d";
+  const expiresIn = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
   return jwt.sign(payload, getRequiredSecret("JWT_REFRESH_SECRET"), { expiresIn });
 }
 

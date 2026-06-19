@@ -85,12 +85,28 @@ function createLimiter({
   });
 }
 
+function isDevelopmentLanOrigin(origin = "") {
+  try {
+    const url = new URL(origin);
+    const isPrivateHost =
+      /^192\.168\.\d{1,3}\.\d{1,3}$/.test(url.hostname) ||
+      /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(url.hostname) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(url.hostname);
+    return isPrivateHost && ["3000", "4173", "5173", "5174"].includes(url.port);
+  } catch {
+    return false;
+  }
+}
+
 function createApp() {
   assertNoProductionBootstrapRoutes();
 
   const app = express();
   const isDevelopment = process.env.NODE_ENV !== "production";
   const authRateLimit = Number(process.env.AUTH_RATE_LIMIT_MAX || (isDevelopment ? 60 : 20));
+  const loginRateLimit = Number(process.env.AUTH_LOGIN_RATE_LIMIT_MAX || (isDevelopment ? 60 : 5));
+  const refreshRateLimit = Number(process.env.AUTH_REFRESH_RATE_LIMIT_MAX || (isDevelopment ? 120 : 20));
+  const passwordResetRateLimit = Number(process.env.PASSWORD_RESET_RATE_LIMIT_MAX || (isDevelopment ? 20 : 5));
   const apiRateLimit = Number(process.env.API_RATE_LIMIT_MAX || (isDevelopment ? 5000 : 1000));
   const publicApiRateLimit = Number(process.env.PUBLIC_API_RATE_LIMIT_MAX || (isDevelopment ? 10000 : 3000));
 
@@ -126,7 +142,10 @@ function createApp() {
     cors({
       origin(origin, callback) {
         if (!origin) return callback(null, true);
-        if (allowedOrigins.has(origin) || (isDevelopment && developmentOrigins.has(origin))) {
+        if (
+          allowedOrigins.has(origin) ||
+          (isDevelopment && (developmentOrigins.has(origin) || isDevelopmentLanOrigin(origin)))
+        ) {
           logger.debug("CORS origin allowed", { origin });
           return callback(null, true);
         }
@@ -141,6 +160,22 @@ function createApp() {
     limit: authRateLimit,
     message: "Too many login attempts. Please wait a moment and try again.",
     skipSuccessfulRequests: true,
+  });
+  const loginLimiter = createLimiter({
+    windowMs: 60 * 1000,
+    limit: loginRateLimit,
+    message: "Too many login attempts. Please wait a moment and try again.",
+    skipSuccessfulRequests: true,
+  });
+  const refreshLimiter = createLimiter({
+    windowMs: 60 * 1000,
+    limit: refreshRateLimit,
+    message: "Too many session refresh attempts. Please wait a moment and try again.",
+  });
+  const passwordResetLimiter = createLimiter({
+    windowMs: 60 * 60 * 1000,
+    limit: passwordResetRateLimit,
+    message: "Too many password reset attempts. Please try again later.",
   });
 
   const getRequestPath = (req) => String(req.originalUrl || req.url || "").split("?")[0];
@@ -223,11 +258,12 @@ function createApp() {
 
   app.get("/health", (req, res) => res.json({ ok: true }));
 
-  app.use("/api/auth/login", authLimiter);
+  app.use("/api/auth/login", loginLimiter);
   app.use("/api/auth/register", authLimiter);
   app.use("/api/influencer/register", authLimiter);
   app.use("/api/influencer/social/verify", authLimiter);
-  app.use("/api/auth/refresh", authLimiter);
+  app.use("/api/auth/refresh", refreshLimiter);
+  app.use("/api/auth/password-reset/request", passwordResetLimiter);
   app.use("/api/staff/auth/login", authLimiter);
   app.use("/api/staff/auth/refresh", authLimiter);
   app.use("/api/staff/auth/password-reset/request", authLimiter);

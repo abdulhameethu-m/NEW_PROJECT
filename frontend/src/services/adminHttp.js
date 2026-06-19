@@ -1,6 +1,7 @@
 import axios from "axios";
 import { useAuthStore } from "../context/authStore";
 import { useStaffAuthStore } from "../context/staffAuthStore";
+import { refreshAuthSessionRequest } from "./api";
 import { attachCsrfHeader } from "./csrf";
 
 function resolveAuthContext() {
@@ -34,6 +35,9 @@ adminHttp.interceptors.request.use(async (config) => {
   const auth = resolveAuthContext();
   config.headers = config.headers || {};
   config.__authType = auth.type;
+  if (auth.type === "legacy" && auth.accessToken && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${auth.accessToken}`;
+  }
   return attachCsrfHeader(config);
 });
 
@@ -80,16 +84,10 @@ adminHttp.interceptors.response.use(
       const { setAuth, logout } = useAuthStore.getState();
 
       try {
-        refreshPromise =
-          refreshPromise ||
-          adminHttp.post("/api/auth/refresh", {}, { __authType: "legacy_refresh" });
-
-        const response = await refreshPromise;
-        refreshPromise = null;
+        const response = await refreshAuthSessionRequest();
         setAuth(response.data.data);
         return adminHttp(originalRequest);
       } catch (refreshError) {
-        refreshPromise = null;
         logout();
         return Promise.reject(refreshError);
       }

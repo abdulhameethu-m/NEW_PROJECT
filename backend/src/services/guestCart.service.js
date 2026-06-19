@@ -198,6 +198,7 @@ class GuestCartService {
             product.images?.find((image) => image.isPrimary)?.url ||
             product.images?.[0]?.url ||
             item.image || "",
+          attribution: item.attribution || undefined,
         });
       } catch (e) {
         errors.push({ productId: item.productId, error: e.message });

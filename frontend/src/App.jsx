@@ -11,6 +11,7 @@ import { StaffPermissionRoute } from "./components/StaffPermissionRoute";
 import { StaffDashboardLayout } from "./components/staff/DashboardLayout";
 import VendorModuleRoute from "./components/VendorModuleRoute";
 import { VendorModuleProvider } from "./context/VendorModuleContext";
+import { AuthSessionBootstrap } from "./components/AuthSessionBootstrap";
 
 const lazyNamed = (loader, exportName) => lazy(() => loader().then((module) => ({ default: module[exportName] })));
 const lazyDefault = (loader) => lazy(loader);
@@ -173,6 +174,7 @@ function LegacySellerProductEditRedirect() {
 export default function App() {
   return (
     <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm font-bold text-slate-500">Loading...</div>}>
+    <AuthSessionBootstrap>
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<HomePage />} />
@@ -426,6 +428,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </AuthSessionBootstrap>
     </Suspense>
   );
 }
