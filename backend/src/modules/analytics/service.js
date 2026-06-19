@@ -198,7 +198,6 @@ class AnalyticsAggregator {
 
     const [
       orderAgg,
-      trackingSessionCount,
       affiliateClickCount,
       attributionCount,
       conversionAgg,
@@ -219,7 +218,6 @@ class AnalyticsAggregator {
         platformRevenue: "$platformCommissionAmount",
         refund: { $sum: { $ifNull: ["$refundSummary.grossAmount", 0] } },
       }),
-      TrackingSession.countDocuments(clickMatch),
       CampaignAffiliateClick.countDocuments(clickMatch),
       CampaignAffiliateAttribution.countDocuments(clickMatch),
       AffiliateConversion.aggregate([{ $match: conversionMatch }, { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: "$orderRevenue" }, commission: { $sum: "$commissionAmount" } } }]),
@@ -240,9 +238,9 @@ class AnalyticsAggregator {
 
     const conversions = first(conversionAgg);
     const snapshots = first(snapshotAgg);
-    const clicks = Math.max(Number(trackingSessionCount || 0), Number(affiliateClickCount || 0));
-    const orders = Number(orderAgg.orders || 0);
-    const revenue = money(orderAgg.revenue || conversions.revenue || snapshots.gross || 0);
+    const clicks = Number(affiliateClickCount || 0);
+    const orders = Number(conversions.count || orderAgg.orders || 0);
+    const revenue = money(conversions.revenue || orderAgg.revenue || snapshots.gross || 0);
     const commissionByStatus = Object.fromEntries((earningAgg || []).map((row) => [row._id, row]));
     const recordsByState = Object.fromEntries((recordAgg || []).map((row) => [row._id, row]));
     const releaseByStatus = Object.fromEntries((releaseAgg || []).map((row) => [row._id, row]));

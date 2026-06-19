@@ -11,6 +11,7 @@ const { emitDomainEvent } = require("../events/event-bus");
 const { INFLUENCER_EVENTS } = require("../shared/constants");
 const { nowPlusHours } = require("../shared/helpers");
 const { isInfluencerCommerceEnabled } = require("../../services/influencer-commerce-config.service");
+const { logger } = require("../../utils/logger");
 
 const ATTRIBUTION_WINDOW_HOURS = Number(process.env.INFLUENCER_TRACKING_TTL_HOURS || process.env.AFFILIATE_ATTRIBUTION_WINDOW_HOURS || 720);
 
@@ -200,7 +201,15 @@ class TrackingService {
       counted,
       reason: uncountedReason,
     });
-    await commissionService.recordAffiliateClickFromSession(session, { ...requestMeta, metadata: { ...(requestMeta.metadata || {}), counted, reason: uncountedReason } }).catch(() => null);
+    await commissionService
+      .recordAffiliateClickFromSession(session, { ...requestMeta, metadata: { ...(requestMeta.metadata || {}), counted, reason: uncountedReason } })
+      .catch((error) => logger.warn("Affiliate click ledger write failed", {
+        trackingSessionId: String(session._id),
+        campaignId: String(session.campaignId || ""),
+        influencerId: String(session.influencerId || ""),
+        productId: String(session.productId || ""),
+        error: error.message,
+      }));
 
     return {
       tracked: true,

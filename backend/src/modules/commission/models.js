@@ -472,7 +472,7 @@ affiliateClickSchema.index({ trackingSessionId: 1, productId: 1 });
 
 const affiliateAttributionSchema = new mongoose.Schema(
   {
-    affiliateClickId: { ...objectIdField, ref: "AffiliateClick", index: true },
+    affiliateClickId: { ...objectIdField, ref: "CampaignAffiliateClick", index: true },
     affiliateLinkId: { ...objectIdField, ref: "AffiliateLink", index: true },
     campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
     vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
@@ -502,8 +502,8 @@ affiliateAttributionSchema.index({ orderId: 1 }, { unique: true, sparse: true })
 
 const affiliateConversionSchema = new mongoose.Schema(
   {
-    affiliateAttributionId: { ...objectIdField, ref: "AffiliateAttribution", index: true },
-    affiliateClickId: { ...objectIdField, ref: "AffiliateClick", index: true },
+    affiliateAttributionId: { ...objectIdField, ref: "CampaignAffiliateAttribution", index: true },
+    affiliateClickId: { ...objectIdField, ref: "CampaignAffiliateClick", index: true },
     affiliateLinkId: { ...objectIdField, ref: "AffiliateLink", index: true },
     campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
     vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },

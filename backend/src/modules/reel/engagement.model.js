@@ -118,33 +118,6 @@ const creatorFollowerSchema = new mongoose.Schema({
   followedAt: { type: Date, default: Date.now, index: true },
 }, { timestamps: true, collection: "creator_followers" });
 
-const affiliateClickSchema = new mongoose.Schema({
-  reelId: { ...objectId, ref: "Reel", index: true },
-  productId: { ...objectId, ref: "Product", required: true, index: true },
-  campaignId: { ...objectId, ref: "Campaign", index: true },
-  influencerId: { ...objectId, ref: "InfluencerProfile", required: true, index: true },
-  userId: { ...objectId, ref: "User", index: true, default: null },
-  anonymousId: { type: String, trim: true, index: true, default: "" },
-  trackingTokenId: { type: String, trim: true, index: true, default: "" },
-  sourceType: { type: String, trim: true, default: "reel" },
-  source: { type: String, trim: true, default: "product_click" },
-  attributionWindowDays: { type: Number, enum: [7, 30, 60, 90], default: 30 },
-  metadata,
-}, { timestamps: true, collection: "affiliate_clicks" });
-
-const affiliateAttributionSchema = new mongoose.Schema({
-  affiliateClickId: { ...objectId, ref: "AffiliateClick", index: true },
-  influencerId: { ...objectId, ref: "InfluencerProfile", required: true, index: true },
-  productId: { ...objectId, ref: "Product", required: true, index: true },
-  campaignId: { ...objectId, ref: "Campaign", index: true },
-  userId: { ...objectId, ref: "User", index: true, default: null },
-  anonymousId: { type: String, trim: true, index: true, default: "" },
-  orderId: { ...objectId, ref: "Order", index: true },
-  status: { type: String, enum: ["pending", "converted", "expired", "reversed"], default: "pending", index: true },
-  expiresAt: { type: Date, required: true, index: true },
-  metadata,
-}, { timestamps: true, collection: "affiliate_attributions" });
-
 const commerceEventSchema = new mongoose.Schema({
   eventType: { type: String, required: true, trim: true, index: true },
   reelId: { ...objectId, ref: "Reel", index: true },
@@ -200,8 +173,6 @@ module.exports = {
   ReelStoreVisit: mongoose.models.ReelStoreVisit || mongoose.model("ReelStoreVisit", reelStoreVisitSchema),
   CreatorFollow: mongoose.models.CreatorFollow || mongoose.model("CreatorFollow", creatorFollowSchema),
   CreatorFollower: mongoose.models.CreatorFollower || mongoose.model("CreatorFollower", creatorFollowerSchema),
-  AffiliateClick: mongoose.models.AffiliateClick || mongoose.model("AffiliateClick", affiliateClickSchema),
-  AffiliateAttribution: mongoose.models.AffiliateAttribution || mongoose.model("AffiliateAttribution", affiliateAttributionSchema),
   CommerceEvent: mongoose.models.CommerceEvent || mongoose.model("CommerceEvent", commerceEventSchema),
   EngagementAnalytics: mongoose.models.EngagementAnalytics || mongoose.model("EngagementAnalytics", analyticsSchema("engagement_analytics")),
   CreatorAnalytics: mongoose.models.CreatorAnalytics || mongoose.model("CreatorAnalytics", analyticsSchema("creator_analytics")),

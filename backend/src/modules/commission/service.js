@@ -467,7 +467,7 @@ function includesProduct(order, productId) {
 }
 
 function attributionCommission(order = {}) {
-  return roundMoney(order?.attribution?.commission?.influencerShare || 0);
+  return roundMoney(order?._affiliateConversion?.commissionAmount || order?.attribution?.commission?.influencerShare || 0);
 }
 
 function productImage(product) {
@@ -885,6 +885,67 @@ class CommissionService {
     );
   }
 
+  async upsertAffiliateConversion(payload = {}, session = null) {
+    if (!payload.orderId || !payload.campaignId || !payload.vendorId || !payload.influencerId) return null;
+    const convertedAt = payload.convertedAt || new Date();
+    const conversion = await attachSession(
+      AffiliateConversion.findOneAndUpdate(
+        { orderId: payload.orderId },
+        {
+          $setOnInsert: {
+            affiliateAttributionId: payload.affiliateAttributionId || null,
+            affiliateClickId: payload.affiliateClickId || null,
+            affiliateLinkId: payload.affiliateLinkId || null,
+            campaignId: payload.campaignId,
+            vendorId: payload.vendorId,
+            influencerId: payload.influencerId,
+            productId: payload.productId || null,
+            orderId: payload.orderId,
+            convertedAt,
+          },
+          $set: {
+            orderNumber: payload.orderNumber || "",
+            orderRevenue: roundMoney(payload.orderRevenue || 0),
+            commissionAmount: roundMoney(payload.commissionAmount || 0),
+            status: payload.status || "PENDING",
+            metadata: payload.metadata || {},
+          },
+        },
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true, session: session || undefined }
+      ),
+      session
+    );
+
+    if (payload.affiliateAttributionId) {
+      await CampaignAffiliateAttribution.updateOne(
+        { _id: payload.affiliateAttributionId },
+        {
+          $set: {
+            status: "converted",
+            orderId: payload.orderId,
+            convertedAt,
+            saleAmount: roundMoney(payload.saleAmount ?? payload.orderRevenue ?? 0),
+            commissionAmount: roundMoney(payload.commissionAmount || 0),
+            paymentModel: payload.paymentModel || "",
+            affiliateSource: payload.affiliateSource || "affiliate_link",
+          },
+        },
+        { session: session || undefined }
+      );
+    }
+
+    await emitDomainEvent("AFFILIATE_CONVERSION_RECORDED", {
+      orderId: payload.orderId,
+      campaignId: payload.campaignId,
+      vendorId: payload.vendorId,
+      influencerId: payload.influencerId,
+      productId: payload.productId,
+      revenue: payload.orderRevenue || 0,
+      commissionAmount: payload.commissionAmount || 0,
+    }).catch(() => null);
+    return conversion;
+  }
+
   async recordAffiliateConversionForOrder({ order, snapshot, calculation }, session = null) {
     if (!calculation?.campaignRule || !snapshot?.campaignId) return null;
     const trackingSessionId = calculation.context?.trackingSessionId || order.attribution?.trackingSessionId;
@@ -899,59 +960,25 @@ class CommissionService {
         )
       : null;
     const convertedAt = new Date();
-    const linkId = attribution?.affiliateLinkId || null;
-    const clickId = attribution?.affiliateClickId || null;
-    const [conversion] = await AffiliateConversion.create(
-      [{
-        affiliateAttributionId: attribution?._id || null,
-        affiliateClickId: clickId,
-        affiliateLinkId: linkId,
-        campaignId: snapshot.campaignId,
-        vendorId: snapshot.vendorId,
-        influencerId: snapshot.influencerId,
-        productId: snapshot.productId || order.attribution?.productId,
-        orderId: order._id,
-        orderNumber: order.orderNumber || "",
-        orderRevenue: snapshot.eligibleRevenue,
-        commissionAmount: snapshot.finalEarnings,
-        status: "PENDING",
-        convertedAt,
-        metadata: { trackingSessionId, source: order.attribution?.surface || "affiliate_link" },
-      }],
-      { session: session || undefined }
-    ).catch(async (error) => {
-      if (error?.code !== 11000) throw error;
-      const existing = await attachSession(AffiliateConversion.findOne({ orderId: order._id }), session);
-      return [existing];
-    });
-
-    if (attribution?._id) {
-      await CampaignAffiliateAttribution.updateOne(
-        { _id: attribution._id },
-        {
-          $set: {
-            status: "converted",
-            orderId: order._id,
-            convertedAt,
-            saleAmount: snapshot.eligibleRevenue || snapshot.grossSale || order.subtotal || order.totalAmount || 0,
-            commissionAmount: snapshot.finalEarnings || 0,
-            paymentModel: order.attribution?.paymentModel || "",
-            affiliateSource: order.attribution?.affiliateSource || order.attribution?.surface || "affiliate_link",
-          },
-        },
-        { session: session || undefined }
-      );
-    }
-    await emitDomainEvent("AFFILIATE_CONVERSION_RECORDED", {
-      orderId: order._id,
+    return this.upsertAffiliateConversion({
+      affiliateAttributionId: attribution?._id || null,
+      affiliateClickId: attribution?.affiliateClickId || null,
+      affiliateLinkId: attribution?.affiliateLinkId || null,
       campaignId: snapshot.campaignId,
-      vendorId: snapshot.vendorId || order.sellerId,
+      vendorId: snapshot.vendorId,
       influencerId: snapshot.influencerId,
       productId: snapshot.productId || order.attribution?.productId,
-      revenue: snapshot.eligibleRevenue || snapshot.grossSale || order.subtotal || order.totalAmount || 0,
-      commissionAmount: snapshot.finalEarnings || 0,
-    }).catch(() => null);
-    return conversion;
+      orderId: order._id,
+      orderNumber: order.orderNumber || "",
+      orderRevenue: snapshot.eligibleRevenue,
+      commissionAmount: snapshot.finalEarnings,
+      status: "PENDING",
+      convertedAt,
+      metadata: { trackingSessionId, source: order.attribution?.surface || "affiliate_link" },
+      saleAmount: snapshot.eligibleRevenue || snapshot.grossSale || order.subtotal || order.totalAmount || 0,
+      paymentModel: order.attribution?.paymentModel || "",
+      affiliateSource: order.attribution?.affiliateSource || order.attribution?.surface || "affiliate_link",
+    }, session);
   }
 
   async recordAttributedOrderConversion(order, session = null) {
@@ -977,62 +1004,30 @@ class CommissionService {
     const commissionAmount = campaignHasCommissionEarnings(campaign)
       ? Number(order.attribution?.commission?.influencerShare || 0)
       : 0;
-    const [conversion] = await AffiliateConversion.create(
-      [{
-        affiliateAttributionId: attribution?._id || null,
-        affiliateClickId: attribution?.affiliateClickId || null,
-        affiliateLinkId: attribution?.affiliateLinkId || null,
-        campaignId: order.attribution.campaignId,
-        vendorId: campaign.vendorId || order.sellerId,
-        influencerId: order.attribution.influencerId,
-        productId,
-        orderId: order._id,
-        orderNumber: order.orderNumber || "",
-        orderRevenue: order.subtotal || order.totalAmount || 0,
-        commissionAmount,
-        status: "PENDING",
-        convertedAt,
-        metadata: {
-          trackingSessionId,
-          paymentModel: campaign.paymentType || "",
-          source: order.attribution?.surface || "affiliate_link",
-          analyticsOnly: !campaignHasCommissionEarnings(campaign),
-        },
-      }],
-      { session: session || undefined }
-    ).catch(async (error) => {
-      if (error?.code !== 11000) throw error;
-      const existing = await attachSession(AffiliateConversion.findOne({ orderId: order._id }), session);
-      return [existing];
-    });
-
-    if (attribution?._id) {
-      await CampaignAffiliateAttribution.updateOne(
-        { _id: attribution._id },
-        {
-          $set: {
-            status: "converted",
-            orderId: order._id,
-            convertedAt,
-            saleAmount: order.subtotal || order.totalAmount || 0,
-            commissionAmount,
-            paymentModel: campaign.paymentType || order.attribution?.paymentModel || "",
-            affiliateSource: order.attribution?.affiliateSource || order.attribution?.surface || "affiliate_link",
-          },
-        },
-        { session: session || undefined }
-      );
-    }
-    await emitDomainEvent("AFFILIATE_CONVERSION_RECORDED", {
-      orderId: order._id,
+    return this.upsertAffiliateConversion({
+      affiliateAttributionId: attribution?._id || null,
+      affiliateClickId: attribution?.affiliateClickId || null,
+      affiliateLinkId: attribution?.affiliateLinkId || null,
       campaignId: order.attribution.campaignId,
       vendorId: campaign.vendorId || order.sellerId,
       influencerId: order.attribution.influencerId,
       productId,
-      revenue: order.subtotal || order.totalAmount || 0,
+      orderId: order._id,
+      orderNumber: order.orderNumber || "",
+      orderRevenue: order.subtotal || order.totalAmount || 0,
       commissionAmount,
-    }).catch(() => null);
-    return conversion;
+      status: "PENDING",
+      convertedAt,
+      metadata: {
+        trackingSessionId,
+        paymentModel: campaign.paymentType || "",
+        source: order.attribution?.surface || "affiliate_link",
+        analyticsOnly: !campaignHasCommissionEarnings(campaign),
+      },
+      saleAmount: order.subtotal || order.totalAmount || 0,
+      paymentModel: campaign.paymentType || order.attribution?.paymentModel || "",
+      affiliateSource: order.attribution?.affiliateSource || order.attribution?.surface || "affiliate_link",
+    }, session);
   }
 
   async createRule(payload = {}, actor = {}, meta = {}) {
@@ -2120,8 +2115,8 @@ class CommissionService {
       previousAgg,
       records,
       attributedOrders,
+      affiliateConversions,
       reels,
-      trackingClickCount,
       affiliateClickCount,
       campaignOptions,
       socialAccounts,
@@ -2175,17 +2170,28 @@ class CommissionService {
         .sort({ createdAt: -1 })
         .limit(500)
         .lean(),
+      AffiliateConversion.find({
+        influencerId,
+        convertedAt: { $gte: start, $lte: end },
+        ...(campaignScopeActive ? { campaignId: { $in: scopedCampaignIds } } : {}),
+        ...(productId ? { productId } : {}),
+      })
+        .populate({
+          path: "orderId",
+          select: "orderNumber userId items totalAmount subtotal status paymentStatus attribution createdAt",
+          populate: [
+            { path: "userId", select: "name email" },
+            { path: "items.productId", select: "name images category brand price discountPrice analytics" },
+          ],
+        })
+        .sort({ convertedAt: -1 })
+        .limit(500)
+        .lean(),
       Reel.find(reelFilter)
         .populate({ path: "campaignId", select: "state commissionPercent fixedFee deadline vendorId", populate: { path: "vendorId", select: "shopName companyName" } })
         .sort({ "metrics.orders": -1, "metrics.clicks": -1, createdAt: -1 })
         .limit(10)
         .lean(),
-      TrackingSession.countDocuments({
-        influencerId,
-        createdAt: { $gte: start, $lte: end },
-        ...(campaignScopeActive ? { campaignId: { $in: scopedCampaignIds } } : {}),
-        ...(productId ? { productId } : {}),
-      }),
       CampaignAffiliateClick.countDocuments({
         influencerId,
         createdAt: { $gte: start, $lte: end },
@@ -2215,7 +2221,36 @@ class CommissionService {
       });
     });
     const filteredRecordOrderIds = new Set(filteredRecords.map((record) => String(record.orderId?._id || record.orderId || "")).filter(Boolean));
-    const filteredAttributedOrders = attributedOrders.filter((order) => {
+    const conversionOrders = affiliateConversions.map((conversion) => {
+      const order = conversion.orderId && typeof conversion.orderId === "object" ? conversion.orderId : {};
+      return {
+        ...order,
+        _id: order._id || conversion.orderId,
+        orderNumber: order.orderNumber || conversion.orderNumber || String(conversion.orderId || "").slice(-8),
+        totalAmount: Number(order.totalAmount || order.subtotal || conversion.orderRevenue || 0),
+        subtotal: Number(order.subtotal || order.totalAmount || conversion.orderRevenue || 0),
+        status: order.status || conversion.status,
+        paymentStatus: order.paymentStatus || conversion.status,
+        createdAt: order.createdAt || conversion.convertedAt || conversion.createdAt,
+        attribution: {
+          ...(order.attribution || {}),
+          influencerId: order.attribution?.influencerId || conversion.influencerId,
+          campaignId: order.attribution?.campaignId || conversion.campaignId,
+          productId: order.attribution?.productId || conversion.productId,
+          commission: {
+            ...(order.attribution?.commission || {}),
+            influencerShare: order.attribution?.commission?.influencerShare ?? conversion.commissionAmount,
+          },
+        },
+        _affiliateConversion: conversion,
+      };
+    });
+    const attributedOrderById = new Map();
+    [...attributedOrders, ...conversionOrders].forEach((order) => {
+      const key = String(order._id || "");
+      if (key && !attributedOrderById.has(key)) attributedOrderById.set(key, order);
+    });
+    const filteredAttributedOrders = [...attributedOrderById.values()].filter((order) => {
       if (filteredRecordOrderIds.has(String(order._id))) return false;
       if (!includesProduct(order, productId)) return false;
       if (!category && !brand) return true;
@@ -2266,8 +2301,7 @@ class CommissionService {
 
     const current = currentAgg[0] || {};
     const previous = previousAgg[0] || {};
-    const reelClicks = reels.reduce((sum, reel) => sum + Number(reel.metrics?.clicks || 0), 0);
-    const totalClicks = Math.max(reelClicks, Number(trackingClickCount || 0), Number(affiliateClickCount || 0));
+    const totalClicks = Number(affiliateClickCount || 0);
     const totalViews = reels.reduce((sum, reel) => sum + Number(reel.metrics?.views || 0), 0);
     const totalOrders = filteredRecords.length + filteredAttributedOrders.length;
     const attributedOrderCommission = filteredAttributedOrders.reduce((sum, order) => sum + attributionCommission(order), 0);
@@ -2369,12 +2403,20 @@ class CommissionService {
       }
     }
 
-    for (const reel of reels) {
-      const linkedProducts = (reel.productIds || []).map((id) => String(id));
-      for (const linkedProductId of linkedProducts) {
-        const row = productRows.get(linkedProductId);
-        if (row) row.clicks += Number(reel.metrics?.clicks || 0);
-      }
+    const productClickRows = await CampaignAffiliateClick.aggregate([
+      {
+        $match: {
+          influencerId,
+          createdAt: { $gte: start, $lte: end },
+          ...(campaignScopeActive ? { campaignId: { $in: scopedCampaignIds } } : {}),
+          ...(productId ? { productId } : {}),
+        },
+      },
+      { $group: { _id: "$productId", clicks: { $sum: 1 } } },
+    ]);
+    for (const clickRow of productClickRows) {
+      const row = productRows.get(String(clickRow._id));
+      if (row) row.clicks = Number(clickRow.clicks || 0);
     }
 
     const reelRevenue = new Map();

@@ -1,13 +1,22 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { AffiliateClick, AffiliateAttribution } = require("../../modules/reel/engagement.model");
+const {
+  CampaignAffiliateClick,
+  CampaignAffiliateAttribution,
+  AffiliateConversion,
+} = require("../../modules/commission/models");
 const { TrackingSession } = require("../../modules/tracking/model");
 
-test("affiliate click and attribution models support reel commerce attribution", () => {
-  assert.equal(AffiliateClick.collection.collectionName, "affiliate_clicks");
-  assert.equal(AffiliateAttribution.collection.collectionName, "affiliate_attributions");
-  assert.ok(AffiliateClick.schema.path("attributionWindowDays"));
-  assert.ok(AffiliateAttribution.schema.path("expiresAt"));
+test("affiliate engine uses canonical commission-owned collections", () => {
+  assert.equal(CampaignAffiliateClick.collection.collectionName, "affiliate_clicks");
+  assert.equal(CampaignAffiliateAttribution.collection.collectionName, "affiliate_attributions");
+  assert.equal(AffiliateConversion.collection.collectionName, "affiliate_conversions");
+  assert.ok(CampaignAffiliateClick.schema.path("trackingSessionId"));
+  assert.ok(CampaignAffiliateClick.schema.path("trackingTokenId"));
+  assert.ok(CampaignAffiliateAttribution.schema.path("expiresAt"));
+  assert.ok(CampaignAffiliateAttribution.schema.path("orderId"));
+  assert.ok(AffiliateConversion.schema.path("orderRevenue"));
+  assert.ok(AffiliateConversion.schema.path("commissionAmount"));
 });
 
 test("tracking sessions keep attribution expiry and source fields", () => {
