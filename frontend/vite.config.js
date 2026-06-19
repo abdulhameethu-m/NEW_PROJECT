@@ -8,9 +8,9 @@ const reactRoot = path.resolve(frontendRoot, "node_modules/react");
 const reactDomRoot = path.resolve(frontendRoot, "node_modules/react-dom");
 const nodeModuleReactPackages = /\/node_modules\/(?:react|react-dom|react-router|react-router-dom)\//;
 
-// Module categories for chunking
-const moduleChunks = {
-  // Core vendor chunks
+// Vendor-only chunking. App routes already use React.lazy; grouping app pages here
+// makes one route download whole admin/vendor/influencer feature bundles.
+const vendorChunks = {
   "vendor-react": /\/node_modules\/(?:react|react-dom|react-router|react-router-dom)\//,
   "vendor-icons": /\/node_modules\/lucide-react\//,
   "vendor-dates": /\/node_modules\/(?:date-fns|react-date-range)\//,
@@ -19,17 +19,6 @@ const moduleChunks = {
   "vendor-http": /\/node_modules\/axios\//,
   "vendor-state": /\/node_modules\/zustand\//,
   "vendor-ui": /\/node_modules\/(?:@react-google-maps|@radix-ui)\//,
-  
-  // Feature chunks
-  "chunk-admin": /\/pages\/Admin|\/components\/admin\//,
-  "chunk-vendor": /\/pages\/Vendor|\/components\/vendor\//,
-  "chunk-influencer": /\/pages\/influencer|\/components\/influencer\//,
-  "chunk-affiliate": /\/pages\/Affiliate|\/components\/affiliate\//,
-  "chunk-campaigns": /\/pages\/[^/]*Campaign|\/components\/campaign\//,
-  "chunk-analytics": /\/pages\/[^/]*Analytics|\/components\/analytics\//,
-  "chunk-commerce": /\/pages\/(?:Products|Cart|Checkout|Order|Wishlist|Compare)|\/components\/commerce\//,
-  "chunk-finance": /\/pages\/(?:Payout|Invoice|Finance|Earnings)|\/components\/finance\//,
-  "chunk-settings": /\/pages\/(?:Settings|Profile|Support|Notification)|\/components\/settings\//,
 };
 
 /**
@@ -43,9 +32,8 @@ function getChunkName(id) {
     return undefined;
   }
 
-  // Check vendor chunks
-  for (const [chunkName, pattern] of Object.entries(moduleChunks)) {
-    if (chunkName.startsWith("vendor-") && pattern.test(normalizedId)) {
+  for (const [chunkName, pattern] of Object.entries(vendorChunks)) {
+    if (pattern.test(normalizedId)) {
       return chunkName;
     }
   }
@@ -54,46 +42,14 @@ function getChunkName(id) {
   return "vendor";
 }
 
-/**
- * Determine chunk for app code (src/)
- */
-function getAppChunkName(id) {
-  const normalizedId = id.replace(/\\/g, "/");
-
-  // Skip node_modules and external
-  if (normalizedId.includes("/node_modules/") || !normalizedId.includes("/src/")) {
-    return undefined;
-  }
-
-  // Feature-based chunking
-  for (const [chunkName, pattern] of Object.entries(moduleChunks)) {
-    if (!chunkName.startsWith("vendor-") && pattern.test(normalizedId)) {
-      return chunkName;
-    }
-  }
-
-  // Category-based chunking for pages
-  if (normalizedId.includes("/pages/")) {
-    if (normalizedId.includes("Admin")) return "chunk-admin";
-    if (normalizedId.includes("Vendor")) return "chunk-vendor";
-    if (normalizedId.includes("influencer")) return "chunk-influencer";
-    if (normalizedId.includes("Affiliate")) return "chunk-affiliate";
-  }
-
-  // Component chunking
-  if (normalizedId.includes("/components/")) {
-    if (normalizedId.includes("/admin/")) return "chunk-admin";
-    if (normalizedId.includes("/vendor/")) return "chunk-vendor";
-    if (normalizedId.includes("/influencer/")) return "chunk-influencer";
-  }
-
-  return undefined;
-}
-
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   build: {
+    // Keep route-level lazy imports lazy at the network layer. Vite's default
+    // modulepreload can eagerly fetch shared dashboard/vendor chunks from HTML.
+    modulePreload: false,
+
     // Optimize rollup configuration
     rollupOptions: {
       output: {
@@ -111,10 +67,6 @@ export default defineConfig({
           // Vendor chunks
           const vendorChunk = getChunkName(id);
           if (vendorChunk) return vendorChunk;
-
-          // App chunks
-          const appChunk = getAppChunkName(id);
-          if (appChunk) return appChunk;
 
           return undefined;
         },

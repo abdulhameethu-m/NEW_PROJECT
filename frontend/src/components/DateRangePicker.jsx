@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { DateRange } from "react-date-range";
+import "react-date-range/dist/styles.css";
+import "react-date-range/dist/theme/default.css";
 import { addDays, endOfDay, isValid, parse, startOfDay } from "date-fns";
 
 function normalizeRange(startDate, endDate) {
