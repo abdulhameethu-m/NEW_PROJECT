@@ -8,9 +8,24 @@ const sessionRepo = require("../repositories/session.repository");
 const auditService = require("./audit.service");
 const { isInfluencerCommerceEnabled } = require("./influencer-commerce-config.service");
 const { PasswordResetToken } = require("../models/PasswordResetToken");
+const { OTP } = require("../models/OTP");
+const emailService = require("./email.service");
+const smsService = require("./sms.service");
 
 function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+/**
+ * Generate a random OTP
+ * @returns {string} OTP code
+ */
+function generateOTP() {
+  const length = parseInt(process.env.OTP_LENGTH) || 6;
+  return Math.random()
+    .toString(10)
+    .substring(2, 2 + length)
+    .padStart(length, "0");
 }
 
 function normalizeUser(user) {
@@ -437,6 +452,171 @@ async function findUserByEmailOrPhone(identifier) {
   };
 }
 
+/**
+ * Request password reset OTP via email or SMS
+ * @param {string} identifier - Email or phone number
+ * @returns {Promise<object>} Result with OTP sent status
+ */
+async function requestPasswordResetOTP(identifier) {
+  const id = String(identifier || "").trim();
+  const isEmail = id.includes("@");
+
+  // Find user by email or phone
+  const user = isEmail
+    ? await userRepo.findByEmail(id)
+    : await userRepo.findByPhone(id);
+
+  // Return error if user doesn't exist
+  if (!user) {
+    throw new AppError("Invalid email or phone number", 400, "USER_NOT_FOUND");
+  }
+
+  // Determine which identifier to use
+  let identifierForOTP = null;
+  let otpDeliveryMethod = null;
+
+  if (isEmail && user.email) {
+    identifierForOTP = user.email;
+    otpDeliveryMethod = "email";
+  } else if (!isEmail && user.phone) {
+    identifierForOTP = user.phone;
+    otpDeliveryMethod = "sms";
+  } else {
+    throw new AppError(
+      "No valid contact method found for this account",
+      400,
+      "NO_CONTACT_METHOD"
+    );
+  }
+
+  // Generate OTP
+  const rawOTP = generateOTP();
+  const otpHash = hashToken(rawOTP);
+  const otpExpiryMinutes = parseInt(process.env.OTP_EXPIRY_MINUTES) || 10;
+
+  // Store OTP in database
+  await OTP.create({
+    userId: user._id,
+    email: user.email,
+    phone: user.phone,
+    otpHash,
+    purpose: "password_reset",
+    deliveryMethod: otpDeliveryMethod,
+    expiresAt: new Date(Date.now() + otpExpiryMinutes * 60 * 1000),
+  });
+
+  // Send OTP via appropriate channel
+  try {
+    if (otpDeliveryMethod === "email") {
+      await emailService.sendPasswordResetOTP(user.email, rawOTP, user.name);
+    } else if (otpDeliveryMethod === "sms") {
+      await smsService.sendPasswordResetOTP(user.phone, rawOTP, user.name);
+    }
+  } catch (error) {
+    console.error(
+      `Failed to send OTP via ${otpDeliveryMethod}:`,
+      error.message
+    );
+    // Don't throw error, let the process continue
+    // User can try again
+  }
+
+  return {
+    otpRequested: true,
+    deliveryMethod: otpDeliveryMethod,
+    message: `OTP sent via ${
+      otpDeliveryMethod === "email" ? "email" : "SMS"
+    }`,
+  };
+}
+
+/**
+ * Verify password reset OTP
+ * @param {string} email - User email or phone
+ * @param {string} otp - OTP code
+ * @returns {Promise<object>} Result with verification token
+ */
+async function verifyPasswordResetOTP(email, otp) {
+  const normalizedEmail = String(email || "").toLowerCase().trim();
+  const otpCode = String(otp || "").trim();
+
+  if (!normalizedEmail || !otpCode) {
+    throw new AppError("Email/Phone and OTP are required", 400, "VALIDATION_ERROR");
+  }
+
+  // Find user by email or phone
+  const isEmail = normalizedEmail.includes("@");
+  const user = isEmail
+    ? await userRepo.findByEmail(normalizedEmail)
+    : await userRepo.findByPhone(normalizedEmail);
+
+  if (!user) {
+    throw new AppError("Invalid email or phone number", 400, "USER_NOT_FOUND");
+  }
+
+  // Hash the provided OTP
+  const otpHash = hashToken(otpCode);
+
+  // Find matching OTP (for email or phone)
+  const otpRecord = await OTP.findOne({
+    userId: user._id,
+    otpHash,
+    purpose: "password_reset",
+    verifiedAt: null,
+    expiresAt: { $gt: new Date() },
+    $or: [
+      { email: user.email },
+      { phone: user.phone }
+    ]
+  });
+
+  if (!otpRecord) {
+    // Increment attempts
+    await OTP.updateOne(
+      {
+        userId: user._id,
+        purpose: "password_reset",
+        verifiedAt: null,
+        expiresAt: { $gt: new Date() },
+      },
+      { $inc: { attempts: 1 } }
+    );
+
+    throw new AppError("Invalid or expired OTP", 400, "INVALID_OTP");
+  }
+
+  // Check max attempts
+  if (otpRecord.attempts >= otpRecord.maxAttempts) {
+    await OTP.deleteOne({ _id: otpRecord._id });
+    throw new AppError(
+      "OTP attempts exceeded. Please request a new OTP.",
+      400,
+      "OTP_MAX_ATTEMPTS_EXCEEDED"
+    );
+  }
+
+  // Mark OTP as verified
+  otpRecord.verifiedAt = new Date();
+  await otpRecord.save();
+
+  // Generate a temporary token for password reset (valid for 5 minutes)
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  const resetTokenHash = hashToken(resetToken);
+
+  // Store reset token (reuse PasswordResetToken model)
+  await PasswordResetToken.create({
+    userId: user._id,
+    tokenHash: resetTokenHash,
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+  });
+
+  return {
+    otpVerified: true,
+    resetToken: process.env.NODE_ENV === "production" ? undefined : resetToken,
+    message: "OTP verified successfully. Use the reset token to change your password.",
+  };
+}
+
 module.exports = {
   register,
   login,
@@ -450,4 +630,7 @@ module.exports = {
   requestPasswordReset,
   resetPassword,
   findUserByEmailOrPhone,
+  requestPasswordResetOTP,
+  verifyPasswordResetOTP,
+  generateOTP,
 };

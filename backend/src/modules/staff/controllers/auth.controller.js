@@ -77,6 +77,22 @@ const resetPassword = asyncHandler(async (req, res) => {
   return ok(res, result, "Password updated successfully");
 });
 
+/**
+ * Request password reset OTP via email
+ */
+const requestPasswordResetOTP = asyncHandler(async (req, res) => {
+  const result = await staffAuthService.requestPasswordResetOTP(req.body.identifier);
+  return ok(res, result, "OTP sent to your email");
+});
+
+/**
+ * Verify password reset OTP and get reset token
+ */
+const verifyPasswordResetOTP = asyncHandler(async (req, res) => {
+  const result = await staffAuthService.verifyPasswordResetOTP(req.body.email, req.body.otp);
+  return ok(res, result, "OTP verified successfully");
+});
+
 module.exports = {
   login,
   refresh,
@@ -85,4 +101,6 @@ module.exports = {
   csrf,
   requestPasswordReset,
   resetPassword,
+  requestPasswordResetOTP,
+  verifyPasswordResetOTP,
 };

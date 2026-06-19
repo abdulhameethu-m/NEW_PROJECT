@@ -7,7 +7,8 @@ const {
   loginSchema, 
   passwordResetRequestSchema, 
   passwordResetSchema,
-  findUserForRecoverySchema 
+  findUserForRecoverySchema,
+  verifyPasswordResetOTPSchema
 } = require("../utils/validators/auth.validation");
 const { AppError } = require("../utils/AppError");
 
@@ -41,6 +42,12 @@ router.patch("/preferences/theme", authRequired, authController.updateThemePrefe
  */
 router.post("/password-reset/request", validate(passwordResetRequestSchema), authController.requestPasswordReset);
 router.post("/password-reset/confirm", validate(passwordResetSchema), authController.resetPassword);
+
+/**
+ * PASSWORD RESET WITH OTP (New Flow)
+ */
+router.post("/password-reset-otp/request", validate(passwordResetRequestSchema), authController.requestPasswordResetOTP);
+router.post("/password-reset-otp/verify", validate(verifyPasswordResetOTPSchema), authController.verifyPasswordResetOTP);
 
 /**
  * FORGOT USERNAME ENDPOINT

@@ -67,6 +67,14 @@ const passwordResetSchema = Joi.object({
   password: staffPasswordSchema,
 });
 
+const verifyPasswordResetOTPSchema = Joi.object({
+  email: Joi.string().trim().email().lowercase().required(),
+  otp: Joi.string().trim().required().min(6).max(6).messages({
+    "string.min": "OTP must be 6 digits",
+    "string.max": "OTP must be 6 digits",
+  }),
+});
+
 module.exports = {
   roleSchema,
   createStaffSchema,
@@ -75,4 +83,5 @@ module.exports = {
   staffRefreshSchema,
   passwordResetRequestSchema,
   passwordResetSchema,
+  verifyPasswordResetOTPSchema,
 };
