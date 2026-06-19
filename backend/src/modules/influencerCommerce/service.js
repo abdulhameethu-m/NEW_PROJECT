@@ -15,7 +15,6 @@ const { Campaign, CampaignStatusHistory } = require("../campaign/model");
 const { CampaignAffiliateClick, CommissionRecord } = require("../commission/models");
 const { InfluencerProfile, InfluencerSocialAccount, InfluencerProductAssignment } = require("../influencer/model");
 const { Reel } = require("../reel/model");
-const { TrackingSession } = require("../tracking/model");
 const { Product } = require("../../models/Product");
 const { Order } = require("../../models/Order");
 const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
@@ -405,7 +404,7 @@ class InfluencerCommerceVendorService {
     if (objectId(query.productId)) trackingMatch.productId = objectId(query.productId);
     if (objectId(query.influencerId)) trackingMatch.influencerId = objectId(query.influencerId);
 
-    const [campaigns, relationshipsTotal, activeInfluencers, pendingApplications, pendingContent, campaignSpend, trackingClicksAgg, affiliateClicksAgg, topProducts, attributedOrders] = await Promise.all([
+    const [campaigns, relationshipsTotal, activeInfluencers, pendingApplications, pendingContent, campaignSpend, affiliateClicksAgg, topProducts, attributedOrders] = await Promise.all([
       Campaign.find(campaignFilter).select("title campaignType state fixedFee applications productIds analytics").lean(),
       VendorInfluencerRelationship.countDocuments({ vendorId: vendor._id }),
       VendorInfluencerRelationship.countDocuments({ vendorId: vendor._id, status: { $in: ["approved", "active"] } }),
@@ -417,7 +416,6 @@ class InfluencerCommerceVendorService {
       ]),
       Reel.countDocuments({ campaignId: { $in: campaignIds }, state: { $in: ["uploaded", "pending_review"] } }),
       Campaign.aggregate([{ $match: campaignFilter }, { $group: { _id: null, total: { $sum: "$fixedFee" } } }]),
-      TrackingSession.countDocuments(trackingMatch),
       CampaignAffiliateClick.countDocuments(trackingMatch),
       CommissionRecord.aggregate([
         { $match: commissionProductMatch },
@@ -452,7 +450,7 @@ class InfluencerCommerceVendorService {
     const revenue = money(summary.revenue);
     const spend = money((campaignSpend[0]?.total || 0) + (summary.commission || 0));
     const roi = spend ? money(((revenue - spend) / spend) * 100) : 0;
-    const clicks = Math.max(Number(trackingClicksAgg || 0), Number(affiliateClicksAgg || 0));
+    const clicks = Number(affiliateClicksAgg || 0);
     const ordersGenerated = Number(summary.orders || 0);
     const unified = await analyticsAggregator.getVendorAnalytics(userId, query).catch(() => null);
     const unifiedMetrics = unified?.metrics || {};
@@ -1276,7 +1274,7 @@ class InfluencerCommerceVendorService {
         { $match: { influencerId: { $ne: null }, $or: [{ applicationStatus: "approved" }, { applicationStatus: null }] } },
         { $group: { _id: "$influencerId", count: { $sum: 1 } } },
       ]),
-      TrackingSession.aggregate([
+      CampaignAffiliateClick.aggregate([
         { $match: trackingMatch },
         { $group: { _id: "$influencerId", clicks: { $sum: 1 } } },
       ]),
@@ -1769,7 +1767,7 @@ class InfluencerCommerceVendorService {
         { $match: commissionMatch },
         { $group: { _id: "$metadata.productId", revenue: { $sum: "$gross" }, commission: { $sum: "$influencerShare" }, orders: { $sum: 1 } } },
       ]),
-      TrackingSession.aggregate([
+      CampaignAffiliateClick.aggregate([
         { $match: trackingMatch },
         { $group: { _id: "$productId", clicks: { $sum: 1 }, influencers: { $addToSet: "$influencerId" } } },
       ]),
@@ -1995,7 +1993,7 @@ class InfluencerCommerceVendorService {
         { $match: commissionMatch },
         { $group: { _id: "$influencerId", revenue: { $sum: "$gross" }, commission: { $sum: "$influencerShare" }, orders: { $sum: 1 }, platformShare: { $sum: "$platformShare" } } },
       ]),
-      TrackingSession.aggregate([
+      CampaignAffiliateClick.aggregate([
         { $match: trackingMatch },
         { $group: { _id: "$influencerId", clicks: { $sum: 1 } } },
       ]),
@@ -2108,8 +2106,8 @@ class InfluencerCommerceVendorService {
     if (query.productId && objectId(query.productId)) trackingMatch.productId = objectId(query.productId);
     if (query.influencerId && objectId(query.influencerId)) trackingMatch.influencerId = objectId(query.influencerId);
     const [clicks, clickTrend, campaignClicks, surfaceRows] = await Promise.all([
-      TrackingSession.countDocuments(trackingMatch),
-      TrackingSession.aggregate([
+      CampaignAffiliateClick.countDocuments(trackingMatch),
+      CampaignAffiliateClick.aggregate([
         { $match: trackingMatch },
         {
           $group: {
@@ -2118,11 +2116,11 @@ class InfluencerCommerceVendorService {
           },
         },
       ]),
-      TrackingSession.aggregate([
+      CampaignAffiliateClick.aggregate([
         { $match: trackingMatch },
         { $group: { _id: "$campaignId", clicks: { $sum: 1 } } },
       ]),
-      TrackingSession.aggregate([
+      CampaignAffiliateClick.aggregate([
         { $match: trackingMatch },
         { $group: { _id: "$surface", clicks: { $sum: 1 } } },
         { $sort: { clicks: -1 } },

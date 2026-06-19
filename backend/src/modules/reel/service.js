@@ -23,8 +23,6 @@ const {
   ReelStoreVisit,
   CreatorFollow,
   CreatorFollower,
-  AffiliateClick,
-  AffiliateAttribution,
   CommerceEvent,
   EngagementAnalytics,
   CreatorAnalytics,
@@ -898,20 +896,6 @@ class ReelService {
     });
     if (!tracking.session) return tracking;
     const counted = tracking.counted !== false;
-    const expiresAt = new Date(Date.now() + windowDays * 24 * 60 * 60 * 1000);
-    const click = await AffiliateClick.create({
-      reelId,
-      productId,
-      campaignId: reel.campaignId || undefined,
-      influencerId: reel.influencerId,
-      userId: user?.sub || null,
-      anonymousId: tracking.anonymousId || payload.anonymousId || "",
-      trackingTokenId: tracking.session?.trackingTokenId || "",
-      sourceType: "reel",
-      source: payload.source || "product_click",
-      attributionWindowDays: windowDays,
-      metadata: payload.metadata || {},
-    });
     await Promise.all([
       ReelProductClick.create({
         reelId,
@@ -925,19 +909,9 @@ class ReelService {
         attributionWindowDays: windowDays,
         metadata: payload.metadata || {},
       }),
-      AffiliateAttribution.create({
-        affiliateClickId: click._id,
-        influencerId: reel.influencerId,
-        productId,
-        campaignId: reel.campaignId || undefined,
-        userId: user?.sub || null,
-        anonymousId: tracking.anonymousId || payload.anonymousId || "",
-        expiresAt,
-        metadata: { reelId, source: payload.source || "reel_product_card" },
-      }),
       counted ? incrementAnalytics({ reel, metric: "productClicks", productId, metadata: { eventType: "reel_product_click", userId: user?.sub || null, anonymousId: tracking.anonymousId || payload.anonymousId || "", source: payload.source || "reel_product_card" } }) : Promise.resolve(),
     ]);
-    return { ...tracking, counted, attributionWindowDays: windowDays, affiliateClickId: click._id };
+    return { ...tracking, counted, attributionWindowDays: windowDays };
   }
 
   async followCreator(userId, reelId, payload = {}) {

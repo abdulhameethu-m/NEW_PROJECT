@@ -13,6 +13,7 @@ const pricingService = require("./pricing.service");
 const { getItemWeight } = require("../utils/cartWeightCalculator");
 const notificationService = require("./notification.service");
 const trackingService = require("../modules/tracking/service");
+const { TrackingSession } = require("../modules/tracking/model");
 const commissionService = require("../modules/commission/service");
 const { emitDomainEvent } = require("../modules/events/event-bus");
 const { INFLUENCER_EVENTS } = require("../modules/shared/constants");
@@ -110,16 +111,17 @@ function normalizeAddressForCache(address = {}) {
   };
 }
 
-function buildPreparedCheckoutCacheKey(userId, { shippingAddress, paymentMethod = "ONLINE" } = {}) {
+function buildPreparedCheckoutCacheKey(userId, { shippingAddress, paymentMethod = "ONLINE", trackingToken = "" } = {}) {
   return JSON.stringify({
     userId: String(userId || ""),
     paymentMethod: String(paymentMethod || "ONLINE").toUpperCase(),
     shippingAddress: normalizeAddressForCache(shippingAddress),
+    trackingToken: String(trackingToken || ""),
   });
 }
 
-function getCachedPreparedCheckout(userId, { shippingAddress, paymentMethod = "ONLINE" } = {}) {
-  const cacheKey = buildPreparedCheckoutCacheKey(userId, { shippingAddress, paymentMethod });
+function getCachedPreparedCheckout(userId, { shippingAddress, paymentMethod = "ONLINE", trackingToken = "" } = {}) {
+  const cacheKey = buildPreparedCheckoutCacheKey(userId, { shippingAddress, paymentMethod, trackingToken });
   const cached = preparedCheckoutCache.get(cacheKey);
   if (!cached) return null;
   if (cached.expiresAt <= Date.now()) {
@@ -129,8 +131,8 @@ function getCachedPreparedCheckout(userId, { shippingAddress, paymentMethod = "O
   return cached.summary;
 }
 
-function setCachedPreparedCheckout(userId, { shippingAddress, paymentMethod = "ONLINE" } = {}, summary) {
-  const cacheKey = buildPreparedCheckoutCacheKey(userId, { shippingAddress, paymentMethod });
+function setCachedPreparedCheckout(userId, { shippingAddress, paymentMethod = "ONLINE", trackingToken = "" } = {}, summary) {
+  const cacheKey = buildPreparedCheckoutCacheKey(userId, { shippingAddress, paymentMethod, trackingToken });
   preparedCheckoutCache.set(cacheKey, {
     expiresAt: Date.now() + PREPARED_CHECKOUT_CACHE_TTL_MS,
     summary,
@@ -251,12 +253,28 @@ function calculateAttributionCommission({ subtotal, commissionPercent, platformC
   };
 }
 
+function attributionFromTrackingSession({ session, trackingToken = "" }) {
+  if (!session) return undefined;
+  return {
+    trackingToken,
+    trackingTokenId: session.trackingTokenId || "",
+    trackingSessionId: session._id,
+    influencerId: session.influencerId,
+    campaignId: session.campaignId,
+    productId: session.productId,
+    source: session.surface || "affiliate",
+  };
+}
+
 async function resolveOrderAttribution({ userId, items = [], fallbackTrackingContext = null, subtotal, platformCommissionAmount }) {
   const attributedItem = items.find((item) => item?.attribution?.trackingToken || item?.attribution?.trackingSessionId);
   let trackingContext = null;
 
   if (attributedItem?.attribution?.trackingToken) {
     trackingContext = await trackingService.validateTrackingToken(attributedItem.attribution.trackingToken, userId);
+  } else if (attributedItem?.attribution?.trackingSessionId && mongoose.isValidObjectId(attributedItem.attribution.trackingSessionId)) {
+    const session = await TrackingSession.findById(attributedItem.attribution.trackingSessionId);
+    if (session && session.expiresAt >= new Date()) trackingContext = { session };
   }
 
   if (!trackingContext?.session && fallbackTrackingContext?.session) {
@@ -537,8 +555,8 @@ class CheckoutService {
     };
   }
 
-  async prepare(userId, { currency, shippingAddress, paymentMethod } = {}) {
-    const cachedSummary = getCachedPreparedCheckout(userId, { shippingAddress, paymentMethod });
+  async prepare(userId, { currency, shippingAddress, paymentMethod, trackingToken = "" } = {}) {
+    const cachedSummary = getCachedPreparedCheckout(userId, { shippingAddress, paymentMethod, trackingToken });
     if (cachedSummary) {
       return cachedSummary;
     }
@@ -547,6 +565,8 @@ class CheckoutService {
     if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
       throw new AppError("Cart is empty", 400, "EMPTY_CART");
     }
+
+    const trackingContext = trackingToken ? await trackingService.validateTrackingToken(trackingToken, userId) : null;
 
     const validatedItems = await Promise.all(cart.items.map(async (item) => {
       asObjectId(item.productId, "productId");
@@ -580,7 +600,11 @@ class CheckoutService {
         variantSku: variant?.sku || item.variantSku || "",
         variantTitle: variant?.title || item.variantTitle || "",
         variantAttributes: variant?.attributes || item.variantAttributes || {},
-        attribution: item.attribution || undefined,
+        attribution:
+          item.attribution ||
+          (trackingContext?.session && String(trackingContext.session.productId) === String(product._id)
+            ? attributionFromTrackingSession({ session: trackingContext.session, trackingToken })
+            : undefined),
         weight: getProductWeightSnapshot(product, variant),
       };
       return {
@@ -679,7 +703,7 @@ class CheckoutService {
         : undefined,
     };
 
-    setCachedPreparedCheckout(userId, { shippingAddress, paymentMethod }, summary);
+    setCachedPreparedCheckout(userId, { shippingAddress, paymentMethod, trackingToken }, summary);
     return summary;
   }
 
