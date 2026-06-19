@@ -1,21 +1,20 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
-import { Layout } from "./components/Layout";
-import { AdminLayout } from "./components/AdminLayout";
-import { VendorLayout } from "./components/VendorLayout";
-import { UserAccountLayout } from "./components/UserAccountLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RoleGate } from "./components/RoleGate";
 import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
 import { StaffPermissionRoute } from "./components/StaffPermissionRoute";
-import { StaffDashboardLayout } from "./components/staff/DashboardLayout";
 import VendorModuleRoute from "./components/VendorModuleRoute";
-import { VendorModuleProvider } from "./context/VendorModuleContext";
 import { AuthSessionBootstrap } from "./components/AuthSessionBootstrap";
 
 const lazyNamed = (loader, exportName) => lazy(() => loader().then((module) => ({ default: module[exportName] })));
 const lazyDefault = (loader) => lazy(loader);
 
+const Layout = lazyNamed(() => import("./components/Layout"), "Layout");
+const AdminLayout = lazyNamed(() => import("./components/AdminLayout"), "AdminLayout");
+const VendorLayout = lazyNamed(() => import("./components/VendorLayout"), "VendorLayout");
+const UserAccountLayout = lazyNamed(() => import("./components/UserAccountLayout"), "UserAccountLayout");
+const StaffDashboardLayout = lazyNamed(() => import("./components/staff/DashboardLayout"), "StaffDashboardLayout");
 const HomePage = lazyNamed(() => import("./pages/HomePage"), "HomePage");
 const RoleSelectionPage = lazyNamed(() => import("./pages/RoleSelectionPage"), "RoleSelectionPage");
 const LoginPage = lazyNamed(() => import("./pages/LoginPage"), "LoginPage");
