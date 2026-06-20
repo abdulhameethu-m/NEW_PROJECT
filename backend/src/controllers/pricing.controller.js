@@ -303,7 +303,7 @@ const getPricingRule = asyncHandler(async (req, res) => {
  * Create a new pricing rule (admin only)
  */
 const createPricingRule = asyncHandler(async (req, res) => {
-  const { key, displayName, type, value, category, appliesTo, paymentMethod, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes, isActive } = req.body;
+  const { key, displayName, type, value, category, appliesTo, paymentMethod, settlementRecipient, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes, isActive } = req.body;
   const categoryId = normalizeCategoryIdInput(req.body?.categoryId);
   assertOptionalObjectId(categoryId, "categoryId");
 
@@ -347,6 +347,7 @@ const createPricingRule = asyncHandler(async (req, res) => {
     categoryId: resolvedCategory._id,
     appliesTo: appliesTo || "ORDER",
     paymentMethod: pricingService.normalizePaymentMethod(paymentMethod),
+    settlementRecipient: settlementRecipient === "VENDOR" ? "VENDOR" : "ADMIN",
     sortOrder: sortOrder || 0,
     maxCap: maxCap || 0,
     minOrderValue: minOrderValue || 0,
@@ -373,7 +374,7 @@ const createPricingRule = asyncHandler(async (req, res) => {
  */
 const updatePricingRule = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { key, displayName, type, value, category, appliesTo, paymentMethod, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes, isActive } = req.body;
+  const { key, displayName, type, value, category, appliesTo, paymentMethod, settlementRecipient, sortOrder, maxCap, minOrderValue, freeAboveValue, description, notes, isActive } = req.body;
   const categoryId = normalizeCategoryIdInput(req.body?.categoryId);
   assertOptionalObjectId(categoryId, "categoryId");
 
@@ -412,6 +413,7 @@ const updatePricingRule = asyncHandler(async (req, res) => {
   }
   if (appliesTo !== undefined) updateData.appliesTo = appliesTo;
   if (paymentMethod !== undefined) updateData.paymentMethod = pricingService.normalizePaymentMethod(paymentMethod);
+  if (settlementRecipient !== undefined) updateData.settlementRecipient = settlementRecipient === "VENDOR" ? "VENDOR" : "ADMIN";
   if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
   if (maxCap !== undefined) updateData.maxCap = maxCap;
   if (minOrderValue !== undefined) updateData.minOrderValue = minOrderValue;

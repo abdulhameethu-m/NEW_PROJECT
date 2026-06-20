@@ -217,6 +217,7 @@ class PricingService {
             amount,
             type: rule.type,
             paymentMethod: rule.paymentMethod || "ALL",
+            settlementRecipient: rule.settlementRecipient || "ADMIN",
             sortOrder: rule.sortOrder,
           });
           totalCharges += amount;
@@ -537,6 +538,10 @@ class PricingService {
       charges.push({
         id: shippingResult.rule?.id || "shipping_fallback",
         key: "shipping_cost",
+        settlementKey: shippingResult.rule?.id ? `shipping:${shippingResult.rule.id}` : "shipping_cost",
+        settlementDisplayName: shippingResult.rule?.id
+          ? `Shipping Fee - ${shippingResult.rule.state || shippingResult.state || "Default"} ${shippingResult.rule.zone || shippingResult.zone || ""}`.trim()
+          : "Shipping Fee",
         displayName: "Shipping Fee",
         category: "SHIPPING",
         categoryId: null,
@@ -544,6 +549,7 @@ class PricingService {
         amount: shippingResult.cost,
         type: "FIXED",
         paymentMethod: "ALL",
+        settlementRecipient: shippingResult.rule?.settlementRecipient || "ADMIN",
         sortOrder: 10,
         metadata: {
           weight: shippingResult.weight,
@@ -618,12 +624,17 @@ class PricingService {
       breakdown.globalCharges.push({
         id: shippingResult.rule?.id || "shipping_fallback",
         key: "shipping_cost",
+        settlementKey: shippingResult.rule?.id ? `shipping:${shippingResult.rule.id}` : "shipping_cost",
+        settlementDisplayName: shippingResult.rule?.id
+          ? `Shipping Fee - ${shippingResult.rule.state || shippingResult.state || "Default"} ${shippingResult.rule.zone || shippingResult.zone || ""}`.trim()
+          : "Shipping Fee",
         displayName: "Shipping Fee",
         category: "SHIPPING",
         amount: shippingResult.cost,
         type: "FIXED",
         appliesTo: "ORDER",
         paymentMethod: "ALL",
+        settlementRecipient: shippingResult.rule?.settlementRecipient || "ADMIN",
         metadata: {
           weight: shippingResult.weight,
           zone: shippingResult.zone,

@@ -15,7 +15,7 @@ const shippingZoneConfigService = require("../services/shipping-zone-config.serv
  * Body: {state, zone, baseWeight, basePrice, pricePerKg, minWeight, maxWeight, ...}
  */
 const createShippingRule = asyncHandler(async (req, res) => {
-  const { state, zone, baseWeight, basePrice, pricePerKg, minWeight, maxWeight, freeShippingThreshold, minOrderValue, notes, sortOrder } = req.body;
+  const { state, zone, baseWeight, basePrice, pricePerKg, minWeight, maxWeight, freeShippingThreshold, minOrderValue, settlementRecipient, notes, sortOrder } = req.body;
 
   const rule = await shippingConfigAdminService.createRule({
     state: state || "Tamil Nadu",
@@ -27,6 +27,7 @@ const createShippingRule = asyncHandler(async (req, res) => {
     maxWeight,
     freeShippingThreshold,
     minOrderValue,
+    settlementRecipient: settlementRecipient === "VENDOR" ? "VENDOR" : "ADMIN",
     notes,
     sortOrder: sortOrder || 0,
   });

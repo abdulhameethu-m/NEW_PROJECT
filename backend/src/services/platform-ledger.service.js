@@ -7,6 +7,12 @@ function roundMoney(value) {
 class PlatformLedgerService {
   async recordOrderCommission(order, { session = null } = {}) {
     if (!order || Number(order.platformCommissionAmount || 0) <= 0) return null;
+    const existing = await PlatformLedger.findOne({
+      source: "ORDER_COMMISSION",
+      orderId: order._id,
+      vendorId: order.sellerId,
+    }).session(session || null);
+    if (existing) return existing;
     return await PlatformLedger.findOneAndUpdate(
       {
         source: "ORDER_COMMISSION",

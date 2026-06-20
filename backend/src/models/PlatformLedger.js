@@ -1,7 +1,12 @@
 const mongoose = require("mongoose");
 
 const PLATFORM_LEDGER_TYPES = ["CREDIT", "DEBIT"];
-const PLATFORM_LEDGER_SOURCES = ["ORDER_COMMISSION", "REFUND_COMMISSION_REVERSAL"];
+const PLATFORM_LEDGER_SOURCES = [
+  "ORDER_COMMISSION",
+  "ORDER_SHIPPING_REVENUE",
+  "ORDER_PLATFORM_FEE",
+  "REFUND_COMMISSION_REVERSAL",
+];
 
 const platformLedgerSchema = new mongoose.Schema(
   {
@@ -21,6 +26,10 @@ const platformLedgerSchema = new mongoose.Schema(
 platformLedgerSchema.index(
   { source: 1, referenceId: 1, orderId: 1, vendorId: 1 },
   { unique: true, partialFilterExpression: { source: { $in: ["ORDER_COMMISSION", "REFUND_COMMISSION_REVERSAL"] } } }
+);
+platformLedgerSchema.index(
+  { source: 1, orderId: 1, vendorId: 1 },
+  { unique: true, partialFilterExpression: { source: { $in: PLATFORM_LEDGER_SOURCES } }, name: "platform_ledger_order_component_unique" }
 );
 
 module.exports = {
