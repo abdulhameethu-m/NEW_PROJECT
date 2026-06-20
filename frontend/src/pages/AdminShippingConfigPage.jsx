@@ -51,6 +51,7 @@ function createRuleForm(defaultState = "Tamil Nadu") {
     maxWeight: "",
     freeShippingThreshold: "",
     minOrderValue: "",
+    settlementRecipient: "ADMIN",
     isActive: true,
     notes: "",
   };
@@ -173,6 +174,7 @@ export function AdminShippingConfigPage() {
       maxWeight: String(Number(rule.maxWeight || 0)),
       freeShippingThreshold: String(Number(rule.freeShippingThreshold || 0)),
       minOrderValue: String(Number(rule.minOrderValue || 0)),
+      settlementRecipient: rule.settlementRecipient || "ADMIN",
       isActive: Boolean(rule.isActive),
       notes: rule.notes || "",
     });
@@ -204,6 +206,7 @@ export function AdminShippingConfigPage() {
         maxWeight: Number(formData.maxWeight),
         freeShippingThreshold: formData.freeShippingThreshold ? Number(formData.freeShippingThreshold) : 0,
         minOrderValue: formData.minOrderValue ? Number(formData.minOrderValue) : 0,
+        settlementRecipient: formData.settlementRecipient === "VENDOR" ? "VENDOR" : "ADMIN",
         isActive: Boolean(formData.isActive),
         notes: String(formData.notes || "").trim(),
       };
@@ -647,6 +650,13 @@ export function AdminShippingConfigPage() {
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
                   />
                 </div>
+                <fieldset className="md:col-span-2">
+                  <legend className="block text-sm font-medium text-gray-700">Shipping charge recipient</legend>
+                  <div className="mt-1 flex gap-5 rounded-lg border border-gray-300 bg-white px-3 py-2">
+                    <label className="flex items-center gap-2 text-sm"><input type="radio" name="settlementRecipient" value="ADMIN" checked={formData.settlementRecipient === "ADMIN"} onChange={handleFormChange} /> Send to admin</label>
+                    <label className="flex items-center gap-2 text-sm"><input type="radio" name="settlementRecipient" value="VENDOR" checked={formData.settlementRecipient === "VENDOR"} onChange={handleFormChange} /> Send to vendor</label>
+                  </div>
+                </fieldset>
               </div>
 
               <div className="mt-4">
@@ -760,6 +770,7 @@ export function AdminShippingConfigPage() {
                       <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Weight Range</th>
                       <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Base Price</th>
                       <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Per Kg</th>
+                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Send To</th>
                       <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Status</th>
                       <th className="px-6 py-3 text-right text-sm font-medium text-gray-700">Actions</th>
                     </tr>
@@ -774,6 +785,7 @@ export function AdminShippingConfigPage() {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-800">Rs. {Number(rule.basePrice).toFixed(2)}</td>
                         <td className="px-6 py-4 text-sm text-gray-800">Rs. {Number(rule.pricePerKg).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-800">{rule.settlementRecipient === "VENDOR" ? "Vendor" : "Admin"}</td>
                         <td className="px-6 py-4 text-sm">
                           <span
                             className={`rounded px-2 py-1 text-xs font-medium ${

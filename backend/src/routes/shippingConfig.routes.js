@@ -58,6 +58,7 @@ router.post(
       .optional()
       .isFloat({ min: 0 })
       .withMessage("Min order value must be positive"),
+    body("settlementRecipient").optional().isIn(["ADMIN", "VENDOR"]).withMessage("Settlement recipient must be ADMIN or VENDOR"),
     body("sortOrder")
       .optional()
       .isInt()
@@ -196,6 +197,7 @@ router.put(
       .isFloat({ min: 0.001 })
       .withMessage("Max weight must be at least 0.001"),
     body("isActive").optional().isBoolean().withMessage("isActive must be boolean"),
+    body("settlementRecipient").optional().isIn(["ADMIN", "VENDOR"]).withMessage("Settlement recipient must be ADMIN or VENDOR"),
   ]),
   shippingConfigController.updateShippingRule
 );

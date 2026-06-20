@@ -235,11 +235,13 @@ class ShippingPricingService {
         rule: {
           id: rule._id,
           state: rule.state,
+          zone: rule.zone,
           baseWeight: rule.baseWeight,
           basePrice: rule.basePrice,
           pricePerKg: rule.pricePerKg,
           minOrderValue: rule.minOrderValue || 0,
           freeShippingThreshold: rule.freeShippingThreshold || 0,
+          settlementRecipient: rule.settlementRecipient || "ADMIN",
         },
         costBreakdown,
         ruleApplied: true,

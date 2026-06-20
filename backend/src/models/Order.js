@@ -320,6 +320,9 @@ const orderSchema = new mongoose.Schema(
       ref: "Refund",
       index: true,
     },
+    // Immutable calculation captured only for orders created after the
+    // marketplace settlement engine rollout. Historical orders remain legacy.
+    settlementSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
     cancellation: {
       status: {
         type: String,

@@ -79,6 +79,14 @@ const shippingConfigSchema = new mongoose.Schema(
       default: 0,
       description: "Minimum order value to apply this shipping rule",
     },
+    settlementRecipient: {
+      type: String,
+      enum: ["ADMIN", "VENDOR"],
+      default: "ADMIN",
+      required: true,
+      index: true,
+      description: "Exactly one recipient receives this shipping charge",
+    },
 
     // Status
     isActive: {

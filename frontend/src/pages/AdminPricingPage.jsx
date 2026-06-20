@@ -9,7 +9,7 @@ function normalizeError(err) {
 }
 
 export function AdminPricingPage() {
-  const [tab, setTab] = useState("rules"); // "rules" or "config"
+  const [tab, setTab] = useState("rules");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -504,4 +504,5 @@ export function AdminPricingPage() {
     </div>
   );
 }
+
 

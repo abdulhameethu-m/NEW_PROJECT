@@ -4,6 +4,7 @@ const { Order } = require("../models/Order");
 const vendorRepo = require("../repositories/vendor.repository");
 const ledgerService = require("./ledger.service");
 const platformLedgerService = require("./platform-ledger.service");
+const marketplaceSettlementService = require("./marketplace-settlement.service");
 const { logger } = require("../utils/logger");
 const { AppError } = require("../utils/AppError");
 const {
@@ -139,6 +140,7 @@ class WalletService {
       );
 
       await platformLedgerService.recordOrderCommission(order, { session });
+      await marketplaceSettlementService.markSettledForOrder(order._id, new Date());
 
       return {
         orderId: order._id,

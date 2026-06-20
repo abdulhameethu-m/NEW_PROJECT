@@ -44,6 +44,7 @@ export function PricingRulesManager() {
     categoryId: "",
     appliesTo: "ORDER",
     paymentMethod: "ALL",
+    settlementRecipient: "ADMIN",
     sortOrder: 0,
     maxCap: 0,
     minOrderValue: 0,
@@ -124,6 +125,7 @@ export function PricingRulesManager() {
       categoryId: getOtherCategoryId(categories),
       appliesTo: "ORDER",
       paymentMethod: "ALL",
+      settlementRecipient: "ADMIN",
       sortOrder: 0,
       maxCap: 0,
       minOrderValue: 0,
@@ -170,6 +172,7 @@ export function PricingRulesManager() {
       categoryId: normalizeCategoryId(rule.categoryId) || getOtherCategoryId(categories),
       appliesTo: rule.appliesTo,
       paymentMethod: rule.paymentMethod || "ALL",
+      settlementRecipient: rule.settlementRecipient || "ADMIN",
       sortOrder: rule.sortOrder,
       maxCap: rule.maxCap,
       minOrderValue: rule.minOrderValue,
@@ -430,6 +433,15 @@ export function PricingRulesManager() {
               </small>
             </div>
 
+            <fieldset>
+              <legend className="mb-1 block text-sm font-medium">Charge recipient</legend>
+              <div className="flex gap-4 rounded border bg-white p-3">
+                <label className="flex items-center gap-2 text-sm"><input type="radio" name="settlementRecipient" value="ADMIN" checked={formData.settlementRecipient === "ADMIN"} onChange={(e) => setFormData({ ...formData, settlementRecipient: e.target.value })} /> Send to admin</label>
+                <label className="flex items-center gap-2 text-sm"><input type="radio" name="settlementRecipient" value="VENDOR" checked={formData.settlementRecipient === "VENDOR"} onChange={(e) => setFormData({ ...formData, settlementRecipient: e.target.value })} /> Send to vendor</label>
+              </div>
+              <small className="text-gray-600">Select exactly one recipient for this pricing charge.</small>
+            </fieldset>
+
             <div>
               <label className="mb-1 block text-sm font-medium">Sort Order</label>
               <input
@@ -529,6 +541,7 @@ export function PricingRulesManager() {
                 <th className="border p-3 text-left">Category</th>
                 <th className="border p-3 text-left">Applies To</th>
                 <th className="border p-3 text-left">Payment</th>
+                <th className="border p-3 text-left">Send To</th>
                 <th className="border p-3 text-left">Active</th>
                 <th className="border p-3 text-left">Actions</th>
               </tr>
@@ -555,6 +568,7 @@ export function PricingRulesManager() {
                       {getPaymentMethodMeta(rule.paymentMethod).value}
                     </span>
                   </td>
+                  <td className="border p-3 text-sm font-medium">{rule.settlementRecipient === "VENDOR" ? "Vendor" : "Admin"}</td>
                   <td className="border p-3">
                     <div className="flex flex-col gap-1">
                       <button

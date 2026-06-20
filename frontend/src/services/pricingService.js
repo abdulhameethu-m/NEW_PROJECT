@@ -88,6 +88,18 @@ export async function initializePricingConfig() {
   return data;
 }
 
+// ============ Marketplace Settlement Rules ============
+
+export async function getSettlementRules() {
+  const { data } = await adminHttp.get("/api/admin/settlement-rules");
+  return data;
+}
+
+export async function updateSettlementRules(rules) {
+  const { data } = await adminHttp.put("/api/admin/settlement-rules", rules);
+  return data;
+}
+
 // ============ Dynamic Pricing Rules APIs ============
 
 /**

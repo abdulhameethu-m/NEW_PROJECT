@@ -27,6 +27,7 @@ const { Payment } = require("../models/Payment");
 const { Vendor } = require("../models/Vendor");
 const commissionRuleService = require("./commission-rule.service");
 const productAnalyticsService = require("./product-analytics.service");
+const marketplaceSettlementService = require("./marketplace-settlement.service");
 
 const PREPARED_CHECKOUT_CACHE_TTL_MS = 2 * 60 * 1000;
 const preparedCheckoutCache = new Map();
@@ -396,6 +397,24 @@ function buildSellerShippingShares(items = [], shippingFee = 0) {
   });
 
   return shares;
+}
+
+// Each order stores the exact charge allocation that applied to its seller.
+// This keeps settlement reporting independent from rules that may be edited later.
+function buildSellerSettlementCharges(charges = [], { sellerWeight = 0, sellerShippingFee = 0 } = {}) {
+  return (Array.isArray(charges) ? charges : [])
+    .map((charge) => {
+      const sourceKey = String(charge?.key || "charge");
+      const settlementKey = String(charge?.settlementKey || sourceKey);
+      const isShipping = sourceKey === "shipping_cost";
+      return {
+        key: settlementKey,
+        displayName: String(charge?.settlementDisplayName || charge?.displayName || sourceKey),
+        amount: roundMoney(isShipping ? sellerShippingFee : Number(charge?.amount || 0) * sellerWeight),
+        settlementRecipient: charge?.settlementRecipient === "VENDOR" ? "VENDOR" : "ADMIN",
+      };
+    })
+    .filter((charge) => charge.amount !== 0);
 }
 
 async function resolveSellerIdForProduct(product) {
@@ -806,6 +825,10 @@ class CheckoutService {
       const sellerShippingFee = roundMoney(shippingShares.get(String(sellerData.sellerId)) || 0);
       const sellerWeight = overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / sellers.length;
       const sellerChargeShare = chargesBreakdown.length > 0 ? roundMoney(pricingBreakdown.chargesTotal * sellerWeight) : 0;
+      const settlementChargeBreakdown = buildSellerSettlementCharges(chargesBreakdown, {
+        sellerWeight,
+        sellerShippingFee,
+      });
       const totalAmount = roundMoney(subtotal + sellerChargeShare);
       const commission = roundMoney(
         cleanedItems.reduce((sum, item) => sum + Number(item.commissionSnapshot?.commissionAmount || 0), 0)
@@ -841,6 +864,7 @@ class CheckoutService {
         taxAmount: roundMoney((taxCharge?.amount || 0) * sellerWeight),
         discountAmount: roundMoney((discountCharge?.amount || 0) * sellerWeight),
         chargesBreakdown,
+        settlementChargeBreakdown,
         pricingSnapshot: {
           subtotal,
           charges: chargesBreakdown,
@@ -900,6 +924,7 @@ class CheckoutService {
         inventoryReservedAt: new Date(),
       };
 
+      await marketplaceSettlementService.applyToOrderPayload(orderPayload);
       orderPayload.orderSnapshot = buildOrderSnapshot(orderPayload, {
         user,
         seller: vendor,
@@ -945,6 +970,7 @@ class CheckoutService {
         orders = session
           ? await Order.insertMany(orderPayloads, { ordered: true, session })
           : await orderRepo.createMany(orderPayloads);
+        await Promise.all(orders.map((order) => marketplaceSettlementService.createForOrder(order, { session })));
 
         if (paymentRecordId) {
           payment = session
@@ -1290,11 +1316,16 @@ class CheckoutService {
 
       const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
       const sellerShippingFee = shippingShares.get(String(sellerData.sellerId)) || 0;
+      const sellerWeight = overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size;
       
       // Calculate this seller's share of charges proportionally
       const sellerChargeShare = chargesBreakdown.length > 0 
-        ? pricingBreakdown.chargesTotal * (overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size)
+        ? pricingBreakdown.chargesTotal * sellerWeight
         : 0;
+      const settlementChargeBreakdown = buildSellerSettlementCharges(chargesBreakdown, {
+        sellerWeight,
+        sellerShippingFee,
+      });
       
       const totalAmount = subtotal + sellerChargeShare;
       const commission = roundMoney(
@@ -1328,10 +1359,11 @@ class CheckoutService {
         items: cleanedItems,
         subtotal,
         shippingFee: Math.round(sellerShippingFee * 100) / 100,
-        platformFee: Math.round((platformFeeCharge?.amount || 0) * (overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size) * 100) / 100,
-        taxAmount: Math.round((taxCharge?.amount || 0) * (overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size) * 100) / 100,
-        discountAmount: Math.round((discountCharge?.amount || 0) * (overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size) * 100) / 100,
+        platformFee: Math.round((platformFeeCharge?.amount || 0) * sellerWeight * 100) / 100,
+        taxAmount: Math.round((taxCharge?.amount || 0) * sellerWeight * 100) / 100,
+        discountAmount: Math.round((discountCharge?.amount || 0) * sellerWeight * 100) / 100,
         chargesBreakdown: chargesBreakdown,
+        settlementChargeBreakdown,
         pricingSnapshot: {
           subtotal: roundMoney(subtotal),
           charges: chargesBreakdown,
@@ -1344,8 +1376,8 @@ class CheckoutService {
           pricingBreakdown,
           subtotal,
           shippingFee: sellerShippingFee,
-          taxAmount: Math.round((taxCharge?.amount || 0) * (overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size) * 100) / 100,
-          discountAmount: Math.round((discountCharge?.amount || 0) * (overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size) * 100) / 100,
+          taxAmount: Math.round((taxCharge?.amount || 0) * sellerWeight * 100) / 100,
+          discountAmount: Math.round((discountCharge?.amount || 0) * sellerWeight * 100) / 100,
           totalAmount,
           paymentMethod,
         }),
@@ -1393,6 +1425,7 @@ class CheckoutService {
           : undefined,
       };
 
+      await marketplaceSettlementService.applyToOrderPayload(orderPayload);
       orderPayload.orderSnapshot = buildOrderSnapshot(orderPayload, {
         user,
         seller: vendor,
@@ -1438,6 +1471,7 @@ class CheckoutService {
         orders = session
           ? await Order.insertMany(orderPayloads, { ordered: true, session })
           : await orderRepo.createMany(orderPayloads);
+        await Promise.all(orders.map((order) => marketplaceSettlementService.createForOrder(order, { session })));
 
         if (paymentRecordId) {
           payment = session

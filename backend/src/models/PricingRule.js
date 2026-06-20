@@ -79,6 +79,14 @@ const pricingRuleSchema = new mongoose.Schema(
       index: true,
       description: "Controls whether the rule applies to all, online, or COD payments",
     },
+    // Exactly one recipient owns this charge in a new order settlement.
+    settlementRecipient: {
+      type: String,
+      enum: ["ADMIN", "VENDOR"],
+      default: "ADMIN",
+      required: true,
+      index: true,
+    },
 
     // Is this rule currently active/enabled?
     isActive: {
