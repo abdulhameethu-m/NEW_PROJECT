@@ -27,6 +27,11 @@ import { emitCartChanged } from "../utils/cartState";
 const useGuestCartStore = create(
   persist(
     (set, get) => ({
+      // A stable guest identifier lets checkout/analytics correlate a browser
+      // cart without treating a guest as an authenticated user.
+      guestCartId: typeof crypto !== "undefined" && crypto.randomUUID
+        ? `gcart_${crypto.randomUUID()}`
+        : `gcart_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       items: [],
       totalAmount: 0,
 

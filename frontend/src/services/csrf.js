@@ -30,7 +30,10 @@ export async function ensureCsrfToken() {
   csrfPromise =
     csrfPromise ||
     axios
-      .get(`${getApiBaseUrl()}/api/auth/csrf`, { withCredentials: true })
+      // This request runs before every state-changing API call.  It must be
+      // bounded independently, otherwise a stalled bootstrap request leaves
+      // cart and checkout actions waiting outside Axios' normal timeout.
+      .get(`${getApiBaseUrl()}/api/auth/csrf`, { withCredentials: true, timeout: 5000 })
       .then((response) => response.data?.data?.csrfToken || readCookie(CSRF_COOKIE_NAME))
       .finally(() => {
         csrfPromise = null;

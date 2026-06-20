@@ -60,6 +60,9 @@ const cartSchema = new mongoose.Schema(
 );
 
 cartSchema.index({ userId: 1, updatedAt: -1 });
+cartSchema.index({ "items.productId": 1, updatedAt: -1 });
+cartSchema.index({ "items.sellerId": 1, updatedAt: -1 });
+cartSchema.index({ "items.attribution.campaignId": 1, "items.attribution.influencerId": 1, updatedAt: -1 });
 
 module.exports = {
   Cart: mongoose.model("Cart", cartSchema),

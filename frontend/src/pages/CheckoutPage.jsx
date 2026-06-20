@@ -238,6 +238,7 @@ export function CheckoutPage() {
     removeItem,
     validateCart,
     refreshCart,
+    guestCartId,
   } = useCart();
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
@@ -491,10 +492,11 @@ export function CheckoutPage() {
       const guestCheckoutRes = await checkoutService.prepareGuestCheckout({
         ...payload,
         guestCartItems,
+        guestCartId,
       });
       return guestCheckoutRes?.data || null;
     },
-    [cart?.items, isAuthenticated, paymentMethod]
+    [cart?.items, guestCartId, isAuthenticated, paymentMethod]
   );
 
   const refresh = useCallback(

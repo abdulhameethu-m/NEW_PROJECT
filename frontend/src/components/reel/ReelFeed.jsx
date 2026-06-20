@@ -65,9 +65,9 @@ function buildAffiliateProductPath(reel = {}, product = {}, tracking = {}) {
   if (reel?._id) params.set("reel", reel._id);
   if (tracking?.trackingToken) params.set("trackingToken", tracking.trackingToken);
   if (tracking?.anonymousId) params.set("anonymousId", tracking.anonymousId);
-  const suffix = params.toString() ? `?${params.toString()}` : "";
   const trackingCode = product?.affiliateTrackingCode || product?.trackingCode || reel?.affiliateTrackingCode || "";
-  return trackingCode ? `/ref/${encodeURIComponent(trackingCode)}/product/${encodeURIComponent(productId)}${suffix}` : `/product/${productId}${suffix}`;
+  if (trackingCode) params.set("ref", trackingCode);
+  return `/product/${encodeURIComponent(productId)}${params.toString() ? `?${params.toString()}` : ""}`;
 }
 
 function getAnonymousId() {
@@ -120,7 +120,7 @@ function normalizeReel(row = {}) {
   };
 }
 
-function CreatorPanel({ reel, followed, followBusy = false, onFollow, onProductOpen, onStoreVisit, busyProductId = "" }) {
+function CreatorPanel({ reel, followed, followBusy = false, onFollow, onProductOpen, onStoreVisit }) {
   if (!reel) {
     return (
       <aside className="hidden w-80 shrink-0 xl:block">
@@ -172,10 +172,9 @@ function CreatorPanel({ reel, followed, followBusy = false, onFollow, onProductO
             {reel.products?.length ? (
             <div className="mt-4 space-y-2">
               {reel.products.slice(0, 3).map((product) => (
-                <button
+                <Link
                   key={productIdOf(product)}
-                  type="button"
-                  disabled={busyProductId === productIdOf(product)}
+                  to={buildAffiliateProductPath(reel, product)}
                   onClick={() => onProductOpen?.(reel, product)}
                   className="flex min-h-20 w-full items-center gap-3 rounded-3xl bg-slate-50 p-3 text-left transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-70 dark:bg-slate-950 dark:hover:bg-slate-800"
                 >
@@ -184,7 +183,7 @@ function CreatorPanel({ reel, followed, followBusy = false, onFollow, onProductO
                     <span className="line-clamp-2 text-sm font-black leading-tight text-slate-950 dark:text-white">{product.name}</span>
                     <span className="mt-1 block text-base font-black text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span>
                   </span>
-                </button>
+                </Link>
               ))}
             </div>
             ) : null}
@@ -423,7 +422,6 @@ export function ReelFeed({ detailId = "" }) {
   const [hasMore, setHasMore] = useState(false);
   const [adjacent, setAdjacent] = useState({ previous: null, next: null });
   const [error, setError] = useState("");
-  const [busyProductId, setBusyProductId] = useState("");
   const observerRef = useRef(null);
   const feedRef = useRef(null);
   const videoRefs = useRef([]);
@@ -596,15 +594,14 @@ export function ReelFeed({ detailId = "" }) {
     return data;
   }
 
-  async function handleProductOpen(reel, product) {
+  function handleProductOpen(reel, product) {
     const productId = productIdOf(product);
     if (!productId) return;
-    setBusyProductId(productId);
-    setError("");
     saveProductPreview(product);
-    const tracking = await attributeClick(reel, product).catch(() => ({}));
-    setBusyProductId("");
-    navigate(buildAffiliateProductPath(reel, product, tracking));
+    // Navigation must remain browser-native (middle click/new tab included).
+    // ProductDetailsPage creates the tracking session from the reel query
+    // parameter if this best-effort beacon has not completed yet.
+    attributeClick(reel, product).catch(() => null);
   }
 
   async function toggleFollow(reel) {
@@ -759,7 +756,7 @@ export function ReelFeed({ detailId = "" }) {
           {!loading && !reels.length ? <div className="flex h-full items-center justify-center text-center text-sm font-bold text-slate-500">No published reels yet.</div> : null}
           {reels.map((reel, index) => (
             <article key={reel._id} ref={index === reels.length - 1 ? lastCardRef : null} onMouseEnter={() => setActiveIndex(index)} className="mb-4 grid h-[calc(100vh-166px)] max-h-[90vh] snap-start gap-5 xl:grid-cols-[320px_minmax(0,900px)]">
-              <CreatorPanel reel={reel} followed={Boolean(followed[creatorId(reel)])} followBusy={Boolean(followBusy[creatorId(reel)])} onFollow={() => toggleFollow(reel)} onProductOpen={handleProductOpen} onStoreVisit={handleStoreVisit} busyProductId={busyProductId} />
+              <CreatorPanel reel={reel} followed={Boolean(followed[creatorId(reel)])} followBusy={Boolean(followBusy[creatorId(reel)])} onFollow={() => toggleFollow(reel)} onProductOpen={handleProductOpen} onStoreVisit={handleStoreVisit} />
               <div className="relative flex h-full items-center justify-center overflow-hidden rounded-[1.5rem] bg-black shadow-2xl">
                 <video ref={(node) => { videoRefs.current[index] = node; }} src={resolveApiAssetUrl(reel.videoUrl)} poster={resolveApiAssetUrl(reel.thumbnailUrl)} className="h-full max-h-[90vh] w-full object-cover" autoPlay={index === activeIndex} muted={muted} loop playsInline preload={Math.abs(index - activeIndex) <= 1 ? "auto" : "metadata"} onClick={(event) => event.currentTarget.paused ? event.currentTarget.play() : event.currentTarget.pause()} />
                 {detailId && adjacent.previous?._id ? (
@@ -778,13 +775,13 @@ export function ReelFeed({ detailId = "" }) {
                   {reel.products?.length ? (
                     <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                       {reel.products.slice(0, 4).map((product) => (
-                        <button key={productIdOf(product)} disabled={busyProductId === productIdOf(product)} onClick={() => handleProductOpen(reel, product)} className="flex min-w-[190px] items-center gap-2 rounded-2xl bg-white/95 p-2 text-left text-slate-950 disabled:cursor-wait disabled:opacity-70">
+                        <Link key={productIdOf(product)} to={buildAffiliateProductPath(reel, product)} onClick={() => handleProductOpen(reel, product)} className="flex min-w-[190px] items-center gap-2 rounded-2xl bg-white/95 p-2 text-left text-slate-950">
                           <img src={productImage(product)} alt="" className="h-10 w-10 rounded-xl object-cover" />
                           <span className="min-w-0">
                             <span className="block truncate text-xs font-bold">{product.name}</span>
                             <span className="text-xs font-bold text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span>
                           </span>
-                        </button>
+                        </Link>
                       ))}
                     </div>
                   ) : null}
