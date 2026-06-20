@@ -102,9 +102,9 @@ function buildAffiliateProductPath(reel = {}, product = {}, tracking = {}) {
   if (reel?._id) params.set("reel", reel._id);
   if (tracking?.trackingToken) params.set("trackingToken", tracking.trackingToken);
   if (tracking?.anonymousId) params.set("anonymousId", tracking.anonymousId);
-  const suffix = params.toString() ? `?${params.toString()}` : "";
   const trackingCode = product?.affiliateTrackingCode || product?.trackingCode || reel?.affiliateTrackingCode || "";
-  return trackingCode ? `/ref/${encodeURIComponent(trackingCode)}/product/${encodeURIComponent(productId)}${suffix}` : `/product/${productId}${suffix}`;
+  if (trackingCode) params.set("ref", trackingCode);
+  return `/product/${encodeURIComponent(productId)}${params.toString() ? `?${params.toString()}` : ""}`;
 }
 
 function normalizeInfluencers(payload) {
@@ -280,30 +280,27 @@ export function InfluencersHubPage() {
     navigate(href);
   }
 
-  async function openProduct(reel, product) {
+  function openProduct(reel, product) {
     const productId = productIdOf(product);
     if (!productId) return;
     saveProductPreview(product);
-    if (!reel?._id || reel.synthetic) {
-      navigate(buildAffiliateProductPath(reel, product));
-      return;
-    }
-    const tracking = await recordReelProductClick(reel._id, {
-            productId,
-            anonymousId: getAnonymousId(),
-            source: "hub_product_card",
-            attributionWindowDays: 30,
-          })
+    if (!reel?._id || reel.synthetic) return;
+    // Do not await attribution before navigation: these product controls are
+    // real links, so Ctrl/middle/right-click retain their browser semantics.
+    recordReelProductClick(reel._id, {
+      productId,
+      anonymousId: getAnonymousId(),
+      source: "hub_product_card",
+      attributionWindowDays: 30,
+    })
       .then((response) => {
-      const tracking = response?.data || {};
-      if (typeof window !== "undefined" && tracking.anonymousId) window.localStorage.setItem("anonInfluencerId", tracking.anonymousId);
-      if (tracking.trackingToken) {
-        saveTrackingContext({ trackingToken: tracking.trackingToken, anonymousId: tracking.anonymousId, reelId: reel?._id, productId });
-      }
-      return tracking;
+        const tracking = response?.data || {};
+        if (typeof window !== "undefined" && tracking.anonymousId) window.localStorage.setItem("anonInfluencerId", tracking.anonymousId);
+        if (tracking.trackingToken) {
+          saveTrackingContext({ trackingToken: tracking.trackingToken, anonymousId: tracking.anonymousId, reelId: reel._id, productId });
+        }
       })
-      .catch(() => ({}));
-    navigate(buildAffiliateProductPath(reel, product, tracking));
+      .catch(() => null);
   }
 
   return (
@@ -617,7 +614,7 @@ function ProductShowcase({ product }) {
 }
 
 function ProductChip({ reel, product, onOpen }) {
-  return <button type="button" onClick={() => onOpen?.(reel, product)} className="flex min-w-[220px] items-center gap-3 rounded-2xl bg-slate-50 p-2 text-left dark:bg-slate-950"><img src={productImage(product)} alt="" className="h-12 w-12 rounded-xl object-cover" /><span className="min-w-0"><span className="block truncate text-sm font-black text-slate-950 dark:text-white">{product.name}</span><span className="text-xs font-bold text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span></span></button>;
+  return <Link to={buildAffiliateProductPath(reel, product)} onClick={() => onOpen?.(reel, product)} className="flex min-w-[220px] items-center gap-3 rounded-2xl bg-slate-50 p-2 text-left dark:bg-slate-950"><img src={productImage(product)} alt="" className="h-12 w-12 rounded-xl object-cover" /><span className="min-w-0"><span className="block truncate text-sm font-black text-slate-950 dark:text-white">{product.name}</span><span className="text-xs font-bold text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span></span></Link>;
 }
 
 function CreatorGrid({ creators = [], followedIds, followBusy = {}, onFollow, empty = "No creators found." }) {

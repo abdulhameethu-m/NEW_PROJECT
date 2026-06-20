@@ -6,7 +6,7 @@ export async function prepareCheckout(payload = {}) {
 }
 
 export async function prepareGuestCheckout(payload = {}) {
-  const { data } = await api.post("/api/checkout/guest/prepare", payload, { timeout: 15000 });
+  const { data } = await api.post("/api/checkout/guest/prepare", payload, { timeout: 5000 });
   return data;
 }
 

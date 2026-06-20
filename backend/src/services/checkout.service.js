@@ -576,7 +576,7 @@ class CheckoutService {
         throw new AppError(`Product not available: ${product.name}`, 400, "NOT_AVAILABLE");
       }
       const variant = resolveVariant(product, item.variantId);
-      const stockSnapshot = await inventoryService.getAvailableStock(product._id, variant?.variantId || item.variantId || "");
+      const stockSnapshot = await inventoryService.getAvailableStockForProduct(product, variant?.variantId || item.variantId || "");
       const availableStock = Number(stockSnapshot.available || 0);
       if (availableStock < item.quantity) {
         throw new AppError(`Out of stock: ${product.name}`, 400, "INSUFFICIENT_STOCK");
@@ -1151,6 +1151,7 @@ class CheckoutService {
     }
 
       const validated = [];
+      const productById = new Map();
       const trackingContext = trackingToken ? await trackingService.validateTrackingToken(trackingToken, userId) : null;
       for (const item of cart.items) {
         const product = await productRepo.findById(item.productId);
@@ -1159,7 +1160,7 @@ class CheckoutService {
           throw new AppError(`Product not available: ${product.name}`, 400, "NOT_AVAILABLE");
         }
         const variant = resolveVariant(product, item.variantId);
-        const stockSnapshot = await inventoryService.getAvailableStock(product._id, variant?.variantId || item.variantId || "");
+        const stockSnapshot = await inventoryService.getAvailableStockForProduct(product, variant?.variantId || item.variantId || "");
         const availableStock = Number(stockSnapshot.available || 0);
         if (availableStock < item.quantity) {
           throw new AppError(`Out of stock: ${product.name}`, 400, "INSUFFICIENT_STOCK");
@@ -1185,6 +1186,7 @@ class CheckoutService {
           attribution: item.attribution || undefined,
           weight: getProductWeightSnapshot(product, variant),
         });
+        productById.set(String(product._id), product);
       }
 
       const bySeller = groupBySeller(validated);
@@ -1202,16 +1204,9 @@ class CheckoutService {
       }
 
       // Prepare validated items with full product data for shipping calculation
-      const validatedWithProducts = [];
-      for (const item of validated) {
-        const product = await productRepo.findById(item.productId);
-        if (product) {
-          validatedWithProducts.push({
-            ...item,
-            product,
-          });
-        }
-      }
+      const validatedWithProducts = validated
+        .map((item) => ({ ...item, product: productById.get(String(item.productId)) }))
+        .filter((item) => item.product);
 
       // Get pricing breakdown with shipping for entire order
       let pricingBreakdown;

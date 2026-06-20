@@ -432,6 +432,9 @@ orderSchema.index({ trackingId: 1 });
 orderSchema.index({ isActive: 1, status: 1, createdAt: -1 });
 orderSchema.index({ status: 1, paymentStatus: 1, payoutEligibleAt: 1 });
 orderSchema.index({ "attribution.influencerId": 1, createdAt: -1 });
+orderSchema.index({ "attribution.campaignId": 1, "attribution.influencerId": 1, createdAt: -1 });
+orderSchema.index({ "attribution.productId": 1, createdAt: -1 });
+orderSchema.index({ "attribution.trackingSessionId": 1, createdAt: -1 });
 orderSchema.index({ "cancellation.status": 1, createdAt: -1 });
 orderSchema.index({ "refundSummary.status": 1, createdAt: -1 });
 

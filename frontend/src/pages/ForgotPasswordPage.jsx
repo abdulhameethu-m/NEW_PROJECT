@@ -19,8 +19,10 @@ export function ForgotPasswordPage() {
   const { branding } = useBranding();
   const nav = useNavigate();
 
-  const [step, setStep] = useState("identifier"); // "identifier" | "code" | "reset"
+  // Steps: "identifier" | "otp" | "password"
+  const [step, setStep] = useState("identifier");
   const [identifier, setIdentifier] = useState("");
+  const [otp, setOtp] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -28,9 +30,12 @@ export function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const [userType, setUserType] = useState(null); // "user" | "staff"
+  const [deliveryMethod, setDeliveryMethod] = useState(null); // "email" | "sms"
   const [successMessage, setSuccessMessage] = useState("");
+  const [otpTimer, setOtpTimer] = useState(0);
 
-  async function handleRequestReset(e) {
+  // Request OTP
+  async function handleRequestOTP(e) {
     e.preventDefault();
     if (loading) return;
 
@@ -44,37 +49,34 @@ export function ForgotPasswordPage() {
     setLoading(true);
     try {
       const normalizedIdentifier = identifier.trim();
-      
+
       // Try primary auth first
       try {
-        const result = await authService.requestPasswordReset(normalizedIdentifier);
-        if (result?.resetToken) {
-          // Development mode - token is returned
-          setResetToken(result.resetToken);
-          setUserType("user");
-          setStep("reset");
-          setSuccessMessage(`Reset token: ${result.resetToken}. (In production, check your email/SMS)`);
+        const response = await authService.requestPasswordResetOTP(normalizedIdentifier);
+        setUserType("user");
+        setDeliveryMethod(response?.deliveryMethod || "email");
+        setStep("otp");
+        
+        // Show appropriate message based on delivery method
+        if (response?.deliveryMethod === "sms") {
+          setSuccessMessage(`OTP sent to your phone (${normalizedIdentifier}). Check your SMS.`);
         } else {
-          // Production mode - token sent via email/SMS
-          setStep("code");
-          setUserType("user");
-          setSuccessMessage("Check your email or SMS for the reset code.");
+          setSuccessMessage(`OTP sent to your email (${normalizedIdentifier}). Check your inbox.`);
         }
+        
+        setOtpTimer(300); // 5 minutes
+        startOtpTimer();
       } catch (primaryError) {
         // Try staff auth if email
         if (normalizedIdentifier.includes("@")) {
           try {
-            const staffResult = await staffAuthService.requestPasswordReset(normalizedIdentifier);
-            if (staffResult?.resetToken) {
-              setResetToken(staffResult.resetToken);
-              setUserType("staff");
-              setStep("reset");
-              setSuccessMessage(`Reset token: ${staffResult.resetToken}. (In production, check your email)`);
-            } else {
-              setStep("code");
-              setUserType("staff");
-              setSuccessMessage("Check your email for the reset code.");
-            }
+            const response = await staffAuthService.requestPasswordResetOTP(normalizedIdentifier);
+            setUserType("staff");
+            setDeliveryMethod(response?.deliveryMethod || "email");
+            setStep("otp");
+            setSuccessMessage(`OTP sent to your email (${normalizedIdentifier}). Check your inbox.`);
+            setOtpTimer(300);
+            startOtpTimer();
           } catch (staffError) {
             setError(normalizeError(primaryError));
           }
@@ -87,6 +89,53 @@ export function ForgotPasswordPage() {
     }
   }
 
+  // Timer for OTP
+  function startOtpTimer() {
+    let remaining = 300;
+    const interval = setInterval(() => {
+      remaining--;
+      setOtpTimer(remaining);
+      if (remaining <= 0) clearInterval(interval);
+    }, 1000);
+  }
+
+  // Verify OTP
+  async function handleVerifyOTP(e) {
+    e.preventDefault();
+    if (loading) return;
+
+    setError("");
+    setFieldErrors({});
+
+    if (!otp || otp.length !== 6) {
+      setFieldErrors({ otp: "OTP must be 6 digits" });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const verifyFunc =
+        userType === "staff"
+          ? staffAuthService.verifyPasswordResetOTP
+          : authService.verifyPasswordResetOTP;
+
+      const result = await verifyFunc(identifier, otp);
+
+      if (result?.resetToken) {
+        setResetToken(result.resetToken);
+        setStep("password");
+        setSuccessMessage("OTP verified! Now set your new password.");
+      } else {
+        setError("Failed to verify OTP. Please try again.");
+      }
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Reset Password
   async function handleResetPassword(e) {
     e.preventDefault();
     if (loading) return;
@@ -101,12 +150,12 @@ export function ForgotPasswordPage() {
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    const token = resetToken || identifier;
     setLoading(true);
     try {
-      const resetFunc = userType === "staff" ? staffAuthService.resetPassword : authService.resetPassword;
-      await resetFunc(token, password);
-      
+      const resetFunc =
+        userType === "staff" ? staffAuthService.resetPassword : authService.resetPassword;
+      await resetFunc(resetToken, password);
+
       setSuccessMessage("Password reset successfully! Redirecting to login...");
       setTimeout(() => {
         nav("/login", { replace: true });
@@ -118,22 +167,24 @@ export function ForgotPasswordPage() {
     }
   }
 
-  function handleTokenInput(e) {
-    const token = e.target.value.trim();
-    setResetToken(token);
-    setFieldErrors((current) => ({ ...current, token: "" }));
-  }
-
   return (
     <div className="mx-auto max-w-md">
-      <BrandLogo showName={false} className="mb-5 text-slate-950" imgClassName="h-12 w-auto object-contain" />
+      <BrandLogo
+        showName={false}
+        className="mb-5 text-slate-950"
+        imgClassName="h-12 w-auto object-contain"
+      />
       <h1 className="text-2xl font-semibold tracking-tight">Reset Password</h1>
       <p className="mt-2 text-slate-600">
         Enter your email or phone to receive a password reset code.
       </p>
 
+      {/* STEP 1: Request OTP */}
       {step === "identifier" && (
-        <form onSubmit={handleRequestReset} className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
+        <form
+          onSubmit={handleRequestOTP}
+          className="mt-6 rounded-2xl border bg-white p-6 shadow-sm"
+        >
           <label className="block text-sm font-medium">
             Email or phone
             <div className="relative">
@@ -154,9 +205,7 @@ export function ForgotPasswordPage() {
               />
             </div>
             {fieldErrors.identifier && (
-              <div className="mt-1.5 text-xs text-rose-600">
-                {fieldErrors.identifier}
-              </div>
+              <div className="mt-1.5 text-xs text-rose-600">{fieldErrors.identifier}</div>
             )}
           </label>
 
@@ -183,8 +232,89 @@ export function ForgotPasswordPage() {
         </form>
       )}
 
-      {step === "code" && (
-        <form onSubmit={handleResetPassword} className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
+      {/* STEP 2: Verify OTP */}
+      {step === "otp" && (
+        <form
+          onSubmit={handleVerifyOTP}
+          className="mt-6 rounded-2xl border bg-white p-6 shadow-sm"
+        >
+          {successMessage && (
+            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+              {successMessage}
+            </div>
+          )}
+
+          <p className="mb-4 text-sm text-slate-600">
+            We've sent a 6-digit OTP to <strong>{identifier}</strong>
+          </p>
+
+          <label className="block text-sm font-medium">
+            Enter OTP Code
+            <input
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-center text-lg tracking-widest ${
+                fieldErrors.otp
+                  ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
+                  : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              }`}
+              value={otp}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setOtp(val);
+                setFieldErrors((current) => ({ ...current, otp: "" }));
+              }}
+              type="text"
+              placeholder="000000"
+              maxLength="6"
+              inputMode="numeric"
+              required
+            />
+            {fieldErrors.otp && (
+              <div className="mt-1.5 text-xs text-rose-600">{fieldErrors.otp}</div>
+            )}
+          </label>
+
+          {otpTimer > 0 && (
+            <p className="mt-3 text-xs text-slate-500">
+              OTP expires in {Math.floor(otpTimer / 60)}:{String(otpTimer % 60).padStart(2, "0")}
+            </p>
+          )}
+
+          {error && (
+            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || otp.length !== 6}
+            className="mt-6 w-full rounded-lg bg-slate-950 px-4 py-2 font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
+          >
+            {loading ? "Verifying..." : "Verify OTP"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStep("identifier");
+              setOtp("");
+              setError("");
+              setSuccessMessage("");
+              setDeliveryMethod(null);
+            }}
+            className="mt-2 w-full text-sm text-indigo-600 hover:text-indigo-700"
+          >
+            Back to email/phone
+          </button>
+        </form>
+      )}
+
+      {/* STEP 3: Set New Password */}
+      {step === "password" && (
+        <form
+          onSubmit={handleResetPassword}
+          className="mt-6 rounded-2xl border bg-white p-6 shadow-sm"
+        >
           {successMessage && (
             <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
               {successMessage}
@@ -192,27 +322,6 @@ export function ForgotPasswordPage() {
           )}
 
           <label className="block text-sm font-medium">
-            Reset Code
-            <input
-              className={`mt-1 w-full rounded-lg border px-3 py-2 ${
-                fieldErrors.token
-                  ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
-                  : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              }`}
-              value={resetToken}
-              onChange={handleTokenInput}
-              type="text"
-              placeholder="Enter the code from your email/SMS"
-              required
-            />
-            {fieldErrors.token && (
-              <div className="mt-1.5 text-xs text-rose-600">
-                {fieldErrors.token}
-              </div>
-            )}
-          </label>
-
-          <label className="mt-4 block text-sm font-medium">
             New Password
             <PasswordField
               className={`mt-1 w-full rounded-lg border px-3 py-2 ${
@@ -229,9 +338,7 @@ export function ForgotPasswordPage() {
               required
             />
             {fieldErrors.password && (
-              <div className="mt-1.5 text-xs text-rose-600">
-                {fieldErrors.password}
-              </div>
+              <div className="mt-1.5 text-xs text-rose-600">{fieldErrors.password}</div>
             )}
           </label>
 
@@ -252,9 +359,7 @@ export function ForgotPasswordPage() {
               required
             />
             {fieldErrors.confirmPassword && (
-              <div className="mt-1.5 text-xs text-rose-600">
-                {fieldErrors.confirmPassword}
-              </div>
+              <div className="mt-1.5 text-xs text-rose-600">{fieldErrors.confirmPassword}</div>
             )}
           </label>
 
@@ -276,82 +381,18 @@ export function ForgotPasswordPage() {
             type="button"
             onClick={() => {
               setStep("identifier");
-              setError("");
+              setIdentifier("");
+              setOtp("");
               setResetToken("");
+              setPassword("");
+              setConfirmPassword("");
+              setError("");
+              setSuccessMessage("");
+              setDeliveryMethod(null);
             }}
             className="mt-2 w-full text-sm text-indigo-600 hover:text-indigo-700"
           >
-            Try a different email/phone
-          </button>
-        </form>
-      )}
-
-      {step === "reset" && (
-        <form onSubmit={handleResetPassword} className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
-          {successMessage && (
-            <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-              {successMessage}
-            </div>
-          )}
-
-          <label className="block text-sm font-medium">
-            New Password
-            <PasswordField
-              className={`mt-1 w-full rounded-lg border px-3 py-2 ${
-                fieldErrors.password
-                  ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
-                  : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              }`}
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setFieldErrors((current) => ({ ...current, password: "" }));
-              }}
-              placeholder="Enter new password"
-              required
-            />
-            {fieldErrors.password && (
-              <div className="mt-1.5 text-xs text-rose-600">
-                {fieldErrors.password}
-              </div>
-            )}
-          </label>
-
-          <label className="mt-4 block text-sm font-medium">
-            Confirm Password
-            <PasswordField
-              className={`mt-1 w-full rounded-lg border px-3 py-2 ${
-                fieldErrors.confirmPassword
-                  ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
-                  : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              }`}
-              value={confirmPassword}
-              onChange={(e) => {
-                setConfirmPassword(e.target.value);
-                setFieldErrors((current) => ({ ...current, confirmPassword: "" }));
-              }}
-              placeholder="Confirm new password"
-              required
-            />
-            {fieldErrors.confirmPassword && (
-              <div className="mt-1.5 text-xs text-rose-600">
-                {fieldErrors.confirmPassword}
-              </div>
-            )}
-          </label>
-
-          {error && (
-            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-6 w-full rounded-lg bg-slate-950 px-4 py-2 font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
-          >
-            {loading ? "Resetting..." : "Reset Password"}
+            Start Over
           </button>
         </form>
       )}

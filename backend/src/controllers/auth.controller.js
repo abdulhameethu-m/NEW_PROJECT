@@ -168,6 +168,22 @@ const findUserForRecovery = asyncHandler(async (req, res) => {
   return ok(res, result, "User found");
 });
 
+/**
+ * Request password reset OTP via email
+ */
+const requestPasswordResetOTP = asyncHandler(async (req, res) => {
+  const result = await authService.requestPasswordResetOTP(req.body.identifier);
+  return ok(res, result, "OTP sent to your email");
+});
+
+/**
+ * Verify password reset OTP and get reset token
+ */
+const verifyPasswordResetOTP = asyncHandler(async (req, res) => {
+  const result = await authService.verifyPasswordResetOTP(req.body.email, req.body.otp);
+  return ok(res, result, "OTP verified successfully");
+});
+
 module.exports = {
   register,
   login,
@@ -183,4 +199,6 @@ module.exports = {
   requestPasswordReset,
   resetPassword,
   findUserForRecovery,
+  requestPasswordResetOTP,
+  verifyPasswordResetOTP,
 };

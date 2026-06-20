@@ -5,6 +5,21 @@ const cartService = require("../services/cart.service");
 const guestCartService = require("../services/guestCart.service");
 const cartMergeService = require("../services/cartMerge.service");
 
+const CART_OPERATION_TIMEOUT_MS = Math.min(Math.max(Number(process.env.CART_OPERATION_TIMEOUT_MS) || 4500, 1000), 5000);
+
+function withinCartDeadline(work) {
+  let timer;
+  return Promise.race([
+    work(),
+    new Promise((_, reject) => {
+      timer = setTimeout(
+        () => reject(new AppError("Cart service is temporarily unavailable. Please retry.", 503, "CART_TIMEOUT")),
+        CART_OPERATION_TIMEOUT_MS
+      );
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 /**
  * AUTHENTICATED USER CART ENDPOINTS
  */
@@ -15,7 +30,7 @@ const getCart = asyncHandler(async (req, res) => {
     return ok(res, { items: [], totalAmount: 0 }, "Guest cart (empty)");
   }
 
-  const cart = await cartService.getCart(req.user.sub);
+  const cart = await withinCartDeadline(() => cartService.getCart(req.user.sub));
   return ok(res, cart, "Cart loaded");
 });
 
@@ -37,7 +52,7 @@ const add = asyncHandler(async (req, res) => {
     trackingToken: raw.trackingToken || raw.attribution?.trackingToken || "",
   };
 
-  const result = await cartService.addItem(req.user.sub, itemPayload);
+  const result = await withinCartDeadline(() => cartService.addItem(req.user.sub, itemPayload));
   const responsePayload = result && result.cart ? { ...result.cart, addedItem: result.addedItem } : result;
   return ok(res, responsePayload, "Added to cart");
 });
@@ -53,7 +68,7 @@ const update = asyncHandler(async (req, res) => {
   const quantity = raw.quantity ?? raw.qty ?? null;
   const variantId = raw.variantId || raw.variant?.variantId || raw.variant || "";
 
-  const cart = await cartService.updateItem(req.user.sub, { productId, quantity, variantId });
+  const cart = await withinCartDeadline(() => cartService.updateItem(req.user.sub, { productId, quantity, variantId }));
   return ok(res, cart, "Cart updated");
 });
 
@@ -66,7 +81,7 @@ const remove = asyncHandler(async (req, res) => {
   const raw = req.body || req.query || {};
   const productId = raw.productId || raw.product?._id || raw.product?.id || raw.product || null;
   const variantId = raw.variantId || raw.variant?.variantId || raw.variant || "";
-  const cart = await cartService.removeItem(req.user.sub, { productId, variantId });
+  const cart = await withinCartDeadline(() => cartService.removeItem(req.user.sub, { productId, variantId }));
   return ok(res, cart, "Removed from cart");
 });
 
@@ -76,7 +91,7 @@ const clear = asyncHandler(async (req, res) => {
     throw new AppError("Login required to clear cart", 401, "AUTH_REQUIRED");
   }
 
-  const cart = await cartService.clearCart(req.user.sub);
+  const cart = await withinCartDeadline(() => cartService.clearCart(req.user.sub));
   return ok(res, cart, "Cart cleared");
 });
 

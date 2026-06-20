@@ -49,3 +49,29 @@ export async function resetPassword(token, password) {
   return data?.data || data;
 }
 
+/**
+ * Request password reset OTP via email (Staff)
+ * @param {string} email - Staff email
+ * @returns {Promise<Object>} {otpRequested: true}
+ */
+export async function requestPasswordResetOTP(email) {
+  const { data } = await staffHttp.post("/api/staff/auth/password-reset-otp/request", {
+    identifier: email,
+  });
+  return data?.data || data;
+}
+
+/**
+ * Verify password reset OTP and get reset token (Staff)
+ * @param {string} email - Staff email
+ * @param {string} otp - OTP code (6 digits)
+ * @returns {Promise<Object>} {otpVerified: true, resetToken: string}
+ */
+export async function verifyPasswordResetOTP(email, otp) {
+  const { data } = await staffHttp.post("/api/staff/auth/password-reset-otp/verify", {
+    email,
+    otp,
+  });
+  return data?.data || data;
+}
+

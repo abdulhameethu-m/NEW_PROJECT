@@ -338,6 +338,7 @@ export const useCart = () => {
     // State
     cart: currentCart,
     isGuest,
+    guestCartId: guestCart.guestCartId,
     loading,
     error,
 

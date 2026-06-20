@@ -221,6 +221,15 @@ class InventoryService {
 
   async getAvailableStock(productId, variantId = "", options = {}) {
     const product = await this.getProductOrFail(productId);
+    return this.getAvailableStockForProduct(product, variantId, options);
+  }
+
+  // Checkout already has the product document after validating a cart item.
+  // Reusing it avoids an extra Product.findById per line item.
+  async getAvailableStockForProduct(product, variantId = "", options = {}) {
+    if (!product) {
+      throw new AppError("Product not found", 404, "PRODUCT_NOT_FOUND");
+    }
     this.assertOwnership(product, options.expectedSellerId);
 
     const { record } = await this.resolveInventoryRecord(product, variantId);

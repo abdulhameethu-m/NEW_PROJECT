@@ -201,6 +201,10 @@ export function ProductDetailsPage() {
           productId,
           reelId,
           trackingCode,
+          campaignId: payload.session?.campaignId || "",
+          influencerId: payload.session?.influencerId || "",
+          affiliateLinkId: payload.session?.affiliateLinkId || "",
+          clickId: payload.session?._id || "",
         };
         saveTrackingContext(nextContext);
         return nextContext;
@@ -228,7 +232,9 @@ export function ProductDetailsPage() {
     const reelId = searchParams.get("reel");
     const trackingToken = searchParams.get("trackingToken");
     const anonymousId = searchParams.get("anonymousId");
-    if (trackingToken || trackingContext?.productId === productId || reelId) {
+    // A reel/reference is source metadata, not a signed tracking token. Do
+    // not carry a token from another product into this product's cart add.
+    if (trackingToken || trackingContext?.productId === productId) {
       saveTrackingContext({
         ...trackingContext,
         trackingToken: trackingToken || trackingContext?.trackingToken,

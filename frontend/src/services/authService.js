@@ -99,4 +99,31 @@ export async function findUserForRecovery(identifier) {
   return data?.data || data;
 }
 
+/**
+ * Request password reset OTP via email
+ * Sends an OTP code to the user's email
+ * @param {string} identifier - Email or phone number
+ * @returns {Promise<Object>} {otpRequested: true}
+ */
+export async function requestPasswordResetOTP(identifier) {
+  const { data } = await api.post("/api/auth/password-reset-otp/request", {
+    identifier,
+  });
+  return data?.data || data;
+}
+
+/**
+ * Verify password reset OTP and get reset token
+ * @param {string} email - User email
+ * @param {string} otp - OTP code (6 digits)
+ * @returns {Promise<Object>} {otpVerified: true, resetToken: string}
+ */
+export async function verifyPasswordResetOTP(email, otp) {
+  const { data } = await api.post("/api/auth/password-reset-otp/verify", {
+    email,
+    otp,
+  });
+  return data?.data || data;
+}
+
 

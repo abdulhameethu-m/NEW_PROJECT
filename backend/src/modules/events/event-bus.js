@@ -5,6 +5,7 @@ const { logger } = require("../../utils/logger");
 const emitter = new EventEmitter();
 const handlers = new Map();
 let queue = null;
+let queueUnavailable = false;
 
 function getRedisConfig() {
   return {
@@ -30,7 +31,7 @@ async function dispatch(eventName, payload) {
 }
 
 function initializeEventBus() {
-  if (queue) return queue;
+  if (queue || queueUnavailable) return queue;
   if (process.env.REDIS_DISABLED === "true") {
     logger.info("Influencer event queue disabled; using in-process emitter", { source: "event-bus" });
     return null;
@@ -38,6 +39,18 @@ function initializeEventBus() {
 
   try {
     queue = new Queue("influencer-events", getRedisConfig());
+    // Bull creates its client lazily.  A missing local Redis instance used to
+    // make tracking requests fail after their database write, producing a 500
+    // and leaving the browser to retry the click path.  Events are optional
+    // for request completion, so fail over to the in-process dispatcher.
+    queue.on("error", (error) => {
+      logger.warn("Influencer event queue unavailable; using in-process dispatcher", {
+        source: "event-bus",
+        error: error?.message,
+      });
+      queueUnavailable = true;
+      queue = null;
+    });
     queue.process(async (job) => {
       await dispatch(job.data.eventName, job.data.payload);
     });
@@ -68,29 +81,38 @@ async function emitDomainEvent(eventName, payload = {}, options = {}) {
 
   emitter.emit(eventName, eventPayload);
 
-  if (!queue) {
+  if (!queue || queueUnavailable) {
     await dispatch(eventName, eventPayload);
     return { queued: false };
   }
 
-  const job = await queue.add(
-    {
-      eventName,
-      payload: eventPayload,
-    },
-    {
-      attempts: Number(options.attempts || 3),
-      backoff: {
-        type: "exponential",
-        delay: 1500,
-      },
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: options.jobId,
-    }
-  );
+  try {
+    const job = await Promise.race([
+      queue.add(
+        { eventName, payload: eventPayload },
+        {
+          attempts: Number(options.attempts || 3),
+          backoff: { type: "exponential", delay: 1500 },
+          removeOnComplete: true,
+          removeOnFail: false,
+          jobId: options.jobId,
+        }
+      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Event queue enqueue timed out")), 750)),
+    ]);
 
-  return { queued: true, jobId: job.id };
+    return { queued: true, jobId: job.id };
+  } catch (error) {
+    logger.warn("Influencer event enqueue failed; using in-process dispatcher", {
+      source: "event-bus",
+      eventName,
+      error: error?.message,
+    });
+    queueUnavailable = true;
+    queue = null;
+    await dispatch(eventName, eventPayload);
+    return { queued: false };
+  }
 }
 
 async function shutdownEventBus() {
@@ -98,6 +120,7 @@ async function shutdownEventBus() {
     await queue.close();
     queue = null;
   }
+  queueUnavailable = false;
 }
 
 module.exports = {

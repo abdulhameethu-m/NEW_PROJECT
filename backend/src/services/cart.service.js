@@ -5,6 +5,7 @@ const productRepo = require("../repositories/product.repository");
 const vendorRepo = require("../repositories/vendor.repository");
 const { resolveBestVariant, resolveNextAvailableVariant } = require("./variantResolver.service");
 const trackingService = require("../modules/tracking/service");
+const { logger } = require("../utils/logger");
 
 function computeTotal(items = []) {
   return items.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0), 0);
@@ -98,11 +99,29 @@ function invalidatePreparedCheckoutCacheForUser(userId) {
 
 async function resolveCartAttribution({ userId, productId, trackingToken }) {
   if (!trackingToken) return undefined;
-  const trackingContext = await trackingService.validateTrackingToken(trackingToken, userId);
+  let trackingContext;
+  try {
+    trackingContext = await trackingService.validateTrackingToken(trackingToken, userId);
+  } catch (error) {
+    // Attribution is never allowed to turn a normal commerce action into a
+    // failure. Tokens can expire while a customer keeps a product tab open.
+    logger.warn("Ignoring invalid cart attribution token", {
+      userId: String(userId),
+      productId: String(productId),
+      code: error?.code,
+      message: error?.message,
+    });
+    return undefined;
+  }
   const session = trackingContext?.session;
-  if (!session) throw new AppError("Invalid affiliate tracking token", 400, "INVALID_TRACKING_TOKEN");
+  if (!session) return undefined;
   if (String(session.productId) !== String(productId)) {
-    throw new AppError("Affiliate tracking product mismatch", 400, "ATTRIBUTION_PRODUCT_MISMATCH");
+    logger.warn("Ignoring cart attribution with mismatched product", {
+      userId: String(userId),
+      productId: String(productId),
+      attributedProductId: String(session.productId),
+    });
+    return undefined;
   }
   return {
     campaignId: session.campaignId || undefined,

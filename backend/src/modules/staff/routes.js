@@ -14,6 +14,7 @@ const {
   staffRefreshSchema,
   passwordResetRequestSchema,
   passwordResetSchema,
+  verifyPasswordResetOTPSchema,
 } = require("./validators");
 
 const router = express.Router();
@@ -34,6 +35,16 @@ router.post(
   "/auth/password-reset/reset",
   validate(passwordResetSchema),
   authController.resetPassword
+);
+router.post(
+  "/auth/password-reset-otp/request",
+  validate(passwordResetRequestSchema),
+  authController.requestPasswordResetOTP
+);
+router.post(
+  "/auth/password-reset-otp/verify",
+  validate(verifyPasswordResetOTPSchema),
+  authController.verifyPasswordResetOTP
 );
 
 // Admin routes (auth + permissions required)

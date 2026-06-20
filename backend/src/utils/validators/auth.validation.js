@@ -83,5 +83,22 @@ const findUserForRecoverySchema = Joi.object({
     .required(),
 });
 
-module.exports = { registerSchema, loginSchema, passwordResetRequestSchema, passwordResetSchema, findUserForRecoverySchema };
+const verifyPasswordResetOTPSchema = Joi.object({
+  email: Joi.string().trim().pattern(gmailPattern).required().messages({
+    "string.pattern.base": "Email must be a valid Gmail address",
+  }),
+  otp: Joi.string().trim().required().min(6).max(6).messages({
+    "string.min": "OTP must be 6 digits",
+    "string.max": "OTP must be 6 digits",
+  }),
+});
+
+module.exports = { 
+  registerSchema, 
+  loginSchema, 
+  passwordResetRequestSchema, 
+  passwordResetSchema, 
+  findUserForRecoverySchema,
+  verifyPasswordResetOTPSchema,
+};
 
