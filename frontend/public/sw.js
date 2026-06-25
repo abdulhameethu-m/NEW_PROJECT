@@ -121,10 +121,10 @@ async function cacheChunkStrategy(request) {
  * Cache-first strategy for images with update
  */
 async function cacheImageStrategy(request) {
-  try {
-    const cache = await caches.open(CACHE_NAMES.images);
-    const cached = await cache.match(request);
+  const cache = await caches.open(CACHE_NAMES.images);
+  const cached = await cache.match(request);
 
+  try {
     // Return cached image
     if (cached) {
       // Update cache in background

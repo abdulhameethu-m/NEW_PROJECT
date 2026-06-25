@@ -5,6 +5,7 @@ const Shipment = require("../models/Shipment");
 const VendorOrder = require("../models/VendorOrder");
 const { Order } = require("../models/Order");
 const { Payment } = require("../models/Payment");
+const { UserAddress } = require("../models/UserAddress");
 const productRepo = require("../repositories/product.repository");
 const userRepo = require("../repositories/user.repository");
 const walletService = require("./wallet.service");
@@ -35,6 +36,25 @@ function buildSettlementRef(order) {
 }
 
 class CODService {
+  async resolveShippingAddress(userId, payload = {}) {
+    if (payload.shippingAddress) return payload.shippingAddress;
+    if (!payload.addressId) return null;
+
+    const address = await UserAddress.findOne({ _id: payload.addressId, userId }).lean();
+    if (!address) return null;
+
+    return {
+      fullName: address.fullName,
+      phone: address.phone,
+      line1: address.line1,
+      line2: address.line2,
+      city: address.city,
+      state: address.state,
+      postalCode: address.postalCode,
+      country: address.country,
+    };
+  }
+
   async getConfig() {
     let config = await CODConfig.findOne({}).sort({ updatedAt: -1 });
     if (!config) {

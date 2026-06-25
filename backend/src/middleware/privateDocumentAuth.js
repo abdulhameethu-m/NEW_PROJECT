@@ -5,8 +5,10 @@ const { StaffSession } = require("../modules/staff/models/StaffSession");
 
 async function privateDocumentAuth(req, res, next) {
   const header = req.headers.authorization || "";
-  const bearerToken = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : null;
-  const userToken = bearerToken || req.cookies?.accessToken;
+  if (header.startsWith("Bearer ")) {
+    return next(new AppError("Bearer token authentication has been removed", 410, "LEGACY_AUTH_REMOVED"));
+  }
+  const userToken = req.cookies?.accessToken;
   const staffToken = req.cookies?.staffAccessToken;
 
   if (!userToken && !staffToken) return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));

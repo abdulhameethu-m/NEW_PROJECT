@@ -21,6 +21,14 @@ function requireAnyPermission(...permissions) {
   };
 }
 
+function deprecatedRouteAlias(canonicalPath) {
+  return (_req, res, next) => {
+    res.setHeader("Deprecation", "true");
+    res.setHeader("Link", `<${canonicalPath}>; rel="successor-version"`);
+    next();
+  };
+}
+
 router.get("/product/:productId", authOptional, controller.getProductRecommendations);
 router.get("/fbt/:productId", authOptional, controller.frequentlyBought);
 router.get("/frequently-bought", authOptional, controller.frequentlyBought);
@@ -62,8 +70,26 @@ router.post("/admin/cache/clear", authRequired, requireAnyPermission("recommenda
 router.get("/admin/jobs/:id", authRequired, requireAnyPermission("recommendation.view", "analytics:read"), controller.getJob);
 router.get("/admin/analytics", authRequired, requireAnyPermission("recommendation.view", "analytics:read"), controller.analytics);
 
-router.post("/rebuild", authRequired, requireAnyPermission("recommendation.rebuild", "settings:update"), controller.rebuild);
-router.post("/cache/clear", authRequired, requireAnyPermission("recommendation.cache.clear", "settings:update"), controller.clearCache);
-router.get("/jobs/:id", authRequired, requireAnyPermission("recommendation.view", "analytics:read"), controller.getJob);
+router.post(
+  "/rebuild",
+  deprecatedRouteAlias("/api/recommendations/admin/rebuild"),
+  authRequired,
+  requireAnyPermission("recommendation.rebuild", "settings:update"),
+  controller.rebuild
+);
+router.post(
+  "/cache/clear",
+  deprecatedRouteAlias("/api/recommendations/admin/cache/clear"),
+  authRequired,
+  requireAnyPermission("recommendation.cache.clear", "settings:update"),
+  controller.clearCache
+);
+router.get(
+  "/jobs/:id",
+  deprecatedRouteAlias("/api/recommendations/admin/jobs/:id"),
+  authRequired,
+  requireAnyPermission("recommendation.view", "analytics:read"),
+  controller.getJob
+);
 
 module.exports = router;

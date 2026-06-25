@@ -22,10 +22,22 @@ function hashToken(token) {
  */
 function generateOTP() {
   const length = parseInt(process.env.OTP_LENGTH) || 6;
-  return Math.random()
-    .toString(10)
-    .substring(2, 2 + length)
-    .padStart(length, "0");
+  const max = 10 ** length;
+  return String(crypto.randomInt(0, max)).padStart(length, "0");
+}
+
+function assertStrongPassword(password) {
+  const normalizedPassword = String(password || "");
+  if (normalizedPassword.length < 8) {
+    throw new AppError("Password must be at least 8 characters", 400, "VALIDATION_ERROR");
+  }
+  if (normalizedPassword.length > 128) {
+    throw new AppError("Password must not exceed 128 characters", 400, "VALIDATION_ERROR");
+  }
+  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/.test(normalizedPassword)) {
+    throw new AppError("Password must contain uppercase, lowercase, and number characters", 400, "VALIDATION_ERROR");
+  }
+  return normalizedPassword;
 }
 
 function normalizeUser(user) {
@@ -145,6 +157,7 @@ async function assertInfluencerAccessAllowed(role) {
 
 async function register({ name, email, phone, password, role }, meta = {}) {
   const normalizedEmail = email ? String(email).toLowerCase() : null;
+  const normalizedPassword = assertStrongPassword(password);
 
   await assertInfluencerAccessAllowed(role);
 
@@ -160,7 +173,7 @@ async function register({ name, email, phone, password, role }, meta = {}) {
   const existingPhone = await userRepo.findByPhone(phone);
   if (existingPhone) throw new AppError("Phone already in use", 409, "PHONE_EXISTS");
 
-  const hashed = await bcrypt.hash(password, 12);
+  const hashed = await bcrypt.hash(normalizedPassword, 12);
   const user = await userRepo.createUser({
     name,
     email: normalizedEmail,
@@ -391,10 +404,7 @@ async function requestPasswordReset(identifier) {
 }
 
 async function resetPassword(token, password) {
-  const normalizedPassword = String(password || "").trim();
-  if (normalizedPassword.length < 6) {
-    throw new AppError("Password must be at least 6 characters", 400, "VALIDATION_ERROR");
-  }
+  const normalizedPassword = assertStrongPassword(password);
 
   const tokenHash = hashToken(token);
   const resetRecord = await PasswordResetToken.findOne({
@@ -466,9 +476,12 @@ async function requestPasswordResetOTP(identifier) {
     ? await userRepo.findByEmail(id)
     : await userRepo.findByPhone(id);
 
-  // Return error if user doesn't exist
   if (!user) {
-    throw new AppError("Invalid email or phone number", 400, "USER_NOT_FOUND");
+    return {
+      otpRequested: true,
+      deliveryMethod: isEmail ? "email" : "sms",
+      message: `If an account exists, an OTP will be sent via ${isEmail ? "email" : "SMS"}.`,
+    };
   }
 
   // Determine which identifier to use
@@ -494,7 +507,12 @@ async function requestPasswordResetOTP(identifier) {
   const otpHash = hashToken(rawOTP);
   const otpExpiryMinutes = parseInt(process.env.OTP_EXPIRY_MINUTES) || 10;
 
-  // Store OTP in database
+  await OTP.deleteMany({
+    userId: user._id,
+    purpose: "password_reset",
+    verifiedAt: null,
+  });
+
   await OTP.create({
     userId: user._id,
     email: user.email,

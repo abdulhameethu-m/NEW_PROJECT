@@ -4,7 +4,7 @@
 
 - Frontend: Vite React SPA with route declarations in `frontend/src/App.jsx`.
 - Backend: Express API mounted from `backend/src/app.js` with Mongoose domain models and Bull/Cron jobs.
-- Source files scanned: 806
+- Source files scanned: 792
 - Frontend route declarations: 198
 - Backend route mounts: 64
 - Backend endpoint declarations: 689
@@ -18,27 +18,19 @@ The following files have zero static inbound imports in the source graph. They a
 
 | file |category |size |proof |
 | --- |--- |--- |--- |
-| frontend/src/pages/ShopPage.jsx |frontend-page |18379 |zero-static-inbound-needs-runtime-verification |
 | frontend/src/__tests__/guestUX.test.js |test |13251 |zero-static-inbound-needs-runtime-verification |
 | frontend/src/components/AdminPayoutAccountPanel.jsx |frontend-component |12642 |zero-static-inbound-needs-runtime-verification |
 | frontend/src/components/VendorShippingPanel.jsx |frontend-component |11905 |zero-static-inbound-needs-runtime-verification |
-| frontend/src/pages/SellerProductsPage.jsx |frontend-page |11846 |zero-static-inbound-needs-runtime-verification |
 | frontend/src/components/OrderTrackingPanel.jsx |frontend-component |10816 |zero-static-inbound-needs-runtime-verification |
-| frontend/src/components/HeroSlider.jsx |frontend-component |10711 |zero-static-inbound-needs-runtime-verification |
 | frontend/src/components/campaign/ReleasePaymentModal.jsx |frontend-component |10144 |zero-static-inbound-needs-runtime-verification |
 | frontend/src/components/ProductSection.jsx |frontend-component |9907 |zero-static-inbound-needs-runtime-verification |
 | frontend/src/pages/AdminNotificationCenterPage.jsx |frontend-page |9509 |zero-static-inbound-needs-runtime-verification |
 | frontend/src/components/campaign/EscrowStatusTracker.jsx |frontend-component |9424 |zero-static-inbound-needs-runtime-verification |
-| frontend/src/components/VirtualList.jsx |frontend-component |9112 |zero-static-inbound-needs-runtime-verification |
-| frontend/src/components/ErrorBoundaries.jsx |frontend-component |8628 |zero-static-inbound-needs-runtime-verification |
-| frontend/src/utils/imageOptimization.jsx |frontend-utility |8350 |zero-static-inbound-needs-runtime-verification |
+| frontend/src/utils/performanceMonitor.js |frontend-utility |8154 |zero-static-inbound-needs-runtime-verification |
 | backend/src/scripts/seedPlatformElectronicsProducts.js |backend-script |8126 |zero-static-inbound-needs-runtime-verification |
 | backend/src/services/__tests__/campaign-escrow-domain.test.js |test |7502 |zero-static-inbound-needs-runtime-verification |
-| frontend/src/components/commerce/DynamicPriceBreakdown.jsx |frontend-component |7180 |zero-static-inbound-needs-runtime-verification |
 | frontend/src/pages/VendorInventoryPage.jsx |frontend-page |7024 |zero-static-inbound-needs-runtime-verification |
-| frontend/src/components/SkeletonLoaders.jsx |frontend-component |6654 |zero-static-inbound-needs-runtime-verification |
 | backend/src/services/__tests__/auth-cookie-csrf-security.test.js |test |6449 |zero-static-inbound-needs-runtime-verification |
-| frontend/src/components/BannerCarousel.jsx |frontend-component |6344 |zero-static-inbound-needs-runtime-verification |
 | backend/src/modules/staff/utils/permission-logger.js |backend-module |5759 |zero-static-inbound-needs-runtime-verification |
 | backend/src/services/__tests__/platform-bootstrap-security.test.js |test |5337 |zero-static-inbound-needs-runtime-verification |
 | backend/src/services/__tests__/campaign-domain.test.js |test |5313 |zero-static-inbound-needs-runtime-verification |
@@ -58,6 +50,14 @@ The following files have zero static inbound imports in the source graph. They a
 | backend/src/services/__tests__/company-branding-domain.test.js |test |3084 |zero-static-inbound-needs-runtime-verification |
 | backend/src/services/__tests__/homepage-layout-visual.test.js |test |3067 |zero-static-inbound-needs-runtime-verification |
 | frontend/src/components/influencer/CampaignCard.jsx |frontend-component |2952 |zero-static-inbound-needs-runtime-verification |
+| frontend/src/utils/cartMerger.js |frontend-utility |2804 |zero-static-inbound-needs-runtime-verification |
+| backend/src/services/pendingAction.service.js |backend-service |2602 |zero-static-inbound-needs-runtime-verification |
+| frontend/src/components/influencer/EarningsTable.jsx |frontend-component |2548 |zero-static-inbound-needs-runtime-verification |
+| backend/src/services/__tests__/variant-resolver-domain.test.js |test |2481 |zero-static-inbound-needs-runtime-verification |
+| backend/src/services/__tests__/tracking-security-domain.test.js |test |2477 |zero-static-inbound-needs-runtime-verification |
+| frontend/src/components/influencer/Chart.jsx |frontend-component |2433 |zero-static-inbound-needs-runtime-verification |
+| backend/src/services/__tests__/invoice-document-domain.test.js |test |2432 |zero-static-inbound-needs-runtime-verification |
+| backend/src/services/__tests__/analytics-domain.test.js |test |2352 |zero-static-inbound-needs-runtime-verification |
 
 
 ## Section 3 - Unused Services
@@ -283,6 +283,7 @@ Package candidates with no static source imports:
 | package |version |status |
 | --- |--- |--- |
 | @eslint/js |^9.39.4 |no-static-source-import |
+| @tanstack/react-query |^5.32.0 |no-static-source-import |
 | @types/react |^19.2.14 |no-static-source-import |
 | @types/react-dom |^19.2.3 |no-static-source-import |
 | @vitejs/plugin-react |^6.0.1 |no-static-source-import |
@@ -292,6 +293,7 @@ Package candidates with no static source imports:
 | eslint-plugin-react-refresh |^0.5.2 |no-static-source-import |
 | globals |^17.4.0 |no-static-source-import |
 | postcss |^8.5.9 |no-static-source-import |
+| react-intersection-observer |^10.0.3 |no-static-source-import |
 | react-rnd |^10.5.3 |no-static-source-import |
 | tailwindcss |^3.4.19 |no-static-source-import |
 | vite |^8.0.4 |no-static-source-import |

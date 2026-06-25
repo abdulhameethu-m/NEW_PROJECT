@@ -2,25 +2,9 @@ const { ok } = require("../utils/apiResponse");
 const { asyncHandler } = require("../utils/asyncHandler");
 const codService = require("../services/cod.service");
 const checkoutService = require("../services/checkout.service");
-const { UserAddress } = require("../models/UserAddress");
 
 const checkAvailability = asyncHandler(async (req, res) => {
-  let shippingAddress = req.body?.shippingAddress || null;
-  if (!shippingAddress && req.body?.addressId) {
-    const address = await UserAddress.findOne({ _id: req.body.addressId, userId: req.user.sub }).lean();
-    shippingAddress = address
-      ? {
-          fullName: address.fullName,
-          phone: address.phone,
-          line1: address.line1,
-          line2: address.line2,
-          city: address.city,
-          state: address.state,
-          postalCode: address.postalCode,
-          country: address.country,
-        }
-      : null;
-  }
+  const shippingAddress = await codService.resolveShippingAddress(req.user.sub, req.body);
   const prepared = await checkoutService.prepare(req.user.sub, {
     shippingAddress,
     paymentMethod: "COD",

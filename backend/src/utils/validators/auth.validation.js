@@ -2,6 +2,15 @@ const Joi = require("joi");
 
 const gmailPattern = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
 const phonePattern = /^[0-9]{10}$/;
+const passwordSchema = Joi.string()
+  .min(8)
+  .max(128)
+  .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/)
+  .messages({
+    "string.min": "Password must be at least 8 characters",
+    "string.max": "Password must not exceed 128 characters",
+    "string.pattern.base": "Password must contain uppercase, lowercase, and number characters",
+  });
 
 const registerSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120).required(),
@@ -11,7 +20,7 @@ const registerSchema = Joi.object({
   phone: Joi.string().trim().pattern(phonePattern).required().messages({
     "string.pattern.base": "Phone number must be exactly 10 digits",
   }),
-  password: Joi.string().min(6).max(128).required(),
+  password: passwordSchema.required(),
   role: Joi.string().valid("user", "vendor", "influencer").default("user"),
 }).custom((value, helpers) => {
   if (["vendor", "influencer"].includes(value.role)) {
@@ -37,7 +46,7 @@ const loginSchema = Joi.object({
       return value;
     })
     .required(),
-  password: Joi.string().min(6).max(128).required(),
+  password: Joi.string().min(1).max(128).required(),
 });
 
 const passwordResetRequestSchema = Joi.object({
@@ -61,7 +70,7 @@ const passwordResetRequestSchema = Joi.object({
 
 const passwordResetSchema = Joi.object({
   token: Joi.string().trim().required(),
-  password: Joi.string().min(6).max(128).required(),
+  password: passwordSchema.required(),
 });
 
 const findUserForRecoverySchema = Joi.object({
@@ -84,9 +93,22 @@ const findUserForRecoverySchema = Joi.object({
 });
 
 const verifyPasswordResetOTPSchema = Joi.object({
-  email: Joi.string().trim().pattern(gmailPattern).required().messages({
-    "string.pattern.base": "Email must be a valid Gmail address",
-  }),
+  email: Joi.string()
+    .trim()
+    .custom((value, helpers) => {
+      if (!value) return helpers.error("any.required");
+      if (value.includes("@")) {
+        if (!gmailPattern.test(value)) {
+          return helpers.message("Email must be a valid Gmail address");
+        }
+        return value;
+      }
+      if (!phonePattern.test(value)) {
+        return helpers.message("Phone number must be exactly 10 digits");
+      }
+      return value;
+    })
+    .required(),
   otp: Joi.string().trim().required().min(6).max(6).messages({
     "string.min": "OTP must be 6 digits",
     "string.max": "OTP must be 6 digits",

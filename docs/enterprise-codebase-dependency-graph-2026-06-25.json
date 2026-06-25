@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-06-25T04:01:53.760Z",
+  "generatedAt": "2026-06-25T04:14:44.715Z",
   "totals": {
-    "files": 809,
-    "sourceFiles": 806,
+    "files": 795,
+    "sourceFiles": 792,
     "frontendRoutes": 198,
     "backendMounts": 64,
     "backendEndpoints": 689,
@@ -297,14 +297,6 @@
         "react-router-dom"
       ]
     },
-    "frontend/src/components/BannerCarousel.jsx": {
-      "category": "frontend-component",
-      "size": 6344,
-      "imports": [],
-      "packages": [
-        "react"
-      ]
-    },
     "frontend/src/components/BrandLogo.jsx": {
       "category": "frontend-component",
       "size": 1206,
@@ -422,16 +414,6 @@
       "imports": [],
       "packages": []
     },
-    "frontend/src/components/commerce/DynamicPriceBreakdown.jsx": {
-      "category": "frontend-component",
-      "size": 7180,
-      "imports": [
-        "frontend/src/services/pricingService.js"
-      ],
-      "packages": [
-        "react"
-      ]
-    },
     "frontend/src/components/commerce/InlineToast.jsx": {
       "category": "frontend-component",
       "size": 1036,
@@ -490,24 +472,6 @@
       "imports": [],
       "packages": []
     },
-    "frontend/src/components/DynamicFieldRenderer.jsx": {
-      "category": "frontend-component",
-      "size": 968,
-      "imports": [
-        "frontend/src/components/DynamicAttributeField.jsx"
-      ],
-      "packages": []
-    },
-    "frontend/src/components/ErrorBoundaries.jsx": {
-      "category": "frontend-component",
-      "size": 8628,
-      "imports": [
-        "frontend/src/utils/performanceMonitor.js"
-      ],
-      "packages": [
-        "react"
-      ]
-    },
     "frontend/src/components/FbtBundleSection.jsx": {
       "category": "frontend-component",
       "size": 5335,
@@ -554,34 +518,6 @@
         "react",
         "lucide-react"
       ]
-    },
-    "frontend/src/components/HeroSlider.jsx": {
-      "category": "frontend-component",
-      "size": 10711,
-      "imports": [
-        "frontend/src/components/home/RippleButton.jsx"
-      ],
-      "packages": [
-        "react",
-        "react-router-dom",
-        "framer-motion",
-        "lucide-react"
-      ]
-    },
-    "frontend/src/components/home/AnimatedSection.jsx": {
-      "category": "frontend-component",
-      "size": 1917,
-      "imports": [],
-      "packages": [
-        "framer-motion",
-        "react-intersection-observer"
-      ]
-    },
-    "frontend/src/components/home/CategoryIconRail.jsx": {
-      "category": "frontend-component",
-      "size": 54,
-      "imports": [],
-      "packages": []
     },
     "frontend/src/components/home/RippleButton.jsx": {
       "category": "frontend-component",
@@ -975,15 +911,6 @@
         "lucide-react"
       ]
     },
-    "frontend/src/components/PromoBanner.jsx": {
-      "category": "frontend-component",
-      "size": 2564,
-      "imports": [],
-      "packages": [
-        "framer-motion",
-        "lucide-react"
-      ]
-    },
     "frontend/src/components/ProtectedRoute.jsx": {
       "category": "frontend-component",
       "size": 1984,
@@ -1128,14 +1055,6 @@
         "frontend/src/components/sidebar/Sidebar.jsx"
       ],
       "packages": []
-    },
-    "frontend/src/components/SkeletonLoaders.jsx": {
-      "category": "frontend-component",
-      "size": 6654,
-      "imports": [],
-      "packages": [
-        "react"
-      ]
     },
     "frontend/src/components/staff/DashboardLayout.jsx": {
       "category": "frontend-component",
@@ -1334,14 +1253,6 @@
         "lucide-react"
       ]
     },
-    "frontend/src/components/VirtualList.jsx": {
-      "category": "frontend-component",
-      "size": 9112,
-      "imports": [],
-      "packages": [
-        "react"
-      ]
-    },
     "frontend/src/config/adminSidebar.js": {
       "category": "source",
       "size": 3165,
@@ -1361,14 +1272,6 @@
       "size": 661,
       "imports": [],
       "packages": []
-    },
-    "frontend/src/config/queryConfig.js": {
-      "category": "source",
-      "size": 1520,
-      "imports": [],
-      "packages": [
-        "@tanstack/react-query"
-      ]
     },
     "frontend/src/config/sidebarModules.js": {
       "category": "source",
@@ -3073,21 +2976,6 @@
         "react-router-dom"
       ]
     },
-    "frontend/src/pages/SellerProductsPage.jsx": {
-      "category": "frontend-page",
-      "size": 11846,
-      "imports": [
-        "frontend/src/services/notificationService.js",
-        "frontend/src/components/BackButton.jsx",
-        "frontend/src/context/VendorModuleContext.jsx",
-        "frontend/src/services/productService.js",
-        "frontend/src/utils/formatCurrency.js"
-      ],
-      "packages": [
-        "react",
-        "react-router-dom"
-      ]
-    },
     "frontend/src/pages/SettingsPage.jsx": {
       "category": "frontend-page",
       "size": 13230,
@@ -3110,26 +2998,6 @@
         "frontend/src/components/LegalPageLayout.jsx"
       ],
       "packages": []
-    },
-    "frontend/src/pages/ShopPage.jsx": {
-      "category": "frontend-page",
-      "size": 18379,
-      "imports": [
-        "frontend/src/services/logger/logger.js",
-        "frontend/src/services/productService.js",
-        "frontend/src/services/subcategoryService.js",
-        "frontend/src/utils/formatCurrency.js",
-        "frontend/src/utils/cartState.js",
-        "frontend/src/utils/cartErrors.js",
-        "frontend/src/hooks/useCart.js",
-        "frontend/src/hooks/useCartDrawer.js",
-        "frontend/src/hooks/useCategories.js"
-      ],
-      "packages": [
-        "react",
-        "react-router-dom",
-        "lucide-react"
-      ]
     },
     "frontend/src/pages/StaffAnalyticsPage.jsx": {
       "category": "frontend-page",
@@ -4271,14 +4139,6 @@
       "size": 361,
       "imports": [],
       "packages": []
-    },
-    "frontend/src/utils/imageOptimization.jsx": {
-      "category": "frontend-utility",
-      "size": 8350,
-      "imports": [],
-      "packages": [
-        "react"
-      ]
     },
     "frontend/src/utils/influencerBusinessPayment.js": {
       "category": "frontend-utility",
@@ -9650,10 +9510,8 @@
       "frontend/src/pages/CheckoutPage.jsx",
       "frontend/src/pages/ProductDetailsPage.jsx",
       "frontend/src/pages/ProductsPage.jsx",
-      "frontend/src/pages/SellerProductsPage.jsx",
       "frontend/src/pages/VendorStatusPage.jsx"
     ],
-    "frontend/src/components/BannerCarousel.jsx": [],
     "frontend/src/components/BrandLogo.jsx": [
       "frontend/src/components/Layout.jsx",
       "frontend/src/components/sidebar/Sidebar.jsx",
@@ -9692,7 +9550,6 @@
     "frontend/src/components/commerce/CheckoutStepper.jsx": [
       "frontend/src/pages/CheckoutPage.jsx"
     ],
-    "frontend/src/components/commerce/DynamicPriceBreakdown.jsx": [],
     "frontend/src/components/commerce/InlineToast.jsx": [
       "frontend/src/components/CartDrawer.jsx",
       "frontend/src/pages/AdminAnalyticsPage.jsx",
@@ -9733,11 +9590,8 @@
       "frontend/src/components/ReportingToolbar.jsx"
     ],
     "frontend/src/components/DynamicAttributeField.jsx": [
-      "frontend/src/components/DynamicFieldRenderer.jsx",
       "frontend/src/components/ProductEditor.jsx"
     ],
-    "frontend/src/components/DynamicFieldRenderer.jsx": [],
-    "frontend/src/components/ErrorBoundaries.jsx": [],
     "frontend/src/components/FbtBundleSection.jsx": [
       "frontend/src/pages/CartPage.jsx",
       "frontend/src/pages/CheckoutPage.jsx"
@@ -9773,12 +9627,7 @@
     "frontend/src/components/GalleryFullscreenModal.jsx": [
       "frontend/src/components/ProductImageGallery.jsx"
     ],
-    "frontend/src/components/HeroSlider.jsx": [],
-    "frontend/src/components/home/AnimatedSection.jsx": [],
-    "frontend/src/components/home/CategoryIconRail.jsx": [],
-    "frontend/src/components/home/RippleButton.jsx": [
-      "frontend/src/components/HeroSlider.jsx"
-    ],
+    "frontend/src/components/home/RippleButton.jsx": [],
     "frontend/src/components/homepage/DynamicHomepageRenderer.jsx": [
       "frontend/src/pages/AdminHomepageBuilderPage.jsx",
       "frontend/src/pages/AdminHomepageContainersPage.jsx",
@@ -9894,7 +9743,6 @@
     "frontend/src/components/ProductThumbnailList.jsx": [
       "frontend/src/components/ProductImageGallery.jsx"
     ],
-    "frontend/src/components/PromoBanner.jsx": [],
     "frontend/src/components/ProtectedRoute.jsx": [
       "frontend/src/App.jsx"
     ],
@@ -9960,7 +9808,6 @@
       "frontend/src/components/sidebar/Sidebar.jsx"
     ],
     "frontend/src/components/Sidebar.jsx": [],
-    "frontend/src/components/SkeletonLoaders.jsx": [],
     "frontend/src/components/staff/DashboardLayout.jsx": [
       "frontend/src/App.jsx"
     ],
@@ -10074,7 +9921,6 @@
       "frontend/src/pages/VendorSupportPage.jsx"
     ],
     "frontend/src/components/VendorShippingPanel.jsx": [],
-    "frontend/src/components/VirtualList.jsx": [],
     "frontend/src/config/adminSidebar.js": [],
     "frontend/src/config/apiBaseUrl.js": [
       "frontend/src/services/api.js",
@@ -10083,7 +9929,6 @@
     "frontend/src/config/homepageContainerTypes.js": [
       "frontend/src/components/homepage/DynamicHomepageRenderer.jsx"
     ],
-    "frontend/src/config/queryConfig.js": [],
     "frontend/src/config/sidebarModules.js": [
       "frontend/src/components/AdminLayout.jsx",
       "frontend/src/hooks/useAdminSidebarData.js",
@@ -10206,7 +10051,6 @@
       "frontend/src/components/VendorLayout.jsx",
       "frontend/src/components/VendorModuleRoute.jsx",
       "frontend/src/hooks/useVendorSidebarData.js",
-      "frontend/src/pages/SellerProductsPage.jsx",
       "frontend/src/pages/VendorDeliveryPage.jsx",
       "frontend/src/pages/VendorInventoryPage.jsx",
       "frontend/src/pages/VendorOrdersPage.jsx",
@@ -10233,7 +10077,6 @@
       "frontend/src/pages/CheckoutPage.jsx",
       "frontend/src/pages/ProductDetailsPage.jsx",
       "frontend/src/pages/ProductsPage.jsx",
-      "frontend/src/pages/ShopPage.jsx",
       "frontend/src/pages/WishlistPage.jsx",
       "frontend/src/__tests__/guestUX.test.js"
     ],
@@ -10244,8 +10087,7 @@
       "frontend/src/components/ProductCard.jsx",
       "frontend/src/components/ProductSection.jsx",
       "frontend/src/pages/ProductDetailsPage.jsx",
-      "frontend/src/pages/ProductsPage.jsx",
-      "frontend/src/pages/ShopPage.jsx"
+      "frontend/src/pages/ProductsPage.jsx"
     ],
     "frontend/src/hooks/useCategories.js": [
       "frontend/src/components/Layout.jsx",
@@ -10253,7 +10095,6 @@
       "frontend/src/pages/AdminAttributesPage.jsx",
       "frontend/src/pages/AdminSubcategoriesPage.jsx",
       "frontend/src/pages/ProductsPage.jsx",
-      "frontend/src/pages/ShopPage.jsx",
       "frontend/src/pages/VendorSettingsPage.jsx"
     ],
     "frontend/src/hooks/useCompare.js": [
@@ -10615,14 +10456,12 @@
     "frontend/src/pages/RoleSelectionPage.jsx": [
       "frontend/src/App.jsx"
     ],
-    "frontend/src/pages/SellerProductsPage.jsx": [],
     "frontend/src/pages/SettingsPage.jsx": [
       "frontend/src/App.jsx"
     ],
     "frontend/src/pages/ShippingPolicyPage.jsx": [
       "frontend/src/App.jsx"
     ],
-    "frontend/src/pages/ShopPage.jsx": [],
     "frontend/src/pages/StaffAnalyticsPage.jsx": [
       "frontend/src/App.jsx"
     ],
@@ -11004,7 +10843,6 @@
       "frontend/src/pages/AdminHomepageContainersPage.jsx",
       "frontend/src/pages/AdminVendorAccessPage.jsx",
       "frontend/src/pages/ProductsPage.jsx",
-      "frontend/src/pages/ShopPage.jsx",
       "frontend/src/pages/StoresPage.jsx",
       "frontend/src/services/cartService.js",
       "frontend/src/utils/cartMerger.js",
@@ -11046,7 +10884,6 @@
       "frontend/src/pages/InfluencersHubPage.jsx",
       "frontend/src/pages/OrderDetailsPage.jsx",
       "frontend/src/pages/OrdersPage.jsx",
-      "frontend/src/pages/SellerProductsPage.jsx",
       "frontend/src/pages/StaffOrdersPage.jsx",
       "frontend/src/pages/StaffProductsPage.jsx",
       "frontend/src/pages/StaffReviewsPage.jsx",
@@ -11076,7 +10913,6 @@
     "frontend/src/services/pricingService.js": [
       "frontend/src/components/admin/PricingCategoriesManager.jsx",
       "frontend/src/components/admin/PricingRulesManager.jsx",
-      "frontend/src/components/commerce/DynamicPriceBreakdown.jsx",
       "frontend/src/pages/AdminPricingPage.jsx",
       "frontend/src/pages/CheckoutPage.jsx"
     ],
@@ -11098,9 +10934,7 @@
       "frontend/src/components/SearchBar.jsx",
       "frontend/src/pages/ProductDetailsPage.jsx",
       "frontend/src/pages/ProductFormPage.jsx",
-      "frontend/src/pages/ProductsPage.jsx",
-      "frontend/src/pages/SellerProductsPage.jsx",
-      "frontend/src/pages/ShopPage.jsx"
+      "frontend/src/pages/ProductsPage.jsx"
     ],
     "frontend/src/services/recommendationService.js": [
       "frontend/src/components/FbtBundleSection.jsx",
@@ -11134,8 +10968,7 @@
       "frontend/src/components/ProductEditor.jsx",
       "frontend/src/pages/AdminAttributesPage.jsx",
       "frontend/src/pages/AdminCommerceIntelligencePage.jsx",
-      "frontend/src/pages/ProductsPage.jsx",
-      "frontend/src/pages/ShopPage.jsx"
+      "frontend/src/pages/ProductsPage.jsx"
     ],
     "frontend/src/services/userService.js": [
       "frontend/src/components/UserAccountLayout.jsx",
@@ -11219,7 +11052,6 @@
       "frontend/src/components/ProductSection.jsx",
       "frontend/src/pages/ProductDetailsPage.jsx",
       "frontend/src/pages/ProductsPage.jsx",
-      "frontend/src/pages/ShopPage.jsx",
       "frontend/src/pages/WishlistPage.jsx"
     ],
     "frontend/src/utils/cartMerger.js": [],
@@ -11233,7 +11065,6 @@
       "frontend/src/hooks/useCart.js",
       "frontend/src/pages/CheckoutPage.jsx",
       "frontend/src/pages/ProductsPage.jsx",
-      "frontend/src/pages/ShopPage.jsx",
       "frontend/src/services/cartService.js"
     ],
     "frontend/src/utils/categoryPresentation.jsx": [
@@ -11305,9 +11136,7 @@
       "frontend/src/pages/OrderSuccessPage.jsx",
       "frontend/src/pages/ProductDetailsPage.jsx",
       "frontend/src/pages/ProductsPage.jsx",
-      "frontend/src/pages/SellerProductsPage.jsx",
       "frontend/src/pages/SettingsPage.jsx",
-      "frontend/src/pages/ShopPage.jsx",
       "frontend/src/pages/UserDashboardPage.jsx",
       "frontend/src/pages/VendorAnalyticsPage.jsx",
       "frontend/src/pages/VendorCommissionSummaryPage.jsx",
@@ -11326,7 +11155,6 @@
       "frontend/src/pages/VendorReturnsPage.jsx",
       "frontend/src/pages/WishlistPage.jsx"
     ],
-    "frontend/src/utils/imageOptimization.jsx": [],
     "frontend/src/utils/influencerBusinessPayment.js": [
       "frontend/src/pages/InfluencerBusinessInformationPage.jsx",
       "frontend/src/pages/InfluencerContentReviewPage.jsx",
@@ -11391,9 +11219,7 @@
       "frontend/src/utils/postAuthContinuation.js",
       "frontend/src/__tests__/guestUX.test.js"
     ],
-    "frontend/src/utils/performanceMonitor.js": [
-      "frontend/src/components/ErrorBoundaries.jsx"
-    ],
+    "frontend/src/utils/performanceMonitor.js": [],
     "frontend/src/utils/permissionLogger.js": [
       "frontend/src/components/staff/DashboardLayout.jsx",
       "frontend/src/hooks/useStaffAuth.js"
@@ -20209,14 +20035,6 @@
   ],
   "noInbound": [
     {
-      "file": "frontend/src/pages/ShopPage.jsx",
-      "category": "frontend-page",
-      "size": 18379,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
       "file": "frontend/src/__tests__/guestUX.test.js",
       "category": "test",
       "size": 13251,
@@ -20241,25 +20059,9 @@
       "proof": "zero-static-inbound-needs-runtime-verification"
     },
     {
-      "file": "frontend/src/pages/SellerProductsPage.jsx",
-      "category": "frontend-page",
-      "size": 11846,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
       "file": "frontend/src/components/OrderTrackingPanel.jsx",
       "category": "frontend-component",
       "size": 10816,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
-      "file": "frontend/src/components/HeroSlider.jsx",
-      "category": "frontend-component",
-      "size": 10711,
       "inbound": [],
       "isEntry": false,
       "proof": "zero-static-inbound-needs-runtime-verification"
@@ -20297,25 +20099,9 @@
       "proof": "zero-static-inbound-needs-runtime-verification"
     },
     {
-      "file": "frontend/src/components/VirtualList.jsx",
-      "category": "frontend-component",
-      "size": 9112,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
-      "file": "frontend/src/components/ErrorBoundaries.jsx",
-      "category": "frontend-component",
-      "size": 8628,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
-      "file": "frontend/src/utils/imageOptimization.jsx",
+      "file": "frontend/src/utils/performanceMonitor.js",
       "category": "frontend-utility",
-      "size": 8350,
+      "size": 8154,
       "inbound": [],
       "isEntry": false,
       "proof": "zero-static-inbound-needs-runtime-verification"
@@ -20337,14 +20123,6 @@
       "proof": "zero-static-inbound-needs-runtime-verification"
     },
     {
-      "file": "frontend/src/components/commerce/DynamicPriceBreakdown.jsx",
-      "category": "frontend-component",
-      "size": 7180,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
       "file": "frontend/src/pages/VendorInventoryPage.jsx",
       "category": "frontend-page",
       "size": 7024,
@@ -20353,25 +20131,9 @@
       "proof": "zero-static-inbound-needs-runtime-verification"
     },
     {
-      "file": "frontend/src/components/SkeletonLoaders.jsx",
-      "category": "frontend-component",
-      "size": 6654,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
       "file": "backend/src/services/__tests__/auth-cookie-csrf-security.test.js",
       "category": "test",
       "size": 6449,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
-      "file": "frontend/src/components/BannerCarousel.jsx",
-      "category": "frontend-component",
-      "size": 6344,
       "inbound": [],
       "isEntry": false,
       "proof": "zero-static-inbound-needs-runtime-verification"
@@ -20545,14 +20307,6 @@
       "proof": "zero-static-inbound-needs-runtime-verification"
     },
     {
-      "file": "frontend/src/components/PromoBanner.jsx",
-      "category": "frontend-component",
-      "size": 2564,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
       "file": "frontend/src/components/influencer/EarningsTable.jsx",
       "category": "frontend-component",
       "size": 2548,
@@ -20649,14 +20403,6 @@
       "proof": "zero-static-inbound-needs-runtime-verification"
     },
     {
-      "file": "frontend/src/components/home/AnimatedSection.jsx",
-      "category": "frontend-component",
-      "size": 1917,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
       "file": "backend/src/services/__tests__/campaign-finance-domain.test.js",
       "category": "test",
       "size": 1598,
@@ -20681,9 +20427,9 @@
       "proof": "zero-static-inbound-needs-runtime-verification"
     },
     {
-      "file": "frontend/src/config/queryConfig.js",
-      "category": "source",
-      "size": 1520,
+      "file": "frontend/src/components/home/RippleButton.jsx",
+      "category": "frontend-component",
+      "size": 1437,
       "inbound": [],
       "isEntry": false,
       "proof": "zero-static-inbound-needs-runtime-verification"
@@ -20732,14 +20478,6 @@
       "file": "backend/src/services/__tests__/marketplace-settlement-domain.test.js",
       "category": "test",
       "size": 1146,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
-      "file": "frontend/src/components/DynamicFieldRenderer.jsx",
-      "category": "frontend-component",
-      "size": 968,
       "inbound": [],
       "isEntry": false,
       "proof": "zero-static-inbound-needs-runtime-verification"
@@ -20809,14 +20547,6 @@
       "proof": "zero-static-inbound-needs-runtime-verification"
     },
     {
-      "file": "frontend/src/components/home/CategoryIconRail.jsx",
-      "category": "frontend-component",
-      "size": 54,
-      "inbound": [],
-      "isEntry": false,
-      "proof": "zero-static-inbound-needs-runtime-verification"
-    },
-    {
       "file": "frontend/src/components/Sidebar.jsx",
       "category": "frontend-component",
       "size": 46,
@@ -20873,11 +20603,9 @@
       {
         "package": "@tanstack/react-query",
         "version": "^5.32.0",
-        "importCount": 1,
-        "importedBy": [
-          "frontend/src/config/queryConfig.js"
-        ],
-        "status": "referenced"
+        "importCount": 0,
+        "importedBy": [],
+        "status": "no-static-source-import"
       },
       {
         "package": "@types/react",
@@ -20955,15 +20683,12 @@
       {
         "package": "framer-motion",
         "version": "^12.38.0",
-        "importCount": 8,
+        "importCount": 5,
         "importedBy": [
-          "frontend/src/components/HeroSlider.jsx",
-          "frontend/src/components/home/AnimatedSection.jsx",
           "frontend/src/components/home/RippleButton.jsx",
           "frontend/src/components/product-images/ImagePreviewGrid.jsx",
           "frontend/src/components/ProductCard.jsx",
           "frontend/src/components/ProductCarousel.jsx",
-          "frontend/src/components/PromoBanner.jsx",
           "frontend/src/pages/AdminHomepageContainersPage.jsx"
         ],
         "status": "referenced"
@@ -20978,7 +20703,7 @@
       {
         "package": "lucide-react",
         "version": "^1.8.0",
-        "importCount": 71,
+        "importCount": 68,
         "importedBy": [
           "frontend/src/components/campaign/BudgetSummaryPanel.jsx",
           "frontend/src/components/campaign/CampaignPaymentModal.jsx",
@@ -20990,7 +20715,6 @@
           "frontend/src/components/FbtBundleSection.jsx",
           "frontend/src/components/Footer.jsx",
           "frontend/src/components/GalleryFullscreenModal.jsx",
-          "frontend/src/components/HeroSlider.jsx",
           "frontend/src/components/homepage/DynamicHomepageRenderer.jsx",
           "frontend/src/components/influencer-registration/WizardProgress.jsx",
           "frontend/src/components/Layout.jsx",
@@ -20999,7 +20723,8 @@
           "frontend/src/components/product-images/DraggableImageCard.jsx",
           "frontend/src/components/product-images/ImageUploadZone.jsx",
           "frontend/src/components/ProductCard.jsx",
-          "frontend/src/components/ProductCarousel.jsx"
+          "frontend/src/components/ProductCarousel.jsx",
+          "frontend/src/components/ProductImageGallery.jsx"
         ],
         "status": "referenced"
       },
@@ -21013,7 +20738,7 @@
       {
         "package": "react",
         "version": "^19.2.4",
-        "importCount": 229,
+        "importCount": 220,
         "importedBy": [
           "frontend/src/App.jsx",
           "frontend/src/components/AddressModal.jsx",
@@ -21025,7 +20750,6 @@
           "frontend/src/components/AdminPayoutAccountPanel.jsx",
           "frontend/src/components/AsyncMultiSelect.jsx",
           "frontend/src/components/AuthSessionBootstrap.jsx",
-          "frontend/src/components/BannerCarousel.jsx",
           "frontend/src/components/campaign/BudgetSummaryPanel.jsx",
           "frontend/src/components/campaign/CampaignPaymentModal.jsx",
           "frontend/src/components/campaign/EscrowStatusTracker.jsx",
@@ -21033,8 +20757,9 @@
           "frontend/src/components/CancelOrderModal.jsx",
           "frontend/src/components/CartDrawer.jsx",
           "frontend/src/components/CategoryNavigation.jsx",
-          "frontend/src/components/commerce/DynamicPriceBreakdown.jsx",
-          "frontend/src/components/commerce/InlineToast.jsx"
+          "frontend/src/components/commerce/InlineToast.jsx",
+          "frontend/src/components/commerce/PriceBreakdown.jsx",
+          "frontend/src/components/DateRangePicker.jsx"
         ],
         "status": "referenced"
       },
@@ -21061,11 +20786,9 @@
       {
         "package": "react-intersection-observer",
         "version": "^10.0.3",
-        "importCount": 1,
-        "importedBy": [
-          "frontend/src/components/home/AnimatedSection.jsx"
-        ],
-        "status": "referenced"
+        "importCount": 0,
+        "importedBy": [],
+        "status": "no-static-source-import"
       },
       {
         "package": "react-rnd",
@@ -21077,14 +20800,13 @@
       {
         "package": "react-router-dom",
         "version": "^7.14.0",
-        "importCount": 123,
+        "importCount": 120,
         "importedBy": [
           "frontend/src/App.jsx",
           "frontend/src/components/AdminLayout.jsx",
           "frontend/src/components/BackButton.jsx",
           "frontend/src/components/CartDrawer.jsx",
           "frontend/src/components/finance/FinanceComponents.jsx",
-          "frontend/src/components/HeroSlider.jsx",
           "frontend/src/components/homepage/DynamicHomepageRenderer.jsx",
           "frontend/src/components/Layout.jsx",
           "frontend/src/components/PaymentTable.jsx",
@@ -21098,7 +20820,8 @@
           "frontend/src/components/SearchBar.jsx",
           "frontend/src/components/seller/SellerNavigation.jsx",
           "frontend/src/components/sidebar/Sidebar.jsx",
-          "frontend/src/components/sidebar/SidebarItem.jsx"
+          "frontend/src/components/sidebar/SidebarItem.jsx",
+          "frontend/src/components/sidebar/SidebarSection.jsx"
         ],
         "status": "referenced"
       },

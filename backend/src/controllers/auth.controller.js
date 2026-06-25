@@ -20,15 +20,17 @@ function cookieOptions(maxAgeMs) {
 
 function setSessionCookies(res, result) {
   if (!result?.refreshToken) return;
+  const accessMaxAgeMs = Number(process.env.JWT_ACCESS_TTL_MINUTES || 15) * 60 * 1000;
   const refreshMaxAgeMs = Number(process.env.JWT_REFRESH_TTL_DAYS || 7) * 24 * 60 * 60 * 1000;
-  res.clearCookie("accessToken", cookieOptions(0));
+  if (result.accessToken || result.token) {
+    res.cookie("accessToken", result.accessToken || result.token, cookieOptions(accessMaxAgeMs));
+  }
   res.cookie("refreshToken", result.refreshToken, cookieOptions(refreshMaxAgeMs));
 }
 
 function publicAuthPayload(result) {
   return {
     user: result?.user || null,
-    accessToken: result?.accessToken || result?.token || null,
   };
 }
 

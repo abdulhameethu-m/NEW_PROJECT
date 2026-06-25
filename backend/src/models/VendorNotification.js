@@ -41,8 +41,12 @@ const vendorNotificationSchema = new mongoose.Schema(
 );
 
 vendorNotificationSchema.index({ vendorId: 1, createdAt: -1 });
+vendorNotificationSchema.index({ vendorId: 1, isRead: 1, createdAt: -1 });
+vendorNotificationSchema.index({ vendorId: 1, type: 1, createdAt: -1 });
 
 module.exports = {
-  VendorNotification: mongoose.model("VendorNotification", vendorNotificationSchema),
+  VendorNotification:
+    mongoose.models.VendorNotification ||
+    mongoose.model("VendorNotification", vendorNotificationSchema),
   VENDOR_NOTIFICATION_TYPE,
 };

@@ -7,7 +7,11 @@ const CSRF_HEADER_NAME = "x-csrf-token";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 function getSecret() {
-  return process.env.CSRF_SECRET || process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || "development-csrf-secret";
+  const secret = process.env.CSRF_SECRET || process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("Missing CSRF secret");
+  }
+  return secret || "development-csrf-secret";
 }
 
 function signToken(rawToken) {

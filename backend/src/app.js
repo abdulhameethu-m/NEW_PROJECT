@@ -12,6 +12,7 @@ const { requestLoggerStream, logger } = require("./utils/logger");
 const { notFound } = require("./middleware/notFound");
 const { errorHandler } = require("./middleware/errorHandler");
 const { csrfProtection } = require("./middleware/csrf");
+const { AppError } = require("./utils/AppError");
 
 const authRoutes = require("./routes/auth.routes");
 const vendorRoutes = require("./routes/vendor.routes");
@@ -88,6 +89,67 @@ function createLimiter({
   });
 }
 
+function deprecatedApiAlias(canonicalPath) {
+  return (_req, res, next) => {
+    res.setHeader("Deprecation", "true");
+    res.setHeader("Link", `<${canonicalPath}>; rel="successor-version"`);
+    next();
+  };
+}
+
+function apiTimingMiddleware(req, res, next) {
+  const startedAt = process.hrtime.bigint();
+  const writeHead = res.writeHead;
+
+  res.writeHead = function writeHeadWithServerTiming(...args) {
+    if (!res.headersSent) {
+      const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+      res.setHeader("Server-Timing", `app;dur=${durationMs.toFixed(1)}`);
+    }
+    return writeHead.apply(this, args);
+  };
+
+  res.on("finish", () => {
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    const slowApiLogMs = Number(process.env.SLOW_API_LOG_MS || 750);
+
+    if (req.originalUrl?.startsWith("/api/") && durationMs >= slowApiLogMs) {
+      logger.warn("Slow API request", {
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: res.statusCode,
+        durationMs: Math.round(durationMs),
+      });
+    }
+  });
+
+  next();
+}
+
+function hasDangerousMongoKey(value, seen = new WeakSet()) {
+  if (!value || typeof value !== "object") return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+
+  for (const [key, child] of Object.entries(value)) {
+    if (key.startsWith("$") || key.includes(".")) return true;
+    if (hasDangerousMongoKey(child, seen)) return true;
+  }
+  return false;
+}
+
+function rejectMongoOperatorInjection(req, _res, next) {
+  if (req.originalUrl?.startsWith("/api/webhooks/")) return next();
+  if (
+    hasDangerousMongoKey(req.body) ||
+    hasDangerousMongoKey(req.query) ||
+    hasDangerousMongoKey(req.params)
+  ) {
+    return next(new AppError("Invalid request payload", 400, "INVALID_REQUEST_PAYLOAD"));
+  }
+  return next();
+}
+
 function isDevelopmentLanOrigin(origin = "") {
   try {
     const url = new URL(origin);
@@ -116,6 +178,7 @@ function createApp() {
   app.disable("x-powered-by");
 
   app.use(helmet());
+  app.use(apiTimingMiddleware);
 
   const origins = (process.env.CORS_ORIGINS || [
     process.env.FRONTEND_URL,
@@ -221,6 +284,7 @@ function createApp() {
     })
   );
   app.use(express.urlencoded({ extended: true, limit: "25mb" }));
+  app.use(rejectMongoOperatorInjection);
   app.use(cookieParser());
   app.use(csrfProtection);
 
@@ -267,6 +331,10 @@ function createApp() {
   app.use("/api/influencer/social/verify", authLimiter);
   app.use("/api/auth/refresh", refreshLimiter);
   app.use("/api/auth/password-reset/request", passwordResetLimiter);
+  app.use("/api/auth/password-reset/confirm", passwordResetLimiter);
+  app.use("/api/auth/password-reset-otp/request", passwordResetLimiter);
+  app.use("/api/auth/password-reset-otp/verify", passwordResetLimiter);
+  app.use("/api/auth/forgot-username", passwordResetLimiter);
   app.use("/api/staff/auth/login", authLimiter);
   app.use("/api/staff/auth/refresh", authLimiter);
   app.use("/api/staff/auth/password-reset/request", authLimiter);
@@ -278,8 +346,8 @@ function createApp() {
 
   app.use("/api/auth", authRoutes);
   app.use("/api/vendor", vendorRoutes);
-  app.use("/api/vendor-store", vendorStorefrontRoutes);
   app.use("/api/vendor-stores", vendorStorefrontRoutes);
+  app.use("/api/vendor-store", deprecatedApiAlias("/api/vendor-stores"), vendorStorefrontRoutes);
   app.use("/api/vendors", vendorPublicRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/products", productRoutes);
@@ -287,7 +355,7 @@ function createApp() {
   app.use("/api/orders", orderRoutes);
   app.use("/api/checkout", checkoutRoutes);
   app.use("/api/payments", paymentRoutes);
-  app.use("/api/payment", paymentRoutes);
+  app.use("/api/payment", deprecatedApiAlias("/api/payments"), paymentRoutes);
   app.use("/api/payouts", payoutRoutes);
   app.use("/api/delivery", deliveryRoutes);
   app.use("/api/shipping", shippingRoutes);

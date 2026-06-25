@@ -18,11 +18,7 @@ const notificationService = require("./notification.service");
 const { InfluencerProfile } = require("../modules/influencer/model");
 const { emitDomainEvent } = require("../modules/events/event-bus");
 const { ApiError } = require("../utils/ApiError");
-
-function money(value) {
-  const number = Number(value || 0);
-  return Number.isFinite(number) ? Number(number.toFixed(2)) : 0;
-}
+const { roundMoney: money } = require("../modules/shared/helpers");
 
 function withSession(query, session) {
   return session ? query.session(session) : query;

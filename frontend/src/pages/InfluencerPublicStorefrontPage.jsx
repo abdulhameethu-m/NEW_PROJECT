@@ -73,6 +73,15 @@ function activeTabFromRoute(tab = "") {
   return TABS.some(([key]) => key === tab) ? tab : "storefront";
 }
 
+function safeJsonLd(value = {}) {
+  return JSON.stringify(value || {})
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 function mediaOf(item = {}) {
   return resolveApiAssetUrl(item.media?.coverImage || item.media?.thumbnail || item.media?.bannerImage || item.media?.[0]?.url || item.thumbnailUrl || item.videoUrl || "");
 }
@@ -1152,7 +1161,7 @@ export function InfluencerPublicStorefrontPage() {
     <>
     <PublicStoreNav data={data} search={search} setSearch={setSearch} />
     <main className="mx-auto max-w-[1440px] space-y-5 px-4 py-5">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data.seo?.structuredData || {}) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(data.seo?.structuredData) }} />
       {actionStatus ? <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200">{actionStatus}</div> : null}
       <div className="flex flex-col gap-5 lg:flex-row">
         <Sidebar data={data} following={following} followBusy={followBusy} onFollow={toggleFollow} onShare={handleShareProfile} canEdit={canEdit} />

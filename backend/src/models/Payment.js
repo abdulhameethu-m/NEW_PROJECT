@@ -215,8 +215,10 @@ async function ensurePaymentIndexes() {
   await PaymentModel.syncIndexes();
 }
 
+const PaymentModel = mongoose.models.Payment || mongoose.model("Payment", paymentSchema);
+
 module.exports = {
-  Payment: mongoose.model("Payment", paymentSchema),
+  Payment: PaymentModel,
   PAYMENT_METHODS,
   PAYMENT_STATUS,
   FULFILLMENT_STATUS,

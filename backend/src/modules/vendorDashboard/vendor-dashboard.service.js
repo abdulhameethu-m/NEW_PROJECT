@@ -725,7 +725,7 @@ class VendorDashboardService {
     if (query.isRead != null) filter.isRead = query.isRead === "true";
 
     const [notifications, total, unreadCount] = await Promise.all([
-      VendorNotification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      VendorNotification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       VendorNotification.countDocuments(filter),
       VendorNotification.countDocuments({ vendorId: vendor._id, isRead: false }),
     ]);

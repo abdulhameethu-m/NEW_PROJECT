@@ -9,14 +9,21 @@ const vendorModuleService = require("../services/vendorModule.service");
 
 function getTokenFromReq(req) {
   const header = req.headers.authorization || "";
-  if (header.startsWith("Bearer ")) return header.slice("Bearer ".length).trim();
+  if (header.startsWith("Bearer ")) {
+    throw new AppError("Bearer token authentication has been removed", 410, "LEGACY_AUTH_REMOVED");
+  }
   if (req.cookies?.accessToken) return req.cookies.accessToken;
   if (req.cookies?.staffAccessToken) return req.cookies.staffAccessToken;
   return null;
 }
 
 async function adminWorkspaceAuthRequired(req, res, next) {
-  const token = getTokenFromReq(req);
+  let token;
+  try {
+    token = getTokenFromReq(req);
+  } catch (error) {
+    return next(error);
+  }
   if (!token) {
     logger.warn("Auth request without token", { path: req.path, method: req.method });
     return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
