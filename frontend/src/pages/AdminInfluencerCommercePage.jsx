@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useMemo, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import {
   AlertTriangle,
@@ -297,6 +297,9 @@ export function AdminInfluencerCommercePage() {
   const [filters, setFilters] = useState(defaultFilters);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
+  // State updates do not disable a button until React renders again. Keep a
+  // synchronous guard as well so rapid clicks cannot submit a release twice.
+  const inFlightActions = useRef(new Set());
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [data, setData] = useState({});
@@ -372,6 +375,8 @@ export function AdminInfluencerCommercePage() {
   }, [load]);
 
   const runAction = useCallback(async (id, action, successMessage) => {
+    if (inFlightActions.current.has(id)) return false;
+    inFlightActions.current.add(id);
     setBusyId(id);
     setMessage("");
     setError("");
@@ -384,6 +389,7 @@ export function AdminInfluencerCommercePage() {
       setError(err?.response?.data?.message || err?.message || "Action failed.");
       return false;
     } finally {
+      inFlightActions.current.delete(id);
       setBusyId("");
     }
   }, [load]);

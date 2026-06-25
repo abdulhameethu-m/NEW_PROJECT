@@ -24,6 +24,10 @@ let refreshPromise = null;
 let refreshUnavailable = false;
 
 export async function refreshAuthSessionRequest() {
+  const authState = useAuthStore.getState();
+  if (!authState.isAuthenticated) {
+    authState.setRefreshing?.();
+  }
   refreshPromise = refreshPromise || api.post("/api/auth/refresh", {});
   try {
     const response = await refreshPromise;
@@ -63,7 +67,7 @@ api.interceptors.response.use(
     }
 
     if (status === 401 && originalRequest && !originalRequest._retry) {
-      const { setAuth, logout } = useAuthStore.getState();
+      const { setAuth, logout, markGuest } = useAuthStore.getState();
 
       if (refreshUnavailable) {
         logout();
@@ -78,6 +82,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         refreshUnavailable = true;
+        markGuest?.();
         logout();
         return Promise.reject(refreshError);
       }

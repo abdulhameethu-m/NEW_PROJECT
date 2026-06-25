@@ -6,8 +6,10 @@ process.env.RAZORPAY_KEY_SECRET ||= "campaignEscrowTestSecret123";
 
 const { Campaign } = require("../../modules/campaign/model");
 const { InfluencerLedger, InfluencerWallet } = require("../../modules/commission/models");
+const { DeliverablePayout } = require("../../modules/campaign/executionModel");
 const CampaignPaymentRelease = require("../../models/CampaignPaymentRelease");
 const CampaignPaymentOrder = require("../../models/CampaignPaymentOrder");
+const CampaignDeliverableFunding = require("../../models/CampaignDeliverableFunding");
 const { AppError } = require("../../utils/AppError");
 const { ApiError } = require("../../utils/ApiError");
 const campaignEscrowService = require("../campaign-escrow.service");
@@ -77,8 +79,9 @@ test("escrow pricing rejects non-fixed campaign models", async () => {
   }
 });
 
-test("campaign releases use the influencer ledger and unique deliverable protection", () => {
+test("campaign release, payout, and funding models keep their own idempotency boundaries", () => {
   assert.equal(CampaignPaymentRelease.schema.path("walletTransactionId").options.ref, "InfluencerLedger");
+  assert.equal(CampaignPaymentRelease.schema.path("releaseKey").options.minlength, 64);
   assert.equal(
     CampaignPaymentRelease.schema.path("deliverables.deliverableId").options.ref,
     "CampaignDeliverable"
@@ -87,6 +90,18 @@ test("campaign releases use the influencer ledger and unique deliverable protect
     ([fields, options]) => fields["deliverables.deliverableId"] === 1 && options.unique
   );
   assert.ok(uniqueIndex);
+  const releaseKeyIndex = CampaignPaymentRelease.schema.indexes().find(
+    ([fields, options]) => fields.releaseKey === 1 && options.unique && options.sparse
+  );
+  assert.ok(releaseKeyIndex);
+  const payoutIndex = DeliverablePayout.schema.indexes().find(
+    ([fields, options]) => fields.deliverableId === 1 && fields.influencerId === 1 && options.unique
+  );
+  assert.ok(payoutIndex);
+  const fundingIndex = CampaignDeliverableFunding.schema.indexes().find(
+    ([fields, options]) => fields.deliverableId === 1 && options.unique && options.sparse
+  );
+  assert.ok(fundingIndex);
   assert.ok(InfluencerLedger.schema.path("source").enumValues.includes("CAMPAIGN"));
   assert.ok(InfluencerWallet.schema.path("creditedCampaignReleaseIds"));
 });

@@ -378,7 +378,7 @@ class ReelService {
         if (!campaign || !campaignAllowsInfluencerContent(campaign, profile._id) || !campaignAcceptsCreatorContent(campaign)) {
           throw new AppError("Campaign does not allow product tagging", 403, "FORBIDDEN");
         }
-        if (payload.action === "publish" && campaign.paymentType === "commission" && !campaign.commissionWorkflow?.publishEnabled) {
+        if (payload.action === "publish" && ["commission", "hybrid"].includes(campaign.paymentType) && !campaign.commissionWorkflow?.publishEnabled) {
           throw new AppError("Content must be approved before publishing this commission campaign", 409, "CONTENT_APPROVAL_REQUIRED");
         }
         const allowedProducts = new Set((campaign.productIds || []).map(String));

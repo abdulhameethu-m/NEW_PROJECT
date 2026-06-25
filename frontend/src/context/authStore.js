@@ -18,6 +18,9 @@ clearLegacyAuthStorage();
 export const useAuthStore = create((set, get) => ({
   user: null,
   accessToken: null,
+  authStatus: "checking",
+  isAuthResolved: false,
+  isRefreshing: true,
   isAuthenticated: false,
   
   setAuth: ({ user, accessToken, token }) => {
@@ -25,21 +28,54 @@ export const useAuthStore = create((set, get) => ({
     const nextState = {
       user: user || null,
       accessToken: user ? (providedAccessToken !== undefined ? providedAccessToken : get().accessToken) : null,
+      authStatus: user ? "authenticated" : "guest",
+      isAuthResolved: true,
+      isRefreshing: false,
       isAuthenticated: Boolean(user),
     };
     set(nextState);
     clearLegacyAuthStorage();
   },
+
+  setRefreshing: () => {
+    set({ authStatus: "refreshing", isAuthResolved: false, isRefreshing: true });
+  },
+
+  markGuest: () => {
+    set({
+      user: null,
+      accessToken: null,
+      authStatus: "guest",
+      isAuthResolved: true,
+      isRefreshing: false,
+      isAuthenticated: false,
+    });
+    clearLegacyAuthStorage();
+  },
   
   logout: () => {
-    set({ user: null, accessToken: null, isAuthenticated: false });
+    set({
+      user: null,
+      accessToken: null,
+      authStatus: "guest",
+      isAuthResolved: true,
+      isRefreshing: false,
+      isAuthenticated: false,
+    });
     useAuthCartStore.getState().clearCart();
     clearLegacyAuthStorage();
     resetDarkModePreference();
   },
 
   setUser: (user) => {
-    const nextState = { ...get(), user: user || null, isAuthenticated: Boolean(user) };
+    const nextState = {
+      ...get(),
+      user: user || null,
+      authStatus: user ? "authenticated" : "guest",
+      isAuthResolved: true,
+      isRefreshing: false,
+      isAuthenticated: Boolean(user),
+    };
     set(nextState);
     clearLegacyAuthStorage();
   },

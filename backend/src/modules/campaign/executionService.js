@@ -138,7 +138,7 @@ function campaignBudget(campaign = {}) {
 }
 
 async function assertFixedContentEnabled(campaign) {
-  if (campaign.paymentType !== "fixed") return;
+  if (!["fixed", "hybrid"].includes(campaign.paymentType)) return;
   const escrow = await CampaignEscrowWallet.findOne({
     campaignId: campaign._id,
     vendorId: campaign.vendorId?._id || campaign.vendorId,
@@ -170,7 +170,7 @@ class CampaignExecutionService {
     if (existing.length) return existing;
     const rows = deriveDeliverables(campaign);
     if (!rows.length) return [];
-    const allocations = campaign.paymentType === "fixed"
+    const allocations = ["fixed", "hybrid"].includes(campaign.paymentType)
       ? await CampaignDeliverableFunding.find({ campaignId: campaign._id }).sort({ allocationKey: 1 })
       : [];
     const created = await CampaignDeliverable.insertMany(rows.map((row, index) => ({
@@ -254,7 +254,7 @@ class CampaignExecutionService {
         endDate: campaign.deadline || campaign.marketplace?.applicationDeadline || null,
         status: campaign.state,
         fixedPaymentWorkflow: campaign.fixedPaymentWorkflow || null,
-        contentEnabled: paymentType !== "fixed" || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled),
+        contentEnabled: !["fixed", "hybrid"].includes(paymentType) || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled),
       },
       progress: progress(deliverables),
       payout: {
@@ -341,7 +341,7 @@ class CampaignExecutionService {
       const allDeliverables = await CampaignDeliverable.find({ campaignId: campaign._id }).lean();
       const totalDeliverableValue = money(allDeliverables.reduce((sum, row) => sum + Number(row.totalPrice || 0), 0));
       const fixedFee = money(campaign.fixedFee || campaign.pricing?.fixedCost || 0);
-      const funding = campaign.paymentType === "fixed"
+      const funding = ["fixed", "hybrid"].includes(campaign.paymentType)
         ? await CampaignDeliverableFunding.findOne({ campaignId: campaign._id, deliverableId: deliverable._id }).lean()
         : null;
       const approvedAmount = funding
@@ -350,7 +350,7 @@ class CampaignExecutionService {
         ? money((Number(deliverable.totalPrice || 0) / totalDeliverableValue) * (fixedFee || totalDeliverableValue))
         : deliverable.totalPrice;
       submission.status = "approved";
-      deliverable.status = campaign.paymentType === "fixed" ? "approved" : "completed";
+      deliverable.status = ["fixed", "hybrid"].includes(campaign.paymentType) ? "approved" : "completed";
       deliverable.approvalStatus = "approved";
       deliverable.completionStatus = "completed";
       deliverable.paymentEligibility = "eligible";
@@ -373,7 +373,7 @@ class CampaignExecutionService {
         },
         { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
       );
-      if (campaign.paymentType === "fixed") {
+      if (["fixed", "hybrid"].includes(campaign.paymentType)) {
         campaign.fixedPaymentWorkflow.status = "vendor_approved";
         campaign.fixedPaymentWorkflow.lastTransitionAt = new Date();
         await campaign.save();
@@ -381,7 +381,7 @@ class CampaignExecutionService {
           module: "FINANCE",
           subModule: "INFLUENCER_COMMERCE",
           type: "INFLUENCER_COMMERCE",
-          title: "Fixed campaign release ready",
+          title: `${campaign.paymentType === "hybrid" ? "Hybrid" : "Fixed"} campaign release ready`,
           message: `${campaign.title || "Campaign"} has an approved deliverable awaiting escrow release.`,
           referenceId: campaign._id,
           meta: {
@@ -391,7 +391,7 @@ class CampaignExecutionService {
           },
         }, "influencerCommerce.read").catch(() => null);
       }
-      if (campaign.paymentType === "commission") {
+      if (["commission", "hybrid"].includes(campaign.paymentType)) {
         campaign.commissionWorkflow = {
           ...(campaign.commissionWorkflow || {}),
           contentEnabled: true,

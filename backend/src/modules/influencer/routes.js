@@ -4,9 +4,11 @@ const multer = require("multer");
 const { authOptional, authRequired, requireRole } = require("../../middleware/auth");
 const { validate } = require("../../middleware/validate");
 const controller = require("./controller");
+const campaignFinanceController = require("../campaignFinance/controller");
 const { INFLUENCER_CATEGORIES, INFLUENCER_STATES } = require("../shared/constants");
 
 const router = express.Router();
+router.get("/finance/campaign-earnings", authRequired, requireRole("influencer"), campaignFinanceController.influencer);
 const proofUpload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (_req, file, cb) => {

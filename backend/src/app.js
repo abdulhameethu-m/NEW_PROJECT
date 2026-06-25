@@ -57,9 +57,11 @@ const escrowRoutes = require("./modules/campaign/escrow.routes");
 const reelRoutes = require("./modules/reel/routes");
 const trackingRoutes = require("./modules/tracking/routes");
 const commissionRoutes = require("./modules/commission/routes");
+const campaignFinanceRoutes = require("./modules/campaignFinance/routes");
+const campaignFinanceController = require("./modules/campaignFinance/controller");
 const recommendationRoutes = require("./modules/recommendation/routes");
 const analyticsRoutes = require("./modules/analytics/routes");
-const { authOptional } = require("./middleware/auth");
+const { authOptional, authRequired, requireRole } = require("./middleware/auth");
 const { influencerCommerceGate } = require("./middleware/influencerCommerceGate");
 const { assertNoProductionBootstrapRoutes } = require("./utils/bootstrapRouteScanner");
 
@@ -329,6 +331,14 @@ function createApp() {
   app.use("/api/reel", authOptional, influencerCommerceGate, reelRoutes);
   app.use("/api/tracking", authOptional, influencerCommerceGate, trackingRoutes);
   app.use("/api/commission", authOptional, influencerCommerceGate, commissionRoutes);
+  app.use("/api/campaign-finance", authOptional, influencerCommerceGate, campaignFinanceRoutes);
+  app.get(
+    "/api/campaigns/:campaignId/finance",
+    authRequired,
+    requireRole("vendor", "influencer", "admin", "super_admin", "support_admin", "finance_admin"),
+    influencerCommerceGate,
+    campaignFinanceController.campaign
+  );
   app.use("/api/recommendations", recommendationRoutes);
   app.use("/api", analyticsRoutes);
 

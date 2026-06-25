@@ -8,10 +8,11 @@ const { issueCsrfToken } = require("../middleware/csrf");
 
 function cookieOptions(maxAgeMs) {
   const secure = process.env.NODE_ENV === "production";
+  const sameSite = process.env.AUTH_COOKIE_SAMESITE || (secure ? "none" : "lax");
   return {
     httpOnly: true,
     secure,
-    sameSite: process.env.AUTH_COOKIE_SAMESITE || "lax",
+    sameSite,
     path: "/",
     maxAge: maxAgeMs,
   };

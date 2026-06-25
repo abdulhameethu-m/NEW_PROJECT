@@ -14,7 +14,24 @@ function errorHandler(err, req, res, next) {
   }
   if (err && err.code === 11000) {
     const field = Object.keys(err.keyPattern || err.keyValue || {})[0] || "record";
-    err = new AppError(`${field} already exists`, 409, "DUPLICATE_RECORD", { field });
+    const duplicateMessage = String(err.message || "");
+    const isPaymentReleaseDeliverable =
+      field === "deliverables.deliverableId"
+      // Older MongoDB index metadata can report only the final path segment.
+      // Scope that broad form to the release endpoint so funding allocation
+      // duplicate errors retain their normal, useful message.
+      || (field === "deliverableId" && /\/release-payment\//i.test(req.path || ""))
+      || /campaign_payment_releases.*deliverables\.deliverableId/i.test(duplicateMessage);
+    if (isPaymentReleaseDeliverable) {
+      err = new AppError(
+        "A payment release already exists for this deliverable. Refresh the release queue.",
+        409,
+        "DELIVERABLE_ALREADY_CLAIMED",
+        { field: "deliverableId" }
+      );
+    } else {
+      err = new AppError(`${field} already exists`, 409, "DUPLICATE_RECORD", { field });
+    }
   }
   if (err && err.name === "ValidationError") {
     err = new AppError("Validation failed", 400, "VALIDATION_ERROR", {

@@ -796,7 +796,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   const paymentModels = selectedCampaignType?.allowedPaymentModels?.length ? selectedCampaignType.allowedPaymentModels : rules.paymentModels;
   const selectedPaymentModel = paymentModels.find((model) => model.key === form.paymentType) || paymentModels[0];
   const fixedPaymentSummary = useMemo(() => {
-    if (form.paymentType !== "fixed") return null;
+    if (!["fixed", "hybrid"].includes(form.paymentType)) return null;
     return preview?.fundingSummary || {
       budgetAmount: Number(preview?.pricing?.fixedCost || form.fixedFee || 0),
       escrowAmount: Number(preview?.pricing?.fixedCost || form.fixedFee || 0),
@@ -810,7 +810,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     rules.fieldsByCombination[`${form.campaignType}:${form.paymentType}`] || []
   ), [rules.fieldsByCombination, form.campaignType, form.paymentType]);
   const dynamicNames = useMemo(() => fieldNames(dynamicFields), [dynamicFields]);
-  const allowsServiceSelection = form.paymentType === "commission" || dynamicNames.has("selectedServices") || dynamicNames.has("services");
+  const allowsServiceSelection = ["commission", "hybrid"].includes(form.paymentType) || dynamicNames.has("selectedServices") || dynamicNames.has("services");
   const handledDynamicNames = new Set([
     "fixedFee",
     "fixedAmount",
@@ -1013,7 +1013,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   function buildPayload(source = form) {
     const selectedServices = source.selectedServices.map(({ selectionKey, ...item }) => item);
     const deliverableCommissionRates = deliverableCommissionRatesFrom(source.selectedServices, source.commissionPercent);
-    const fallbackCommissionPercent = source.paymentType === "commission" && deliverableCommissionRates.length
+    const fallbackCommissionPercent = ["commission", "hybrid"].includes(source.paymentType) && deliverableCommissionRates.length
       ? Math.max(...deliverableCommissionRates.map((item) => Number(item.commissionPercentage || 0)))
       : Number(source.commissionPercent || 0);
     const dynamicFieldValues = {
@@ -1093,8 +1093,8 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     setPreview(null);
   }
 
-  const commissionNeedsDeliverables = form.paymentType === "commission" && !form.selectedServices.length;
-  const commissionNeedsRates = form.paymentType === "commission" && form.selectedServices.some((item) => Number(item.commissionPercentage || 0) <= 0);
+  const commissionNeedsDeliverables = ["commission", "hybrid"].includes(form.paymentType) && !form.selectedServices.length;
+  const commissionNeedsRates = ["commission", "hybrid"].includes(form.paymentType) && form.selectedServices.some((item) => Number(item.commissionPercentage || 0) <= 0);
   const canSubmit = !busy && form.title.trim() && form.productIds.length && form.campaignType && form.paymentType && !commissionNeedsDeliverables && !commissionNeedsRates && !previewError;
   const submitHelp = !form.title.trim()
     ? "Add a campaign title to continue."
@@ -1244,7 +1244,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
           <fieldset className="mt-5 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <FieldLabel>Creator Deliverables</FieldLabel>
-              {form.paymentType === "commission" ? (
+              {["commission", "hybrid"].includes(form.paymentType) ? (
                 <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                   Commission starts only for each published deliverable
                 </span>
@@ -1262,7 +1262,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                       const selectedItem = selectedPackage(service, pkg);
                       const selected = Boolean(selectedItem);
                       const price = packagePrice(pkg, service);
-                      const commissionMode = form.paymentType === "commission";
+                      const commissionMode = ["commission", "hybrid"].includes(form.paymentType);
                       return (
                         <div
                           key={packageKey(service, pkg)}
@@ -1358,7 +1358,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
             </div>
             <button type="submit" disabled={!canSubmit} className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
               <Send className="h-4 w-4" aria-hidden="true" />
-              {busy ? "Creating..." : form.paymentType === "fixed" ? "Send Invitation" : "Create Campaign"}
+              {busy ? "Creating..." : ["fixed", "hybrid"].includes(form.paymentType) ? "Send Invitation" : "Create Campaign"}
             </button>
           </div>
         </div>
@@ -1577,7 +1577,7 @@ export function VendorInfluencerPage() {
       return false;
     }
 
-    setMessage(campaign?.paymentType === "fixed"
+    setMessage(["fixed", "hybrid"].includes(campaign?.paymentType)
       ? "Campaign invitation sent. Escrow funding becomes available after the influencer accepts."
       : "Campaign synchronized with the influencer ecosystem.");
     await Promise.all([loadTab({ silent: true }), loadFoundation({ force: true })]).catch(() => {});
@@ -2516,7 +2516,9 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
               const paymentModel = campaign.paymentModel || campaign.paymentModelSnapshot || {};
               const attributionRule = campaign.attributionRule || {};
               const pricing = campaign.pricing || paymentModel.pricing || {};
-              const budgetValue = pricing.totalBudget || campaign.budget || campaign.fixedFee || 0;
+              const budgetValue = ["fixed", "hybrid"].includes(campaign.paymentType)
+                ? pricing.fixedCost || paymentModel.fixedFee || campaign.fixedFee || campaign.budget || 0
+                : pricing.totalBudget || campaign.budget || campaign.fixedFee || 0;
               const paymentLabel = paymentModel.label || statusText(campaign.paymentType || paymentModel.type);
               const attributionDays = attributionRule.attributionDays || campaign.attributionWindowDays;
               return (
@@ -2539,17 +2541,17 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
                       <button disabled={isBusy || isActive || isTerminal} onClick={() => onStatus(campaign, "activate")} className="rounded-lg border border-emerald-200 px-2 py-1 text-xs font-semibold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-900/50 dark:text-emerald-300">{isActive ? "Active" : "Activate"}</button>
                       <button disabled={isBusy || isPaused || isTerminal} onClick={() => onStatus(campaign, "pause")} className="rounded-lg border border-amber-200 px-2 py-1 text-xs font-semibold text-amber-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-900/50 dark:text-amber-300">{isCancelled ? "Cancelled" : isPaused ? "Paused" : "Pause"}</button>
                       <button disabled={isBusy || isTerminal} onClick={() => onStatus(campaign, "close")} className="rounded-lg border border-slate-200 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">{isCompleted ? "Closed" : isCancelled ? "Cancelled" : "Close"}</button>
-                      {campaign.paymentType === "fixed" && state === "accepted" && ["accepted_awaiting_funding", "funding_pending"].includes(campaign.fixedPaymentWorkflow?.status) ? (
+                      {["fixed", "hybrid"].includes(campaign.paymentType) && state === "accepted" && ["accepted_awaiting_funding", "funding_pending"].includes(campaign.fixedPaymentWorkflow?.status) ? (
                         <button disabled={busyId === `fund-${campaign._id}`} onClick={() => onFund(campaign)} className="rounded-lg bg-indigo-600 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
                           Fund Escrow
                         </button>
                       ) : null}
-                      {campaign.paymentType === "fixed" && campaign.fixedPaymentWorkflow?.status === "vendor_approved" ? (
+                      {["fixed", "hybrid"].includes(campaign.paymentType) && campaign.fixedPaymentWorkflow?.status === "vendor_approved" ? (
                         <span className="rounded-lg border border-indigo-200 px-2 py-1 text-xs font-semibold text-indigo-700 dark:border-indigo-900/50 dark:text-indigo-300">
                           Awaiting admin release
                         </span>
                       ) : null}
-                      {campaign.paymentType === "fixed" && campaign.fixedPaymentWorkflow?.contentEnabled && !isTerminal ? (
+                      {["fixed", "hybrid"].includes(campaign.paymentType) && campaign.fixedPaymentWorkflow?.contentEnabled && !isTerminal ? (
                         <button disabled={busyId === `refund-${campaign._id}`} onClick={() => onRefund(campaign)} className="rounded-lg border border-rose-200 px-2 py-1 text-xs font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-300">
                           Request Refund
                         </button>

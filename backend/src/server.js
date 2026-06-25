@@ -5,6 +5,7 @@ const { createApp } = require("./app");
 const { connectDb } = require("./config/db");
 const { logger } = require("./utils/logger");
 const { ensurePaymentIndexes } = require("./models/Payment");
+const { ensureCampaignPaymentReleaseIndexes } = require("./scripts/ensureCampaignPaymentReleaseIndexes");
 const { ensurePredefinedStaffRoles } = require("./modules/staff/services/role.service");
 const { initializeSettlementScheduler, shutdown } = require("./jobs/settlement.job");
 const { ensureDefaultPricingCategories } = require("./services/pricing-category.service");
@@ -20,6 +21,7 @@ const paymentService = require("./services/payment.service");
 async function start() {
   await connectDb();
   await ensurePaymentIndexes();
+  await ensureCampaignPaymentReleaseIndexes();
   await ensurePredefinedStaffRoles();
   await ensureDefaultPricingCategories();
 

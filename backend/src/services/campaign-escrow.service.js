@@ -33,10 +33,81 @@ function platformFeePercentageFromSnapshot(feeLines = []) {
   return money(platformLines.reduce((sum, line) => sum + Number(line.percentageValue || 0), 0));
 }
 
+function hasFixedRewardCampaign(campaign) {
+  return ["fixed", "hybrid"].includes(String(campaign?.paymentType || "").toLowerCase());
+}
+
+function sortedDeliverableIds(deliverableIds = []) {
+  return [...new Set((deliverableIds || []).map((id) => String(id)).filter(Boolean))].sort();
+}
+
+function buildReleaseKey(campaignId, influencerId, deliverableIds) {
+  return crypto
+    .createHash("sha256")
+    .update([String(campaignId), String(influencerId), ...sortedDeliverableIds(deliverableIds)].join(":"))
+    .digest("hex");
+}
+
+function releasedDeliverableIds(paymentRelease) {
+  return sortedDeliverableIds((paymentRelease?.deliverables || []).map((row) => row.deliverableId));
+}
+
+function releaseContainsDeliverables(paymentRelease, deliverableIds) {
+  const claimedIds = new Set(releasedDeliverableIds(paymentRelease));
+  return sortedDeliverableIds(deliverableIds).every((id) => claimedIds.has(id));
+}
+
+function releaseMatchesExactDeliverables(paymentRelease, deliverableIds) {
+  const claimedIds = releasedDeliverableIds(paymentRelease);
+  const requestedIds = sortedDeliverableIds(deliverableIds);
+  return claimedIds.length === requestedIds.length && claimedIds.every((id, index) => id === requestedIds[index]);
+}
+
+function releaseResponse(paymentRelease, extra = {}) {
+  return {
+    releaseId: paymentRelease._id,
+    totalAmount: money(paymentRelease.totalAmount),
+    netAmount: money(paymentRelease.netAmount),
+    platformFee: money(paymentRelease.platformFeeAmount),
+    status: paymentRelease.status,
+    ...extra,
+  };
+}
+
 class CampaignEscrowService {
   standaloneReleaseEnabled() {
     if (process.env.NODE_ENV === "production") return false;
     return String(process.env.ALLOW_STANDALONE_ESCROW_RELEASES || "true").toLowerCase() !== "false";
+  }
+
+  async findReleaseClaim(campaignId, influencerId, deliverableIds, session = null) {
+    const releaseKey = buildReleaseKey(campaignId, influencerId, deliverableIds);
+    return withSession(
+      CampaignPaymentRelease.findOne({
+        campaignId,
+        $or: [
+          { releaseKey },
+          { "deliverables.deliverableId": { $in: deliverableIds } },
+        ],
+      }).sort({ createdAt: -1 }),
+      session
+    );
+  }
+
+  assertReleaseClaimMatches(paymentRelease, campaignId, influencerId, deliverableIds) {
+    if (!paymentRelease) return;
+    if (
+      String(paymentRelease.campaignId) !== String(campaignId)
+      || String(paymentRelease.influencerId) !== String(influencerId)
+      || !releaseContainsDeliverables(paymentRelease, deliverableIds)
+    ) {
+      throw new ApiError(
+        409,
+        "One or more deliverables are already attached to a different payment release",
+        "DELIVERABLE_ALREADY_CLAIMED",
+        { deliverableIds: sortedDeliverableIds(deliverableIds), releaseId: paymentRelease._id }
+      );
+    }
   }
 
   async calculateCampaignCost(campaignId, vendorId = null) {
@@ -45,8 +116,8 @@ class CampaignEscrowService {
     if (vendorId && String(campaign.vendorId) !== String(vendorId)) {
       throw new ApiError(403, "Campaign does not belong to this vendor");
     }
-    if (campaign.paymentType !== "fixed") {
-      throw new ApiError(400, "Campaign payment model is not fixed payment");
+    if (!hasFixedRewardCampaign(campaign)) {
+      throw new ApiError(400, "Campaign payment model is not fixed payment or hybrid");
     }
     const budgetAmount = money(campaign.pricing?.fixedCost || campaign.fixedFee);
     if (budgetAmount <= 0) {
@@ -67,8 +138,8 @@ class CampaignEscrowService {
     if (String(campaign.vendorId) !== String(vendorId)) {
       throw new ApiError(403, "Campaign does not belong to this vendor");
     }
-    if (campaign.paymentType !== "fixed") {
-      throw new ApiError(400, "Campaign payment model is not fixed payment");
+    if (!hasFixedRewardCampaign(campaign)) {
+      throw new ApiError(400, "Campaign payment model has no fixed reward escrow");
     }
     if (
       campaign.state !== "accepted" ||
@@ -105,7 +176,7 @@ class CampaignEscrowService {
     });
     await paymentOrder.save();
     await Campaign.updateOne(
-      { _id: campaignId, paymentType: "fixed", state: "accepted" },
+      { _id: campaignId, paymentType: { $in: ["fixed", "hybrid"] }, state: "accepted" },
       {
         $set: {
           "fixedPaymentWorkflow.status": "funding_pending",
@@ -179,8 +250,8 @@ class CampaignEscrowService {
     });
 
     const campaign = await Campaign.findById(paymentOrder.campaignId).lean();
-    if (!campaign || campaign.paymentType !== "fixed") {
-      throw new ApiError(409, "Fixed payment campaign not found for escrow funding");
+    if (!campaign || !hasFixedRewardCampaign(campaign)) {
+      throw new ApiError(409, "Fixed-reward campaign not found for escrow funding");
     }
     if (!["accepted", "active"].includes(campaign.state)) {
       throw new ApiError(409, "Escrow cannot be funded before the influencer accepts the campaign");
@@ -292,7 +363,7 @@ class CampaignEscrowService {
         campaignId: campaign._id,
         vendorId: paymentOrder.vendorId,
         paymentOrderId: paymentOrder._id,
-        paymentModel: "fixed",
+        paymentModel: campaign.paymentType,
         platformFeePercentage: platformFeePercentageFromSnapshot(paymentOrder.feeConfigurationSnapshot),
         platformFeeAmount: paymentOrder.platformFeeAmount,
         gatewayFeeAmount: paymentOrder.gatewayFeeAmount,
@@ -380,6 +451,38 @@ class CampaignEscrowService {
       throw new ApiError(400, "Valid deliverable IDs are required");
     }
 
+    // Read this before opening the transaction. It gives retries a stable,
+    // domain-level result and avoids relying on a Mongo E11000 response for
+    // normal release retries.
+    const priorRelease = await this.findReleaseClaim(campaignId, influencerId, uniqueIds);
+    if (priorRelease) {
+      this.assertReleaseClaimMatches(priorRelease, campaignId, influencerId, uniqueIds);
+      if (priorRelease.status === "settled") {
+        return {
+          ...releaseResponse(priorRelease, { idempotent: true }),
+          message: "Approved earnings were already released to the influencer wallet",
+        };
+      }
+      if (releaseMatchesExactDeliverables(priorRelease, uniqueIds)) {
+        // A prior standalone attempt can persist its release claim before a
+        // later operation fails. Resume that same claim instead of creating a
+        // second release or making an admin manually repair the records.
+        const recovered = await this.releasePaymentWithRecovery(campaignId, influencerId, uniqueIds, releasedBy);
+        return {
+          ...recovered,
+          message: recovered.idempotent
+            ? "Approved earnings were already released to the influencer wallet"
+            : "Existing payment release recovered and settled successfully",
+        };
+      }
+      throw new ApiError(
+        409,
+        "This deliverable belongs to a payment release that is already in progress. Refresh the release queue.",
+        "RELEASE_IN_PROGRESS",
+        { releaseId: priorRelease._id }
+      );
+    }
+
     const result = await withOptionalTransaction(async (session) => {
       if (!session) {
         if (!this.standaloneReleaseEnabled()) {
@@ -392,8 +495,8 @@ class CampaignEscrowService {
       }
       const campaign = await withSession(Campaign.findById(campaignId), session);
       if (!campaign) throw new ApiError(404, "Campaign not found");
-      if (campaign.paymentType !== "fixed") {
-        throw new ApiError(400, "Campaign is not a fixed payment campaign");
+      if (!hasFixedRewardCampaign(campaign)) {
+        throw new ApiError(400, "Campaign has no fixed reward to release");
       }
       if (String(campaign.influencerId) !== String(influencerId)) {
         throw new ApiError(400, "Influencer does not match this campaign");
@@ -408,6 +511,20 @@ class CampaignEscrowService {
       }), session);
       if (activeRefund) {
         throw new ApiError(409, "Campaign earnings cannot be released while a refund is pending");
+      }
+
+      const claimedRelease = await this.findReleaseClaim(campaignId, influencerId, uniqueIds, session);
+      if (claimedRelease) {
+        this.assertReleaseClaimMatches(claimedRelease, campaignId, influencerId, uniqueIds);
+        if (claimedRelease.status === "settled") {
+          return releaseResponse(claimedRelease, { idempotent: true });
+        }
+        throw new ApiError(
+          409,
+          "A payment release for these deliverables is already in progress. Refresh the release queue.",
+          "RELEASE_IN_PROGRESS",
+          { releaseId: claimedRelease._id }
+        );
       }
 
       const escrow = await withSession(CampaignEscrowWallet.findOne({ campaignId, vendorId }), session);
@@ -452,22 +569,36 @@ class CampaignEscrowService {
         throw new ApiError(400, `Insufficient escrow funds. Available: ${escrow.amountRemaining}, requested: ${totalReleaseAmount}`);
       }
 
-      const [paymentRelease] = await CampaignPaymentRelease.create([{
-        campaignId,
-        escrowWalletId: escrow._id,
-        vendorId,
-        influencerId,
-        deliverables: processedDeliverables,
-        totalAmount: totalReleaseAmount,
-        platformFeeAmount: 0,
-        netAmount: totalReleaseAmount,
-        status: "released",
-        approvedBy: releasedBy,
-        approvalReason: "Approved campaign deliverables",
-        approvedAt: new Date(),
-        releasedAt: new Date(),
-        partialRelease: totalReleaseAmount < money(escrow.budgetAmount),
-      }], { session: session || undefined });
+      let paymentRelease;
+      try {
+        [paymentRelease] = await CampaignPaymentRelease.create([{
+          campaignId,
+          escrowWalletId: escrow._id,
+          vendorId,
+          influencerId,
+          releaseKey: buildReleaseKey(campaignId, influencerId, uniqueIds),
+          deliverables: processedDeliverables,
+          totalAmount: totalReleaseAmount,
+          platformFeeAmount: 0,
+          netAmount: totalReleaseAmount,
+          status: "released",
+          approvedBy: releasedBy,
+          approvalReason: "Approved campaign deliverables",
+          approvedAt: new Date(),
+          releasedAt: new Date(),
+          partialRelease: totalReleaseAmount < money(escrow.budgetAmount),
+        }], { session: session || undefined });
+      } catch (error) {
+        if (error?.code !== 11000) throw error;
+        // A competing request won the unique index race. The transaction will
+        // roll back, but the caller still receives an actionable domain error.
+        throw new ApiError(
+          409,
+          "A payment release for one or more deliverables already exists. Refresh the release queue.",
+          "DELIVERABLE_ALREADY_CLAIMED",
+          { deliverableIds: sortedDeliverableIds(uniqueIds) }
+        );
+      }
 
       const updatedEscrow = await CampaignEscrowWallet.findOneAndUpdate(
         {
@@ -586,33 +717,35 @@ class CampaignEscrowService {
       };
     }, { source: "campaign-escrow-release" });
 
-    await auditService.log({
-      actor: { _id: releasedBy, role: "admin" },
-      action: "campaign.escrow.released",
-      entityType: "CampaignPaymentRelease",
-      entityId: result.releaseId,
-      metadata: { campaignId, influencerId, amount: result.totalAmount, deliverableIds: uniqueIds },
-    }).catch(() => {});
-    await emitDomainEvent("ESCROW_RELEASED", {
-      campaignId,
-      influencerId,
-      releaseId: result.releaseId,
-      amount: result.totalAmount,
-      deliverableIds: uniqueIds,
-    }).catch(() => null);
-    const influencer = await InfluencerProfile.findById(influencerId).select("userId").lean();
-    if (influencer?.userId) {
-      await notificationService.createNotification({
-        userId: influencer.userId,
-        role: "INFLUENCER",
-        module: "FINANCE",
-        subModule: "INFLUENCER_COMMERCE",
-        type: "COMMISSION_PAID",
-        title: "Campaign earnings released",
-        message: `INR ${result.totalAmount} from approved campaign deliverables is now available in your wallet.`,
-        referenceId: result.releaseId,
-        meta: { campaignId: String(campaignId), releaseId: String(result.releaseId) },
+    if (!result.idempotent) {
+      await auditService.log({
+        actor: { _id: releasedBy, role: "admin" },
+        action: "campaign.escrow.released",
+        entityType: "CampaignPaymentRelease",
+        entityId: result.releaseId,
+        metadata: { campaignId, influencerId, amount: result.totalAmount, deliverableIds: uniqueIds },
+      }).catch(() => {});
+      await emitDomainEvent("ESCROW_RELEASED", {
+        campaignId,
+        influencerId,
+        releaseId: result.releaseId,
+        amount: result.totalAmount,
+        deliverableIds: uniqueIds,
       }).catch(() => null);
+      const influencer = await InfluencerProfile.findById(influencerId).select("userId").lean();
+      if (influencer?.userId) {
+        await notificationService.createNotification({
+          userId: influencer.userId,
+          role: "INFLUENCER",
+          module: "FINANCE",
+          subModule: "INFLUENCER_COMMERCE",
+          type: "COMMISSION_PAID",
+          title: "Campaign earnings released",
+          message: `INR ${result.totalAmount} from approved campaign deliverables is now available in your wallet.`,
+          referenceId: result.releaseId,
+          meta: { campaignId: String(campaignId), releaseId: String(result.releaseId) },
+        }).catch(() => null);
+      }
     }
     return { ...result, message: "Approved earnings released to the influencer wallet" };
   }
@@ -620,8 +753,8 @@ class CampaignEscrowService {
   async releasePaymentWithRecovery(campaignId, influencerId, uniqueIds, releasedBy) {
     const campaign = await Campaign.findById(campaignId);
     if (!campaign) throw new ApiError(404, "Campaign not found");
-    if (campaign.paymentType !== "fixed") {
-      throw new ApiError(400, "Campaign is not a fixed payment campaign");
+    if (!hasFixedRewardCampaign(campaign)) {
+      throw new ApiError(400, "Campaign has no fixed reward to release");
     }
     if (String(campaign.influencerId) !== String(influencerId)) {
       throw new ApiError(400, "Influencer does not match this campaign");
@@ -672,30 +805,23 @@ class CampaignEscrowService {
         approvedAt: deliverable.completedAt || new Date(),
       };
     });
-    const totalReleaseAmount = money(processedDeliverables.reduce((sum, row) => sum + row.amount, 0));
+    let totalReleaseAmount = money(processedDeliverables.reduce((sum, row) => sum + row.amount, 0));
 
-    let paymentRelease = await CampaignPaymentRelease.findOne({
-      campaignId,
-      "deliverables.deliverableId": { $in: uniqueIds },
-    });
+    let paymentRelease = await this.findReleaseClaim(campaignId, influencerId, uniqueIds);
     if (paymentRelease) {
-      const claimedIds = paymentRelease.deliverables.map((row) => String(row.deliverableId)).sort();
-      if (
-        String(paymentRelease.influencerId) !== String(influencerId)
-        || claimedIds.join(",") !== [...uniqueIds].sort().join(",")
-      ) {
-        throw new ApiError(409, "A deliverable is already claimed by another release");
-      }
+      this.assertReleaseClaimMatches(paymentRelease, campaignId, influencerId, uniqueIds);
       if (paymentRelease.status === "settled") {
-        return {
-          releaseId: paymentRelease._id,
-          totalAmount: paymentRelease.totalAmount,
-          netAmount: paymentRelease.netAmount,
-          platformFee: paymentRelease.platformFeeAmount,
-          status: "settled",
-          idempotent: true,
-        };
+        return releaseResponse(paymentRelease, { idempotent: true });
       }
+      if (!releaseMatchesExactDeliverables(paymentRelease, uniqueIds)) {
+        throw new ApiError(
+          409,
+          "This deliverable belongs to a payment release that is already in progress. Refresh the release queue.",
+          "RELEASE_IN_PROGRESS",
+          { releaseId: paymentRelease._id }
+        );
+      }
+      totalReleaseAmount = money(paymentRelease.totalAmount);
     } else {
       try {
         paymentRelease = await CampaignPaymentRelease.create({
@@ -703,6 +829,7 @@ class CampaignEscrowService {
           escrowWalletId: escrow._id,
           vendorId,
           influencerId,
+          releaseKey: buildReleaseKey(campaignId, influencerId, uniqueIds),
           deliverables: processedDeliverables,
           totalAmount: totalReleaseAmount,
           platformFeeAmount: 0,
@@ -721,11 +848,19 @@ class CampaignEscrowService {
         });
       } catch (error) {
         if (error?.code !== 11000) throw error;
-        paymentRelease = await CampaignPaymentRelease.findOne({
-          campaignId,
-          "deliverables.deliverableId": { $in: uniqueIds },
-        });
+        paymentRelease = await this.findReleaseClaim(campaignId, influencerId, uniqueIds);
         if (!paymentRelease) throw error;
+        this.assertReleaseClaimMatches(paymentRelease, campaignId, influencerId, uniqueIds);
+        if (paymentRelease.status === "settled") return releaseResponse(paymentRelease, { idempotent: true });
+        if (!releaseMatchesExactDeliverables(paymentRelease, uniqueIds)) {
+          throw new ApiError(
+            409,
+            "This deliverable belongs to a payment release that is already in progress. Refresh the release queue.",
+            "RELEASE_IN_PROGRESS",
+            { releaseId: paymentRelease._id }
+          );
+        }
+        totalReleaseAmount = money(paymentRelease.totalAmount);
       }
     }
 
@@ -893,7 +1028,7 @@ class CampaignEscrowService {
   }
 
   async listAdminReleaseQueue(filters = {}) {
-    const campaignFilter = { paymentType: "fixed" };
+    const campaignFilter = { paymentType: { $in: ["fixed", "hybrid"] } };
     if (filters.campaignId) campaignFilter._id = filters.campaignId;
     if (filters.vendorId) campaignFilter.vendorId = filters.vendorId;
     const campaigns = await Campaign.find(campaignFilter)
@@ -916,10 +1051,17 @@ class CampaignEscrowService {
           status: { $in: ["funded", "partially_released"] },
         }).lean()
       : [];
+    const settledReleases = await CampaignPaymentRelease.find({
+      campaignId: { $in: campaignIds },
+      status: "settled",
+    }).select("deliverables.deliverableId").lean();
+    const settledDeliverableIds = new Set(
+      settledReleases.flatMap((release) => (release.deliverables || []).map((row) => String(row.deliverableId)))
+    );
     const allocationMap = new Map(allocations.map((row) => [String(row.deliverableId), row]));
     const campaignMap = new Map(campaigns.map((row) => [String(row._id), row]));
     const items = deliverables
-      .filter((row) => allocationMap.has(String(row._id)))
+      .filter((row) => allocationMap.has(String(row._id)) && !settledDeliverableIds.has(String(row._id)))
       .map((row) => {
         const campaign = campaignMap.get(String(row.campaignId));
         const allocation = allocationMap.get(String(row._id));
@@ -1017,7 +1159,7 @@ class CampaignEscrowService {
     });
     await refund.save();
     await Campaign.updateOne(
-      { _id: campaignId, paymentType: "fixed" },
+      { _id: campaignId, paymentType: { $in: ["fixed", "hybrid"] } },
       {
         $set: {
           "fixedPaymentWorkflow.status": "refund_pending",

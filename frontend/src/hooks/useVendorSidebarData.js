@@ -49,6 +49,7 @@ export function useVendorSidebarData({ unreadCount = 0, summary = { modules: {},
 
       [
         { name: "Commission", path: "/vendor/finance/commission" },
+        { name: "Campaign Finance", path: "/vendor/finance/campaign-finance" },
         { name: "Payout History", path: "/vendor/finance/payouts" },
         { name: "Ledger", path: "/vendor/finance/ledger" },
         { name: "Payout Account", path: "/vendor/finance/account" },

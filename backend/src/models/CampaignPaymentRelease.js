@@ -43,6 +43,18 @@ const campaignPaymentReleaseSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Deterministic key for a single admin release request. This complements
+    // (rather than replaces) the per-deliverable unique guard below: a retry of
+    // the same batch is idempotent while an overlapping batch remains blocked.
+    releaseKey: {
+      type: String,
+      trim: true,
+      minlength: 64,
+      maxlength: 64,
+      unique: true,
+      sparse: true,
+    },
+
     // Deliverables being released
     deliverables: { type: [releasedDeliverableSchema], required: true, default: [] },
 
@@ -161,7 +173,12 @@ campaignPaymentReleaseSchema.index({ status: 1, createdAt: -1 });
 campaignPaymentReleaseSchema.index({ escrowWalletId: 1 });
 campaignPaymentReleaseSchema.index(
   { "deliverables.deliverableId": 1 },
-  { unique: true }
+  {
+    unique: true,
+    // A cancelled claim may be retried, but every active release must retain
+    // exclusive ownership of its deliverables.
+    partialFilterExpression: { status: { $in: ["approved", "released", "settled"] } },
+  }
 );
 
 module.exports = mongoose.model("CampaignPaymentRelease", campaignPaymentReleaseSchema);
