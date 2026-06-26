@@ -1,9 +1,20 @@
 const jwt = require("jsonwebtoken");
 
+function isWeakSecret(secret) {
+  const value = String(secret || "").trim();
+  return (
+    value.length < 32 ||
+    /^(secret|changeme|change_me|development|test|password|jwt_secret)$/i.test(value)
+  );
+}
+
 function getRequiredSecret(primaryName, fallbackName) {
   const secret = process.env[primaryName] || (fallbackName ? process.env[fallbackName] : undefined);
   if (!secret) {
     throw new Error(`Missing JWT secret: ${primaryName}`);
+  }
+  if (process.env.NODE_ENV === "production" && isWeakSecret(secret)) {
+    throw new Error(`Weak JWT secret: ${primaryName}`);
   }
   return secret;
 }

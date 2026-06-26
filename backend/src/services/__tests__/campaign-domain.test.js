@@ -96,6 +96,24 @@ test("campaign rule engine enables affiliate infrastructure for every campaign p
   assert.equal(freeProduct.attributionDays, 30);
 });
 
+test("hybrid campaigns require escrowed fixed rewards while retaining commission tracking", () => {
+  const campaignService = fs.readFileSync(path.join(__dirname, "../../modules/campaign/service.js"), "utf8");
+  const escrowService = fs.readFileSync(path.join(__dirname, "../campaign-escrow.service.js"), "utf8");
+  const executionService = fs.readFileSync(path.join(__dirname, "../../modules/campaign/executionService.js"), "utf8");
+  assert.match(campaignService, /\["fixed", "hybrid"\]\.includes\(pricing\.paymentType\)/);
+  assert.match(escrowService, /function hasFixedRewardCampaign/);
+  assert.match(escrowService, /paymentType: \{ \$in: \["fixed", "hybrid"\] \}/);
+  assert.match(executionService, /\["fixed", "hybrid"\]\.includes\(campaign\.paymentType\)/);
+  assert.match(executionService, /\["commission", "hybrid"\]\.includes\(campaign\.paymentType\)/);
+});
+
+test("hybrid campaign budget display uses the escrowed fixed reward, not its commission reserve", () => {
+  const campaignService = fs.readFileSync(path.join(__dirname, "../../modules/campaign/service.js"), "utf8");
+  const commerceService = fs.readFileSync(path.join(__dirname, "../../modules/influencerCommerce/service.js"), "utf8");
+  assert.match(campaignService, /\["fixed", "hybrid"\]\.includes\(campaign\.paymentType\)[\s\S]*?pricing\.fixedCost/);
+  assert.match(commerceService, /\["fixed", "hybrid"\]\.includes\(campaign\.paymentType\)[\s\S]*?campaign\.pricing\?\.fixedCost/);
+});
+
 test("campaign rule engine rejects vendor-defined custom attribution windows", () => {
   assert.throws(
     () => campaignRuleEngine.evaluateCampaignRules({

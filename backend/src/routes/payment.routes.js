@@ -15,13 +15,33 @@ const {
 
 const router = express.Router();
 
+function deprecatedRouteAlias(canonicalPath) {
+  return (_req, res, next) => {
+    res.setHeader("Deprecation", "true");
+    res.setHeader("Link", `<${canonicalPath}>; rel="successor-version"`);
+    next();
+  };
+}
+
 router.post("/create-order", authRequired, validate(createRazorpayOrderSchema), paymentController.createRazorpayOrder);
 router.post("/verify", authRequired, validate(verifyRazorpayPaymentSchema), paymentController.verifyRazorpayPayment);
 router.post("/checkout-opened", authRequired, validate(checkoutOpenedSchema), paymentController.recordCheckoutOpened);
 router.post("/checkout-failure", authRequired, validate(checkoutFailureSchema), paymentController.recordCheckoutFailure);
 router.get("/checkout-inspect/:razorpayOrderId", authRequired, paymentController.inspectCheckoutOrder);
-router.post("/razorpay/create-order", authRequired, validate(createRazorpayOrderSchema), paymentController.createRazorpayOrder);
-router.post("/razorpay/verify", authRequired, validate(verifyRazorpayPaymentSchema), paymentController.verifyRazorpayPayment);
+router.post(
+  "/razorpay/create-order",
+  deprecatedRouteAlias("/api/payments/create-order"),
+  authRequired,
+  validate(createRazorpayOrderSchema),
+  paymentController.createRazorpayOrder
+);
+router.post(
+  "/razorpay/verify",
+  deprecatedRouteAlias("/api/payments/verify"),
+  authRequired,
+  validate(verifyRazorpayPaymentSchema),
+  paymentController.verifyRazorpayPayment
+);
 router.post("/cod/check", authRequired, codController.checkAvailability);
 router.post("/cod/collect", adminWorkspaceAuthRequired, requireWorkspacePermission("payments.update"), codController.collect);
 router.get("/settings/razorpay", adminWorkspaceAuthRequired, requireWorkspacePermission("settings.read"), paymentController.getRazorpaySettings);

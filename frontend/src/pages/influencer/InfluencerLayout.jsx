@@ -45,6 +45,7 @@ const INFLUENCER_SECTIONS = [
     key: "influencer-commerce",
     items: [
       { name: "Earnings & Withdrawals", path: "/influencer/earnings-withdrawals", icon: Wallet },
+      { name: "Campaign Earnings", path: "/influencer/finance/campaign-earnings", icon: Wallet },
     ],
   },
   {
@@ -113,6 +114,10 @@ const pageMeta = {
   "/influencer/earnings-withdrawals": {
     title: "Earnings & Withdrawals",
     subtitle: "Monitor commission earnings, wallet balance, and withdrawal requests.",
+  },
+  "/influencer/finance/campaign-earnings": {
+    title: "Campaign Earnings",
+    subtitle: "Track fixed, commission, hybrid, and free-product campaign earnings.",
   },
   "/influencer/affiliate-products": {
     title: "Affiliate Products",

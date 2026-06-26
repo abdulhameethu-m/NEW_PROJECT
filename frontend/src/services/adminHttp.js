@@ -31,20 +31,61 @@ export const adminHttp = axios.create({
   withCredentials: true,
 });
 
+const inFlightGetRequests = new Map();
+
+function stableSerialize(value) {
+  if (!value || typeof value !== "object") return String(value || "");
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
+  return Object.keys(value)
+    .sort()
+    .map((key) => `${key}:${stableSerialize(value[key])}`)
+    .join("|");
+}
+
+function getRequestKey(url, config = {}) {
+  return `${config.baseURL || adminHttp.defaults.baseURL || ""}|${url}|${stableSerialize(config.params)}`;
+}
+
+function installGetRequestDedupe(instance) {
+  const rawGet = instance.get.bind(instance);
+  instance.get = (url, config = {}) => {
+    if (config.dedupe === false || config.responseType === "blob") {
+      return rawGet(url, config);
+    }
+
+    const key = getRequestKey(url, config);
+    if (inFlightGetRequests.has(key)) {
+      return inFlightGetRequests.get(key);
+    }
+
+    const request = rawGet(url, config).finally(() => {
+      inFlightGetRequests.delete(key);
+    });
+    inFlightGetRequests.set(key, request);
+    return request;
+  };
+}
+
+installGetRequestDedupe(adminHttp);
+
 adminHttp.interceptors.request.use(async (config) => {
+  config.metadata = { ...(config.metadata || {}), startedAt: performance.now() };
   const auth = resolveAuthContext();
   config.headers = config.headers || {};
   config.__authType = auth.type;
-  if (auth.type === "legacy" && auth.accessToken && !config.headers.Authorization) {
-    config.headers.Authorization = `Bearer ${auth.accessToken}`;
-  }
   return attachCsrfHeader(config);
 });
 
 let refreshPromise = null;
 
 adminHttp.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const startedAt = response?.config?.metadata?.startedAt;
+    if (typeof startedAt === "number") {
+      response.durationMs = Math.round(performance.now() - startedAt);
+    }
+    return response;
+  },
   async (error) => {
     const status = error?.response?.status;
     const originalRequest = error?.config;

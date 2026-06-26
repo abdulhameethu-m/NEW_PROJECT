@@ -895,8 +895,8 @@ module.exports = {
     mongoose.models.InfluencerProductAssignment ||
     mongoose.model("InfluencerProductAssignment", influencerProductAssignmentSchema),
   AffiliateLink:
-    mongoose.models.AffiliateLink ||
-    mongoose.model("AffiliateLink", affiliateLinkSchema),
+    mongoose.models.InfluencerAffiliateLink ||
+    mongoose.model("InfluencerAffiliateLink", affiliateLinkSchema),
   InfluencerCollection:
     mongoose.models.InfluencerCollection ||
     mongoose.model("InfluencerCollection", influencerCollectionSchema),

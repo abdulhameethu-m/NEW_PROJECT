@@ -62,4 +62,6 @@ const adminNotificationSchema = new mongoose.Schema(
 // Compound index for efficient queries
 adminNotificationSchema.index({ adminId: 1, isRead: 1, createdAt: -1 });
 
-module.exports = mongoose.model("AdminNotification", adminNotificationSchema);
+module.exports =
+  mongoose.models.AdminNotification ||
+  mongoose.model("AdminNotification", adminNotificationSchema);

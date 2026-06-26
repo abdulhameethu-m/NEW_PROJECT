@@ -132,6 +132,8 @@ const productAnalyticsSchema = new mongoose.Schema(
 productAnalyticsSchema.index({ vendorId: 1, categoryId: 1, updatedAt: -1 });
 productAnalyticsSchema.index({ categoryId: 1, updatedAt: -1 });
 productAnalyticsSchema.index({ vendorId: 1, productDeleted: 1, updatedAt: -1 });
+productAnalyticsSchema.index({ productDeleted: 1, totalRevenue: -1, totalUnitsSold: -1, updatedAt: -1 });
+productAnalyticsSchema.index({ vendorId: 1, productDeleted: 1, totalRevenue: -1, totalUnitsSold: -1, updatedAt: -1 });
 productAnalyticsSchema.index({ "dailyStats.key": 1 });
 productAnalyticsSchema.index({ "monthlyStats.key": 1 });
 

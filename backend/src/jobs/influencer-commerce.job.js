@@ -8,6 +8,7 @@ const { InfluencerProfile } = require("../modules/influencer/model");
 const { Reel } = require("../modules/reel/model");
 const { TrackingSession } = require("../modules/tracking/model");
 const { Order } = require("../models/Order");
+const campaignFinanceService = require("../modules/campaignFinance/service");
 
 let tasks = [];
 
@@ -61,6 +62,10 @@ async function initializeInfluencerCommerceJobs() {
 
   schedule(process.env.INFLUENCER_METRICS_SCHEDULE || "30 2 * * *", "metrics-aggregation", async () => {
     await aggregateInfluencerMetrics();
+  });
+
+  schedule(process.env.CAMPAIGN_FINANCE_SYNC_SCHEDULE || "10 * * * *", "campaign-finance-sync", async () => {
+    await campaignFinanceService.syncAll();
   });
 
   schedule(process.env.ANALYTICS_REBUILD_SCHEDULE || "0 * * * *", "analytics-rebuild", async () => {

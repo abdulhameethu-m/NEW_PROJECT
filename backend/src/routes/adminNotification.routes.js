@@ -1,8 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const notificationController = require("../controllers/adminNotification.controller");
-const { authRequired } = require("../middleware/auth");
-const { requireRole } = require("../middleware/validate");
+const { authRequired, requireRole } = require("../middleware/auth");
 
 // All routes require admin authentication
 router.use(authRequired);
@@ -33,15 +32,15 @@ router.patch("/:id/read", notificationController.markAsRead);
 router.patch("/mark-all-read", notificationController.markAllAsRead);
 
 /**
- * DELETE /api/admin/notifications/:id
- * Delete notification
- */
-router.delete("/:id", notificationController.deleteNotification);
-
-/**
  * DELETE /api/admin/notifications/clear-all
  * Clear all notifications
  */
 router.delete("/clear-all", notificationController.clearAllNotifications);
+
+/**
+ * DELETE /api/admin/notifications/:id
+ * Delete notification
+ */
+router.delete("/:id", notificationController.deleteNotification);
 
 module.exports = router;

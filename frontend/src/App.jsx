@@ -68,6 +68,7 @@ const InfluencerPublicStorefrontPage = lazyNamed(() => import("./pages/Influence
 const InfluencerLayout = lazyNamed(() => import("./pages/influencer/InfluencerLayout"), "InfluencerLayout");
 const InfluencerDashboardPage = lazyDefault(() => import("./pages/influencer/dashboard.jsx"));
 const InfluencerEarningsWithdrawalsPage = lazyDefault(() => import("./pages/influencer/earningsWithdrawals.jsx"));
+const InfluencerCampaignEarningsPage = lazyNamed(() => import("./pages/CampaignFinancePages"), "InfluencerCampaignEarningsPage");
 const InfluencerCollectionsPage = lazyDefault(() => import("./pages/influencer/collections.jsx"));
 const InfluencerAffiliateProductsPage = lazyDefault(() => import("./pages/influencer/affiliateProducts.jsx"));
 const InfluencerAffiliateLinksPage = lazyDefault(() => import("./pages/influencer/affiliateLinks.jsx"));
@@ -90,6 +91,7 @@ const VendorFinancePage = lazyNamed(() => import("./pages/VendorFinancePage"), "
 const VendorFinancePayoutsPage = lazyNamed(() => import("./pages/VendorFinancePayoutsPage"), "VendorFinancePayoutsPage");
 const VendorFinanceLedgerPage = lazyNamed(() => import("./pages/VendorFinanceLedgerPage"), "VendorFinanceLedgerPage");
 const VendorCommissionSummaryPage = lazyNamed(() => import("./pages/VendorCommissionSummaryPage"), "VendorCommissionSummaryPage");
+const VendorCampaignFinancePage = lazyNamed(() => import("./pages/CampaignFinancePages"), "VendorCampaignFinancePage");
 const VendorFinanceAccountPage = lazyNamed(() => import("./pages/VendorFinanceAccountPage"), "VendorFinanceAccountPage");
 const VendorInvoicesPage = lazyNamed(() => import("./pages/VendorInvoicesPage"), "VendorInvoicesPage");
 const VendorInvoiceDetailsPage = lazyNamed(() => import("./pages/VendorInvoiceDetailsPage"), "VendorInvoiceDetailsPage");
@@ -150,6 +152,7 @@ const AdminRolesPage = lazyNamed(() => import("./pages/AdminRolesPage"), "AdminR
 const AdminStaffPage = lazyNamed(() => import("./pages/AdminStaffPage"), "AdminStaffPage");
 const AdminInfluencerPage = lazyNamed(() => import("./pages/AdminInfluencerPage"), "AdminInfluencerPage");
 const AdminInfluencerCommercePage = lazyNamed(() => import("./pages/AdminInfluencerCommercePage"), "AdminInfluencerCommercePage");
+const AdminCampaignFinancePage = lazyNamed(() => import("./pages/CampaignFinancePages"), "AdminCampaignFinancePage");
 const StaffDashboardPage = lazyNamed(() => import("./pages/StaffDashboardPage"), "StaffDashboardPage");
 const StaffUnauthorizedPage = lazyNamed(() => import("./pages/StaffUnauthorizedPage"), "StaffUnauthorizedPage");
 const StaffUsersPage = lazyNamed(() => import("./pages/StaffUsersPage"), "StaffUsersPage");
@@ -252,6 +255,7 @@ export default function App() {
             <Route element={<InfluencerLayout />}>
               <Route path="/influencer/dashboard" element={<InfluencerDashboardPage />} />
               <Route path="/influencer/earnings-withdrawals" element={<InfluencerEarningsWithdrawalsPage />} />
+              <Route path="/influencer/finance/campaign-earnings" element={<InfluencerCampaignEarningsPage />} />
               <Route path="/influencer/collections" element={<InfluencerCollectionsPage />} />
               <Route path="/influencer/affiliate-products" element={<InfluencerAffiliateProductsPage />} />
               <Route path="/influencer/affiliate-links" element={<InfluencerAffiliateLinksPage />} />
@@ -287,6 +291,7 @@ export default function App() {
               <Route path="finance/payouts" element={<VendorModuleRoute moduleKey="payments"><VendorFinancePayoutsPage /></VendorModuleRoute>} />
               <Route path="finance/ledger" element={<VendorModuleRoute moduleKey="payments"><VendorFinanceLedgerPage /></VendorModuleRoute>} />
               <Route path="finance/commission" element={<VendorModuleRoute moduleKey="payments"><VendorCommissionSummaryPage /></VendorModuleRoute>} />
+              <Route path="finance/campaign-finance" element={<VendorModuleRoute moduleKey="payments"><VendorCampaignFinancePage /></VendorModuleRoute>} />
               <Route path="finance/account" element={<VendorModuleRoute moduleKey="payments"><VendorFinanceAccountPage /></VendorModuleRoute>} />
               <Route path="finance/invoices" element={<VendorModuleRoute moduleKey="orders"><VendorInvoicesPage /></VendorModuleRoute>} />
               <Route path="finance/invoices/:orderId" element={<VendorModuleRoute moduleKey="orders"><VendorInvoiceDetailsPage /></VendorModuleRoute>} />
@@ -374,6 +379,7 @@ export default function App() {
               <Route path="roles" element={<AdminRolesPage />} />
               <Route path="staff" element={<AdminStaffPage />} />
               <Route path="influencers" element={<AdminInfluencerPage />} />
+              <Route path="influencer-commerce/campaign-finance" element={<AdminCampaignFinancePage />} />
               <Route path="influencer-commerce/*" element={<AdminInfluencerCommercePage />} />
             </Route>
           </Route>

@@ -187,6 +187,10 @@ const pageMeta = {
     title: "Influencer Commerce",
     subtitle: "Control escrow holds, settlement release, reversal, and ledger visibility.",
   },
+  "/admin/influencer-commerce/campaign-finance": {
+    title: "Campaign Finance",
+    subtitle: "Review campaign revenue, creator earnings, vendor net revenue, and escrow balances.",
+  },
   "/admin/influencer-commerce/revenue": {
     title: "Influencer Commerce Revenue",
     subtitle: "Track platform fees by fixed, commission, hybrid, and free product campaign models.",

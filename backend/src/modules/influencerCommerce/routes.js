@@ -2,8 +2,10 @@ const express = require("express");
 const Joi = require("joi");
 const { validate } = require("../../middleware/validate");
 const controller = require("./controller");
+const campaignFinanceController = require("../campaignFinance/controller");
 
 const router = express.Router();
+router.get("/campaign-finance", campaignFinanceController.admin);
 
 const listQuery = Joi.object({
   page: Joi.number().integer().min(1).optional(),

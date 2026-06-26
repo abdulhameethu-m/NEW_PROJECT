@@ -924,7 +924,7 @@ class InfluencerCommerceVendorService {
       products,
     });
     const fixedBudget = Number(pricing.pricing?.fixedCost || payload.fixedFee || 0);
-    const fundingSummary = pricing.paymentModel?.key === "fixed" || payload.paymentType === "fixed"
+    const fundingSummary = ["fixed", "hybrid"].includes(pricing.paymentModel?.key || payload.paymentType)
       ? fixedBudget > 0
         ? await require("../../services/campaign-fee.service").calculateFundingSummary(
           fixedBudget,
@@ -1516,7 +1516,12 @@ class InfluencerCommerceVendorService {
           ...campaign,
           paymentModel,
           attributionRule,
-          budget: Number(campaign.pricing?.totalBudget || paymentModel?.totalBudget || campaign.fixedFee || 0),
+          // Keep the management table aligned with Razorpay: only a fixed
+          // reward is escrow-funded for hybrid campaigns; commission is earned
+          // later from attributed orders and its cap remains separate.
+          budget: ["fixed", "hybrid"].includes(campaign.paymentType)
+            ? Number(campaign.pricing?.fixedCost || paymentModel?.fixedFee || campaign.fixedFee || 0)
+            : Number(campaign.pricing?.totalBudget || paymentModel?.totalBudget || campaign.fixedFee || 0),
           revenue: money(commissionStats.revenue || orderStats.revenue || campaign.analytics?.revenue || 0),
           commission: money(commissionStats.commission || 0),
           orders: Number(commissionStats.orders || orderAttributionCount || campaign.analytics?.orders || 0),
@@ -1609,7 +1614,7 @@ class InfluencerCommerceVendorService {
     }
     const current = await Campaign.findOne({ _id: campaignId, vendorId: vendor._id }).select("state paymentType").lean();
     if (!current) throw new AppError("Campaign not found", 404, "NOT_FOUND");
-    if (state === "active" && current.paymentType === "fixed") {
+    if (state === "active" && ["fixed", "hybrid"].includes(current.paymentType)) {
       if (["proposed", "invitation_sent", "pending_review"].includes(current.state)) {
         throw new AppError("The influencer must accept this fixed-payment campaign before activation", 409, "CAMPAIGN_ACCEPTANCE_REQUIRED");
       }
@@ -1622,7 +1627,7 @@ class InfluencerCommerceVendorService {
         throw new AppError("Fixed payment campaigns must be funded before activation", 409, "ESCROW_FUNDING_REQUIRED");
       }
     }
-    if (state === "completed" && current.paymentType === "fixed") {
+    if (state === "completed" && ["fixed", "hybrid"].includes(current.paymentType)) {
       const escrow = await CampaignEscrowWallet.findOne({ campaignId, vendorId: vendor._id })
         .select("amountRemaining")
         .lean();
@@ -1643,7 +1648,7 @@ class InfluencerCommerceVendorService {
       { $set: { state }, $push: { history: { state, actorId: userId, note: payload.note || `Campaign ${state}`, changedAt: new Date() } } },
       { returnDocument: "after" }
     );
-    if (campaign.paymentType === "fixed") {
+    if (["fixed", "hybrid"].includes(campaign.paymentType)) {
       await CampaignEscrowWallet.updateOne(
         { campaignId: campaign._id, vendorId: vendor._id },
         {

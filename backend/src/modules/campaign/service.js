@@ -295,7 +295,11 @@ function presentCampaign(campaign, profileId) {
     category: campaign.category || products[0]?.category || "General",
     country: campaign.country || "",
     language: campaign.language || "en",
-    budget: Number(pricing.totalBudget || campaign.fixedFee || 0),
+    // A hybrid campaign's vendor funding budget is the escrowed fixed reward.
+    // Its commission reserve is a cap, not an amount collected by Razorpay.
+    budget: ["fixed", "hybrid"].includes(campaign.paymentType)
+      ? Number(pricing.fixedCost || campaign.fixedFee || 0)
+      : Number(pricing.totalBudget || campaign.fixedFee || 0),
     fixedFee: Number(campaign.fixedFee || 0),
     commissionType: Number(campaign.fixedFee || 0) > 0 ? "hybrid" : "percentage",
     commissionRate: Number(campaign.commissionPercent || 0),
@@ -437,7 +441,7 @@ class CampaignService {
       payload,
     });
 
-    const requiresFunding = pricing.paymentType === "fixed";
+    const requiresFunding = ["fixed", "hybrid"].includes(pricing.paymentType);
     const initialState = WORKFLOW.INVITATION_SENT;
     const campaign = await Campaign.create({
       vendorId: vendor._id,
@@ -470,7 +474,7 @@ class CampaignService {
             },
           }
         : {}),
-      ...(pricing.paymentType === "commission"
+      ...(["commission", "hybrid"].includes(pricing.paymentType)
         ? {
             commissionWorkflow: {
               contentEnabled: false,
@@ -536,7 +540,7 @@ class CampaignService {
       {
         $set: {
           state,
-          ...(campaign.paymentType === "fixed"
+          ...(["fixed", "hybrid"].includes(campaign.paymentType)
             ? {
                 "fixedPaymentWorkflow.status": "accepted_awaiting_funding",
                 "fixedPaymentWorkflow.contentEnabled": false,
@@ -544,9 +548,9 @@ class CampaignService {
                 "fixedPaymentWorkflow.lastTransitionAt": new Date(),
               }
             : {}),
-          ...(campaign.paymentType === "commission"
+          ...(["commission", "hybrid"].includes(campaign.paymentType)
             ? {
-                "commissionWorkflow.contentEnabled": true,
+                "commissionWorkflow.contentEnabled": campaign.paymentType === "commission",
                 "commissionWorkflow.publishEnabled": false,
                 "commissionWorkflow.trackingActive": false,
               }
@@ -617,7 +621,7 @@ class CampaignService {
     });
     await notifyVendorUser(updated.vendorId, {
       title: "Campaign accepted",
-      message: `${profile.displayName || profile.userId?.name || "Creator"} accepted ${updated.title || "your campaign"}.${updated.paymentType === "fixed" ? " Escrow funding is now required." : ""}`,
+      message: `${profile.displayName || profile.userId?.name || "Creator"} accepted ${updated.title || "your campaign"}.${["fixed", "hybrid"].includes(updated.paymentType) ? " Escrow funding is now required." : ""}`,
       referenceId: updated._id,
       meta: { campaignId: String(updated._id), influencerId: String(profile._id), status: state },
     });

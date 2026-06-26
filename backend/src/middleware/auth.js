@@ -3,13 +3,21 @@ const { verifyAccessToken } = require("../utils/jwt");
 const { hasPermission } = require("../utils/adminPermissions");
 
 function getTokenFromReq(req) {
-  const header = req.headers.authorization || "";
-  if (header.startsWith("Bearer ")) return header.slice("Bearer ".length).trim();
   if (req.cookies && req.cookies.accessToken) return req.cookies.accessToken;
   return null;
 }
 
+function rejectLegacyBearer(req, _res, next) {
+  const header = req.headers.authorization || "";
+  if (header.startsWith("Bearer ")) {
+    next(new AppError("Bearer token authentication has been removed", 410, "LEGACY_AUTH_REMOVED"));
+    return true;
+  }
+  return false;
+}
+
 function authRequired(req, res, next) {
+  if (rejectLegacyBearer(req, res, next)) return;
   const token = getTokenFromReq(req);
   if (!token) return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
 
@@ -24,6 +32,7 @@ function authRequired(req, res, next) {
 
 // Optional auth - doesn't throw error if token is missing
 function authOptional(req, res, next) {
+  if (rejectLegacyBearer(req, res, next)) return;
   const token = getTokenFromReq(req);
   if (!token) {
     // No token, but continue anyway

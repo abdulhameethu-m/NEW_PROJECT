@@ -18,7 +18,7 @@ const razorpay = new Razorpay({
 
 /**
  * Campaign Refund Service
- * Handles refund logic for fixed payment campaigns
+ * Handles refund logic for campaign models with an escrowed fixed reward.
  */
 class CampaignRefundService {
   /**
@@ -35,8 +35,8 @@ class CampaignRefundService {
       throw new ApiError(403, "Campaign does not belong to this vendor");
     }
 
-    if (campaign.paymentType !== "fixed") {
-      throw new ApiError(400, "Campaign is not a fixed payment campaign");
+    if (!["fixed", "hybrid"].includes(campaign.paymentType)) {
+      throw new ApiError(400, "Campaign has no fixed reward escrow");
     }
 
     // Create refund via escrow service
@@ -164,7 +164,7 @@ class CampaignRefundService {
     await refund.save();
     const escrow = await CampaignEscrowWallet.findById(refund.escrowWalletId).select("status").lean();
     await Campaign.updateOne(
-      { _id: refund.campaignId, paymentType: "fixed" },
+      { _id: refund.campaignId, paymentType: { $in: ["fixed", "hybrid"] } },
       {
         $set: {
           "fixedPaymentWorkflow.status": escrow?.status === "partially_released" ? "partially_released" : "funded",
@@ -352,8 +352,8 @@ class CampaignRefundService {
       throw new ApiError(404, "Campaign not found");
     }
 
-    if (campaign.paymentType !== "fixed") {
-      throw new ApiError(400, "Campaign is not a fixed payment campaign");
+    if (!["fixed", "hybrid"].includes(campaign.paymentType)) {
+      throw new ApiError(400, "Campaign has no fixed reward escrow");
     }
 
     // Get campaign state to determine refund reason

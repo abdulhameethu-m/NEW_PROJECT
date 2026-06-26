@@ -117,7 +117,7 @@ function paymentOrderResponse(paymentOrder, { resumed = false, reconciled = fals
 
 /**
  * Campaign Payment Service
- * Handles Razorpay integration for fixed payment campaigns
+ * Handles Razorpay integration for every campaign model with an escrowed fixed reward.
  */
 class CampaignPaymentService {
   /**
@@ -130,11 +130,11 @@ class CampaignPaymentService {
         "Razorpay credentials are missing or placeholders. Configure a valid RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
       );
     }
-    const campaign = await Campaign.findOne({ _id: campaignId, vendorId, paymentType: "fixed" })
-      .select("state fixedPaymentWorkflow")
+    const campaign = await Campaign.findOne({ _id: campaignId, vendorId, paymentType: { $in: ["fixed", "hybrid"] } })
+      .select("state paymentType fixedPaymentWorkflow")
       .lean();
     if (!campaign) {
-      throw new ApiError(404, "Fixed-payment campaign not found for this vendor");
+      throw new ApiError(404, "Fixed-reward campaign not found for this vendor");
     }
     const acceptance = await CampaignAcceptance.findOne({
       campaignId,
@@ -464,8 +464,8 @@ class CampaignPaymentService {
     const vendorId = paymentOrder.vendorId;
     const campaign = await Campaign.findById(campaignId);
     if (!campaign) throw new ApiError(404, "Campaign not found");
-    if (campaign.paymentType !== "fixed") {
-      throw new ApiError(400, "Campaign is not a fixed payment campaign");
+    if (!["fixed", "hybrid"].includes(campaign.paymentType)) {
+      throw new ApiError(400, "Campaign has no fixed reward escrow");
     }
     if (!campaign.influencerId || !["accepted", "active"].includes(campaign.state)) {
       throw new ApiError(409, "A funded campaign must have an accepted influencer invitation");
@@ -494,6 +494,14 @@ class CampaignPaymentService {
       fundedAt: campaign.fixedPaymentWorkflow?.fundedAt || new Date(),
       lastTransitionAt: new Date(),
     };
+    if (campaign.paymentType === "hybrid") {
+      campaign.commissionWorkflow = {
+        ...(campaign.commissionWorkflow?.toObject?.() || campaign.commissionWorkflow || {}),
+        contentEnabled: true,
+        publishEnabled: false,
+        trackingActive: false,
+      };
+    }
     campaign.history = campaign.history || [];
     campaign.history.push({
       action: "campaign_activated_after_payment",

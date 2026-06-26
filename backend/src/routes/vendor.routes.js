@@ -26,6 +26,7 @@ const commissionController = require("../controllers/commission.controller");
 const productController = require("../controllers/product.controller");
 const vendorStorefrontController = require("../controllers/vendor-storefront.controller");
 const influencerCommerceRoutes = require("../modules/influencerCommerce/routes");
+const campaignFinanceController = require("../modules/campaignFinance/controller");
 
 const router = express.Router();
 
@@ -50,6 +51,7 @@ router.get("/me", vendorController.me);
 router.use(requireApprovedVendor);
 
 router.get("/dashboard", vendorDashboardController.getDashboard);
+router.get("/finance/campaign-finance", campaignFinanceController.vendor);
 router.post("/settings/media", upload.single("image"), vendorController.uploadStoreMedia);
 router.use("/influencer-commerce", influencerCommerceGate, influencerCommerceRoutes);
 

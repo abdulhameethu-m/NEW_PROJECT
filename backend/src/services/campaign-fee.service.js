@@ -1,15 +1,11 @@
 const CampaignFeeConfiguration = require("../models/CampaignFeeConfiguration");
 const auditService = require("./audit.service");
 const { ApiError } = require("../utils/ApiError");
+const { roundMoney: money } = require("../modules/shared/helpers");
 
 const FUNDING_FEE_CODES = ["platform_fee", "gateway_fee", "gst"];
 const REFUND_FEE_CODES = ["refund_processing_fee", "partial_refund_fee"];
 const PAYMENT_MODELS = ["all", "fixed", "commission", "hybrid", "free_product"];
-
-function money(value) {
-  const number = Number(value || 0);
-  return Number.isFinite(number) ? Number(number.toFixed(2)) : 0;
-}
 
 function normalizePaymentModel(value = "all") {
   const next = String(value || "all").toLowerCase();
