@@ -5,11 +5,13 @@ import {
   Bell,
   Bookmark,
   Compass,
+  Eye,
   Heart,
   Home,
   Menu,
   MessageCircle,
   MoreHorizontal,
+  Share2,
   Search,
   Star,
   Store,
@@ -30,6 +32,7 @@ import {
   listReelComments,
   recordReelProductClick,
   recordReelStoreVisit,
+  shareReel,
   toggleReelLike,
   unfollowPublicInfluencer,
 } from "../services/influencerCommerceService";
@@ -110,6 +113,42 @@ function buildAffiliateProductPath(reel = {}, product = {}, tracking = {}) {
 function normalizeInfluencers(payload) {
   const rows = Array.isArray(payload?.data?.items) ? payload.data.items : Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.items) ? payload.items : [];
   return rows;
+}
+
+const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "qt"]);
+
+function assetExtension(value = "") {
+  const clean = String(value || "").split("?")[0].split("#")[0];
+  return clean.includes(".") ? clean.split(".").pop().toLowerCase() : "";
+}
+
+function isImageAsset(value = "") {
+  return IMAGE_EXTENSIONS.has(assetExtension(value));
+}
+
+function isVideoAsset(value = "") {
+  return VIDEO_EXTENSIONS.has(assetExtension(value));
+}
+
+function contentKind(item = {}) {
+  const type = String(item.contentType || item.mediaType || "").toUpperCase();
+  if (type === "POST" || type === "REEL") return type;
+  if ((item.imageUrls || []).length || isImageAsset(item.videoUrl) || isImageAsset(item.thumbnailUrl)) return "POST";
+  return "REEL";
+}
+
+function postImages(item = {}) {
+  return Array.from(new Set([
+    ...(Array.isArray(item.imageUrls) ? item.imageUrls : []),
+    ...(Array.isArray(item.mediaUrls) ? item.mediaUrls : []),
+    item.thumbnailUrl,
+    item.videoUrl,
+  ].filter((url) => url && isImageAsset(url)).map(resolveApiAssetUrl)));
+}
+
+function campaignBadgeLabel(item = {}) {
+  return item.campaignBadge || item.campaignId?.title || (item.sponsored ? "Campaign" : "");
 }
 
 export function InfluencersHubPage() {
@@ -273,6 +312,17 @@ export function InfluencersHubPage() {
     setCommentReel(reel);
   }
 
+  async function handleShare(reel) {
+    if (!reel?._id || reel.synthetic) return;
+    const url = `${window.location.origin}/reels/${reel._id}`;
+    shareReel(reel._id, { source: "hub_feed", anonymousId: getAnonymousId() }).catch(() => null);
+    if (navigator.share) {
+      await navigator.share({ title: reel.title || reel.caption || "Creator content", url }).catch(() => null);
+      return;
+    }
+    await navigator.clipboard?.writeText(url).catch(() => null);
+  }
+
   function visitStore(reel, href) {
     if (reel?._id && !reel.synthetic) {
       recordReelStoreVisit(reel._id, { anonymousId: window.localStorage.getItem("anonInfluencerId") || "", source: "home_feed" }).catch(() => null);
@@ -349,6 +399,7 @@ export function InfluencersHubPage() {
             onSave={toggleSave}
             onLike={handleLike}
             onComment={openComments}
+            onShare={handleShare}
             onVisitStore={visitStore}
             onProductOpen={openProduct}
           />
@@ -493,7 +544,7 @@ function HomeCommentsModal({ reel, isAuthenticated, onClose, onLoginRequired, on
   );
 }
 
-function HubContent({ section, loading, query, setQuery, creators, reels, products, followedStores, followedIds, savedIds, likedIds, followBusy = {}, onFollow, onSave, onLike, onComment, onVisitStore, onProductOpen }) {
+function HubContent({ section, loading, query, setQuery, creators, reels, products, followedStores, followedIds, savedIds, likedIds, followBusy = {}, onFollow, onSave, onLike, onComment, onShare, onVisitStore, onProductOpen }) {
   if (section === "search") {
     return (
       <FeedShell title="Search" subtitle="Find influencers, products, collections, stores, hashtags, campaigns, and categories.">
@@ -521,7 +572,7 @@ function HubContent({ section, loading, query, setQuery, creators, reels, produc
   if (section === "saved") {
     return (
       <FeedShell title="Saved" subtitle="Saved posts, reels, products, collections, influencers, and campaigns.">
-        <PostFeed reels={reels.filter((row) => savedIds[row._id])} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onVisitStore={onVisitStore} onProductOpen={onProductOpen} empty="No saved content yet." />
+        <PostFeed reels={reels.filter((row) => savedIds[row._id])} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onProductOpen={onProductOpen} empty="No saved content yet." />
       </FeedShell>
     );
   }
@@ -539,7 +590,7 @@ function HubContent({ section, loading, query, setQuery, creators, reels, produc
     return (
       <FeedShell title="Trending" subtitle="Creators, reels, products, collections, and campaigns ranked by engagement and revenue signals.">
         <CreatorGrid creators={creators} followedIds={followedIds} followBusy={followBusy} onFollow={onFollow} />
-        <PostFeed reels={reels} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onVisitStore={onVisitStore} onProductOpen={onProductOpen} />
+        <PostFeed reels={reels} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onProductOpen={onProductOpen} />
       </FeedShell>
     );
   }
@@ -548,7 +599,7 @@ function HubContent({ section, loading, query, setQuery, creators, reels, produc
     <FeedShell title="Home" subtitle="Stories, creator posts, reels, product showcases, campaign promotions, and storefront updates.">
       <Stories creators={creators} />
       {loading ? <div className="rounded-3xl bg-white p-8 text-sm font-bold text-slate-500 dark:bg-slate-900">Loading creator feed...</div> : null}
-      <PostFeed reels={reels} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onVisitStore={onVisitStore} onProductOpen={onProductOpen} />
+      <PostFeed reels={reels} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onProductOpen={onProductOpen} />
     </FeedShell>
   );
 }
@@ -572,45 +623,108 @@ function Stories({ creators = [] }) {
   );
 }
 
-function PostFeed({ reels = [], creators = [], products = [], followedIds, followBusy = {}, savedIds, likedIds = {}, onFollow, onSave, onLike, onComment, onVisitStore, onProductOpen, empty = "No creator content found." }) {
-  const mixed = reels.length ? reels : products.slice(0, 4).map((product) => ({ _id: product._id, products: [product], title: product.name, caption: "Creator product pick", metrics: {}, synthetic: true }));
+function PostFeed({ reels = [], creators = [], products = [], followedIds, followBusy = {}, savedIds, likedIds = {}, onFollow, onSave, onLike, onComment, onShare, onVisitStore, onProductOpen, empty = "No creator content found." }) {
+  const mixed = reels.length ? reels : products.slice(0, 4).map((product) => ({ _id: product._id, products: [product], title: product.name, caption: "Creator product pick", contentType: "POST", metrics: {}, synthetic: true }));
   if (!mixed.length) return <div className="rounded-3xl bg-white p-8 text-center text-sm font-bold text-slate-500 dark:bg-slate-900">{empty}</div>;
   return (
     <section className="space-y-5">
       {mixed.map((post, index) => {
         const creator = post.influencerId && typeof post.influencerId === "object" ? post.influencerId : creators[index % Math.max(creators.length, 1)] || {};
         const id = post._id || `${index}`;
-        const creatorId = influencerId(creator);
-        const profileHref = influencerHref(creator);
-        return (
-          <article key={id} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between gap-3 p-4">
-              <Link to={profileHref} className="flex min-w-0 items-center gap-3">
-                <span className="h-11 w-11 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">{influencerAvatar(creator) ? <img src={influencerAvatar(creator)} alt="" className="h-full w-full object-cover" /> : null}</span>
-                <span className="min-w-0"><span className="block truncate text-sm font-black text-slate-950 dark:text-white">{influencerName(creator)}</span><span className="text-xs text-slate-500">{creator.category || creator.categories?.[0] || "Creator commerce"}</span></span>
-              </Link>
-              <button onClick={() => onFollow(creator)} disabled={followBusy[creatorId]} className={`rounded-full px-4 py-2 text-xs font-black ${followedIds[creatorId] ? "border border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-200" : "bg-slate-950 text-white dark:bg-white dark:text-slate-950"}`}>{followBusy[creatorId] ? (followedIds[creatorId] ? "Unfollowing..." : "Following...") : followedIds[creatorId] ? "Following" : "Follow"}</button>
-            </div>
-            {post.videoUrl ? <video src={resolveApiAssetUrl(post.videoUrl)} poster={resolveApiAssetUrl(post.thumbnailUrl)} className="max-h-[680px] w-full bg-black object-cover" controls playsInline preload="metadata" /> : <ProductShowcase product={post.products?.[0]} />}
-            <div className="space-y-3 p-4">
-              <div className="flex items-center gap-4">
-                <button type="button" onClick={() => onLike?.(post)} className={`inline-flex items-center gap-2 text-sm font-bold ${likedIds[id] ? "text-rose-600" : "text-slate-700 dark:text-slate-200"}`}><Heart className={`h-5 w-5 ${likedIds[id] ? "fill-current" : ""}`} /> {compact(post.metrics?.likes || 0)}</button>
-                <button type="button" onClick={() => onComment?.(post)} className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200"><MessageCircle className="h-5 w-5" /> {compact(post.metrics?.comments || 0)}</button>
-                <button type="button" onClick={() => onVisitStore?.(post, profileHref)} className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200"><Store className="h-5 w-5" /> Visit Store</button>
-                <button onClick={() => onSave(id)} className="ml-auto text-slate-700 dark:text-slate-200"><Bookmark className={`h-5 w-5 ${savedIds[id] ? "fill-current" : ""}`} /></button>
-              </div>
-              <p className="text-sm text-slate-700 dark:text-slate-200"><Link to={profileHref} className="font-bold">{creator.storeSlug || influencerName(creator)}</Link> {post.caption || post.title || "Creator commerce update"}</p>
-              {post.products?.length ? <div className="flex gap-2 overflow-x-auto">{post.products.slice(0, 4).map((product) => <ProductChip key={product._id || product.id} reel={post} product={product} onOpen={onProductOpen} />)}</div> : null}
-            </div>
-          </article>
-        );
+        const sharedProps = { key: id, post, creator, followedIds, followBusy, savedIds, likedIds, onFollow, onSave, onLike, onComment, onShare, onVisitStore, onProductOpen };
+        return contentKind(post) === "POST" ? <PostCard {...sharedProps} /> : <ReelCard {...sharedProps} />;
       })}
     </section>
   );
 }
 
-function ProductShowcase({ product }) {
-  return <div className="flex aspect-square items-center justify-center bg-slate-100 dark:bg-slate-950">{product ? <img src={productImage(product)} alt="" className="h-full w-full object-cover" /> : <Video className="h-10 w-10 text-slate-400" />}</div>;
+function CreatorHeader({ creator, followedIds = {}, followBusy = {}, onFollow }) {
+  const creatorId = influencerId(creator);
+  const profileHref = influencerHref(creator);
+  return (
+    <div className="flex items-center justify-between gap-3 p-4">
+      <Link to={profileHref} className="flex min-w-0 items-center gap-3">
+        <span className="h-11 w-11 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">{influencerAvatar(creator) ? <img src={influencerAvatar(creator)} alt="" className="h-full w-full object-cover" /> : null}</span>
+        <span className="min-w-0"><span className="block truncate text-sm font-black text-slate-950 dark:text-white">{influencerName(creator)}</span><span className="text-xs text-slate-500">{creator.category || creator.categories?.[0] || "Creator commerce"}</span></span>
+      </Link>
+      <button onClick={() => onFollow(creator)} disabled={followBusy[creatorId]} className={`rounded-full px-4 py-2 text-xs font-black ${followedIds[creatorId] ? "border border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-200" : "bg-slate-950 text-white dark:bg-white dark:text-slate-950"}`}>{followBusy[creatorId] ? (followedIds[creatorId] ? "Unfollowing..." : "Following...") : followedIds[creatorId] ? "Following" : "Follow"}</button>
+    </div>
+  );
+}
+
+function FeedActions({ post, profileHref, savedIds = {}, likedIds = {}, onLike, onComment, onShare, onVisitStore, onSave }) {
+  const id = post._id;
+  return (
+    <div className="flex flex-wrap items-center gap-4">
+      <button type="button" onClick={() => onLike?.(post)} className={`inline-flex items-center gap-2 text-sm font-bold ${likedIds[id] ? "text-rose-600" : "text-slate-700 dark:text-slate-200"}`}><Heart className={`h-5 w-5 ${likedIds[id] ? "fill-current" : ""}`} /> {compact(post.metrics?.likes || 0)}</button>
+      <button type="button" onClick={() => onComment?.(post)} className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200"><MessageCircle className="h-5 w-5" /> {compact(post.metrics?.comments || 0)}</button>
+      <button type="button" onClick={() => onShare?.(post)} className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200"><Share2 className="h-5 w-5" /> {compact(post.metrics?.shares || 0)}</button>
+      <button type="button" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400"><Eye className="h-5 w-5" /> {compact(post.metrics?.views || 0)}</button>
+      <button type="button" onClick={() => onVisitStore?.(post, profileHref)} className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200"><Store className="h-5 w-5" /> Visit Store</button>
+      <button onClick={() => onSave(id)} className="ml-auto text-slate-700 dark:text-slate-200" aria-label="Save content"><Bookmark className={`h-5 w-5 ${savedIds[id] ? "fill-current" : ""}`} /></button>
+    </div>
+  );
+}
+
+function CampaignBadge({ post }) {
+  const label = campaignBadgeLabel(post);
+  if (!label) return null;
+  return <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-200">{label}</span>;
+}
+
+function ContentBody({ post, creator, savedIds, likedIds, onLike, onComment, onShare, onVisitStore, onSave, onProductOpen }) {
+  const profileHref = influencerHref(creator);
+  return (
+    <div className="space-y-3 p-4">
+      <FeedActions post={post} profileHref={profileHref} savedIds={savedIds} likedIds={likedIds} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onSave={onSave} />
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="min-w-0 flex-1 text-sm text-slate-700 dark:text-slate-200"><Link to={profileHref} className="font-bold">{creator.storeSlug || influencerName(creator)}</Link> {post.caption || post.title || "Creator commerce update"}</p>
+        <CampaignBadge post={post} />
+      </div>
+      {post.products?.length ? <div className="flex gap-2 overflow-x-auto">{post.products.slice(0, 4).map((product) => <ProductChip key={product._id || product.id} reel={post} product={product} onOpen={onProductOpen} />)}</div> : null}
+    </div>
+  );
+}
+
+function PostCard({ post, creator, followedIds, followBusy, savedIds, likedIds, onFollow, onSave, onLike, onComment, onShare, onVisitStore, onProductOpen }) {
+  const images = postImages(post);
+  return (
+    <article className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <CreatorHeader creator={creator} followedIds={followedIds} followBusy={followBusy} onFollow={onFollow} />
+      <ImageCarousel images={images} product={post.products?.[0]} />
+      <ContentBody post={post} creator={creator} savedIds={savedIds} likedIds={likedIds} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onSave={onSave} onProductOpen={onProductOpen} />
+    </article>
+  );
+}
+
+function ReelCard({ post, creator, followedIds, followBusy, savedIds, likedIds, onFollow, onSave, onLike, onComment, onShare, onVisitStore, onProductOpen }) {
+  return (
+    <article className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <CreatorHeader creator={creator} followedIds={followedIds} followBusy={followBusy} onFollow={onFollow} />
+      <video src={resolveApiAssetUrl(post.videoUrl)} poster={resolveApiAssetUrl(post.thumbnailUrl)} className="max-h-[680px] w-full bg-black object-cover" controls playsInline preload="metadata" />
+      <ContentBody post={post} creator={creator} savedIds={savedIds} likedIds={likedIds} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onSave={onSave} onProductOpen={onProductOpen} />
+    </article>
+  );
+}
+
+function ImageCarousel({ images = [], product }) {
+  const [active, setActive] = useState(0);
+  const fallback = product ? productImage(product) : "";
+  const list = images.length ? images : fallback ? [fallback] : [];
+  if (!list.length) return <div className="flex aspect-square items-center justify-center bg-slate-100 text-sm font-bold text-slate-400 dark:bg-slate-950">No image available</div>;
+  const current = list[Math.min(active, list.length - 1)];
+  return (
+    <div className="bg-slate-100 dark:bg-slate-950">
+      <img src={resolveApiAssetUrl(current)} alt="" className="max-h-[680px] w-full object-cover" />
+      {list.length > 1 ? (
+        <div className="flex items-center justify-center gap-2 p-3">
+          {list.map((url, index) => (
+            <button key={`${url}-${index}`} type="button" onClick={() => setActive(index)} className={`h-2 rounded-full transition-all ${index === active ? "w-6 bg-slate-950 dark:bg-white" : "w-2 bg-slate-300 dark:bg-slate-700"}`} aria-label={`Show image ${index + 1}`} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function ProductChip({ reel, product, onOpen }) {
@@ -664,9 +778,11 @@ function MasonryGrid({ creators = [], reels = [], products = [] }) {
   return (
     <section className="columns-2 gap-3 md:columns-3">
       {cells.map((item, index) => {
+        const kind = contentKind(item);
+        const images = postImages(item);
         const content = (
           <>
-            {item.videoUrl ? <video src={resolveApiAssetUrl(item.videoUrl)} className="w-full bg-black object-cover" muted loop playsInline /> : <img src={productImage(item) || influencerAvatar(item)} alt="" className="min-h-36 w-full object-cover" />}
+            {kind === "REEL" && item.videoUrl ? <video src={resolveApiAssetUrl(item.videoUrl)} className="w-full bg-black object-cover" muted loop playsInline /> : <img src={images[0] || productImage(item) || influencerAvatar(item)} alt="" className="min-h-36 w-full object-cover" />}
             <div className="p-3 text-sm font-black text-slate-950 dark:text-white">{item.name || item.title || item.storeSlug || "Explore"}</div>
           </>
         );

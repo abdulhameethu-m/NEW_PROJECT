@@ -3,6 +3,7 @@ const { asyncHandler } = require("../../utils/asyncHandler");
 const { uploadMany } = require("../../utils/upload");
 const influencerService = require("./service");
 const commissionService = require("../commission/service");
+const reelService = require("../reel/service");
 const influencerRateCardService = require("../../services/influencer-rate-card.service");
 
 const checkEmail = asyncHandler(async (req, res) =>
@@ -120,6 +121,17 @@ const dashboard = asyncHandler(async (req, res) =>
 const earningsDashboard = asyncHandler(async (req, res) =>
   ok(res, await commissionService.getInfluencerEarningsDashboard(req.user.sub, req.query), "Influencer earnings dashboard loaded")
 );
+const contentStatistics = asyncHandler(async (req, res) =>
+  ok(
+    res,
+    await reelService.getContentStatistics(req.user, req.params.contentId, {
+      ...req.query,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    }),
+    "Content statistics loaded"
+  )
+);
 const requestWithdrawal = asyncHandler(async (req, res) =>
   ok(
     res,
@@ -196,6 +208,7 @@ module.exports = {
   moderate,
   dashboard,
   earningsDashboard,
+  contentStatistics,
   requestWithdrawal,
   commerceProfile,
   saveServices,

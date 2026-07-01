@@ -210,11 +210,9 @@ const PAYMENT_MODEL_DEFAULTS = [
   {
     key: "fixed",
     label: "Fixed Payment",
-    requiresFixedFee: true,
+    requiresRateCardReward: true,
     fields: [
       { key: "services", label: "Services", fieldType: "json", required: true, displayOrder: 1 },
-      { key: "quantity", label: "Quantity", fieldType: "number", required: true, min: 1, defaultValue: 1, displayOrder: 2 },
-      { key: "total", label: "Total", fieldType: "currency", required: true, displayOrder: 3 },
     ],
     budgetComponents: ["fixedCost", "taxes", "platformFees"],
     displayOrder: 1,
@@ -305,11 +303,8 @@ const CAMPAIGN_PAYMENT_RULE_MATRIX = {
 
 const CAMPAIGN_DYNAMIC_FIELD_DEFAULTS = {
   fixed: [
-    ["fixedFee", "Fixed Amount", "currency", true, { min: 0 }],
     ["currency", "Currency", "select", true, { defaultValue: "INR", options: [{ label: "INR", value: "INR" }] }],
-    ["milestonePayment", "Milestone Payment", "boolean", false, { defaultValue: false }],
-    ["selectedServices", "Deliverables", "service_selector", false, {}],
-    ["paymentSchedule", "Payment Schedule", "textarea", false, {}],
+    ["selectedServices", "Deliverables", "service_selector", true, {}],
   ],
   commission: [
     ["commissionPercent", "Commission %", "percentage", true, { min: 0, max: 50, defaultValue: 10 }],

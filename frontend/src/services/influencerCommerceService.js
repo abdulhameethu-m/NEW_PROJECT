@@ -600,16 +600,6 @@ export async function followReelCreator(id, payload = {}) {
   return data;
 }
 
-export async function getInfluencerReels() {
-  const { data } = await api.get("/api/reel/mine");
-  return data;
-}
-
-export async function getInfluencerReelsPage(params = {}) {
-  const { data } = await api.get("/api/reel/influencer", { params });
-  return data;
-}
-
 export async function listInfluencerContent(params = {}) {
   const { data } = await api.get("/api/reel/content", { params });
   return data;
@@ -625,23 +615,15 @@ export async function deleteInfluencerContent(id) {
   return data;
 }
 
-export async function getInfluencerContentAnalytics(params = {}) {
-  const { data } = await api.get("/api/reel/content/analytics", { params });
-  return data;
-}
-
 export async function getInfluencerMediaLibrary(params = {}) {
   const { data } = await api.get("/api/reel/content/media-library", { params });
   return data;
 }
 
-export async function listInfluencerLiveSessions(params = {}) {
-  const { data } = await api.get("/api/reel/content/live", { params });
-  return data;
-}
-
-export async function createInfluencerLiveSession(payload) {
-  const { data } = await api.post("/api/reel/content/live", payload);
+export async function getInfluencerContentStatistics(contentId, params = {}) {
+  const { data } = await api.get(`/api/influencer/content/${encodeURIComponent(contentId)}/statistics`, {
+    params: compactParams(params),
+  });
   return data;
 }
 

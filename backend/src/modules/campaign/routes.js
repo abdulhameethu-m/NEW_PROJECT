@@ -105,7 +105,12 @@ router.post(
   validate(
     Joi.object({
       contentUrl: Joi.string().trim().max(1200).required(),
-      contentType: Joi.string().valid("video", "image", "document", "url", "youtube", "instagram", "facebook", "tiktok", "other").default("url"),
+      contentType: Joi.string().valid("post", "reel").required(),
+      sourcePlatform: Joi.string().valid("instagram", "facebook", "youtube", "tiktok", "upload").required(),
+      mediaType: Joi.string().valid("instagram_post", "facebook_post", "image", "carousel", "document", "instagram_reel", "youtube_shorts", "tiktok_video", "facebook_reel", "video").required(),
+      uploadMethod: Joi.string().valid("url", "file").required(),
+      mediaUrls: Joi.array().items(Joi.string().trim().max(1200)).default([]),
+      fileMetadata: Joi.array().items(Joi.object().unknown(true)).default([]),
       notes: Joi.string().trim().max(1000).allow("").default(""),
     })
   ),

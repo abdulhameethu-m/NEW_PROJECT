@@ -921,7 +921,7 @@ class InfluencerCommerceVendorService {
       products,
     });
     const fixedBudget = Number(pricing.pricing?.fixedCost || payload.fixedFee || 0);
-    const fundingSummary = ["fixed", "hybrid"].includes(pricing.paymentModel?.key || payload.paymentType)
+    const fundingSummary = ["fixed", "hybrid"].includes(pricing.paymentType || pricing.paymentModel?.paymentType || payload.paymentType)
       ? fixedBudget > 0
         ? await require("../../services/campaign-fee.service").calculateFundingSummary(
           fixedBudget,

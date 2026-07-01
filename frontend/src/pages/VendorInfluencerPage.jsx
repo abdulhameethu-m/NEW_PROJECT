@@ -350,7 +350,10 @@ function campaignRuleConfig(configuration = {}) {
   const fieldsByCombination = Object.fromEntries(
     Object.entries(engine.fieldsByCombination || {}).map(([key, rows]) => [
       key,
-      (rows || []).map(normalizeDynamicField).sort((a, b) => a.displayOrder - b.displayOrder || a.label.localeCompare(b.label)),
+      (rows || [])
+        .map(normalizeDynamicField)
+        .filter((field) => !key.endsWith(":fixed") || !["fixedFee", "fixedAmount", "milestonePayment", "paymentSchedule"].includes(field.fieldName || field.key))
+        .sort((a, b) => a.displayOrder - b.displayOrder || a.label.localeCompare(b.label)),
     ])
   );
   return {
@@ -744,6 +747,24 @@ function PriceSummaryRow({ label, value, strong = false }) {
   );
 }
 
+function selectedDeliverableUnits(item = {}) {
+  return Math.max(1, Number(item.units ?? item.quantity ?? item.selectedQuantity ?? 1) || 1);
+}
+
+function fixedRewardCalculationRows(selectedServices = []) {
+  return selectedServices.map((item) => {
+    const units = selectedDeliverableUnits(item);
+    const unitPrice = Number(item.price || item.rate || 0);
+    return {
+      ...item,
+      units,
+      unitPrice,
+      total: unitPrice * units,
+      label: item.packageName || item.serviceName || "Deliverable",
+    };
+  });
+}
+
 function CampaignForm({ influencers, products, configuration = {}, onCreate, busy, initialInfluencerId = "", initialProductIds = [] }) {
   const initialProductKey = initialProductIds.join("|");
   const rules = useMemo(() => campaignRuleConfig(configuration), [configuration]);
@@ -795,25 +816,30 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   const selectedCampaignType = rules.campaignTypes.find((type) => type.key === form.campaignType) || rules.campaignTypes[0] || null;
   const paymentModels = selectedCampaignType?.allowedPaymentModels?.length ? selectedCampaignType.allowedPaymentModels : rules.paymentModels;
   const selectedPaymentModel = paymentModels.find((model) => model.key === form.paymentType) || paymentModels[0];
+  const fixedCalculationRows = useMemo(() => fixedRewardCalculationRows(form.selectedServices), [form.selectedServices]);
+  const calculatedFixedReward = useMemo(() => fixedCalculationRows.reduce((sum, item) => sum + Number(item.total || 0), 0), [fixedCalculationRows]);
   const fixedPaymentSummary = useMemo(() => {
     if (!["fixed", "hybrid"].includes(form.paymentType)) return null;
+    const fixedCost = Number(preview?.pricing?.fixedCost ?? (form.paymentType === "fixed" ? calculatedFixedReward : form.fixedFee) ?? 0);
     return preview?.fundingSummary || {
-      budgetAmount: Number(preview?.pricing?.fixedCost || form.fixedFee || 0),
-      escrowAmount: Number(preview?.pricing?.fixedCost || form.fixedFee || 0),
-      totalAmount: Number(preview?.pricing?.fixedCost || form.fixedFee || 0),
+      budgetAmount: fixedCost,
+      escrowAmount: fixedCost,
+      totalAmount: fixedCost,
       feeLines: [],
       feeSource: "Configured by Admin",
     };
-  }, [form.paymentType, form.fixedFee, preview?.pricing?.fixedCost, preview?.fundingSummary]);
+  }, [calculatedFixedReward, form.fixedFee, form.paymentType, preview?.pricing?.fixedCost, preview?.fundingSummary]);
   const attributionWindows = rules.attributionWindows.length ? rules.attributionWindows : [];
   const dynamicFields = useMemo(() => (
     rules.fieldsByCombination[`${form.campaignType}:${form.paymentType}`] || []
   ), [rules.fieldsByCombination, form.campaignType, form.paymentType]);
   const dynamicNames = useMemo(() => fieldNames(dynamicFields), [dynamicFields]);
-  const allowsServiceSelection = ["commission", "hybrid"].includes(form.paymentType) || dynamicNames.has("selectedServices") || dynamicNames.has("services");
+  const allowsServiceSelection = ["fixed", "commission", "hybrid"].includes(form.paymentType) || dynamicNames.has("selectedServices") || dynamicNames.has("services");
   const handledDynamicNames = new Set([
     "fixedFee",
     "fixedAmount",
+    "milestonePayment",
+    "paymentSchedule",
     "selectedServices",
     "services",
     "commissionPercent",
@@ -901,8 +927,8 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       paymentType: value,
       commissionPercent: Number(defaults.commissionPercent ?? defaults.commissionPercentage ?? current.commissionPercent ?? 0),
       attributionDays: Number(defaults.attributionDays ?? current.attributionDays ?? rules.attributionWindows[0]?.days ?? 0),
-      selectedServices: value === "commission" || nextNames.has("selectedServices") || nextNames.has("services") ? current.selectedServices : [],
-      fixedFee: nextNames.has("fixedFee") || nextNames.has("fixedAmount") ? current.fixedFee : 0,
+      selectedServices: ["fixed", "commission", "hybrid"].includes(value) || nextNames.has("selectedServices") || nextNames.has("services") ? current.selectedServices : [],
+      fixedFee: value === "fixed" ? 0 : nextNames.has("fixedFee") || nextNames.has("fixedAmount") ? current.fixedFee : 0,
       dynamicFields: { ...defaults, paymentType: value },
     }));
   }
@@ -941,6 +967,22 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
           currency: pkg.currency || service.currency || "INR",
         },
       ];
+      return {
+        ...current,
+        selectedServices,
+        dynamicFields: { ...current.dynamicFields, selectedServices, deliverableCommissionRates: selectedServices },
+      };
+    });
+  }
+
+  function setDeliverableUnits(selectionKey, value) {
+    const units = Math.max(1, Number(value || 1) || 1);
+    setForm((current) => {
+      const selectedServices = current.selectedServices.map((item) => (
+        String(item.selectionKey || "") === String(selectionKey || "")
+          ? { ...item, quantity: units, units }
+          : item
+      ));
       return {
         ...current,
         selectedServices,
@@ -1016,11 +1058,14 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     const fallbackCommissionPercent = ["commission", "hybrid"].includes(source.paymentType) && deliverableCommissionRates.length
       ? Math.max(...deliverableCommissionRates.map((item) => Number(item.commissionPercentage || 0)))
       : Number(source.commissionPercent || 0);
+    const fixedReward = source.paymentType === "fixed"
+      ? fixedRewardCalculationRows(source.selectedServices).reduce((sum, item) => sum + Number(item.total || 0), 0)
+      : Number(source.fixedFee || 0);
     const dynamicFieldValues = {
       ...(source.dynamicFields || {}),
       selectedServices,
       deliverableCommissionRates,
-      fixedFee: Number(source.fixedFee || 0),
+      ...(source.paymentType === "fixed" ? {} : { fixedFee: fixedReward }),
       commissionPercent: fallbackCommissionPercent,
       commissionPercentage: fallbackCommissionPercent,
       attributionDays: Number(source.attributionDays || 0),
@@ -1035,7 +1080,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       dynamicFields: dynamicFieldValues,
       deadline: source.deadline || null,
       commissionPercent: fallbackCommissionPercent,
-      fixedFee: Number(source.fixedFee || 0),
+      ...(source.paymentType === "fixed" ? {} : { fixedFee: fixedReward }),
       marketplace: {
         ...source.marketplace,
         requiredDeliverables: splitLines(dynamicFieldValues.expectedDeliverables || dynamicFieldValues.deliverables || source.marketplace?.requiredDeliverables || []),
@@ -1050,7 +1095,8 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
         services: selectedServices,
         deliverableCommissionRates,
         dynamicFields: dynamicFieldValues,
-        fixedFee: Number(source.fixedFee || 0),
+        ...(source.paymentType === "fixed" ? {} : { fixedFee: fixedReward }),
+        calculatedFixedReward: source.paymentType === "fixed" ? fixedReward : undefined,
         commissionPercentage: fallbackCommissionPercent,
         attributionDays: Number(source.attributionDays || 0),
         expectedBudget: Number(source.expectedBudget || 0),
@@ -1093,16 +1139,19 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     setPreview(null);
   }
 
+  const fixedNeedsDeliverables = form.paymentType === "fixed" && !form.selectedServices.length;
   const commissionNeedsDeliverables = ["commission", "hybrid"].includes(form.paymentType) && !form.selectedServices.length;
   const commissionNeedsRates = ["commission", "hybrid"].includes(form.paymentType) && form.selectedServices.some((item) => Number(item.commissionPercentage || 0) <= 0);
-  const canSubmit = !busy && form.title.trim() && form.productIds.length && form.campaignType && form.paymentType && !commissionNeedsDeliverables && !commissionNeedsRates && !previewError;
+  const canSubmit = !busy && form.title.trim() && form.productIds.length && form.campaignType && form.paymentType && !fixedNeedsDeliverables && !commissionNeedsDeliverables && !commissionNeedsRates && !previewError;
   const submitHelp = !form.title.trim()
     ? "Add a campaign title to continue."
     : !form.productIds.length
       ? "Select at least one product."
       : !form.campaignType || !form.paymentType
         ? "Choose campaign and payment rules."
-        : commissionNeedsDeliverables
+        : fixedNeedsDeliverables
+          ? "Select deliverables from the creator's approved rate card to calculate the fixed reward."
+          : commissionNeedsDeliverables
           ? "Select the creator deliverables before creating a commission campaign."
           : commissionNeedsRates
             ? "Set a commission percentage for each selected deliverable."
@@ -1198,7 +1247,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
             </label>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              {(dynamicNames.has("fixedFee") || dynamicNames.has("fixedAmount")) && !form.selectedServices.length ? (
+              {form.paymentType !== "fixed" && (dynamicNames.has("fixedFee") || dynamicNames.has("fixedAmount")) && !form.selectedServices.length ? (
                 <label className="block space-y-1.5">
                   <FieldLabel>{dynamicFields.find((field) => ["fixedFee", "fixedAmount"].includes(field.fieldName || field.key))?.label || "Fixed Fee"}</FieldLabel>
                   <input type="number" min="0" value={form.fixedFee} onChange={(event) => setField("fixedFee", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Fixed fee" />
@@ -1240,6 +1289,48 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
           </div>
         </div>
 
+        {form.paymentType === "fixed" ? (
+          <div className="mt-5 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 dark:border-indigo-900/60 dark:bg-indigo-950/20">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-slate-950 dark:text-white">Fixed Campaign Reward</h4>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Rate Card Source: Influencer Approved Rate Card</p>
+              </div>
+              <div className="rounded-2xl bg-white px-4 py-3 text-right shadow-sm dark:bg-slate-950">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Fixed Reward</p>
+                <p className="text-xl font-black text-indigo-700 dark:text-indigo-300">{formatCurrency(calculatedFixedReward)}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <div className="rounded-xl bg-white p-3 dark:bg-slate-950">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Selected Deliverables</p>
+                <div className="mt-2 space-y-2">
+                  {fixedCalculationRows.length ? fixedCalculationRows.map((row) => (
+                    <div key={row.selectionKey || `${row.serviceId}-${row.packageId}`} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{selectedDeliverableUnits(row)} × {row.label}</span>
+                      <span className="font-bold text-slate-950 dark:text-white">{formatCurrency(row.total)}</span>
+                    </div>
+                  )) : <p className="text-xs text-slate-500">Select deliverables below to calculate the reward.</p>}
+                </div>
+              </div>
+              <div className="rounded-xl bg-white p-3 dark:bg-slate-950">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Calculation</p>
+                <div className="mt-2 space-y-2">
+                  {fixedCalculationRows.length ? fixedCalculationRows.map((row) => (
+                    <div key={row.selectionKey || `${row.serviceId}-${row.packageId}-calc`} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-slate-600 dark:text-slate-300">{formatCurrency(row.unitPrice)} × {selectedDeliverableUnits(row)}</span>
+                      <span className="font-bold text-slate-950 dark:text-white">{formatCurrency(row.total)}</span>
+                    </div>
+                  )) : <p className="text-xs text-slate-500">No deliverables selected.</p>}
+                  <div className="border-t border-slate-200 pt-2 dark:border-slate-800">
+                    <PriceSummaryRow label="Escrow Amount" value={calculatedFixedReward} strong />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {allowsServiceSelection ? (
           <fieldset className="mt-5 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1263,6 +1354,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                       const selected = Boolean(selectedItem);
                       const price = packagePrice(pkg, service);
                       const commissionMode = ["commission", "hybrid"].includes(form.paymentType);
+                      const fixedMode = form.paymentType === "fixed";
                       return (
                         <div
                           key={packageKey(service, pkg)}
@@ -1283,7 +1375,19 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                             <span className="block truncate font-medium text-slate-800 dark:text-slate-100">{pkg.packageName || pkg.name || "Package"}</span>
                             <span className="text-xs text-slate-500">{Number(pkg.quantity || 1)} deliverable{Number(pkg.quantity || 1) === 1 ? "" : "s"} - {pkg.deliveryDays ?? service.deliveryDays ?? 0}d - {pkg.revisionCount ?? service.revisionCount ?? 0} rev</span>
                           </span>
-                          {commissionMode ? (
+                          {fixedMode && selected ? (
+                            <span className="flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
+                              <span className="text-xs font-semibold text-slate-500">{formatCurrency(price)} ×</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={selectedDeliverableUnits(selectedItem)}
+                                onChange={(event) => setDeliverableUnits(selectedItem.selectionKey, event.target.value)}
+                                className="h-9 w-16 rounded-lg border border-slate-200 bg-white px-2 text-right text-sm font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                                aria-label={`${pkg.packageName || service.serviceName} quantity`}
+                              />
+                            </span>
+                          ) : commissionMode ? (
                             selected ? (
                               <span className="flex items-center justify-end gap-1">
                                 <input
@@ -1311,7 +1415,9 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                   </div>
                 </div>
               )) : (
-                <p className="px-2 py-4 text-sm text-slate-500">Select a creator with active services or enter a fallback fixed fee.</p>
+                <p className="px-2 py-4 text-sm text-slate-500">
+                  {form.paymentType === "fixed" ? "Select a creator with an approved rate card to calculate the fixed reward." : "Select a creator with active services or enter a fallback fixed fee."}
+                </p>
               )}
             </div>
           </fieldset>
@@ -1340,10 +1446,23 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
               <StatusBadge value={form.marketplace.public ? "marketplace" : "invite only"} />
             </div>
             <div className="mt-4 space-y-2">
-              <PriceSummaryRow label="Fixed fee" value={preview?.pricing?.fixedCost || 0} />
-              <PriceSummaryRow label="Commission reserve" value={preview?.pricing?.commissionReserve || 0} />
-              <PriceSummaryRow label="Product and shipping" value={(preview?.pricing?.productCost || 0) + (preview?.pricing?.shippingCost || 0)} />
-              <PriceSummaryRow label="Estimated total budget" value={preview?.pricing?.totalBudget || 0} strong />
+              {form.paymentType === "fixed" ? (
+                <>
+                  <PriceSummaryRow label="Influencer Fixed Reward" value={preview?.pricing?.fixedCost ?? calculatedFixedReward} />
+                  <PriceSummaryRow label="Platform Fees" value={fixedPaymentSummary?.platformFeeAmount || preview?.pricing?.platformFees || 0} />
+                  <PriceSummaryRow label="Shipping" value={preview?.pricing?.shippingCost || 0} />
+                  <PriceSummaryRow label="Other Admin Charges" value={(fixedPaymentSummary?.gatewayFeeAmount || 0) + (fixedPaymentSummary?.taxAmount || preview?.pricing?.taxes || 0)} />
+                  <PriceSummaryRow label="Escrow Amount" value={fixedPaymentSummary?.escrowAmount ?? preview?.pricing?.fixedCost ?? calculatedFixedReward} />
+                  <PriceSummaryRow label="Total Amount Payable" value={fixedPaymentSummary?.totalAmount ?? preview?.pricing?.totalBudget ?? calculatedFixedReward} strong />
+                </>
+              ) : (
+                <>
+                  <PriceSummaryRow label="Fixed fee" value={preview?.pricing?.fixedCost || 0} />
+                  <PriceSummaryRow label="Commission reserve" value={preview?.pricing?.commissionReserve || 0} />
+                  <PriceSummaryRow label="Product and shipping" value={(preview?.pricing?.productCost || 0) + (preview?.pricing?.shippingCost || 0)} />
+                  <PriceSummaryRow label="Estimated total budget" value={preview?.pricing?.totalBudget || 0} strong />
+                </>
+              )}
             </div>
             {previewError ? <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">{previewError}</p> : null}
           </div>
@@ -1362,7 +1481,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
             </button>
           </div>
         </div>
-        {fixedPaymentSummary ? (
+        {fixedPaymentSummary && form.paymentType !== "fixed" ? (
           <div className="mt-5">
             <BudgetSummaryPanel campaign={{ title: form.title }} {...fixedPaymentSummary} />
           </div>

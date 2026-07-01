@@ -604,6 +604,16 @@ router.put("/requirements", authRequired, requireRole("influencer"), validate(re
 router.post("/generate-affiliate-link", authRequired, requireRole("influencer"), validate(affiliateLinkSchema), controller.generateAffiliateLink);
 router.get("/earnings-withdrawals", authRequired, requireRole("influencer"), validate(earningsQuery, "query"), controller.earningsDashboard);
 router.post("/earnings-withdrawals/withdrawals", authRequired, requireRole("influencer"), validate(withdrawalRequestSchema), controller.requestWithdrawal);
+router.get(
+  "/content/:contentId/statistics",
+  authRequired,
+  requireRole("influencer", "vendor", "admin", "super_admin", "support_admin", "finance_admin"),
+  validate(Joi.object({
+    refresh: Joi.string().valid("true", "false").optional(),
+    format: Joi.string().valid("json", "pdf", "xlsx").optional(),
+  }), "query"),
+  controller.contentStatistics
+);
 router.get("/dashboard", authRequired, requireRole("influencer"), validate(dashboardQuery, "query"), controller.dashboard);
 router.get("/list", authOptional, controller.list);
 router.get("/admin/list", authRequired, requireRole("admin", "super_admin", "support_admin", "finance_admin"), controller.list);

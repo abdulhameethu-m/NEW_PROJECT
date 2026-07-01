@@ -64,12 +64,17 @@ function campaignProductIds(campaign) {
     .map(String);
 }
 
+function campaignKey(campaign = {}) {
+  return campaign.id || campaign._id || "";
+}
+
 function formatDate(value) {
   return value ? new Date(value).toLocaleDateString() : "Not set";
 }
 
 function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, onSave, onSubmitDeliverable, onGenerateLink, busyId }) {
-  const busy = busyId === campaign.id;
+  const campaignId = campaignKey(campaign);
+  const busy = busyId === campaignId;
   const applicationStatus = campaign.applicationStatus || "";
   const openInvitationStatuses = ["invitation_sent", "proposed", "pending_review"];
   const campaignState = campaign.state || "";
@@ -85,7 +90,7 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
   const canApply = campaign.marketplacePublic && !isApplied && !canAccept;
   const deadline = campaign.applicationDeadline || campaign.deadline;
   const productIds = campaignProductIds(campaign);
-  const contentHref = `/influencer/campaigns/${campaign.id}/content`;
+  const contentHref = campaignId ? `/influencer/campaigns/${campaignId}/content` : "";
 
   return (
     <article className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -372,6 +377,7 @@ function KeyValueGrid({ rows }) {
 
 function CampaignDetailsPanel({ campaign, onClose, onAccept, onReject, busyId }) {
   if (!campaign) return null;
+  const campaignId = campaignKey(campaign);
   const openInvitationStatuses = ["invitation_sent", "proposed", "pending_review"];
   const campaignState = campaign.state || "";
   const status = campaignState && !openInvitationStatuses.includes(campaignState)
@@ -401,11 +407,11 @@ function CampaignDetailsPanel({ campaign, onClose, onAccept, onReject, busyId })
         <div className="flex flex-wrap gap-2">
           {canAct ? (
             <>
-              <button type="button" disabled={busyId === campaign.id} onClick={() => onAccept(campaign)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              <button type="button" disabled={busyId === campaignId} onClick={() => onAccept(campaign)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
                 <CheckCircle2 className="h-4 w-4" />
                 Accept
               </button>
-              <button type="button" disabled={busyId === campaign.id} onClick={() => onReject(campaign)} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-300">
+              <button type="button" disabled={busyId === campaignId} onClick={() => onReject(campaign)} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-300">
                 Reject
               </button>
             </>
@@ -922,11 +928,12 @@ export default function InfluencerCampaignsPage() {
   }, [loadCampaigns, filters.search]);
 
   async function handleApply(campaign) {
-    setBusyId(campaign.id);
+    const id = campaignKey(campaign);
+    setBusyId(id);
     setError("");
     setMessage("");
     try {
-      await applyCampaignMarketplace(campaign.id, {
+      await applyCampaignMarketplace(id, {
         profileSummary: "Interested in this campaign and ready to submit required deliverables.",
         expectedEarnings: campaign.budget || 0,
       });
@@ -940,11 +947,12 @@ export default function InfluencerCampaignsPage() {
   }
 
   async function handleAcceptCampaign(campaign) {
-    setBusyId(campaign.id);
+    const id = campaignKey(campaign);
+    setBusyId(id);
     setError("");
     setMessage("");
     try {
-      await acceptCampaign(campaign.id);
+      await acceptCampaign(id);
       setMessage("Campaign accepted. It moved to Accepted Campaigns.");
       setSelectedCampaign(null);
       await loadCampaigns();
@@ -957,11 +965,12 @@ export default function InfluencerCampaignsPage() {
 
   async function handleRejectCampaign(campaign) {
     const note = window.prompt("Optional reason: Too Busy, Budget Too Low, Not Relevant, Other", "");
-    setBusyId(campaign.id);
+    const id = campaignKey(campaign);
+    setBusyId(id);
     setError("");
     setMessage("");
     try {
-      await rejectCampaign(campaign.id, note || "");
+      await rejectCampaign(id, note || "");
       setMessage("Campaign rejected. It moved to Rejected Campaigns.");
       setSelectedCampaign(null);
       await loadCampaigns();
@@ -973,10 +982,11 @@ export default function InfluencerCampaignsPage() {
   }
 
   async function handleSave(campaign) {
-    setBusyId(campaign.id);
+    const id = campaignKey(campaign);
+    setBusyId(id);
     setMessage("");
     try {
-      await saveCampaignMarketplace(campaign.id, !campaign.saved);
+      await saveCampaignMarketplace(id, !campaign.saved);
       setMessage(campaign.saved ? "Campaign removed from saved list." : "Campaign saved.");
       await loadCampaigns();
     } catch (err) {
@@ -987,10 +997,11 @@ export default function InfluencerCampaignsPage() {
   }
 
   async function handleSubmitDeliverable(campaign) {
-    setBusyId(campaign.id);
+    const id = campaignKey(campaign);
+    setBusyId(id);
     setMessage("");
     try {
-      await submitCampaignDeliverable(campaign.id, {
+      await submitCampaignDeliverable(id, {
         title: `${campaign.title} deliverable`,
         type: "video",
         notes: "Deliverable submitted from Campaign Marketplace.",
@@ -1005,18 +1016,19 @@ export default function InfluencerCampaignsPage() {
   }
 
   async function handleGenerateLink(campaign) {
+    const id = campaignKey(campaign);
     const productIds = campaignProductIds(campaign);
     if (!productIds.length) return;
-    setBusyId(campaign.id);
+    setBusyId(id);
     setError("");
     setMessage("");
     try {
       const response = await generateAffiliateProductLinks({
         productIds,
-        campaignId: campaign.id,
+        campaignId: id,
         utmSource: "influencer",
         utmMedium: "campaign",
-        utmCampaign: campaign.title || campaign.id,
+        utmCampaign: campaign.title || id,
       });
       const firstLink = response?.data?.links?.[0]?.affiliateUrl;
       if (firstLink && navigator.clipboard?.writeText) {
@@ -1168,7 +1180,7 @@ export default function InfluencerCampaignsPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {campaigns.map((campaign) => (
             <CampaignCard
-              key={campaign.id}
+              key={campaignKey(campaign)}
               campaign={campaign}
               onApply={handleApply}
               onAccept={handleAcceptCampaign}

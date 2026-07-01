@@ -44,6 +44,14 @@ function objectId(value) {
   return new mongoose.Types.ObjectId(value);
 }
 
+function assertObjectId(value, field = "id") {
+  const id = objectId(value);
+  if (!id) {
+    throw new AppError(`Invalid ${field}`, 400, "INVALID_ID", { field });
+  }
+  return id;
+}
+
 function titleize(value = "") {
   return String(value || "Deliverable").replace(/[_-]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
@@ -133,6 +141,145 @@ function allDeliverablesPublished(deliverables = [], publishedCount = 0) {
   };
 }
 
+const EXECUTABLE_EXTENSIONS = new Set(["exe", "bat", "cmd", "sh", "msi", "js", "jar", "scr", "ps1", "com", "dll"]);
+const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "qt"]);
+const DOCUMENT_EXTENSIONS = new Set(["pdf", "doc", "docx"]);
+const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
+const DOCUMENT_MIME_TYPES = new Set(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
+
+const SUBMISSION_RULES = {
+  post: {
+    message: "Only POST content is accepted for this deliverable.",
+    mediaTypes: new Set(["instagram_post", "facebook_post", "image", "carousel", "document"]),
+    platforms: new Set(["instagram", "facebook", "upload"]),
+  },
+  reel: {
+    message: "Only REEL content is accepted for this deliverable.",
+    mediaTypes: new Set(["instagram_reel", "youtube_shorts", "tiktok_video", "facebook_reel", "video"]),
+    platforms: new Set(["instagram", "youtube", "tiktok", "facebook", "upload"]),
+  },
+};
+
+function deliverableKind(deliverable = {}) {
+  const raw = String(deliverable.deliverableType || deliverable.type || deliverable.title || "").toLowerCase();
+  if (/(^|[_\s-])(reel|short|shorts|video|ugc)([_\s-]|$)/.test(raw) || raw.includes("reel")) return "reel";
+  return "post";
+}
+
+function extensionFromUrl(value = "") {
+  const clean = String(value || "").split("?")[0].split("#")[0];
+  const ext = clean.includes(".") ? clean.split(".").pop().toLowerCase() : "";
+  return ext;
+}
+
+function parseSafeUrl(value = "") {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) throw new AppError("Content URL is required", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+  if (/^(javascript|data|file|vbscript):/i.test(trimmed)) {
+    throw new AppError("Unsupported content URL", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+  }
+  if (trimmed.startsWith("/uploads/")) return { internal: true, href: trimmed, host: "", path: trimmed.toLowerCase() };
+  let url;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    throw new AppError("Invalid content URL", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+  }
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new AppError("Unsupported content URL", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+  }
+  return { internal: false, href: url.toString(), host: url.hostname.replace(/^www\./, "").toLowerCase(), path: url.pathname.toLowerCase() };
+}
+
+function assertPlatformUrl(url, mediaType) {
+  if (mediaType === "instagram_post" && !(url.host.endsWith("instagram.com") && url.path.includes("/p/"))) {
+    throw new AppError("Instagram Post URL is not valid for this POST deliverable.", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+  }
+  if (mediaType === "instagram_reel" && !(url.host.endsWith("instagram.com") && (url.path.includes("/reel/") || url.path.includes("/reels/")))) {
+    throw new AppError("Instagram Reel URL is not valid for this REEL deliverable.", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+  }
+  if (mediaType === "facebook_post" && !((url.host.endsWith("facebook.com") || url.host.endsWith("fb.com")) && !url.path.includes("/reel"))) {
+    throw new AppError("Facebook Post URL is not valid for this POST deliverable.", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+  }
+  if (mediaType === "facebook_reel" && !((url.host.endsWith("facebook.com") || url.host.endsWith("fb.watch")) && (url.path.includes("/reel") || url.path.includes("/watch") || url.host.endsWith("fb.watch")))) {
+    throw new AppError("Facebook Reel URL is not valid for this REEL deliverable.", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+  }
+  if (mediaType === "youtube_shorts" && !((url.host.endsWith("youtube.com") && url.path.includes("/shorts/")) || url.host.endsWith("youtu.be"))) {
+    throw new AppError("YouTube Shorts URL is not valid for this REEL deliverable.", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+  }
+  if (mediaType === "tiktok_video" && !(url.host.endsWith("tiktok.com") && url.path.includes("/video/"))) {
+    throw new AppError("TikTok URL is not valid for this REEL deliverable.", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+  }
+}
+
+function assertFileSafety(payload = {}) {
+  const urls = [payload.contentUrl, ...(Array.isArray(payload.mediaUrls) ? payload.mediaUrls : [])].filter(Boolean);
+  urls.forEach((url) => {
+    parseSafeUrl(url);
+    const ext = extensionFromUrl(url);
+    if (EXECUTABLE_EXTENSIONS.has(ext)) {
+      throw new AppError("Executable files are not allowed", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+    }
+    if (payload.mediaType === "video" && ext && !VIDEO_EXTENSIONS.has(ext)) {
+      throw new AppError("Only MP4, WebM, or MOV video files are accepted for this deliverable.", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+    }
+    if (["image", "carousel"].includes(payload.mediaType) && ext && !IMAGE_EXTENSIONS.has(ext)) {
+      throw new AppError("Only JPEG, PNG, WebP, or GIF images are accepted for this deliverable.", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+    }
+    if (payload.mediaType === "document" && ext && !DOCUMENT_EXTENSIONS.has(ext)) {
+      throw new AppError("Only PDF, DOC, or DOCX documents are accepted as proof.", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+    }
+  });
+  (Array.isArray(payload.fileMetadata) ? payload.fileMetadata : []).forEach((file) => {
+    const ext = extensionFromUrl(file?.name || "");
+    const mime = String(file?.mimeType || file?.type || "").toLowerCase();
+    if (EXECUTABLE_EXTENSIONS.has(ext)) throw new AppError("Executable files are not allowed", 400, "VALIDATION_ERROR", { field: "fileMetadata" });
+    if (payload.mediaType === "video" && (!VIDEO_EXTENSIONS.has(ext) || !VIDEO_MIME_TYPES.has(mime))) throw new AppError("Only MP4, WebM, or MOV video files are accepted for this deliverable.", 400, "VALIDATION_ERROR", { field: "fileMetadata" });
+    if (["image", "carousel"].includes(payload.mediaType) && (!IMAGE_EXTENSIONS.has(ext) || !IMAGE_MIME_TYPES.has(mime))) throw new AppError("Only JPEG, PNG, WebP, or GIF images are accepted for this deliverable.", 400, "VALIDATION_ERROR", { field: "fileMetadata" });
+    if (payload.mediaType === "document" && (!DOCUMENT_EXTENSIONS.has(ext) || !DOCUMENT_MIME_TYPES.has(mime))) throw new AppError("Only PDF, DOC, or DOCX documents are accepted as proof.", 400, "VALIDATION_ERROR", { field: "fileMetadata" });
+  });
+}
+
+function validateSubmissionPayload(deliverable, payload = {}) {
+  const requiredKind = deliverableKind(deliverable);
+  const rule = SUBMISSION_RULES[requiredKind];
+  const contentType = String(payload.contentType || "").toLowerCase();
+  const sourcePlatform = String(payload.sourcePlatform || "").toLowerCase();
+  const mediaType = String(payload.mediaType || "").toLowerCase();
+  const uploadMethod = String(payload.uploadMethod || "").toLowerCase();
+  if (contentType !== requiredKind) throw new AppError(rule.message, 400, "DELIVERABLE_CONTENT_TYPE_MISMATCH", { field: "contentType" });
+  if (!rule.mediaTypes.has(mediaType) || !rule.platforms.has(sourcePlatform)) {
+    throw new AppError(rule.message, 400, "DELIVERABLE_CONTENT_TYPE_MISMATCH", { field: "mediaType" });
+  }
+  if (uploadMethod === "url") {
+    if (!["instagram_post", "facebook_post", "instagram_reel", "youtube_shorts", "tiktok_video", "facebook_reel"].includes(mediaType)) {
+      throw new AppError(rule.message, 400, "DELIVERABLE_CONTENT_TYPE_MISMATCH", { field: "uploadMethod" });
+    }
+    assertPlatformUrl(parseSafeUrl(payload.contentUrl), mediaType);
+  } else if (uploadMethod === "file") {
+    if (!["image", "carousel", "document", "video"].includes(mediaType)) {
+      throw new AppError(rule.message, 400, "DELIVERABLE_CONTENT_TYPE_MISMATCH", { field: "uploadMethod" });
+    }
+    const url = parseSafeUrl(payload.contentUrl);
+    if (!url.internal) throw new AppError("Uploaded media must come from the secure media uploader.", 400, "VALIDATION_ERROR", { field: "contentUrl" });
+    assertFileSafety(payload);
+  } else {
+    throw new AppError("Upload method is required", 400, "VALIDATION_ERROR", { field: "uploadMethod" });
+  }
+  return {
+    contentUrl: String(payload.contentUrl || "").trim(),
+    contentType: requiredKind,
+    sourcePlatform,
+    mediaType,
+    uploadMethod,
+    mediaUrls: Array.isArray(payload.mediaUrls) ? payload.mediaUrls.map((url) => String(url || "").trim()).filter(Boolean) : [],
+    fileMetadata: Array.isArray(payload.fileMetadata) ? payload.fileMetadata : [],
+    notes: payload.notes || "",
+  };
+}
+
 function campaignBudget(campaign = {}) {
   return money(campaign.pricing?.totalBudget || campaign.fixedFee || campaign.paymentModelSnapshot?.expectedBudget || 0);
 }
@@ -194,8 +341,9 @@ class CampaignExecutionService {
   }
 
   async influencerExecution(userId, campaignId) {
+    const campaignObjectId = assertObjectId(campaignId, "campaignId");
     const profile = await influencerService.getProfile(userId);
-    const campaign = await Campaign.findById(campaignId).populate("vendorId", "shopName companyName").lean();
+    const campaign = await Campaign.findById(campaignObjectId).populate("vendorId", "shopName companyName").lean();
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
     if (String(campaign.influencerId || "") !== String(profile._id)) throw new AppError("Forbidden", 403, "FORBIDDEN");
     if (!ACTIVE_STATES.includes(campaign.state)) throw new AppError("Campaign must be accepted before content execution", 409, "INVALID_STATE");
@@ -205,9 +353,10 @@ class CampaignExecutionService {
   }
 
   async vendorExecution(userId, campaignId) {
+    const campaignObjectId = assertObjectId(campaignId, "campaignId");
     const vendor = await vendorRepo.findByUserId(userId);
     if (!vendor) throw new AppError("Vendor profile not found", 404, "VENDOR_NOT_FOUND");
-    const campaign = await Campaign.findOne({ _id: campaignId, vendorId: vendor._id }).populate({ path: "influencerId", populate: { path: "userId", select: "name email username" } }).lean();
+    const campaign = await Campaign.findOne({ _id: campaignObjectId, vendorId: vendor._id }).populate({ path: "influencerId", populate: { path: "userId", select: "name email username" } }).lean();
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
     const deliverables = await this.ensureDeliverables(campaign);
     return this.presentExecution(campaign, deliverables, campaign.influencerId?._id || campaign.influencerId);
@@ -215,12 +364,19 @@ class CampaignExecutionService {
 
   async presentExecution(campaign, deliverables, influencerId) {
     const deliverableIds = deliverables.map((row) => row._id);
-    const [submissions, payouts, commissions] = await Promise.all([
+    const [submissions, reviews, payouts, commissions] = await Promise.all([
       deliverableIds.length ? DeliverableSubmission.find({ deliverableId: { $in: deliverableIds } }).sort({ submittedAt: -1 }).lean() : [],
+      deliverableIds.length ? DeliverableReview.find({ deliverableId: { $in: deliverableIds } }).sort({ reviewedAt: -1 }).lean() : [],
       deliverableIds.length ? DeliverablePayout.find({ deliverableId: { $in: deliverableIds } }).lean() : [],
       CommissionRecord.find({ campaignId: campaign._id, influencerId }).lean().catch(() => []),
     ]);
     const submissionMap = submissions.reduce((map, row) => {
+      const key = String(row.deliverableId);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(row);
+      return map;
+    }, new Map());
+    const reviewMap = reviews.reduce((map, row) => {
       const key = String(row.deliverableId);
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(row);
@@ -266,7 +422,9 @@ class CampaignExecutionService {
         eligiblePayout,
         releasedEarnings: money(payouts.filter((row) => row.status === "released").reduce((sum, row) => sum + Number(row.approvedAmount || 0), 0)),
       },
-      deliverables: deliverables.map((row) => ({
+      deliverables: deliverables.map((row) => {
+        const deliverableReviews = reviewMap.get(String(row._id)) || [];
+        return {
         id: row._id,
         deliverableType: row.deliverableType,
         title: row.title || titleize(row.deliverableType),
@@ -282,47 +440,60 @@ class CampaignExecutionService {
         latestSubmissionId: row.latestSubmissionId,
         fundingAllocationId: row.fundingAllocationId,
         submissions: submissionMap.get(String(row._id)) || [],
+        latestReview: deliverableReviews[0] || null,
+        reviews: deliverableReviews,
         payout: payoutMap.get(String(row._id)) || null,
-      })),
+        };
+      }),
     };
   }
 
   async submit(userId, campaignId, deliverableId, payload = {}) {
+    const campaignObjectId = assertObjectId(campaignId, "campaignId");
+    const deliverableObjectId = assertObjectId(deliverableId, "deliverableId");
     const profile = await influencerService.getProfile(userId);
-    const campaign = await Campaign.findOne({ _id: campaignId, influencerId: profile._id }).lean();
+    const campaign = await Campaign.findOne({ _id: campaignObjectId, influencerId: profile._id }).lean();
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
     await assertFixedContentEnabled(campaign);
-    const deliverable = await CampaignDeliverable.findOne({ _id: deliverableId, campaignId, influencerId: profile._id });
+    const deliverable = await CampaignDeliverable.findOne({ _id: deliverableObjectId, campaignId: campaignObjectId, influencerId: profile._id });
     if (!deliverable) throw new AppError("Deliverable not found", 404, "NOT_FOUND");
     if (["approved", "completed", "cancelled"].includes(deliverable.status)) throw new AppError("This deliverable is closed for uploads", 409, "INVALID_STATE");
-    const latest = await DeliverableSubmission.findOne({ deliverableId }).sort({ version: -1 }).lean();
+    const validatedSubmission = validateSubmissionPayload(deliverable, payload);
+    const latest = await DeliverableSubmission.findOne({ deliverableId: deliverableObjectId }).sort({ version: -1 }).lean();
     const oldValue = { status: deliverable.status, approvalStatus: deliverable.approvalStatus };
     const submission = await DeliverableSubmission.create({
-      deliverableId,
-      campaignId,
+      deliverableId: deliverableObjectId,
+      campaignId: campaignObjectId,
       influencerId: profile._id,
-      contentUrl: payload.contentUrl,
-      contentType: payload.contentType || "url",
+      contentUrl: validatedSubmission.contentUrl,
+      contentType: validatedSubmission.contentType,
+      sourcePlatform: validatedSubmission.sourcePlatform,
+      mediaType: validatedSubmission.mediaType,
+      uploadMethod: validatedSubmission.uploadMethod,
+      mediaUrls: validatedSubmission.mediaUrls,
+      fileMetadata: validatedSubmission.fileMetadata,
       uploadedBy: userId,
       version: Number(latest?.version || 0) + 1,
       status: "under_review",
-      notes: payload.notes || "",
+      notes: validatedSubmission.notes,
     });
     deliverable.status = "under_review";
     deliverable.approvalStatus = "under_review";
     deliverable.latestSubmissionId = submission._id;
     await deliverable.save();
-    await Campaign.findByIdAndUpdate(campaignId, { $set: { state: "under_review" }, $push: { history: { state: "under_review", actorId: userId, note: "Deliverable content uploaded", changedAt: new Date() } } });
-    await audit({ actorId: userId, role: "influencer", action: "content_uploaded", campaignId, deliverableId, submissionId: submission._id, oldValue, newValue: { status: "under_review" } });
-    return this.influencerExecution(userId, campaignId);
+    await Campaign.findByIdAndUpdate(campaignObjectId, { $set: { state: "under_review" }, $push: { history: { state: "under_review", actorId: userId, note: "Deliverable content uploaded", changedAt: new Date() } } });
+    await audit({ actorId: userId, role: "influencer", action: "content_uploaded", campaignId: campaignObjectId, deliverableId: deliverableObjectId, submissionId: submission._id, oldValue, newValue: { status: "under_review" } });
+    return this.influencerExecution(userId, campaignObjectId);
   }
 
   async review(userId, campaignId, deliverableId, payload = {}) {
+    const campaignObjectId = assertObjectId(campaignId, "campaignId");
+    const deliverableObjectId = assertObjectId(deliverableId, "deliverableId");
     const vendor = await vendorRepo.findByUserId(userId);
     if (!vendor) throw new AppError("Vendor profile not found", 404, "VENDOR_NOT_FOUND");
-    const campaign = await Campaign.findOne({ _id: campaignId, vendorId: vendor._id });
+    const campaign = await Campaign.findOne({ _id: campaignObjectId, vendorId: vendor._id });
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
-    const deliverable = await CampaignDeliverable.findOne({ _id: deliverableId, campaignId, vendorId: vendor._id });
+    const deliverable = await CampaignDeliverable.findOne({ _id: deliverableObjectId, campaignId: campaignObjectId, vendorId: vendor._id });
     if (!deliverable) throw new AppError("Deliverable not found", 404, "NOT_FOUND");
     const submission = await DeliverableSubmission.findById(payload.submissionId || deliverable.latestSubmissionId);
     if (!submission || String(submission.deliverableId) !== String(deliverable._id)) throw new AppError("Submission not found", 404, "NOT_FOUND");
@@ -488,21 +659,22 @@ class CampaignExecutionService {
   }
 
   async checkAndCompleteCampaign(userId, campaignId) {
+    const campaignObjectId = assertObjectId(campaignId, "campaignId");
     // Get profile to verify influencer
     const profile = await influencerService.getProfile(userId);
     
     // Get campaign and verify it belongs to influencer
-    const campaign = await Campaign.findById(campaignId);
+    const campaign = await Campaign.findById(campaignObjectId);
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
     if (String(campaign.influencerId || "") !== String(profile._id)) throw new AppError("Forbidden", 403, "FORBIDDEN");
     
     // Get all deliverables for campaign
-    const deliverables = await CampaignDeliverable.find({ campaignId }).lean();
+    const deliverables = await CampaignDeliverable.find({ campaignId: campaignObjectId }).lean();
     if (!deliverables.length) return { success: false, message: "No deliverables found" };
     
     // Check if all deliverables have associated published content
     const publishedContent = await Reel.find({
-      campaignId: campaignId,
+      campaignId: campaignObjectId,
       visibility: "published"
     }).lean().catch(() => []);
     
@@ -513,7 +685,7 @@ class CampaignExecutionService {
     if (publication.complete && campaign.state !== "completed") {
       // All deliverables have been published - mark campaign as completed
       await CampaignStatusHistory.create({
-        campaignId,
+        campaignId: campaignObjectId,
         oldStatus: campaign.state,
         newStatus: "completed",
         changedBy: userId,
@@ -534,7 +706,7 @@ class CampaignExecutionService {
         actorId: userId,
         role: "influencer",
         action: "campaign_completed",
-        campaignId,
+        campaignId: campaignObjectId,
         metadata: { reason: "All deliverables published", publishedCount, totalDeliverables }
       });
       

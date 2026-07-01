@@ -2610,7 +2610,7 @@ class CommissionService {
       quickActions: [
         { key: "affiliate", label: "Create Affiliate Link", href: "/influencer/affiliate-links", enabled: Boolean(profile.permissions?.affiliateLinks) },
         { key: "product", label: "Add Product", href: "/influencer/collections", enabled: Boolean(profile.permissions?.collections) },
-        { key: "video", label: "Upload Video", href: "/influencer/reels/upload", enabled: true },
+        { key: "video", label: "Upload Video", href: "/influencer/content", enabled: true },
         { key: "collection", label: "Create Collection", href: "/influencer/collections", enabled: Boolean(profile.permissions?.collections) },
       ],
       notifications: {

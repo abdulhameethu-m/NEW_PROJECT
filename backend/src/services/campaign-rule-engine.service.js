@@ -19,11 +19,8 @@ const FALLBACK_CAMPAIGN_TYPES = [
 
 const FALLBACK_FIELD_MATRIX = {
   fixed: [
-    { fieldName: "fixedFee", label: "Fixed Amount", fieldType: "currency", required: true },
     { fieldName: "currency", label: "Currency", fieldType: "select", required: true, defaultValue: "INR" },
-    { fieldName: "milestonePayment", label: "Milestone Payment", fieldType: "boolean" },
-    { fieldName: "selectedServices", label: "Deliverables", fieldType: "service_selector" },
-    { fieldName: "paymentSchedule", label: "Payment Schedule", fieldType: "textarea" },
+    { fieldName: "selectedServices", label: "Deliverables", fieldType: "service_selector", required: true },
   ],
   commission: [
     { fieldName: "commissionPercent", label: "Commission %", fieldType: "percentage", required: true, defaultValue: 10 },
@@ -210,6 +207,16 @@ function ruleEngineConfig(configuration = {}) {
     });
   }
 
+  Object.keys(fieldsByCombination).forEach((key) => {
+    if (!key.endsWith(":fixed")) return;
+    fieldsByCombination[key] = (fieldsByCombination[key] || [])
+      .map(normalizeField)
+      .filter((field) => !["fixedFee", "fixedAmount", "milestonePayment", "paymentSchedule"].includes(field.fieldName || field.key));
+    if (!fieldsByCombination[key].some((field) => ["selectedServices", "services"].includes(field.fieldName || field.key))) {
+      fieldsByCombination[key].push(normalizeField({ fieldName: "selectedServices", label: "Deliverables", fieldType: "service_selector", required: true }));
+    }
+  });
+
   const attributionWindows = (engine.attributionWindows?.length ? engine.attributionWindows : configuration.attributionWindows?.length ? configuration.attributionWindows : [{ key: "30_days", label: "30 Days", days: 30 }, { key: "60_days", label: "60 Days", days: 60 }, { key: "90_days", label: "90 Days", days: 90 }])
     .filter((row) => !row.customAllowed)
     .map((row) => ({ ...row, days: Number(row.days || 0) }))
@@ -306,7 +313,12 @@ class CampaignRuleEngineService {
 
   validatePaymentValues({ payload, paymentType, attributionDays, affiliateTrackingEnabled }) {
     const serviceRows = selectedServices(payload);
-    if (["fixed", "hybrid"].includes(paymentType)) {
+    if (paymentType === "fixed") {
+      if (!serviceRows.length) {
+        throw new AppError("Fixed payment campaigns require selected creator deliverables from the approved rate card", 400, "FIXED_RATE_CARD_DELIVERABLES_REQUIRED");
+      }
+    }
+    if (paymentType === "hybrid") {
       const fixedFee = numericValue(fieldValue(payload, "fixedFee"));
       if (fixedFee <= 0 && !serviceRows.length) {
         throw new AppError("Fixed payment campaigns require a fixed amount or selected creator services", 400, "FIXED_PAYMENT_REQUIRED");

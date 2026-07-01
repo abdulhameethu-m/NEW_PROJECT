@@ -75,8 +75,6 @@ const InfluencerAffiliateLinksPage = lazyDefault(() => import("./pages/influence
 const InfluencerCampaignsPage = lazyDefault(() => import("./pages/influencer/campaigns.jsx"));
 const InfluencerCampaignExecutionPage = lazyDefault(() => import("./pages/influencer/campaignExecution.jsx"));
 const InfluencerContentCenterPage = lazyDefault(() => import("./pages/influencer/contentCenter.jsx"));
-const InfluencerReelUploadPage = lazyDefault(() => import("./pages/influencer/reelUpload.jsx"));
-const InfluencerReelsPage = lazyDefault(() => import("./pages/influencer/reels.jsx"));
 const VendorOverviewPage = lazyNamed(() => import("./pages/VendorOverviewPage"), "VendorOverviewPage");
 const VendorProductsPage = lazyNamed(() => import("./pages/VendorProductsPage"), "VendorProductsPage");
 const ProductFormPage = lazyNamed(() => import("./pages/ProductFormPage"), "ProductFormPage");
@@ -262,8 +260,6 @@ export default function App() {
               <Route path="/influencer/campaigns" element={<InfluencerCampaignsPage />} />
               <Route path="/influencer/campaigns/:campaignId/content" element={<InfluencerCampaignExecutionPage />} />
               <Route path="/influencer/content" element={<InfluencerContentCenterPage />} />
-              <Route path="/influencer/reels/upload" element={<InfluencerReelUploadPage />} />
-              <Route path="/influencer/reels" element={<InfluencerReelsPage />} />
             </Route>
           </Route>
 

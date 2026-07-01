@@ -470,6 +470,9 @@ class InfluencerRateCardService {
     const selectedInput = paymentInput.services || paymentInput.selectedServices || payload.services || payload.selectedServices || [];
     const influencerSnapshot = await this.buildInfluencerSnapshot(influencerId, selectedInput);
     const selectedTotal = influencerSnapshot.selectedServices.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    if (paymentType === "fixed" && (!influencerId || !influencerSnapshot.selectedServices.length)) {
+      throw new AppError("Fixed payment campaigns require selected deliverables from the influencer approved rate card", 400, "FIXED_RATE_CARD_DELIVERABLES_REQUIRED");
+    }
     const deliverableCommissionRates = influencerSnapshot.selectedServices.map((item) => ({
       serviceId: item.serviceId,
       packageId: item.packageId,
@@ -479,7 +482,7 @@ class InfluencerRateCardService {
       commissionPercentage: item.commissionPercentage,
     }));
     const fixedCost = ["fixed", "hybrid"].includes(paymentType)
-      ? money(selectedInput.length && influencerId ? selectedTotal : Number(paymentInput.fixedFee ?? payload.fixedFee ?? 0))
+      ? money(paymentType === "fixed" ? selectedTotal : selectedInput.length && influencerId ? selectedTotal : Number(paymentInput.fixedFee ?? payload.fixedFee ?? 0))
       : 0;
     const commissionPercentage = ["commission", "hybrid"].includes(paymentType)
       ? Math.max(0, Math.min(50, Number(paymentInput.commissionPercentage ?? paymentInput.commissionPercent ?? payload.commissionPercent ?? 0) || 0))
@@ -520,6 +523,8 @@ class InfluencerRateCardService {
     const paymentModel = {
       paymentType,
       fixedFee: fixedCost,
+      calculatedFixedReward: paymentType === "fixed" ? fixedCost : undefined,
+      escrowAmount: paymentType === "fixed" ? fixedCost : undefined,
       commissionPercentage,
       attributionDays,
       productValue,
@@ -532,6 +537,8 @@ class InfluencerRateCardService {
       currency: pricing.currency,
       selectedServices: influencerSnapshot.selectedServices,
       deliverableCommissionRates,
+      deliverableSnapshot: paymentType === "fixed" ? influencerSnapshot.selectedServices.map((item) => item.snapshot) : undefined,
+      rateCardSnapshot: paymentType === "fixed" ? influencerSnapshot.rateCard : undefined,
       ruleEngine: {
         campaignType: ruleEvaluation.campaignType,
         campaignTypeLabel: ruleEvaluation.campaignTypeConfig?.label || "",
@@ -566,6 +573,8 @@ class InfluencerRateCardService {
         campaignType: ruleEvaluation.campaignType,
         commissionPercent: commissionPercentage,
         fixedFee: fixedCost,
+        calculatedFixedReward: paymentType === "fixed" ? fixedCost : undefined,
+        escrowAmount: paymentType === "fixed" ? fixedCost : undefined,
         attributionWindowDays: attributionDays,
         pricing,
         paymentModelSnapshot: paymentModel,

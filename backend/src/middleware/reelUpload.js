@@ -8,6 +8,10 @@ const REEL_UPLOAD_DIR = path.join(process.cwd(), "uploads", "public", "reels");
 
 const ALLOWED_VIDEO = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 const ALLOWED_IMAGE = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const ALLOWED_DOCUMENT = new Set(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
+const ALLOWED_VIDEO_EXT = new Set([".mp4", ".webm", ".mov", ".qt"]);
+const ALLOWED_IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+const ALLOWED_DOCUMENT_EXT = new Set([".pdf", ".doc", ".docx"]);
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -24,7 +28,8 @@ const reelVideoUpload = multer({
   storage,
   limits: { fileSize: REEL_MAX_BYTES },
   fileFilter: (_req, file, cb) => {
-    if (!ALLOWED_VIDEO.has(file.mimetype)) {
+    const ext = path.extname(file.originalname || "").toLowerCase();
+    if (!ALLOWED_VIDEO.has(file.mimetype) || !ALLOWED_VIDEO_EXT.has(ext)) {
       return cb(new Error("UNSUPPORTED_VIDEO_TYPE"));
     }
     cb(null, true);
@@ -35,8 +40,11 @@ const reelMediaUpload = multer({
   storage,
   limits: { fileSize: REEL_MAX_BYTES },
   fileFilter: (_req, file, cb) => {
-    if (file.fieldname === "video" && ALLOWED_VIDEO.has(file.mimetype)) return cb(null, true);
-    if (file.fieldname === "thumbnail" && ALLOWED_IMAGE.has(file.mimetype)) return cb(null, true);
+    const ext = path.extname(file.originalname || "").toLowerCase();
+    if (file.fieldname === "video" && ALLOWED_VIDEO.has(file.mimetype) && ALLOWED_VIDEO_EXT.has(ext)) return cb(null, true);
+    if (file.fieldname === "thumbnail" && ALLOWED_IMAGE.has(file.mimetype) && ALLOWED_IMAGE_EXT.has(ext)) return cb(null, true);
+    if (file.fieldname === "document" && ALLOWED_DOCUMENT.has(file.mimetype) && ALLOWED_DOCUMENT_EXT.has(ext)) return cb(null, true);
+    if (file.fieldname === "document") return cb(new Error("UNSUPPORTED_DOCUMENT_TYPE"));
     return cb(new Error(file.fieldname === "thumbnail" ? "UNSUPPORTED_IMAGE_TYPE" : "UNSUPPORTED_VIDEO_TYPE"));
   },
 });
@@ -65,7 +73,8 @@ function optionalReelMediaUpload(req, res, next) {
   }
   return reelMediaUpload.fields([
     { name: "video", maxCount: 1 },
-    { name: "thumbnail", maxCount: 1 },
+    { name: "thumbnail", maxCount: 10 },
+    { name: "document", maxCount: 1 },
   ])(req, res, (err) => {
     if (!err) return next();
     if (err.code === "LIMIT_FILE_SIZE") {
@@ -76,6 +85,9 @@ function optionalReelMediaUpload(req, res, next) {
     }
     if (String(err.message) === "UNSUPPORTED_VIDEO_TYPE") {
       return res.status(400).json({ success: false, message: "Unsupported video format. Use MP4, WebM, or MOV." });
+    }
+    if (String(err.message) === "UNSUPPORTED_DOCUMENT_TYPE") {
+      return res.status(400).json({ success: false, message: "Unsupported document format. Use PDF, DOC, or DOCX." });
     }
     return next(err);
   });
