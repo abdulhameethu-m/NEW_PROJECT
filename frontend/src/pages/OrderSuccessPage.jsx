@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
+import useAuthCartStore from "../context/authCartStore";
 import * as paymentService from "../services/paymentService";
 import * as userService from "../services/userService";
+import { emitCartChanged } from "../utils/cartState";
 import { formatCurrency } from "../utils/formatCurrency";
 
 const CHECKOUT_SUCCESS_STORAGE_KEY = "checkoutSuccessPayload";
@@ -30,6 +32,12 @@ function loadPersistedCheckoutSuccessPayload() {
     window.sessionStorage.removeItem(CHECKOUT_SUCCESS_STORAGE_KEY);
     return null;
   }
+}
+
+function clearCheckoutCartState() {
+  const emptyCart = { items: [], totalAmount: 0, itemCount: 0, totalQuantity: 0 };
+  useAuthCartStore.getState().setCart(emptyCart);
+  emitCartChanged(emptyCart);
 }
 
 function getCurrency(order) {
@@ -115,6 +123,7 @@ export function OrderSuccessPage() {
               payment: verified?.payment || null,
             };
             persistCheckoutSuccessPayload(nextState);
+            clearCheckoutCartState();
             if (active) setState(nextState);
             return;
           } catch {
@@ -133,6 +142,7 @@ export function OrderSuccessPage() {
               payment: payment || null,
             };
             persistCheckoutSuccessPayload(nextState);
+            clearCheckoutCartState();
             if (active) setState(nextState);
             return;
           }

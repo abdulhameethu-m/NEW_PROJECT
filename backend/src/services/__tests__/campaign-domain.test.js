@@ -26,6 +26,10 @@ test("fixed campaigns expose the escrow workflow and content gate", () => {
     "partially_released",
     "fully_released",
     "refund_pending",
+    "refund_requested",
+    "refund_approved",
+    "refund_processing",
+    "refund_failed",
     "refunded",
     "completed",
     "cancelled",
@@ -39,6 +43,7 @@ test("fixed escrow release is exposed only through the admin route", () => {
   );
   assert.match(routes, /"\/admin\/release-payment\/:campaignId"[\s\S]*?adminAuth/);
   assert.doesNotMatch(routes, /"\/release-payment\/:campaignId"[\s\S]*?vendorAuth/);
+  assert.doesNotMatch(routes, /request-refund/);
 });
 
 test("captured checkout verification securely reconciles escrow funding without waiting for localhost webhooks", () => {

@@ -63,7 +63,11 @@ function isVideoAsset(value = "") {
 
 function normalizePublishedContentType(row = {}) {
   const type = String(row.contentType || "").trim().toUpperCase();
-  if (type === "POST" || type === "REEL") return type;
+  if (type === "POST") return "POST";
+  if (type === "REEL") {
+    if (!isVideoAsset(row.videoUrl) && imageUrlsForContent(row).length) return "POST";
+    return "REEL";
+  }
   if (isImageAsset(row.videoUrl) || isImageAsset(row.thumbnailUrl)) return "POST";
   return "REEL";
 }
@@ -435,14 +439,17 @@ class ReelService {
     }
 
     const contentType = validateContentMedia(payload);
+    const imageUrls = Array.isArray(payload.imageUrls) ? payload.imageUrls : [];
+    const mediaUrls = Array.isArray(payload.mediaUrls) ? payload.mediaUrls : [];
+    const primaryMediaUrl = payload.videoUrl || imageUrls[0] || mediaUrls[0] || payload.thumbnailUrl;
     return await Reel.create({
       influencerId: profile._id,
       campaignId: campaign?._id || payload.campaignId || undefined,
       productIds: payload.productIds?.length ? payload.productIds : campaign?.productIds || [],
-      videoUrl: payload.videoUrl,
+      videoUrl: primaryMediaUrl,
       thumbnailUrl: payload.thumbnailUrl || "",
-      imageUrls: Array.isArray(payload.imageUrls) ? payload.imageUrls : [],
-      mediaUrls: Array.isArray(payload.mediaUrls) ? payload.mediaUrls : [],
+      imageUrls,
+      mediaUrls,
       title: payload.title || payload.caption || "",
       description: payload.description || "",
       contentType,

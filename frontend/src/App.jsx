@@ -129,6 +129,7 @@ const AdminRefundDetailsPage = lazyNamed(() => import("./pages/AdminRefundDetail
 const AdminPayoutsPage = lazyNamed(() => import("./pages/AdminPayoutsPage"), "AdminPayoutsPage");
 const AdminCancellationPoliciesPage = lazyNamed(() => import("./pages/AdminCancellationPoliciesPage"), "AdminCancellationPoliciesPage");
 const AdminFinancePayoutManagementPage = lazyNamed(() => import("./pages/AdminFinancePayoutManagementPage"), "AdminFinancePayoutManagementPage");
+const AdminEscrowRefundsPage = lazyNamed(() => import("./pages/AdminEscrowRefundsPage"), "AdminEscrowRefundsPage");
 const AdminInvoicesPage = lazyNamed(() => import("./pages/AdminInvoicesPage"), "AdminInvoicesPage");
 const AdminInvoiceSettingsPage = lazyNamed(() => import("./pages/AdminInvoiceSettingsPage"), "AdminInvoiceSettingsPage");
 const AdminVendorFinancePage = lazyNamed(() => import("./pages/AdminVendorFinancePage"), "AdminVendorFinancePage");
@@ -302,13 +303,8 @@ export default function App() {
               <Route path="influencer-commerce/discover" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/relationships" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/campaigns" element={<VendorInfluencerPage />} />
-              <Route path="influencer-commerce/products" element={<VendorInfluencerPage />} />
-              <Route path="influencer-commerce/affiliate" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/content" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/performance" element={<VendorInfluencerPage />} />
-              <Route path="influencer-commerce/analytics" element={<VendorInfluencerPage />} />
-              <Route path="influencer-commerce/leaderboard" element={<VendorInfluencerPage />} />
-              <Route path="influencer-commerce/reports" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/*" element={<VendorInfluencerPage />} />
               <Route path="support" element={<VendorSupportPage />} />
               <Route path="settings" element={<VendorSettingsPage />} />
@@ -347,6 +343,7 @@ export default function App() {
               <Route path="payouts" element={<AdminPayoutsPage />} />
               <Route path="finance/cancellation-policies" element={<AdminCancellationPoliciesPage />} />
               <Route path="finance/payouts" element={<AdminFinancePayoutManagementPage />} />
+              <Route path="finance/escrow-refunds" element={<AdminEscrowRefundsPage />} />
               <Route path="finance/invoices" element={<AdminInvoicesPage />} />
               <Route path="finance/invoices/settings" element={<AdminInvoiceSettingsPage />} />
               <Route path="vendors/:id/finance" element={<AdminVendorFinancePage />} />

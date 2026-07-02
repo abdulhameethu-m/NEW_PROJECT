@@ -141,6 +141,31 @@ function allDeliverablesPublished(deliverables = [], publishedCount = 0) {
   };
 }
 
+function deliverableRefundLock(allocation = null) {
+  if (!allocation) {
+    return {
+      locked: false,
+      refundedAmount: 0,
+      remainingAmount: 0,
+      status: "",
+      message: "",
+    };
+  }
+  const refundedAmount = money(allocation.refundedAmount || 0);
+  const remainingAmount = money(allocation.remainingAmount || 0);
+  const status = String(allocation.status || "").toLowerCase();
+  const locked = status === "refunded" || (refundedAmount > 0 && remainingAmount <= 0);
+  return {
+    locked,
+    refundedAmount,
+    remainingAmount,
+    status,
+    message: locked
+      ? "You can't create content for this deliverable because the amount was refunded to the vendor."
+      : "",
+  };
+}
+
 const EXECUTABLE_EXTENSIONS = new Set(["exe", "bat", "cmd", "sh", "msi", "js", "jar", "scr", "ps1", "com", "dll"]);
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "qt"]);
@@ -284,13 +309,34 @@ function campaignBudget(campaign = {}) {
   return money(campaign.pricing?.totalBudget || campaign.fixedFee || campaign.paymentModelSnapshot?.expectedBudget || 0);
 }
 
-async function assertFixedContentEnabled(campaign) {
-  if (!["fixed", "hybrid"].includes(campaign.paymentType)) return;
-  const escrow = await CampaignEscrowWallet.findOne({
+const ESCROW_VIEW_STATUSES = ["funded", "partially_released", "fully_released", "refunded", "completed"];
+const ESCROW_UPLOAD_STATUSES = ["funded", "partially_released", "fully_released"];
+
+async function findCampaignEscrow(campaign, statuses = ESCROW_VIEW_STATUSES) {
+  if (!["fixed", "hybrid"].includes(campaign.paymentType)) return null;
+  return CampaignEscrowWallet.findOne({
     campaignId: campaign._id,
     vendorId: campaign.vendorId?._id || campaign.vendorId,
-    status: { $in: ["funded", "partially_released", "fully_released"] },
-  }).select("_id status").lean();
+    status: { $in: statuses },
+  }).select("_id status amountFunded amountReleased amountRefunded amountRemaining").lean();
+}
+
+async function assertFixedExecutionVisible(campaign) {
+  if (!["fixed", "hybrid"].includes(campaign.paymentType)) return;
+  const escrow = await findCampaignEscrow(campaign, ESCROW_VIEW_STATUSES);
+  if (!escrow) {
+    throw new AppError(
+      "Content creation is locked until the vendor funds escrow and Razorpay confirms the payment",
+      409,
+      "ESCROW_FUNDING_REQUIRED"
+    );
+  }
+  return escrow;
+}
+
+async function assertFixedContentEnabled(campaign) {
+  if (!["fixed", "hybrid"].includes(campaign.paymentType)) return;
+  const escrow = await findCampaignEscrow(campaign, ESCROW_UPLOAD_STATUSES);
   if (!campaign.fixedPaymentWorkflow?.contentEnabled || !escrow) {
     throw new AppError(
       "Content creation is locked until the vendor funds escrow and Razorpay confirms the payment",
@@ -298,6 +344,7 @@ async function assertFixedContentEnabled(campaign) {
       "ESCROW_FUNDING_REQUIRED"
     );
   }
+  return escrow;
 }
 
 async function audit({ actorId, role, action, campaignId, deliverableId = null, submissionId = null, oldValue = null, newValue = null, metadata = {} }) {
@@ -347,7 +394,7 @@ class CampaignExecutionService {
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
     if (String(campaign.influencerId || "") !== String(profile._id)) throw new AppError("Forbidden", 403, "FORBIDDEN");
     if (!ACTIVE_STATES.includes(campaign.state)) throw new AppError("Campaign must be accepted before content execution", 409, "INVALID_STATE");
-    await assertFixedContentEnabled(campaign);
+    await assertFixedExecutionVisible(campaign);
     const deliverables = await this.ensureDeliverables(campaign);
     return this.presentExecution(campaign, deliverables, profile._id);
   }
@@ -364,10 +411,11 @@ class CampaignExecutionService {
 
   async presentExecution(campaign, deliverables, influencerId) {
     const deliverableIds = deliverables.map((row) => row._id);
-    const [submissions, reviews, payouts, commissions] = await Promise.all([
+    const [submissions, reviews, payouts, fundings, commissions] = await Promise.all([
       deliverableIds.length ? DeliverableSubmission.find({ deliverableId: { $in: deliverableIds } }).sort({ submittedAt: -1 }).lean() : [],
       deliverableIds.length ? DeliverableReview.find({ deliverableId: { $in: deliverableIds } }).sort({ reviewedAt: -1 }).lean() : [],
       deliverableIds.length ? DeliverablePayout.find({ deliverableId: { $in: deliverableIds } }).lean() : [],
+      deliverableIds.length ? CampaignDeliverableFunding.find({ deliverableId: { $in: deliverableIds } }).lean() : [],
       CommissionRecord.find({ campaignId: campaign._id, influencerId }).lean().catch(() => []),
     ]);
     const submissionMap = submissions.reduce((map, row) => {
@@ -383,6 +431,7 @@ class CampaignExecutionService {
       return map;
     }, new Map());
     const payoutMap = new Map(payouts.map((row) => [String(row.deliverableId), row]));
+    const fundingMap = new Map(fundings.map((row) => [String(row.deliverableId), row]));
     const approvedValue = money(deliverables.filter((row) => row.paymentEligibility === "eligible" || row.status === "completed").reduce((sum, row) => sum + Number(row.totalPrice || 0), 0));
     const totalDeliverableValue = money(deliverables.reduce((sum, row) => sum + Number(row.totalPrice || 0), 0));
     const commissionPayout = money(commissions.reduce((sum, row) => sum + Number(row.influencerShare || 0), 0));
@@ -424,6 +473,7 @@ class CampaignExecutionService {
       },
       deliverables: deliverables.map((row) => {
         const deliverableReviews = reviewMap.get(String(row._id)) || [];
+        const funding = fundingMap.get(String(row._id)) || null;
         return {
         id: row._id,
         deliverableType: row.deliverableType,
@@ -443,6 +493,17 @@ class CampaignExecutionService {
         latestReview: deliverableReviews[0] || null,
         reviews: deliverableReviews,
         payout: payoutMap.get(String(row._id)) || null,
+        funding: funding
+          ? {
+              id: funding._id,
+              status: funding.status,
+              allocatedAmount: money(funding.allocatedAmount),
+              releasedAmount: money(funding.releasedAmount),
+              refundedAmount: money(funding.refundedAmount),
+              remainingAmount: money(funding.remainingAmount),
+            }
+          : null,
+        refundLock: deliverableRefundLock(funding),
         };
       }),
     };
@@ -458,6 +519,16 @@ class CampaignExecutionService {
     const deliverable = await CampaignDeliverable.findOne({ _id: deliverableObjectId, campaignId: campaignObjectId, influencerId: profile._id });
     if (!deliverable) throw new AppError("Deliverable not found", 404, "NOT_FOUND");
     if (["approved", "completed", "cancelled"].includes(deliverable.status)) throw new AppError("This deliverable is closed for uploads", 409, "INVALID_STATE");
+    const funding = await CampaignDeliverableFunding.findOne({ campaignId: campaignObjectId, deliverableId: deliverableObjectId }).lean();
+    const refundLock = deliverableRefundLock(funding);
+    if (refundLock.locked) {
+      throw new AppError(
+        "You can't create content for this deliverable because the amount was refunded to the vendor.",
+        409,
+        "DELIVERABLE_REFUNDED",
+        { field: "deliverableId", refundedAmount: refundLock.refundedAmount }
+      );
+    }
     const validatedSubmission = validateSubmissionPayload(deliverable, payload);
     const latest = await DeliverableSubmission.findOne({ deliverableId: deliverableObjectId }).sort({ version: -1 }).lean();
     const oldValue = { status: deliverable.status, approvalStatus: deliverable.approvalStatus };

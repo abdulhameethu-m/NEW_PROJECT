@@ -42,6 +42,7 @@ const ACCEPTED_STATES = [
   "content_submitted",
   "under_review",
   "revision_requested",
+  "partially_completed",
   "approved",
   "published",
   "tracking_active",
@@ -324,6 +325,7 @@ function presentCampaign(campaign, profileId) {
     fixedPaymentWorkflow: campaign.fixedPaymentWorkflow || null,
     influencerRateSnapshot: campaign.influencerRateSnapshot || campaign.contractSnapshot?.influencerRateCard || {},
     requirementsSnapshot: campaign.requirementsSnapshot || campaign.contractSnapshot?.requirements || {},
+    hasInvitation: Boolean(invitation),
     invitationStatus: invitation?.status || "",
     invitationDate: invitation?.invitedAt || campaign.createdAt,
     invitedAt: invitation?.invitedAt || campaign.createdAt,
@@ -359,12 +361,14 @@ function presentCampaign(campaign, profileId) {
 
 function buildMarketplaceQuery(profileId, query = {}) {
   const tab = String(query.tab || "available").toLowerCase();
+  const acceptedCampaignIds = Array.isArray(query.acceptedCampaignIds) ? query.acceptedCampaignIds : [];
   const and = [];
   const scope = {
     $or: [
       { "marketplace.public": true },
       { influencerId: profileId },
       { "applications.influencerId": profileId },
+      ...(acceptedCampaignIds.length ? [{ _id: { $in: acceptedCampaignIds } }] : []),
     ],
   };
   and.push(scope);
@@ -382,7 +386,8 @@ function buildMarketplaceQuery(profileId, query = {}) {
     and.push({
       $or: [
         { influencerId: profileId, state: { $in: ACCEPTED_STATES } },
-        { state: { $in: [WORKFLOW.ACTIVE, ...ACCEPTED_STATES] }, applications: { $elemMatch: { influencerId: profileId, status: "approved" } } },
+        { state: { $in: [WORKFLOW.ACTIVE, ...ACCEPTED_STATES] }, applications: { $elemMatch: { influencerId: profileId, status: { $in: ["approved", WORKFLOW.ACCEPTED, WORKFLOW.ACTIVE] } } } },
+        ...(acceptedCampaignIds.length ? [{ _id: { $in: acceptedCampaignIds }, state: { $in: ACCEPTED_STATES } }] : []),
       ],
     });
   }
@@ -397,7 +402,11 @@ function buildMarketplaceQuery(profileId, query = {}) {
   if (tab === "completed") {
     and.push({
       state: "completed",
-      $or: [{ influencerId: profileId }, { "applications.influencerId": profileId }],
+      $or: [
+        { influencerId: profileId },
+        { "applications.influencerId": profileId },
+        ...(acceptedCampaignIds.length ? [{ _id: { $in: acceptedCampaignIds } }] : []),
+      ],
     });
   }
 
@@ -710,7 +719,10 @@ class CampaignService {
     const limit = toLimit(query.limit);
     const skip = (page - 1) * limit;
     const tab = String(query.tab || "available").toLowerCase();
-    const filter = buildMarketplaceQuery(profile._id, { ...query, tab });
+    const acceptedCampaignIds = ["accepted", "active", "completed"].includes(tab)
+      ? (await CampaignAcceptance.find({ influencerId: profile._id, status: { $in: [WORKFLOW.ACCEPTED, WORKFLOW.ACTIVE] } }).select("campaignId").lean()).map((row) => row.campaignId).filter(Boolean)
+      : [];
+    const filter = buildMarketplaceQuery(profile._id, { ...query, tab, acceptedCampaignIds });
 
     const [items, total] = await Promise.all([
       Campaign.find(filter)

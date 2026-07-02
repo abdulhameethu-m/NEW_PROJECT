@@ -6,18 +6,17 @@ import {
   CheckCircle2,
   Crown,
   CreditCard,
-  Download,
   Eye,
   FileCheck2,
   Gem,
   HelpCircle,
   LineChart,
-  Link as LinkIcon,
   Medal,
   Megaphone,
   Package,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   Send,
   ShieldCheck,
@@ -36,16 +35,14 @@ import {
   createVendorInfluencerSubscriptionOrder,
   deleteVendorInfluencerCampaign,
   discoverVendorInfluencers,
-  getVendorAffiliateProducts,
   getVendorContentApprovals,
-  getVendorCreatorLeaderboard,
-  getVendorInfluencerAnalytics,
   getVendorInfluencerCampaigns,
   getVendorInfluencerCommerceConfiguration,
   getVendorInfluencerCommerceDashboard,
+  getVendorInfluencerEscrowRefundDeliverables,
+  getVendorInfluencerEscrowRefunds,
   getVendorInfluencerPerformance,
   getVendorInfluencerRelationships,
-  getVendorInfluencerReports,
   getVendorInfluencerSubscriptionPlans,
   getVendorDeliverableReviewQueue,
   getVendorPromotionProducts,
@@ -72,13 +69,9 @@ const TABS = [
   ["subscription", "Subscription", CreditCard],
   ["relationships", "My Influencers", Users],
   ["campaigns", "Campaign Management", Megaphone],
-  ["products", "Product Promotion", Package],
-  ["affiliate", "Affiliate Products", LinkIcon],
   ["content", "Content Approvals", FileCheck2],
   ["performance", "Influencer Performance", LineChart],
-  ["analytics", "Campaign Analytics", BarChart3],
-  ["leaderboard", "Creator Leaderboard", Medal],
-  ["reports", "Reports", Download],
+  ["escrow-refunds", "Escrow Refunds", RotateCcw],
 ];
 
 const TAB_IDS = new Set(TABS.map(([id]) => id));
@@ -88,13 +81,9 @@ const TAB_PATHS = {
   subscription: "/vendor/influencer-commerce/subscription",
   relationships: "/vendor/influencer-commerce/relationships",
   campaigns: "/vendor/influencer-commerce/campaigns",
-  products: "/vendor/influencer-commerce/products",
-  affiliate: "/vendor/influencer-commerce/affiliate",
   content: "/vendor/influencer-commerce/content",
   performance: "/vendor/influencer-commerce/performance",
-  analytics: "/vendor/influencer-commerce/analytics",
-  leaderboard: "/vendor/influencer-commerce/leaderboard",
-  reports: "/vendor/influencer-commerce/reports",
+  "escrow-refunds": "/vendor/influencer-commerce/escrow-refunds",
 };
 
 function campaignBuilderPath({ influencerId = "", productId = "" } = {}) {
@@ -194,6 +183,19 @@ function servicePackages(service = {}) {
 
 function packagePrice(pkg = {}, service = {}) {
   return Number(pkg.price ?? service.price ?? 0);
+}
+
+function packageQuantity(pkg = {}) {
+  return Math.max(1, Number(pkg.quantity ?? pkg.packageQuantity ?? 1) || 1);
+}
+
+function packageUnitPrice(pkg = {}, service = {}) {
+  const quantity = packageQuantity(pkg);
+  return quantity ? packagePrice(pkg, service) / quantity : packagePrice(pkg, service);
+}
+
+function selectedPackageQuantity(item = {}) {
+  return Math.max(1, Number(item.packageQuantity ?? item.snapshot?.package?.packageQuantity ?? 1) || 1);
 }
 
 function serviceStartingPrice(service = {}) {
@@ -747,19 +749,16 @@ function PriceSummaryRow({ label, value, strong = false }) {
   );
 }
 
-function selectedDeliverableUnits(item = {}) {
-  return Math.max(1, Number(item.units ?? item.quantity ?? item.selectedQuantity ?? 1) || 1);
-}
-
 function fixedRewardCalculationRows(selectedServices = []) {
   return selectedServices.map((item) => {
-    const units = selectedDeliverableUnits(item);
-    const unitPrice = Number(item.price || item.rate || 0);
+    const units = selectedPackageQuantity(item);
+    const packageTotal = Number(item.price || item.rate || item.total || 0);
+    const unitPrice = units ? packageTotal / units : packageTotal;
     return {
       ...item,
       units,
       unitPrice,
-      total: unitPrice * units,
+      total: packageTotal,
       label: item.packageName || item.serviceName || "Deliverable",
     };
   });
@@ -957,7 +956,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
           serviceId,
           packageId: pkgId || undefined,
           packageName: pkg.packageName || pkg.name || service.serviceName,
-          packageQuantity: Math.max(1, Number(pkg.quantity || pkg.packageQuantity || 1)),
+          packageQuantity: packageQuantity(pkg),
           serviceTypeKey: service.serviceTypeKey,
           serviceName: service.serviceName,
           quantity: 1,
@@ -967,22 +966,6 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
           currency: pkg.currency || service.currency || "INR",
         },
       ];
-      return {
-        ...current,
-        selectedServices,
-        dynamicFields: { ...current.dynamicFields, selectedServices, deliverableCommissionRates: selectedServices },
-      };
-    });
-  }
-
-  function setDeliverableUnits(selectionKey, value) {
-    const units = Math.max(1, Number(value || 1) || 1);
-    setForm((current) => {
-      const selectedServices = current.selectedServices.map((item) => (
-        String(item.selectionKey || "") === String(selectionKey || "")
-          ? { ...item, quantity: units, units }
-          : item
-      ));
       return {
         ...current,
         selectedServices,
@@ -1307,7 +1290,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                 <div className="mt-2 space-y-2">
                   {fixedCalculationRows.length ? fixedCalculationRows.map((row) => (
                     <div key={row.selectionKey || `${row.serviceId}-${row.packageId}`} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="font-semibold text-slate-700 dark:text-slate-200">{selectedDeliverableUnits(row)} × {row.label}</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{row.label}</span>
                       <span className="font-bold text-slate-950 dark:text-white">{formatCurrency(row.total)}</span>
                     </div>
                   )) : <p className="text-xs text-slate-500">Select deliverables below to calculate the reward.</p>}
@@ -1318,7 +1301,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                 <div className="mt-2 space-y-2">
                   {fixedCalculationRows.length ? fixedCalculationRows.map((row) => (
                     <div key={row.selectionKey || `${row.serviceId}-${row.packageId}-calc`} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-slate-600 dark:text-slate-300">{formatCurrency(row.unitPrice)} × {selectedDeliverableUnits(row)}</span>
+                      <span className="text-slate-600 dark:text-slate-300">{formatCurrency(row.unitPrice)} × {row.units}</span>
                       <span className="font-bold text-slate-950 dark:text-white">{formatCurrency(row.total)}</span>
                     </div>
                   )) : <p className="text-xs text-slate-500">No deliverables selected.</p>}
@@ -1373,21 +1356,9 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                           <input type="checkbox" checked={selected} onClick={(event) => event.stopPropagation()} onChange={() => togglePackageSelection(service, pkg)} />
                           <span className="min-w-0">
                             <span className="block truncate font-medium text-slate-800 dark:text-slate-100">{pkg.packageName || pkg.name || "Package"}</span>
-                            <span className="text-xs text-slate-500">{Number(pkg.quantity || 1)} deliverable{Number(pkg.quantity || 1) === 1 ? "" : "s"} - {pkg.deliveryDays ?? service.deliveryDays ?? 0}d - {pkg.revisionCount ?? service.revisionCount ?? 0} rev</span>
+                            <span className="text-xs text-slate-500">Package: {pkg.packageName || pkg.name || "Package"} · Quantity: {packageQuantity(pkg)} · Unit Price: {formatCurrency(packageUnitPrice(pkg, service))} · {pkg.deliveryDays ?? service.deliveryDays ?? 0}d · {pkg.revisionCount ?? service.revisionCount ?? 0} rev</span>
                           </span>
-                          {fixedMode && selected ? (
-                            <span className="flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
-                              <span className="text-xs font-semibold text-slate-500">{formatCurrency(price)} ×</span>
-                              <input
-                                type="number"
-                                min="1"
-                                value={selectedDeliverableUnits(selectedItem)}
-                                onChange={(event) => setDeliverableUnits(selectedItem.selectionKey, event.target.value)}
-                                className="h-9 w-16 rounded-lg border border-slate-200 bg-white px-2 text-right text-sm font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                                aria-label={`${pkg.packageName || service.serviceName} quantity`}
-                              />
-                            </span>
-                          ) : commissionMode ? (
+                          {commissionMode ? (
                             selected ? (
                               <span className="flex items-center justify-end gap-1">
                                 <input
@@ -1509,6 +1480,7 @@ export function VendorInfluencerPage() {
   const [planChangePreview, setPlanChangePreview] = useState(null);
   const [selectedInvite, setSelectedInvite] = useState(null);
   const [campaignPayment, setCampaignPayment] = useState(null);
+  const [escrowRefundDetail, setEscrowRefundDetail] = useState({ open: false, loading: false, data: null });
   const foundationInFlightRef = useRef(null);
   const foundationLoadedAtRef = useRef(0);
 
@@ -1589,8 +1561,6 @@ export function VendorInfluencerPage() {
         subscription: () => getVendorInfluencerSubscriptionPlans(),
         relationships: () => getVendorInfluencerRelationships(query),
         campaigns: () => getVendorInfluencerCampaigns(query),
-        products: () => getVendorPromotionProducts(query),
-        affiliate: () => getVendorAffiliateProducts(query),
         content: async () => {
           const [contentResponse, deliverableResponse] = await Promise.all([
             getVendorContentApprovals({ ...query, queue: "pending" }),
@@ -1624,9 +1594,7 @@ export function VendorInfluencerPage() {
           };
         },
         performance: () => getVendorInfluencerPerformance(query),
-        analytics: () => getVendorInfluencerAnalytics(query),
-        leaderboard: () => getVendorCreatorLeaderboard(query),
-        reports: () => getVendorInfluencerReports(query),
+        "escrow-refunds": () => getVendorInfluencerEscrowRefunds(query),
       };
       const response = await loaders[tab]();
       setData((current) => ({ ...current, [tab]: response?.data || {} }));
@@ -1747,31 +1715,26 @@ export function VendorInfluencerPage() {
     }
   }
 
+  async function openEscrowRefundDetail(row) {
+    const campaignId = row.campaignId || row.id || row._id;
+    if (!campaignId) return;
+    setEscrowRefundDetail({ open: true, loading: true, data: null });
+    setError("");
+    try {
+      const response = await getVendorInfluencerEscrowRefundDeliverables(campaignId);
+      setEscrowRefundDetail({ open: true, loading: false, data: response?.data || response || null });
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || "Unable to load deliverable finance details.");
+      setEscrowRefundDetail({ open: false, loading: false, data: null });
+    }
+  }
+
   async function createCampaignPaymentOrder() {
     const campaignId = campaignPayment?.campaign?._id || campaignPayment?.campaign?.id;
     if (!campaignId) throw new Error("Campaign not found.");
     const paymentOrder = await CampaignEscrowService.createPaymentOrder(campaignId);
     setCampaignPayment((current) => current ? { ...current, paymentOrder } : current);
     return paymentOrder;
-  }
-
-  async function requestCampaignRefund(campaign) {
-    const campaignId = campaign._id || campaign.id;
-    return runAction(
-      `refund-${campaignId}`,
-      async () => {
-        const eligibility = await CampaignEscrowService.checkRefundEligibility(campaignId);
-        if (!eligibility?.eligible) {
-          throw new Error(eligibility?.message || "Campaign is not eligible for a refund.");
-        }
-        return CampaignEscrowService.requestRefund(
-          campaignId,
-          "vendor_request",
-          "Vendor requested cancellation and refund of the remaining escrow."
-        );
-      },
-      "Refund request submitted for admin review."
-    );
   }
 
   async function visitInfluencerProfile(row) {
@@ -1948,7 +1911,7 @@ export function VendorInfluencerPage() {
             </div>
             <h1 className="mt-3 text-2xl font-semibold text-slate-950 dark:text-white">Influencer Commerce</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-              Campaign collaboration, affiliate promotion, content approvals, attribution, commissions, payouts, analytics, and reports powered by the existing campaign, content, wallet, notification, and commission systems.
+              Campaign collaboration, affiliate promotion, content approvals, attribution, commissions, payouts, and performance data powered by the existing campaign, content, wallet, notification, and commission systems.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1985,7 +1948,7 @@ export function VendorInfluencerPage() {
         })}
       </nav>
 
-      <Filters filters={filters} setFilters={setFilters} campaigns={campaigns} products={products} configuration={data.configuration || {}} tab={tab} includeSearch={!["dashboard", "analytics", "reports", "subscription"].includes(tab)} />
+      <Filters filters={filters} setFilters={setFilters} campaigns={campaigns} products={products} configuration={data.configuration || {}} tab={tab} includeSearch={!["dashboard", "subscription"].includes(tab)} />
 
       {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-100">{message}</div> : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100">{error}</div> : null}
@@ -2039,31 +2002,7 @@ export function VendorInfluencerPage() {
           onStatus={(row, status) => runAction(influencerRowId(row), () => updateVendorInfluencerRelationship(influencerRowId(row), { status }), "Relationship updated.")}
         />
       ) : null}
-      {tab === "campaigns" ? <CampaignsView campaigns={campaigns} pagination={data.campaigns?.pagination} products={products} influencers={campaignInfluencers} configuration={data.configuration || {}} selectedInfluencerId={filters.influencerId} selectedProductIds={filters.productId ? [filters.productId] : []} busyId={busyId} onPage={(page) => setFilters((current) => ({ ...current, page }))} onCreate={createCampaign} onReview={(campaign, application, decision) => runAction(`${campaign._id}-${application.influencerId}`, () => reviewVendorCampaignApplication(campaign._id, application.influencerId, { decision }), "Campaign application reviewed.")} onStatus={(campaign, action) => runAction(campaign._id, () => updateVendorInfluencerCampaignStatus(campaign._id, { action }), "Campaign status updated.")} onFund={openCampaignFunding} onRefund={requestCampaignRefund} onDelete={(campaign) => runAction(`delete-${campaign._id}`, () => deleteVendorInfluencerCampaign(campaign._id), "Campaign deleted.")} /> : null}
-      {tab === "products" ? (
-        <ProductsView
-          rows={products}
-          pagination={data.products?.pagination}
-          title="Product Promotion"
-          onPage={(page) => setFilters((current) => ({ ...current, page }))}
-          onPromote={(row) => {
-            openCampaignBuilder({ productId: productRowId(row) });
-          }}
-          onEdit={(row) => navigate(`/vendor/products/${row.id}/edit`)}
-        />
-      ) : null}
-      {tab === "affiliate" ? (
-        <ProductsView
-          rows={data.affiliate?.items || []}
-          pagination={data.affiliate?.pagination}
-          title="Affiliate Products"
-          onPage={(page) => setFilters((current) => ({ ...current, page }))}
-          onPromote={(row) => {
-            openCampaignBuilder({ productId: productRowId(row) });
-          }}
-          onEdit={(row) => navigate(`/vendor/products/${row.id}/edit`)}
-        />
-      ) : null}
+      {tab === "campaigns" ? <CampaignsView campaigns={campaigns} pagination={data.campaigns?.pagination} products={products} influencers={campaignInfluencers} configuration={data.configuration || {}} selectedInfluencerId={filters.influencerId} selectedProductIds={filters.productId ? [filters.productId] : []} busyId={busyId} onPage={(page) => setFilters((current) => ({ ...current, page }))} onCreate={createCampaign} onReview={(campaign, application, decision) => runAction(`${campaign._id}-${application.influencerId}`, () => reviewVendorCampaignApplication(campaign._id, application.influencerId, { decision }), "Campaign application reviewed.")} onStatus={(campaign, action) => runAction(campaign._id, () => updateVendorInfluencerCampaignStatus(campaign._id, { action }), "Campaign status updated.")} onFund={openCampaignFunding} onDelete={(campaign) => runAction(`delete-${campaign._id}`, () => deleteVendorInfluencerCampaign(campaign._id), "Campaign deleted.")} /> : null}
       {tab === "content" ? (
         <ContentView
           rows={data.content?.items || []}
@@ -2096,21 +2035,16 @@ export function VendorInfluencerPage() {
           }}
         />
       ) : null}
-      {tab === "analytics" ? <AnalyticsView analytics={data.analytics} /> : null}
-      {tab === "leaderboard" ? (
-        <LeaderboardView
-          rows={data.leaderboard?.items || []}
-          summary={data.leaderboard?.summary}
-          pagination={data.leaderboard?.pagination}
-          busyId={busyId}
-          onPage={(page) => setFilters((current) => ({ ...current, page }))}
-          onInvite={(row) => startCampaignInvite(row, "Invited from creator leaderboard.")}
-          onCampaign={(row) => {
-            openCampaignBuilder({ influencer: row, influencerId: influencerRowId(row) });
-          }}
+      {tab === "escrow-refunds" ? (
+        <VendorEscrowRefundsView
+          data={data["escrow-refunds"]}
+          onView={openEscrowRefundDetail}
         />
       ) : null}
-      {tab === "reports" ? <ReportsView reports={data.reports} /> : null}
+      <VendorEscrowRefundDetailModal
+        state={escrowRefundDetail}
+        onClose={() => setEscrowRefundDetail({ open: false, loading: false, data: null })}
+      />
     </div>
   );
 }
@@ -2604,7 +2538,7 @@ function RelationshipsView({ rows, pagination, busyId, onStatus, onInvite, onPag
   );
 }
 
-function CampaignsView({ campaigns, pagination, products, influencers, configuration, selectedInfluencerId = "", selectedProductIds = [], busyId, onPage, onCreate, onReview, onStatus, onFund, onRefund, onDelete }) {
+function CampaignsView({ campaigns, pagination, products, influencers, configuration, selectedInfluencerId = "", selectedProductIds = [], busyId, onPage, onCreate, onReview, onStatus, onFund, onDelete }) {
   async function confirmDelete(campaign) {
     const title = campaign.title || "this campaign";
     if (await confirmAction({ message: `Delete "${title}"? This is only allowed before applications, content, or commissions exist.`, tone: "danger", confirmLabel: "Confirm" })) {
@@ -2671,9 +2605,9 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
                         </span>
                       ) : null}
                       {["fixed", "hybrid"].includes(campaign.paymentType) && campaign.fixedPaymentWorkflow?.contentEnabled && !isTerminal ? (
-                        <button disabled={busyId === `refund-${campaign._id}`} onClick={() => onRefund(campaign)} className="rounded-lg border border-rose-200 px-2 py-1 text-xs font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-300">
-                          Request Refund
-                        </button>
+                        <span className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                          Refunds handled by admin finance
+                        </span>
                       ) : null}
                       <button
                         disabled={!canDelete || busyId === `delete-${campaign._id}`}
@@ -2711,42 +2645,6 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
         <Pagination pagination={pagination} onPage={onPage} />
       </Section>
     </div>
-  );
-}
-
-function ProductsView({ rows, pagination, title, onPage, onPromote, onEdit }) {
-  return (
-    <Section title={title} icon={Package}>
-      <ResponsiveTable
-        headers={["Product", "Status", "Stock", "Promoted", "Campaigns", "Influencers", "Clicks", "Orders", "Revenue", "Commission", "Conversion", "Actions"]}
-        rows={rows}
-        renderRow={(row) => (
-          <tr key={row.id} className="border-t border-slate-100 dark:border-slate-800">
-            <td className="max-w-sm px-3 py-3 font-semibold text-slate-950 dark:text-white">
-              <span className="block truncate" title={row.name}>{shortText(row.name, 88)}</span>
-              <div className="text-xs font-normal text-slate-500">{row.category || "-"} {row.price ? `- ${formatCurrency(row.price)}` : ""}</div>
-            </td>
-            <td className="px-3 py-3"><StatusBadge value={row.status || (row.available ? "approved" : "inactive")} /></td>
-            <td className="px-3 py-3">{numberValue(row.stock)}</td>
-            <td className="px-3 py-3">{row.promoted ? "Yes" : "No"}</td>
-            <td className="px-3 py-3">{numberValue(row.campaignCount ?? row.activeCampaigns)}</td>
-            <td className="px-3 py-3">{numberValue(row.influencers)}</td>
-            <td className="px-3 py-3">{numberValue(row.clicks)}</td>
-            <td className="px-3 py-3">{numberValue(row.orders)}</td>
-            <td className="px-3 py-3">{formatCurrency(row.revenue || 0)}</td>
-            <td className="px-3 py-3">{formatCurrency(row.commission || 0)}</td>
-            <td className="px-3 py-3">{percentValue(row.conversionRate)}</td>
-            <td className="px-3 py-3">
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => onPromote(row)} className="rounded-lg bg-indigo-600 px-2 py-1 text-xs font-semibold text-white">{row.promoted ? "New Campaign" : "Promote"}</button>
-                <button type="button" onClick={() => onEdit(row)} className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">Edit</button>
-              </div>
-            </td>
-          </tr>
-        )}
-      />
-      <Pagination pagination={pagination} onPage={onPage} />
-    </Section>
   );
 }
 
@@ -2852,172 +2750,191 @@ function PerformanceView({ rows, summary = {}, pagination, busyId, onPage, onCam
   );
 }
 
-function AnalyticsView({ analytics = {} }) {
-  const kpis = analytics.kpis || {};
-  const charts = analytics.charts || {};
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function VendorFinanceMetric({ label, value, hint, icon: Icon = CreditCard }) {
   return (
-    <div className="grid gap-5">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric label="Revenue" value={formatCurrency(kpis.campaignRevenue || 0)} />
-        <Metric label="Spend" value={formatCurrency(kpis.campaignSpend || 0)} />
-        <Metric label="ROI" value={percentValue(kpis.roi)} />
-        <Metric label="Commission Paid" value={formatCurrency(kpis.commissionPaid || 0)} />
-        <Metric label="Orders" value={numberValue(kpis.orders)} />
-        <Metric label="Clicks" value={numberValue(kpis.clicks)} />
-        <Metric label="Conversion Rate" value={percentValue(kpis.conversionRate)} />
-        <Metric label="Average Order" value={formatCurrency(kpis.averageOrderValue || 0)} />
-      </div>
-      <div className="grid gap-5 xl:grid-cols-3">
-        <Section title="Revenue Trend" icon={BarChart3}><SimpleBars rows={charts.revenueTrend || []} valueKey="revenue" /></Section>
-        <Section title="Commission Trend" icon={LineChart}><SimpleBars rows={charts.commissionTrend || []} valueKey="commission" /></Section>
-        <Section title="Click Trend" icon={BarChart3}><SimpleBars rows={charts.clickTrend || []} valueKey="clicks" /></Section>
-      </div>
-      <div className="grid gap-5 xl:grid-cols-2">
-        <Section title="Conversion Funnel" icon={BarChart3}>
-          <ResponsiveTable
-            headers={["Stage", "Value"]}
-            rows={charts.conversionFunnel || []}
-            renderRow={(row) => (
-              <tr key={row.label} className="border-t border-slate-100 dark:border-slate-800">
-                <td className="px-3 py-3 font-semibold text-slate-950 dark:text-white">{row.label}</td>
-                <td className="px-3 py-3">{String(row.label || "").toLowerCase().includes("commission") ? formatCurrency(row.value || 0) : numberValue(row.value)}</td>
-              </tr>
-            )}
-          />
-        </Section>
-        <MiniTable title="Traffic Sources" icon={LineChart} rows={charts.trafficSources || []} columns={["source", "clicks"]} />
-      </div>
-      <Section title="Campaign Comparison" icon={Megaphone}>
-        <ResponsiveTable
-          headers={["Campaign", "Status", "Revenue", "Commission", "Orders", "Clicks", "Conversion"]}
-          rows={charts.campaignComparison || []}
-          renderRow={(row) => (
-            <tr key={row.id || row.title} className="border-t border-slate-100 dark:border-slate-800">
-              <td className="px-3 py-3 font-semibold text-slate-950 dark:text-white">{row.title || "Campaign"}</td>
-              <td className="px-3 py-3"><StatusBadge value={row.state || "tracked"} /></td>
-              <td className="px-3 py-3">{formatCurrency(row.revenue || 0)}</td>
-              <td className="px-3 py-3">{formatCurrency(row.commission || 0)}</td>
-              <td className="px-3 py-3">{numberValue(row.orders)}</td>
-              <td className="px-3 py-3">{numberValue(row.clicks)}</td>
-              <td className="px-3 py-3">{percentValue(row.conversionRate)}</td>
-            </tr>
-          )}
-        />
-      </Section>
-      <div className="grid gap-5 xl:grid-cols-2">
-        <Section title="Top Products" icon={Package}>
-          <ResponsiveTable
-            headers={["Product", "Revenue", "Commission", "Orders", "Clicks", "Conversion"]}
-            rows={charts.productPerformance || []}
-            renderRow={(row) => (
-              <tr key={row.id || row.name} className="border-t border-slate-100 dark:border-slate-800">
-                <td className="max-w-sm px-3 py-3 font-semibold text-slate-950 dark:text-white">
-                  <span className="block truncate" title={row.name}>{shortText(row.name, 72)}</span>
-                  <div className="text-xs font-normal text-slate-500">{row.category || "-"}</div>
-                </td>
-                <td className="px-3 py-3">{formatCurrency(row.revenue || 0)}</td>
-                <td className="px-3 py-3">{formatCurrency(row.commission || 0)}</td>
-                <td className="px-3 py-3">{numberValue(row.orders)}</td>
-                <td className="px-3 py-3">{numberValue(row.clicks)}</td>
-                <td className="px-3 py-3">{percentValue(row.conversionRate)}</td>
-              </tr>
-            )}
-          />
-        </Section>
-        <Section title="Top Creators" icon={Users}>
-          <ResponsiveTable
-            headers={["Creator", "Revenue", "Commission", "Orders", "Clicks", "ROI"]}
-            rows={charts.creatorPerformance || []}
-            renderRow={(row) => (
-              <tr key={row.influencerId || row.name} className="border-t border-slate-100 dark:border-slate-800">
-                <td className="px-3 py-3 font-semibold text-slate-950 dark:text-white">
-                  {row.name || "Creator"}
-                  <div className="text-xs font-normal text-slate-500">@{row.username || "creator"}</div>
-                </td>
-                <td className="px-3 py-3">{formatCurrency(row.revenueGenerated || 0)}</td>
-                <td className="px-3 py-3">{formatCurrency(row.commissionPaid || 0)}</td>
-                <td className="px-3 py-3">{numberValue(row.ordersGenerated)}</td>
-                <td className="px-3 py-3">{numberValue(row.clicks)}</td>
-                <td className="px-3 py-3">{percentValue(row.roi)}</td>
-              </tr>
-            )}
-          />
-        </Section>
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</p>
+          <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">{value}</p>
+          {hint ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p> : null}
+        </div>
+        <div className="rounded-2xl bg-slate-950 p-3 text-white dark:bg-white dark:text-slate-950">
+          <Icon className="h-5 w-5" />
+        </div>
       </div>
     </div>
   );
 }
 
-function LeaderboardView({ rows, summary = {}, pagination, busyId, onPage, onInvite, onCampaign }) {
+function VendorEscrowStatusBadge({ value }) {
+  const label = String(value || "unknown").replace(/_/g, " ");
+  const key = label.toLowerCase();
+  const tone = key.includes("completed") || key.includes("released") || key.includes("paid")
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : key.includes("failed") || key.includes("rejected")
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : key.includes("refund") || key.includes("pending")
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-sky-200 bg-sky-50 text-sky-700";
+  return <span className={`inline-flex rounded-2xl border px-2.5 py-1 text-xs font-semibold capitalize leading-snug ${tone}`}>{label}</span>;
+}
+
+function VendorEscrowRefundsView({ data = {}, onView }) {
+  const cards = data.cards || {};
+  const rows = data.rows || [];
+  const metrics = [
+    { label: "Campaigns", value: numberValue(cards.campaigns || 0), hint: "Fixed/Hybrid escrow campaigns", icon: Megaphone },
+    { label: "Escrow Funded", value: formatCurrency(cards.escrowFunded || 0), hint: "Total fixed reward escrow", icon: CreditCard },
+    { label: "Amount Released", value: formatCurrency(cards.releasedAmount || 0), hint: "Paid to influencers", icon: CheckCircle2 },
+    { label: "Amount Refunded", value: formatCurrency(cards.refundedAmount || 0), hint: "Returned to vendor", icon: RotateCcw },
+    { label: "Remaining Escrow", value: formatCurrency(cards.remainingEscrow || 0), hint: "Unreleased balance", icon: ShieldCheck },
+  ];
+
   return (
-    <div className="grid gap-5">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric label="Ranked Creators" value={numberValue(summary.creators || rows.length)} />
-        <Metric label="Revenue" value={formatCurrency(summary.revenue || 0)} />
-        <Metric label="Commission" value={formatCurrency(summary.commission || 0)} />
-        <Metric label="Clicks" value={numberValue(summary.clicks)} />
-        <Metric label="Orders" value={numberValue(summary.orders)} />
+    <section className="space-y-6">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-500">Vendor Finance</p>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">Campaign Escrow & Refunds</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Track how much was released to influencers and how much was refunded back to you for each campaign and deliverable.
+        </p>
       </div>
-      <Section title="Creator Leaderboard" icon={Medal}>
-        <ResponsiveTable
-          headers={["Rank", "Creator", "Status", "Category", "Revenue", "Commission", "Clicks", "Conversions", "Engagement", "ROI", "Score", "Actions"]}
-          rows={rows}
-          renderRow={(row) => {
-            const influencerId = influencerRowId(row);
-            const inviteBusy = busyId === `invite-${influencerId}`;
-            return (
-              <tr key={influencerId || row.name} className="border-t border-slate-100 dark:border-slate-800">
-                <td className="px-3 py-3 font-semibold">#{row.rank}</td>
-                <td className="px-3 py-3 font-semibold text-slate-950 dark:text-white">
-                  {row.creator || row.name}
-                  <div className="text-xs font-normal text-slate-500">@{row.username || "creator"}</div>
-                </td>
-                <td className="px-3 py-3"><StatusBadge value={row.status || "tracked"} /></td>
-                <td className="px-3 py-3">{row.category || "-"}</td>
-                <td className="px-3 py-3">{formatCurrency(row.revenueGenerated || 0)}</td>
-                <td className="px-3 py-3">{formatCurrency(row.commissionPaid || 0)}</td>
-                <td className="px-3 py-3">{numberValue(row.clicks)}</td>
-                <td className="px-3 py-3">{numberValue(row.conversions)}</td>
-                <td className="px-3 py-3">{numberValue(row.engagement)}</td>
-                <td className="px-3 py-3">{percentValue(row.roi)}</td>
-                <td className="px-3 py-3">{numberValue(row.score)}</td>
-                <td className="px-3 py-3">
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" disabled={inviteBusy} onClick={() => onInvite(row)} className="rounded-lg bg-indigo-600 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Invite</button>
-                    <button type="button" onClick={() => onCampaign(row)} className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">Campaign</button>
-                  </div>
-                </td>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {metrics.map((metric) => <VendorFinanceMetric key={metric.label} {...metric} />)}
+      </div>
+
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+          <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Campaign Refund Summary</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Open a campaign to view deliverable-wise released and refunded amounts.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400">
+              <tr>
+                <th className="px-4 py-3">Campaign</th>
+                <th className="px-4 py-3">Influencer</th>
+                <th className="px-4 py-3">Model</th>
+                <th className="px-4 py-3">Escrow</th>
+                <th className="px-4 py-3">Released</th>
+                <th className="px-4 py-3">Refunded</th>
+                <th className="px-4 py-3">Remaining</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Deadline</th>
+                <th className="px-4 py-3">Action</th>
               </tr>
-            );
-          }}
-        />
-        <Pagination pagination={pagination} onPage={onPage} />
-      </Section>
-    </div>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {rows.length ? rows.map((row) => {
+                const remaining = Math.max(0, Number(row.escrowAmount || 0) - Number(row.releasedAmount || 0) - Number(row.alreadyRefunded || 0));
+                return (
+                  <tr key={row.id || row.campaignId} className="align-top">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-slate-950 dark:text-white">{row.campaignTitle}</div>
+                      <div className="mt-1 max-w-36 truncate text-xs text-slate-500">{row.campaignId}</div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{row.influencer?.displayName || row.influencer?.username || row.influencer?.name || "Influencer"}</td>
+                    <td className="px-4 py-3 font-semibold uppercase text-slate-700 dark:text-slate-200">{row.paymentModel}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-950 dark:text-white">{formatCurrency(row.escrowAmount || 0)}</td>
+                    <td className="px-4 py-3 text-emerald-600 font-semibold">{formatCurrency(row.releasedAmount || 0)}</td>
+                    <td className="px-4 py-3 text-sky-600 font-semibold">{formatCurrency(row.alreadyRefunded || 0)}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatCurrency(remaining)}</td>
+                    <td className="px-4 py-3"><VendorEscrowStatusBadge value={row.statusLabel || row.status} /></td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(row.deadline)}</td>
+                    <td className="px-4 py-3">
+                      <button type="button" onClick={() => onView(row)} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                        <Eye className="h-3.5 w-3.5" /> View Deliverables
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }) : (
+                <tr>
+                  <td colSpan={10} className="px-4 py-10 text-center text-slate-500">No fixed/hybrid escrow records found yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   );
 }
 
-function ReportsView({ reports = {} }) {
+function VendorEscrowRefundDetailModal({ state, onClose }) {
+  if (!state.open) return null;
+  const data = state.data || {};
+  const campaign = data.campaign || {};
+  const escrow = data.escrow || {};
+  const deliverables = data.deliverables || [];
   return (
-    <div className="grid gap-5">
-      <Section title="Reporting Center" icon={Download}>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {(reports.reports || []).map((report) => (
-            <article key={report.id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-              <h3 className="font-semibold text-slate-950 dark:text-white">{report.name}</h3>
-              <p className="mt-1 text-sm text-slate-500">{numberValue(report.rows)} rows available</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {(report.exportFormats || []).map((format) => <button key={format} type="button" className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase dark:border-slate-700">{format}</button>)}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Deliverable payment details</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Released and refunded amounts for each deliverable in this campaign.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">x</button>
+        </div>
+        <div className="mt-6 min-h-0 flex-1 overflow-y-auto pr-1">
+          {state.loading ? (
+            <div className="rounded-2xl border border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-slate-800">Loading deliverables...</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-950 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-100">
+                <div className="font-semibold">{campaign.title || "Campaign"}</div>
+                <div className="mt-1">Escrow {formatCurrency(escrow.escrowAmount || 0)} · Released {formatCurrency(escrow.releasedAmount || 0)} · Refunded {formatCurrency(escrow.refundedAmount || 0)} · Remaining {formatCurrency(escrow.remainingAmount || 0)}</div>
               </div>
-            </article>
-          ))}
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="min-w-[900px] divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                  <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3">Deliverable</th>
+                      <th className="px-4 py-3">Due Date</th>
+                      <th className="px-4 py-3">Rate</th>
+                      <th className="px-4 py-3">Released</th>
+                      <th className="px-4 py-3">Refunded</th>
+                      <th className="px-4 py-3">Remaining</th>
+                      <th className="px-4 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {deliverables.length ? deliverables.map((deliverable) => (
+                      <tr key={deliverable.id} className="align-top">
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-slate-950 dark:text-white">{deliverable.title || deliverable.type || "Deliverable"}</div>
+                          <div className="mt-1 text-xs uppercase tracking-wide text-slate-500">{deliverable.type || "deliverable"} · Qty {deliverable.quantity || 1}</div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(deliverable.dueDate)}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-950 dark:text-white">{formatCurrency(deliverable.rate || 0)}</td>
+                        <td className="px-4 py-3 font-semibold text-emerald-600">{formatCurrency(deliverable.allocation?.releasedAmount || 0)}</td>
+                        <td className="px-4 py-3 font-semibold text-sky-600">{formatCurrency(deliverable.allocation?.refundedAmount || 0)}</td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatCurrency(deliverable.allocation?.remainingAmount || 0)}</td>
+                        <td className="px-4 py-3"><VendorEscrowStatusBadge value={deliverable.refund?.statusLabel || deliverable.status || "pending"} /></td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">No deliverables found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
-      </Section>
-      <Section title="Scheduling" icon={FileCheck2}>
-        <div className="grid gap-3 md:grid-cols-3">
-          {(reports.schedules || []).map((schedule) => <label key={schedule.frequency} className="flex items-center justify-between rounded-2xl border border-slate-200 p-4 text-sm font-semibold capitalize dark:border-slate-800"><span>{schedule.frequency}</span><input type="checkbox" defaultChecked={schedule.enabled} /></label>)}
+        <div className="mt-6 flex justify-end">
+          <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">Close</button>
         </div>
-      </Section>
+      </div>
     </div>
   );
 }

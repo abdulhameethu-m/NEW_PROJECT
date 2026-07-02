@@ -1819,23 +1819,6 @@ class InfluencerService {
     return profile;
   }
 
-  async getSavedProductsCollection(profile) {
-    return await InfluencerCollection.findOneAndUpdate(
-      { influencerId: profile._id, slug: "saved-products" },
-      {
-        $setOnInsert: {
-          influencerId: profile._id,
-          title: "Saved Products",
-          slug: "saved-products",
-          type: "affiliate",
-          status: "draft",
-          visibility: { audience: "private", locations: [] },
-        },
-      },
-      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
-    );
-  }
-
   async listAffiliateProducts(userId, query = {}) {
     const profile = await this.getProfile(userId);
     if (!profile.permissions?.affiliateLinks) throw new AppError("Affiliate products are not enabled", 403, "FORBIDDEN");
@@ -1845,12 +1828,6 @@ class InfluencerService {
     const skip = (page - 1) * limit;
     const eligible = await getEligiblePromotionProductContext(profile._id);
     let eligibleProductIds = eligible.productIds;
-    if (query.mode === "active_campaigns") {
-      eligibleProductIds = eligibleProductIds.filter((productId) => ["active", "accepted"].includes(String(eligible.byProduct.get(String(productId))?.campaignStatus || eligible.byProduct.get(String(productId))?.promotionStatus || "").toLowerCase()));
-    }
-    if (query.mode === "approved") {
-      eligibleProductIds = eligibleProductIds.filter((productId) => ["approved", "active", "accepted"].includes(String(eligible.byProduct.get(String(productId))?.promotionStatus || "").toLowerCase()));
-    }
     const filter = { _id: { $in: eligibleProductIds }, status: "APPROVED", isActive: true };
     if (query.category) filter.category = cleanString(query.category);
     if (query.vendor) filter.sellerId = query.vendor;
@@ -1877,7 +1854,7 @@ class InfluencerService {
       most_viewed: { "analytics.views": -1 },
     };
     const sort = sortMap[query.sort] || (query.mode === "new" ? sortMap.newest : sortMap.best_selling);
-    const [items, total, savedCollection] = await Promise.all([
+    const [items, total] = await Promise.all([
       Product.find(filter)
         .populate("sellerId", "shopName companyName")
         .select("name SKU category categoryId tags price discountPrice currency stock status isActive images thumbnail sellerId analytics ratings createdAt")
@@ -1886,7 +1863,6 @@ class InfluencerService {
         .limit(limit)
         .lean(),
       Product.countDocuments(filter),
-      this.getSavedProductsCollection(profile),
     ]);
     let rows = await Promise.all(items.map(async (product) => {
       const row = await enrichAffiliateProduct(product, { affiliate });
@@ -1903,63 +1879,13 @@ class InfluencerService {
       };
     }));
     if (query.mode === "highest_commission" || query.sort === "highest_commission") rows = rows.sort((a, b) => b.commissionAmount - a.commissionAmount);
-    const saved = new Set((savedCollection.productIds || []).map(String));
     return {
-      items: rows.map((row) => ({ ...row, saved: saved.has(String(row._id)) })),
+      items: rows,
       page,
       limit,
       total,
       totalPages: Math.ceil(total / limit) || 1,
     };
-  }
-
-  async listRecommendedAffiliateProducts(userId, query = {}) {
-    const profile = await this.getProfile(userId);
-    if (!profile.permissions?.affiliateLinks) throw new AppError("Affiliate products are not enabled", 403, "FORBIDDEN");
-    const recommendationService = require("../recommendation/service");
-    const eligible = await getEligiblePromotionProductContext(profile._id);
-    const recommended = await recommendationService.getHomeRecommendations(profile.userId?._id || profile.userId || userId, { limit: query.limit || 12 });
-    const productIds = [
-      ...(recommended.personalized?.items || []),
-      ...(recommended.trending?.items || []),
-      ...(recommended.featured?.items || []),
-    ].map((product) => product._id).filter(Boolean);
-    const allowedIds = productIds.filter((id) => eligible.byProduct.has(String(id)));
-    const fallbackIds = allowedIds.length ? allowedIds : eligible.productIds.slice(0, Number(query.limit) || 12);
-    const products = await Product.find({ _id: { $in: fallbackIds }, status: "APPROVED", isActive: true })
-      .populate("sellerId", "shopName companyName")
-      .lean();
-    const rows = await Promise.all(products.map(async (product) => {
-      const row = await enrichAffiliateProduct(product);
-      const promotion = eligible.byProduct.get(String(product._id)) || {};
-      return { ...row, campaignId: promotion.campaignId || "", campaignName: promotion.campaignName || "", campaignStatus: promotion.campaignStatus || "", promotionStatus: promotion.promotionStatus || "approved" };
-    }));
-    return { items: rows.map((row, index) => ({ ...row, recommendationScore: Number((100 - index * 3).toFixed(2)), expectedConversion: row.conversionRate, commissionPotential: row.commissionAmount })), page: 1, limit: rows.length, total: rows.length, totalPages: 1 };
-  }
-
-  async listSavedAffiliateProducts(userId, query = {}) {
-    const profile = await this.getProfile(userId);
-    const collection = await this.getSavedProductsCollection(profile);
-    const eligible = await getEligiblePromotionProductContext(profile._id);
-    const products = await Product.find({ _id: { $in: (collection.productIds || []).filter((id) => eligible.byProduct.has(String(id))) }, status: "APPROVED", isActive: true })
-      .populate("sellerId", "shopName companyName")
-      .lean();
-    const rows = await Promise.all(products.map((product) => enrichAffiliateProduct(product)));
-    return { collectionId: collection._id, items: rows.map((row) => ({ ...row, saved: true })), page: 1, limit: rows.length, total: rows.length, totalPages: 1 };
-  }
-
-  async saveAffiliateProduct(userId, productId, saved = true) {
-    const profile = await this.getProfile(userId);
-    await assertPromotionProductAllowed(profile._id, productId);
-    const collection = await this.getSavedProductsCollection(profile);
-    const ids = new Set((collection.productIds || []).map(String));
-    if (saved) ids.add(String(productId));
-    else ids.delete(String(productId));
-    collection.productIds = Array.from(ids);
-    collection.productOrder = collection.productIds.map((id, index) => ({ productId: id, position: index, pinned: false }));
-    await collection.save();
-    await writeActivationAudit({ influencerId: profile._id, actorId: profile.userId, action: saved ? "AFFILIATE_PRODUCT_SAVED" : "AFFILIATE_PRODUCT_UNSAVED", status: "success", metadata: { productId } });
-    return await this.listSavedAffiliateProducts(userId);
   }
 
   async generateAffiliateProductLinks(userId, payload = {}) {
@@ -2005,71 +1931,6 @@ class InfluencerService {
       links.push({ productId, campaignId: promotion.campaignId || "", originalUrl: targetPath, affiliateUrl, shortLink: affiliateUrl, qrValue: affiliateUrl });
     }
     return { links };
-  }
-
-  async getAffiliateProductAnalytics(userId, query = {}) {
-    const profile = await this.getProfile(userId);
-    const match = { influencerId: profile._id };
-    if (query.from || query.to) {
-      match.createdAt = {};
-      if (query.from) match.createdAt.$gte = new Date(query.from);
-      if (query.to) match.createdAt.$lte = new Date(query.to);
-    }
-    const rows = await CommissionRecord.find(match)
-      .populate({ path: "orderId", select: "items totalAmount createdAt status" })
-      .sort({ createdAt: -1 })
-      .limit(500)
-      .lean();
-    const clickRows = await InfluencerStorefrontEvent.aggregate([
-      { $match: { influencerId: profile._id, productId: { $exists: true, $ne: null }, eventType: { $in: ["product_click", "product_view", "add_to_cart"] } } },
-      { $group: { _id: { productId: "$productId", eventType: "$eventType" }, count: { $sum: 1 } } },
-    ]);
-    const productMap = new Map();
-    for (const event of clickRows) {
-      const id = String(event._id.productId);
-      const current = productMap.get(id) || { productId: id, orders: 0, revenue: 0, commission: 0, clicks: 0, views: 0, addToCart: 0 };
-      if (event._id.eventType === "product_click") current.clicks += event.count;
-      if (event._id.eventType === "product_view") current.views += event.count;
-      if (event._id.eventType === "add_to_cart") current.addToCart += event.count;
-      productMap.set(id, current);
-    }
-    for (const record of rows) {
-      for (const item of record.orderId?.items || []) {
-        const id = String(item.productId);
-        const current = productMap.get(id) || { productId: id, orders: 0, revenue: 0, commission: 0, clicks: 0, views: 0, addToCart: 0 };
-        current.orders += 1;
-        current.revenue += Number(item.price || 0) * Number(item.quantity || 1);
-        current.commission += Number(record.influencerShare || 0);
-        productMap.set(id, current);
-      }
-    }
-    const productIds = [...productMap.keys()];
-    const products = await Product.find({ _id: { $in: productIds } }).select("name category sellerId images thumbnail analytics").populate("sellerId", "shopName companyName").lean();
-    const productById = new Map(products.map((product) => [String(product._id), product]));
-    const productPerformance = [...productMap.values()].map((row) => {
-      const product = productById.get(row.productId) || {};
-      const clicks = Number(row.clicks || 0);
-      return {
-        ...row,
-        name: product.name || "Product",
-        category: product.category || "",
-        vendor: product.sellerId?.shopName || product.sellerId?.companyName || "",
-        image: productImage(product),
-        clicks,
-        conversionRate: clicks ? Number(((row.orders / clicks) * 100).toFixed(2)) : 0,
-        epc: clicks ? Number((row.commission / clicks).toFixed(2)) : 0,
-      };
-    }).sort((a, b) => b.commission - a.commission);
-    const totals = productPerformance.reduce((acc, row) => {
-      acc.orders += row.orders;
-      acc.revenue += row.revenue;
-      acc.commission += row.commission;
-      acc.clicks += row.clicks;
-      return acc;
-    }, { orders: 0, revenue: 0, commission: 0, clicks: 0 });
-    totals.conversionRate = totals.clicks ? Number(((totals.orders / totals.clicks) * 100).toFixed(2)) : 0;
-    totals.epc = totals.clicks ? Number((totals.commission / totals.clicks).toFixed(2)) : 0;
-    return { totals, productPerformance, trend: [] };
   }
 
   async listCollectionProducts(userId, query = {}) {

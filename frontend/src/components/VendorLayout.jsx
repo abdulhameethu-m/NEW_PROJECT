@@ -104,14 +104,6 @@ const pageMeta = {
     title: "Campaign Management",
     subtitle: "Create campaigns, review applications, and manage creator collaboration.",
   },
-  "/vendor/influencer-commerce/products": {
-    title: "Product Promotion",
-    subtitle: "Track promoted products, affiliate revenue, clicks, orders, and commissions.",
-  },
-  "/vendor/influencer-commerce/affiliate": {
-    title: "Affiliate Products",
-    subtitle: "Monitor influencer product promotion and affiliate attribution.",
-  },
   "/vendor/influencer-commerce/content": {
     title: "Content Approvals",
     subtitle: "Review submitted reels, videos, live recordings, and campaign deliverables.",
@@ -120,17 +112,9 @@ const pageMeta = {
     title: "Influencer Performance",
     subtitle: "Compare creator revenue, clicks, conversions, ROI, engagement, and AOV.",
   },
-  "/vendor/influencer-commerce/analytics": {
-    title: "Campaign Analytics",
-    subtitle: "Analyze revenue, spend, commissions, funnels, and campaign comparisons.",
-  },
-  "/vendor/influencer-commerce/leaderboard": {
-    title: "Creator Leaderboard",
-    subtitle: "Rank creators by revenue, conversions, engagement, and campaign score.",
-  },
-  "/vendor/influencer-commerce/reports": {
-    title: "Reports",
-    subtitle: "Export and schedule campaign, influencer, revenue, commission, and content reports.",
+  "/vendor/influencer-commerce/escrow-refunds": {
+    title: "Escrow Refunds",
+    subtitle: "Track released, refunded, and remaining escrow amounts for influencer campaign deliverables.",
   },
   "/vendor/support": {
     title: "Support",

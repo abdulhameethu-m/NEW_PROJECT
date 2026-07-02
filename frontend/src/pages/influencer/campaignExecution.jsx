@@ -247,6 +247,54 @@ function ApprovalMetric({ label, value, tone }) {
   );
 }
 
+function RefundedDeliverablesNotice({ deliverables = [] }) {
+  const refunded = deliverables.filter((row) => row.refundLock?.locked);
+  if (!refunded.length) return null;
+  const totalRefunded = refunded.reduce((sum, row) => sum + Number(row.refundLock?.refundedAmount || row.funding?.refundedAmount || 0), 0);
+
+  return (
+    <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950 shadow-sm dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="mt-1 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">Refunded deliverables</p>
+            <h2 className="mt-1 text-xl font-semibold">Some deliverables are no longer available for content creation</h2>
+            <p className="mt-1 text-sm">
+              You can publish only the deliverables completed within their due date. Refunded deliverables are locked because the amount was returned to the vendor.
+            </p>
+          </div>
+        </div>
+        <div className="rounded-xl bg-white/70 px-4 py-3 text-sm dark:bg-slate-950/40">
+          <p className="text-xs opacity-75">Total refunded</p>
+          <p className="text-lg font-semibold">{formatCurrency(totalRefunded)}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {refunded.map((deliverable) => (
+          <div key={deliverable.id} className="rounded-xl border border-amber-200 bg-white/70 p-3 dark:border-amber-900/40 dark:bg-slate-950/40">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold text-slate-950 dark:text-white">{deliverable.title}</p>
+                <p className="mt-1 text-sm">
+                  Due {dateLabel(deliverable.expectedCompletionDate)} · Refunded {formatCurrency(deliverable.refundLock?.refundedAmount || deliverable.funding?.refundedAmount || 0)}
+                </p>
+              </div>
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-100">
+                Content locked
+              </span>
+            </div>
+            <p className="mt-2 text-sm">
+              You can't create a reel or post for this deliverable because the deliverable due date passed and its escrow amount was refunded to the vendor.
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, campaignData }) {
   const deliverableKind = normalizeDeliverableKind(deliverable);
   const uploadRule = DELIVERABLE_UPLOAD_RULES[deliverableKind] || DELIVERABLE_UPLOAD_RULES.post;
@@ -264,6 +312,8 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
   const [validationError, setValidationError] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const refundLock = deliverable.refundLock || {};
+  const isRefundedLocked = Boolean(refundLock.locked);
   const closed = ["completed", "approved", "cancelled"].includes(deliverable.status);
   const latest = deliverable.submissions?.[0] || null;
   const isApproved = ["approved", "completed"].includes(deliverable.status);
@@ -397,9 +447,39 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
         </div>
         <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950/60">
           <p className="text-xs text-slate-500 dark:text-slate-400">Payment</p>
-          <p className="mt-1 font-semibold capitalize text-slate-950 dark:text-white">{statusLabel(deliverable.paymentEligibility)}</p>
+          <p className="mt-1 font-semibold capitalize text-slate-950 dark:text-white">
+            {isRefundedLocked ? "Refunded to vendor" : statusLabel(deliverable.paymentEligibility)}
+          </p>
         </div>
       </div>
+
+      {isRefundedLocked ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+          <div className="flex flex-wrap items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">Content creation is locked for this deliverable</p>
+              <p className="mt-1 text-sm">
+                {refundLock.message || "You can't create content for this deliverable because the amount was refunded to the vendor."}
+              </p>
+              <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+                <div className="rounded-xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
+                  <p className="text-xs opacity-75">Refunded Amount</p>
+                  <p className="font-semibold">{formatCurrency(refundLock.refundedAmount || deliverable.funding?.refundedAmount || 0)}</p>
+                </div>
+                <div className="rounded-xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
+                  <p className="text-xs opacity-75">Due Date</p>
+                  <p className="font-semibold">{dateLabel(deliverable.expectedCompletionDate)}</p>
+                </div>
+                <div className="rounded-xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
+                  <p className="text-xs opacity-75">Status</p>
+                  <p className="font-semibold capitalize">{statusLabel(refundLock.status || "refunded")}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {latest ? (
         <div className="mt-4 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
@@ -412,7 +492,7 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
         </div>
       ) : null}
 
-      {!closed ? (
+      {!isRefundedLocked && !closed ? (
         <div className="mt-4 grid gap-3">
           <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 text-sm text-indigo-950 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-100">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -540,7 +620,7 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
             Upload Content
           </button>
         </div>
-      ) : isApproved ? (
+      ) : !isRefundedLocked && isApproved ? (
         <div className="mt-4 flex flex-wrap gap-3">
           <button
             type="button"
@@ -676,6 +756,7 @@ export default function CampaignExecutionPage() {
       </section>
 
       <VendorApprovalModule deliverables={execution?.deliverables || []} />
+      <RefundedDeliverablesNotice deliverables={execution?.deliverables || []} />
 
       <section className="grid gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">

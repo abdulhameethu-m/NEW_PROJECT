@@ -92,6 +92,23 @@ const campaignPayload = Joi.object({
 
 router.get("/dashboard", validate(listQuery, "query"), controller.dashboard);
 router.get("/subscription/plans", controller.subscriptionPlans);
+router.get(
+  "/escrow-refunds",
+  validate(
+    Joi.object({
+      status: Joi.string().trim().allow("").optional(),
+      limit: Joi.number().integer().min(1).max(100).optional(),
+      skip: Joi.number().integer().min(0).optional(),
+    }),
+    "query"
+  ),
+  controller.escrowRefunds
+);
+router.get(
+  "/escrow-refunds/:campaignId/deliverables",
+  validate(Joi.object({ campaignId: Joi.string().required() }), "params"),
+  controller.escrowRefundDeliverables
+);
 router.post(
   "/subscription/order",
   validate(Joi.object({
@@ -184,7 +201,6 @@ router.patch(
 );
 
 router.get("/products", validate(listQuery, "query"), controller.products);
-router.get("/affiliate-products", validate(listQuery, "query"), controller.affiliateProducts);
 router.get("/content-approvals", validate(listQuery, "query"), controller.contentApprovals);
 router.patch(
   "/content-approvals/:reelId",
@@ -198,8 +214,5 @@ router.patch(
   controller.reviewContent
 );
 router.get("/performance", validate(listQuery, "query"), controller.performance);
-router.get("/analytics", validate(listQuery, "query"), controller.analytics);
-router.get("/leaderboard", validate(listQuery, "query"), controller.leaderboard);
-router.get("/reports", validate(listQuery, "query"), controller.reports);
 
 module.exports = router;

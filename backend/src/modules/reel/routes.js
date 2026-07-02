@@ -48,7 +48,7 @@ router.post(
       campaignId: Joi.string().allow("").optional(),
       productIds: Joi.array().items(Joi.string()).default([]),
       collectionIds: Joi.array().items(Joi.string()).default([]),
-      videoUrl: Joi.string().min(8).max(2000).required(),
+      videoUrl: Joi.string().allow("").min(0).max(2000).optional(),
       thumbnailUrl: Joi.string().allow("").max(2000).optional(),
       title: Joi.string().allow("").max(160).optional(),
       description: Joi.string().allow("").max(2000).optional(),

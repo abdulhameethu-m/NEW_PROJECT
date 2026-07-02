@@ -26,7 +26,7 @@ const VENDOR_CAMPAIGN_FINANCE_COLUMNS_KEY = "vendor-campaign-finance-hidden-colu
 
 const metricSets = {
   vendor: {
-    all: [["Total Campaign Revenue", "campaignRevenue"], ["Total Campaign Orders", "campaignOrders"], ["Products Sold", "productsSold"], ["Total Influencer Cost", "totalInfluencerCost"], ["Vendor Net Revenue", "vendorNetRevenue"], ["Campaign ROI", "campaignRoi", "percent"], ["Campaign Count", "campaignCount", "number"], ["Influencer Earnings", "totalInfluencerEarnings"]],
+    all: [["Total Campaign Revenue", "campaignRevenue"], ["Total Campaign Orders", "campaignOrders", "number"], ["Products Sold", "productsSold", "number"], ["Total Influencer Cost", "totalInfluencerCost"], ["Vendor Net Revenue", "vendorNetRevenue"], ["Campaign ROI", "campaignRoi", "percent"], ["Campaign Count", "campaignCount", "number"], ["Influencer Earnings", "totalInfluencerEarnings"]],
     fixed: [["Released Amount", "releasedAmount"], ["Unreleased Amount", "unreleasedAmount"], ["Escrow Balance", "escrowBalance"], ["Total Influencer Cost", "totalInfluencerCost"], ["Vendor Net Revenue", "vendorNetRevenue"], ["Completed Deliverables", "completedDeliverables", "number"], ["Pending Deliverables", "pendingDeliverables", "number"]],
     commission: [["Campaign Revenue", "campaignRevenue"], ["Commission Generated", "commissionGenerated"], ["Influencer Earnings", "commissionEarnings"], ["Vendor Net Revenue", "vendorNetRevenue"], ["Attributed Revenue", "attributedRevenue"], ["Orders Generated", "campaignOrders", "number"], ["Commission Cap Utilized", "commissionCapUtilized"], ["Remaining Commission Budget", "remainingCommissionBudget"], ["Campaign Count", "campaignCount", "number"]],
     hybrid: [["Fixed Reward Paid", "fixedReleasedAmount"], ["Fixed Unreleased Amount", "fixedUnreleasedAmount"], ["Commission Paid", "commissionPaid"], ["Total Campaign Cost", "totalInfluencerCost"], ["Campaign Revenue", "campaignRevenue"], ["Attributed Revenue", "attributedRevenue"], ["Orders Generated", "campaignOrders", "number"], ["Campaign ROI", "campaignRoi", "percent"], ["Commission Cap Utilized", "commissionCapUtilized"], ["Remaining Budget", "remainingCommissionBudget"]],
@@ -63,6 +63,10 @@ function rangeDates(range, customDates) {
   return { startDate: isoDate(start), endDate: isoDate(end) };
 }
 
+function cleanParams(params) {
+  return Object.fromEntries(Object.entries(params).filter(([, value]) => value !== "" && value !== null && value !== undefined));
+}
+
 function download(rows, format) {
   const headers = ["Order ID", "Campaign", "Model", "Product", "Gross", "Influencer Commission", "Vendor Net", "Order Status", "Payment Status", "Date"];
   const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
@@ -93,7 +97,7 @@ function CampaignFinancePage({ audience, title, description, loader }) {
   });
   const [state, setState] = useState({ loading: true, error: "", data: { metrics: {}, orders: [] } });
   const params = useMemo(
-    () => ({ paymentModel, ...(audience === "influencer" ? rangeDates(range, dates) : dates), limit: 100 }),
+    () => cleanParams({ paymentModel, ...(audience === "influencer" ? rangeDates(range, dates) : dates), limit: 100 }),
     [audience, paymentModel, range, dates]
   );
 

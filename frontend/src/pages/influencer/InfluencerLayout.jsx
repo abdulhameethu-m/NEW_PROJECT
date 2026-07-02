@@ -52,19 +52,14 @@ const INFLUENCER_SECTIONS = [
     key: "growth",
     items: [
       { name: "My Promotion Products", path: "/influencer/affiliate-products", icon: PackagePlus },
-      { name: "Active Campaign Products", path: "/influencer/affiliate-products", matchSearch: "?tab=active_campaigns", icon: Megaphone },
-      { name: "Approved Products", path: "/influencer/affiliate-products", matchSearch: "?tab=approved", icon: Store },
-      { name: "Saved Products", path: "/influencer/affiliate-products", matchSearch: "?tab=saved", icon: Star },
       { name: "Generate Affiliate Links", path: "/influencer/affiliate-products", matchSearch: "?tab=links", icon: Link2 },
-      { name: "Product Analytics", path: "/influencer/affiliate-products", matchSearch: "?tab=analytics", icon: BarChart3 },
-      { name: "Campaign Performance", path: "/influencer/affiliate-products", matchSearch: "?tab=campaign_performance", icon: Wallet },
     ],
   },
   {
     section: "Videos & Content",
     key: "content",
     items: [
-      { name: "Upload Videos", path: "/influencer/content", icon: Upload },
+      { name: "Upload Content", path: "/influencer/content", icon: Upload },
       { name: "Media Library", path: "/influencer/content", matchSearch: "?tab=media", icon: Store },
       { name: "Scheduled Content", path: "/influencer/content", matchSearch: "?tab=scheduled", icon: Upload },
     ],
@@ -131,7 +126,7 @@ const pageMeta = {
   },
   "/influencer/content": {
     title: "Content Center",
-    subtitle: "Upload videos, manage content library, and schedule publications.",
+    subtitle: "Upload posts or reels, manage content library, and schedule publications.",
   },
 };
 

@@ -190,7 +190,7 @@ const affiliateProductQuery = Joi.object({
   minCommission: Joi.number().min(0).optional(),
   maxCommission: Joi.number().min(0).optional(),
   rating: Joi.number().min(0).max(5).optional(),
-  mode: Joi.string().valid("promotion", "active_campaigns", "approved", "browse", "trending", "highest_commission", "new", "recommended", "saved").optional(),
+  mode: Joi.string().valid("promotion", "browse", "trending", "highest_commission", "new").optional(),
   sort: Joi.string().valid("best_selling", "trending", "highest_rated", "highest_commission", "newest", "most_viewed").optional(),
   from: Joi.date().iso().optional(),
   to: Joi.date().iso().optional(),
@@ -205,10 +205,6 @@ const affiliateLinkBulkSchema = Joi.object({
   utmCampaign: Joi.string().allow("").optional(),
   utmContent: Joi.string().allow("").optional(),
   utmTerm: Joi.string().allow("").optional(),
-});
-
-const affiliateSaveSchema = Joi.object({
-  saved: Joi.boolean().default(true),
 });
 
 const availabilityEmailQuery = Joi.object({
@@ -571,10 +567,6 @@ router.delete("/public/:username/follow", authRequired, controller.unfollowPubli
 router.post("/public/:username/newsletter", validate(publicNewsletterSchema), controller.subscribePublicNewsletter);
 router.post("/public/:username/events", authOptional, validate(publicEventSchema), controller.trackPublicEvent);
 router.get("/affiliate-products", authRequired, requireRole("influencer"), validate(affiliateProductQuery, "query"), controller.listAffiliateProducts);
-router.get("/affiliate-products/recommended", authRequired, requireRole("influencer"), validate(affiliateProductQuery, "query"), controller.recommendedAffiliateProducts);
-router.get("/affiliate-products/saved", authRequired, requireRole("influencer"), validate(affiliateProductQuery, "query"), controller.savedAffiliateProducts);
-router.get("/affiliate-products/analytics", authRequired, requireRole("influencer"), validate(affiliateProductQuery, "query"), controller.affiliateProductAnalytics);
-router.patch("/affiliate-products/:productId/save", authRequired, requireRole("influencer"), validate(affiliateSaveSchema), controller.saveAffiliateProduct);
 router.post("/affiliate-products/links", authRequired, requireRole("influencer"), validate(affiliateLinkBulkSchema), controller.generateAffiliateProductLinks);
 router.post(
   "/collections/media",

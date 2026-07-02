@@ -23,7 +23,8 @@ const initialForm = {
   caption: "",
   videoUrl: "",
   thumbnailUrl: "",
-  contentType: "campaign",
+  imageUrls: [],
+  contentType: "POST",
   category: "",
   tags: "",
   language: "en",
@@ -63,6 +64,13 @@ function titleCase(value = "") {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function normalizeUploadContentType(value = "", fallback = "POST") {
+  const type = String(value || "").trim().toUpperCase();
+  if (type === "POST" || type === "REEL") return type;
+  const safeFallback = String(fallback || "").trim().toUpperCase();
+  return safeFallback === "REEL" ? "REEL" : "POST";
+}
+
 function formatDate(value) {
   if (!value) return "Not set";
   const date = new Date(value);
@@ -89,13 +97,17 @@ function Badge({ children, tone = "slate" }) {
 function ContentCard({ item, onAction, busy = false }) {
   const metrics = item.metrics || {};
   const status = item.visibility || item.state || "draft";
+  const publicType = String(item.contentType || "").toUpperCase();
+  const imageSrc = resolveApiAssetUrl(item.imageUrls?.[0] || item.thumbnailUrl || item.videoUrl);
   const videoSrc = resolveApiAssetUrl(item.videoUrl);
   const posterSrc = resolveApiAssetUrl(item.thumbnailUrl);
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="h-44 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-        {item.videoUrl ? (
+        {publicType === "POST" && imageSrc ? (
+          <img src={imageSrc} alt={item.title || "Post media"} className="h-full w-full object-cover" />
+        ) : item.videoUrl ? (
           <video key={videoSrc} poster={posterSrc} className="h-full w-full object-cover" controls playsInline preload="metadata">
             <source src={videoSrc} type="video/mp4" />
           </video>
@@ -137,11 +149,14 @@ function MediaAssetCard({ asset, onDelete, onStatistics, busy = false }) {
   const mediaUrl = resolveApiAssetUrl(asset.url);
   const previewUrl = resolveApiAssetUrl(asset.preview);
   const paymentModel = String(asset.paymentModel || "").toLowerCase();
+  const publicType = String(asset.contentType || asset.type || "").toUpperCase();
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
       <div className="h-36 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-        {asset.url ? (
+        {publicType === "POST" && (previewUrl || mediaUrl) ? (
+          <img src={previewUrl || mediaUrl} alt={asset.name || "Post media"} className="h-full w-full object-cover" />
+        ) : asset.url ? (
           <video key={mediaUrl} poster={previewUrl} className="h-full w-full object-cover" controls playsInline preload="metadata">
             <source src={mediaUrl} type="video/mp4" />
           </video>
@@ -546,6 +561,11 @@ export default function InfluencerContentCenterPage() {
   const [statisticsData, setStatisticsData] = useState(null);
   const [statisticsLoading, setStatisticsLoading] = useState(false);
   const [statisticsError, setStatisticsError] = useState("");
+  const normalizedFormContentType = normalizeUploadContentType(form.contentType);
+  const isPostContent = normalizedFormContentType === "POST";
+  const hasPublishableMedia = isPostContent
+    ? Boolean(form.thumbnailUrl || form.videoUrl || form.imageUrls?.length)
+    : Boolean(form.videoUrl);
 
   const query = useMemo(() => {
     const next = { ...filters };
@@ -590,9 +610,11 @@ export default function InfluencerContentCenterPage() {
       ...current,
       campaignId: publishData.campaignId || current.campaignId,
       videoUrl: publishData.videoUrl || current.videoUrl,
+      thumbnailUrl: publishData.thumbnailUrl || current.thumbnailUrl,
+      imageUrls: publishData.imageUrls || current.imageUrls,
       title: publishData.title || current.title,
       description: publishData.description || current.description,
-      contentType: publishData.contentType || current.contentType,
+      contentType: normalizeUploadContentType(publishData.contentType || current.contentType, current.contentType),
     }));
     window.history.replaceState({}, document.title);
   }, [location.state]);
@@ -601,19 +623,35 @@ export default function InfluencerContentCenterPage() {
     load();
   }, [load]);
 
-  async function submitContent() {
+  async function submitContent(overrides = {}) {
     setNotice("");
+    const nextForm = { ...form, ...overrides };
+    nextForm.contentType = normalizeUploadContentType(nextForm.contentType);
+    const nextIsPostContent = nextForm.contentType === "POST";
+    const postImageUrl = nextForm.thumbnailUrl || nextForm.imageUrls?.[0] || nextForm.videoUrl;
+    if (nextIsPostContent && !postImageUrl) {
+      setNotice("POST content must contain a picture.");
+      return;
+    }
+    if (!nextIsPostContent && !nextForm.videoUrl) {
+      setNotice("REEL content must contain a video.");
+      return;
+    }
     const payload = {
-      ...form,
-      productIds: form.productIds.split(",").map((item) => item.trim()).filter(Boolean),
-      tags: form.tags.split(",").map((item) => item.trim()).filter(Boolean),
-      scheduledAt: form.scheduledAt || undefined,
+      ...nextForm,
+      contentType: nextIsPostContent ? "POST" : "REEL",
+      videoUrl: nextIsPostContent ? postImageUrl : nextForm.videoUrl,
+      thumbnailUrl: nextIsPostContent ? postImageUrl : nextForm.thumbnailUrl,
+      imageUrls: nextIsPostContent ? Array.from(new Set([postImageUrl, ...(nextForm.imageUrls || [])].filter(Boolean))) : [],
+      productIds: nextForm.productIds.split(",").map((item) => item.trim()).filter(Boolean),
+      tags: nextForm.tags.split(",").map((item) => item.trim()).filter(Boolean),
+      scheduledAt: nextForm.scheduledAt || undefined,
     };
 
     try {
       await uploadReel(payload);
-      if (form.visibility === "published" && form.campaignId) {
-        await checkAndCompleteCampaign(form.campaignId).catch(() => null);
+      if (nextForm.visibility === "published" && nextForm.campaignId) {
+        await checkAndCompleteCampaign(nextForm.campaignId).catch(() => null);
       }
       setNotice("Content saved.");
       setForm((current) => ({
@@ -633,12 +671,15 @@ export default function InfluencerContentCenterPage() {
     setNotice("");
     try {
       const formData = new FormData();
-      formData.append(field === "thumbnailUrl" ? "thumbnail" : "video", file);
+      formData.append(field === "thumbnailUrl" || field === "postImageUrl" ? "thumbnail" : "video", file);
       const response = await uploadInfluencerContentMedia(formData);
-      const url = response?.data?.[field];
+      const url = field === "postImageUrl" ? response?.data?.thumbnailUrl || response?.data?.imageUrls?.[0] : response?.data?.[field];
       if (url) {
-        setForm((current) => ({ ...current, [field]: url }));
-        setNotice(field === "thumbnailUrl" ? "Thumbnail uploaded." : "Video uploaded.");
+        setForm((current) => field === "postImageUrl"
+          ? { ...current, videoUrl: url, thumbnailUrl: url, imageUrls: Array.from(new Set([url, ...(current.imageUrls || [])])) }
+          : { ...current, [field]: url }
+        );
+        setNotice(field === "postImageUrl" ? "Post picture uploaded." : field === "thumbnailUrl" ? "Thumbnail uploaded." : "Video uploaded.");
       } else {
         setNotice("Upload completed, but no media URL was returned.");
       }
@@ -700,29 +741,29 @@ export default function InfluencerContentCenterPage() {
       {notice ? <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold dark:border-slate-800 dark:bg-slate-900 dark:text-white">{notice}</div> : null}
 
       {tab === "upload" ? (
-        <Card title="Upload Videos" icon={Upload}>
+        <Card title="Upload Content" icon={Upload}>
           <div className="space-y-6">
             <FormSection title="Content Details">
-              <TextInput label="Video Title" required value={form.title} onChange={(value) => setForm((current) => ({ ...current, title: value }))} placeholder="Enter video title" />
+              <TextInput label={isPostContent ? "Post Title" : "Reel Title"} required value={form.title} onChange={(value) => setForm((current) => ({ ...current, title: value }))} placeholder={isPostContent ? "Enter post title" : "Enter reel title"} />
               <label className="block">
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Content Type</span>
-                <select value={form.contentType} onChange={(event) => setForm((current) => ({ ...current, contentType: event.target.value }))} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white">
-                  <option value="campaign">Campaign Content</option>
-                  <option value="affiliate">Affiliate Content</option>
-                  <option value="review">Review</option>
-                  <option value="tutorial">Tutorial</option>
-                  <option value="unboxing">Unboxing</option>
-                  <option value="lifestyle">Lifestyle</option>
-                  <option value="brand_collaboration">Brand Collaboration</option>
-                  <option value="product_video">Product Demo</option>
+                <select value={form.contentType} onChange={(event) => setForm((current) => ({ ...current, contentType: event.target.value, videoUrl: "", thumbnailUrl: "", imageUrls: [] }))} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                  <option value="POST">Post / Picture</option>
+                  <option value="REEL">Reel / Video</option>
                 </select>
               </label>
-              <TextInput label="Description" textarea className="md:col-span-2" value={form.description} onChange={(value) => setForm((current) => ({ ...current, description: value }))} placeholder="Describe your video content" />
+              <TextInput label="Description" textarea className="md:col-span-2" value={form.description} onChange={(value) => setForm((current) => ({ ...current, description: value }))} placeholder={isPostContent ? "Describe your picture post" : "Describe your video content"} />
             </FormSection>
 
             <FormSection title="Media Files">
-              <MediaUpload label="Video File" value={form.videoUrl} uploading={uploadingField === "videoUrl"} accept="video/mp4,video/webm,video/quicktime" onUpload={(file) => uploadMediaFile("videoUrl", file)} />
-              <MediaUpload label="Thumbnail Image" value={form.thumbnailUrl} uploading={uploadingField === "thumbnailUrl"} accept="image/jpeg,image/png,image/webp,image/gif" onUpload={(file) => uploadMediaFile("thumbnailUrl", file)} />
+              {isPostContent ? (
+                <MediaUpload label="Post Picture" value={form.thumbnailUrl || form.videoUrl} uploading={uploadingField === "postImageUrl"} accept="image/jpeg,image/png,image/webp,image/gif" onUpload={(file) => uploadMediaFile("postImageUrl", file)} />
+              ) : (
+                <>
+                  <MediaUpload label="Video File" value={form.videoUrl} uploading={uploadingField === "videoUrl"} accept="video/mp4,video/webm,video/quicktime" onUpload={(file) => uploadMediaFile("videoUrl", file)} />
+                  <MediaUpload label="Thumbnail Image" value={form.thumbnailUrl} uploading={uploadingField === "thumbnailUrl"} accept="image/jpeg,image/png,image/webp,image/gif" onUpload={(file) => uploadMediaFile("thumbnailUrl", file)} />
+                </>
+              )}
             </FormSection>
 
             <FormSection title="Publishing & Distribution">
@@ -749,11 +790,11 @@ export default function InfluencerContentCenterPage() {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
-            <button onClick={submitContent} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-600">
+            <button onClick={() => submitContent()} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-600">
               Save as Draft
             </button>
-            {form.videoUrl ? (
-              <button onClick={() => { setForm((current) => ({ ...current, visibility: "published" })); window.setTimeout(() => submitContent(), 0); }} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-600">
+            {hasPublishableMedia ? (
+              <button onClick={() => submitContent({ visibility: "published" })} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-600">
                 Publish Now
               </button>
             ) : null}
@@ -762,10 +803,10 @@ export default function InfluencerContentCenterPage() {
           <div className="mt-6">
             <div className="mb-3 flex items-center gap-2">
               <Video className="h-4 w-4 text-indigo-500" />
-              <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Uploaded Videos</h3>
+              <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Uploaded Content</h3>
             </div>
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {loading ? <EmptyState label="Loading uploaded videos..." /> : items.length ? items.map((item) => <ContentCard key={item._id} item={item} onAction={handleAction} busy={busyId === String(item._id)} />) : <EmptyState label="No uploaded videos yet." />}
+              {loading ? <EmptyState label="Loading uploaded content..." /> : items.length ? items.map((item) => <ContentCard key={item._id} item={item} onAction={handleAction} busy={busyId === String(item._id)} />) : <EmptyState label="No uploaded content yet." />}
             </section>
           </div>
         </Card>

@@ -25,13 +25,11 @@ const reviewApplication = asyncHandler(async (req, res) => ok(res, await service
 const updateCampaignStatus = asyncHandler(async (req, res) => ok(res, await service.updateCampaignStatus(req.user.sub, req.params.campaignId, req.body), "Campaign status updated"));
 const deleteCampaign = asyncHandler(async (req, res) => ok(res, await service.deleteCampaign(req.user.sub, req.params.campaignId), "Campaign deleted"));
 const products = asyncHandler(async (req, res) => ok(res, await service.products(req.user.sub, req.query), "Promotion products loaded"));
-const affiliateProducts = asyncHandler(async (req, res) => ok(res, await service.affiliateProducts(req.user.sub, req.query), "Affiliate products loaded"));
 const contentApprovals = asyncHandler(async (req, res) => ok(res, await service.contentApprovals(req.user.sub, req.query), "Content approvals loaded"));
 const reviewContent = asyncHandler(async (req, res) => ok(res, await service.reviewContent(req.user.sub, req.params.reelId, req.body), "Content reviewed"));
 const performance = asyncHandler(async (req, res) => ok(res, await service.performance(req.user.sub, req.query), "Influencer performance loaded"));
-const analytics = asyncHandler(async (req, res) => ok(res, await service.analytics(req.user.sub, req.query), "Campaign analytics loaded"));
-const leaderboard = asyncHandler(async (req, res) => ok(res, await service.leaderboard(req.user.sub, req.query), "Creator leaderboard loaded"));
-const reports = asyncHandler(async (req, res) => ok(res, await service.reports(req.user.sub, req.query), "Influencer commerce reports loaded"));
+const escrowRefunds = asyncHandler(async (req, res) => ok(res, await service.escrowRefunds(req.user.sub, req.query), "Escrow refund finance loaded"));
+const escrowRefundDeliverables = asyncHandler(async (req, res) => ok(res, await service.escrowRefundDeliverables(req.user.sub, req.params.campaignId), "Escrow refund deliverables loaded"));
 
 module.exports = {
   dashboard,
@@ -57,11 +55,9 @@ module.exports = {
   updateCampaignStatus,
   deleteCampaign,
   products,
-  affiliateProducts,
   contentApprovals,
   reviewContent,
   performance,
-  analytics,
-  leaderboard,
-  reports,
+  escrowRefunds,
+  escrowRefundDeliverables,
 };

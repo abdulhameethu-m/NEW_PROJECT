@@ -20,10 +20,20 @@ const campaignRefundSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    influencerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InfluencerProfile",
+      index: true,
+    },
     paymentOrderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "CampaignPaymentOrder",
     },
+    refundId: { type: String, trim: true, index: true, sparse: true },
+    paymentModel: { type: String, enum: ["fixed", "hybrid"], index: true },
+    escrowAmount: { type: Number, min: 0, default: 0 },
+    releasedAmount: { type: Number, min: 0, default: 0 },
+    refundAmount: { type: Number, min: 0, default: 0 },
 
     // Refund amounts
     budgetAmount: {
@@ -102,6 +112,18 @@ const campaignRefundSchema = new mongoose.Schema(
         "campaign_cancelled_no_deliverables",
         "partial_completion_cancelled",
         "vendor_request",
+        "campaign_expired",
+        "influencer_no_show",
+        "rejected_deliverables",
+        "vendor_cancelled",
+        "mutual_cancellation",
+        "admin_decision",
+        "submission_deadline_expired",
+        "campaign_expired_no_upload",
+        "influencer_rejected",
+        "influencer_inactive",
+        "admin_terminated",
+        "pending_sla_breached",
         "platform_decision",
         "dispute_resolution",
         "other",
@@ -109,6 +131,7 @@ const campaignRefundSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    refundReason: { type: String, trim: true, default: "" },
     description: {
       type: String,
       trim: true,
@@ -125,10 +148,27 @@ const campaignRefundSchema = new mongoose.Schema(
         "rejected",         // Admin rejected refund
         "processing",       // Processing back to vendor
         "completed",        // Refunded to vendor
+        "failed",           // Gateway or reconciliation failure
         "cancelled",        // Refund cancelled
         "disputed",         // Under dispute
       ],
       default: "requested",
+      index: true,
+    },
+    refundStatus: {
+      type: String,
+      enum: [
+        "awaiting_upload",
+        "upload_expired",
+        "refund_eligible",
+        "refund_requested",
+        "refund_approved",
+        "refund_processing",
+        "refund_completed",
+        "refund_failed",
+        "refund_rejected",
+      ],
+      default: "refund_requested",
       index: true,
     },
 
@@ -185,6 +225,9 @@ const campaignRefundSchema = new mongoose.Schema(
       index: true,
       sparse: true,
     },
+    gatewayRefundId: { type: String, trim: true, index: true, sparse: true },
+    gatewayPaymentId: { type: String, trim: true, default: "" },
+    failureReason: { type: String, trim: true, default: "" },
     transactionId: {
       type: String,
       trim: true,

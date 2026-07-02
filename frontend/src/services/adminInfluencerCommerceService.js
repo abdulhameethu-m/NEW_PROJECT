@@ -32,11 +32,6 @@ export async function getAdminInfluencerVendorMatching(params = {}) {
   return data;
 }
 
-export async function recommendAdminInfluencerVendorMatch(payload = {}) {
-  const { data } = await api.post(`${base}/matching/recommend`, payload);
-  return data;
-}
-
 export async function listAdminAffiliateLinks(params = {}) {
   const { data } = await api.get(`${base}/affiliate-links`, { params });
   return data;

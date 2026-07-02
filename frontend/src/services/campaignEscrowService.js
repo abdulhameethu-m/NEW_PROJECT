@@ -80,17 +80,6 @@ class CampaignEscrowService {
   }
 
   /**
-   * Request refund
-   */
-  static async requestRefund(campaignId, reason, description = '') {
-    const response = await api.post(`${API_BASE}/request-refund/${campaignId}`, {
-      reason,
-      description,
-    });
-    return response.data.data;
-  }
-
-  /**
    * Get refund details
    */
   static async getRefundDetails(refundId) {
@@ -133,6 +122,32 @@ class CampaignEscrowService {
     return response.data.data;
   }
 
+  static async listEscrowRefundDashboard(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    if (filters.vendorId) params.append('vendorId', filters.vendorId);
+    if (filters.limit) params.append('limit', filters.limit);
+    if (filters.skip) params.append('skip', filters.skip);
+
+    const response = await api.get(`${ADMIN_API_BASE}/escrow-refunds?${params.toString()}`);
+    return response.data.data;
+  }
+
+  static async getEscrowRefundDeliverables(campaignId) {
+    const response = await api.get(`${ADMIN_API_BASE}/escrow-refunds/${campaignId}/deliverables`);
+    return response.data.data;
+  }
+
+  static async refundEscrowDeliverable(campaignId, deliverableId, payload = {}) {
+    const response = await api.post(`${ADMIN_API_BASE}/escrow-refunds/${campaignId}/deliverables/${deliverableId}/refund`, payload);
+    return response.data.data;
+  }
+
+  static async createAdminEscrowRefund(campaignId, payload) {
+    const response = await api.post(`${ADMIN_API_BASE}/refund/${campaignId}`, payload);
+    return response.data.data;
+  }
+
   /**
    * Approve refund (admin)
    */
@@ -140,6 +155,11 @@ class CampaignEscrowService {
     const response = await api.post(`${ADMIN_API_BASE}/approve-refund/${refundId}`, {
       approvalReason,
     });
+    return response.data.data;
+  }
+
+  static async approveAndProcessRefund(refundId, payload = {}) {
+    const response = await api.post(`${ADMIN_API_BASE}/approve-and-process-refund/${refundId}`, payload);
     return response.data.data;
   }
 

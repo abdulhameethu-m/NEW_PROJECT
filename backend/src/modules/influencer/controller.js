@@ -87,11 +87,7 @@ const uploadCollectionMedia = asyncHandler(async (req, res) => {
   return ok(res, uploaded, "Collection media uploaded", 201);
 });
 const listAffiliateProducts = asyncHandler(async (req, res) => ok(res, await influencerService.listAffiliateProducts(req.user.sub, req.query), "Affiliate products loaded"));
-const recommendedAffiliateProducts = asyncHandler(async (req, res) => ok(res, await influencerService.listRecommendedAffiliateProducts(req.user.sub, req.query), "Recommended affiliate products loaded"));
-const savedAffiliateProducts = asyncHandler(async (req, res) => ok(res, await influencerService.listSavedAffiliateProducts(req.user.sub, req.query), "Saved affiliate products loaded"));
-const saveAffiliateProduct = asyncHandler(async (req, res) => ok(res, await influencerService.saveAffiliateProduct(req.user.sub, req.params.productId, req.body.saved !== false), "Affiliate product saved"));
 const generateAffiliateProductLinks = asyncHandler(async (req, res) => ok(res, await influencerService.generateAffiliateProductLinks(req.user.sub, req.body), "Affiliate product links generated", 201));
-const affiliateProductAnalytics = asyncHandler(async (req, res) => ok(res, await influencerService.getAffiliateProductAnalytics(req.user.sub, req.query), "Affiliate product analytics loaded"));
 const listCollections = asyncHandler(async (req, res) => ok(res, await influencerService.listCollections(req.user.sub, req.query), "Influencer collections loaded"));
 const getCollection = asyncHandler(async (req, res) => ok(res, await influencerService.getCollection(req.user.sub, req.params.id), "Influencer collection loaded"));
 const createCollection = asyncHandler(async (req, res) => ok(res, await influencerService.saveCollection(req.user.sub, req.body), "Influencer collection created", 201));
@@ -188,11 +184,7 @@ module.exports = {
   generateAffiliateLink,
   uploadCollectionMedia,
   listAffiliateProducts,
-  recommendedAffiliateProducts,
-  savedAffiliateProducts,
-  saveAffiliateProduct,
   generateAffiliateProductLinks,
-  affiliateProductAnalytics,
   listCollections,
   getCollection,
   createCollection,

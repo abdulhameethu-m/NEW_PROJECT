@@ -10,6 +10,7 @@ import { PriceBreakdown } from "../components/commerce/PriceBreakdown";
 import { RecommendationSection } from "../components/RecommendationSection";
 import { FbtBundleSection } from "../components/FbtBundleSection";
 import { useAuthStore } from "../context/authStore";
+import useAuthCartStore from "../context/authCartStore";
 import { useCart } from "../hooks/useCart";
 import * as checkoutService from "../services/checkoutService";
 import * as paymentService from "../services/paymentService";
@@ -17,7 +18,7 @@ import * as pricingService from "../services/pricingService";
 import { trackAffiliateEvent } from "../services/influencerCommerceService";
 import { getCheckoutRecommendations, getFbtRecommendations } from "../services/recommendationService";
 import * as userService from "../services/userService";
-import { extractProductId, extractVariantId, getCartItemKey } from "../utils/cartState";
+import { emitCartChanged, extractProductId, extractVariantId, getCartItemKey } from "../utils/cartState";
 import { formatCurrency } from "../utils/formatCurrency";
 import {
   EMPTY_ADDRESS_FORM,
@@ -41,6 +42,12 @@ import { useBranding } from "../context/BrandingContext";
 
 const CHECKOUT_SUCCESS_STORAGE_KEY = "checkoutSuccessPayload";
 const RECOMMENDATION_CONTAINER_LIMIT = 20;
+
+function clearCheckoutCartState() {
+  const emptyCart = { items: [], totalAmount: 0, itemCount: 0, totalQuantity: 0 };
+  useAuthCartStore.getState().setCart(emptyCart);
+  emitCartChanged(emptyCart);
+}
 
 function normalizeError(err) {
   if (err?.code === "ECONNABORTED" || /timeout/i.test(String(err?.message || ""))) {
@@ -729,6 +736,7 @@ export function CheckoutPage() {
         const payment = response?.data?.payment || null;
         persistCheckoutSuccessPayload({ orders, payment });
         pendingCheckoutManager.clear();
+        clearCheckoutCartState();
         navigate("/checkout/success", { replace: true, state: { orders, payment } });
         return;
       }
@@ -847,6 +855,7 @@ export function CheckoutPage() {
             };
             persistCheckoutSuccessPayload(successPayload);
             pendingCheckoutManager.clear();
+            clearCheckoutCartState();
             navigate("/checkout/success", {
               replace: true,
               state: successPayload,

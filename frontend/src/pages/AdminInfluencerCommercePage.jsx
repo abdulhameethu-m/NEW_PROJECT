@@ -36,7 +36,6 @@ import {
   listAdminProductPromotions,
   createInfluencerCommerceConfig,
   deleteInfluencerCommerceConfig,
-  recommendAdminInfluencerVendorMatch,
   updateAdminInfluencerCommerceCampaign,
   updateAdminInfluencerWithdrawal,
   updateAdminInfluencerSettings,
@@ -429,7 +428,7 @@ function renderModule(moduleId, data, items, pagination, setFilters, runAction, 
   if (moduleId === "vendors") return <VendorsView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "campaigns") return <CampaignsView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "vendor-campaign-commission") return <VendorCampaignCommissionView items={items} runAction={runAction} busyId={busyId} />;
-  if (moduleId === "matching") return <MatchingView data={data} runAction={runAction} busyId={busyId} />;
+  if (moduleId === "matching") return <MatchingView data={data} />;
   if (moduleId === "promotions") return <ProductPromotionsView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "tracking") return <TrackingView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "settlements") return <SettlementsView items={items} fixedPayments={data.fixedPayments || []} refunds={data.refunds || []} releaseQueue={data.releaseQueue || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
@@ -718,15 +717,14 @@ function CampaignsView({ items, pagination, setFilters, runAction, busyId }) {
   );
 }
 
-function MatchingView({ data, runAction, busyId }) {
-  const rows = data.recommendedInfluencersForVendor || data.recommendedVendorsForInfluencer || data.recommendedCampaignsForInfluencer || [];
+function MatchingView({ data }) {
+  const rows = data.matches || [];
   return (
-    <Section title="Recommendation-Powered Matching" icon={Search}>
-      <ResponsiveTable headers={["Recommended Match", "Category Fit", "Engagement", "Conversion", "Revenue", "Fraud Risk", "Location", "Language", "Action"]} rows={rows} renderRow={(row, index) => {
+    <Section title="Influencer-Vendor Matching" icon={Search}>
+      <ResponsiveTable headers={["Match", "Category Fit", "Engagement", "Conversion", "Revenue", "Fraud Risk", "Location", "Language"]} rows={rows} renderRow={(row, index) => {
         const vendorId = idOf(row.vendorId || row.vendor);
         const influencerId = idOf(row.influencerId || row.influencer || row);
         const id = idOf(row) || `${vendorId}-${influencerId}` || index;
-        const recommended = Boolean(row.recommended);
         return (
           <tr key={id}>
             <td className="px-3 py-3">
@@ -740,19 +738,6 @@ function MatchingView({ data, runAction, busyId }) {
             <td className="px-3 py-3"><StatusBadge value={row.fraudRisk || "low"} /></td>
             <td className="px-3 py-3">{text(row.location || row.country)}</td>
             <td className="px-3 py-3">{text(row.language || row.languages?.join(", "))}</td>
-            <td className="px-3 py-3">
-              <ActionButton
-                tone={recommended ? "slate" : "green"}
-                disabled={!vendorId || !influencerId || busyId === `recommend-${id}`}
-                onClick={() => runAction(
-                  `recommend-${id}`,
-                  () => recommendAdminInfluencerVendorMatch({ vendorId, influencerId, recommended: !recommended }),
-                  recommended ? "Recommendation removed." : "Recommendation sent."
-                )}
-              >
-                {recommended ? "Recommended" : "Recommend"}
-              </ActionButton>
-            </td>
           </tr>
         );
       }} />

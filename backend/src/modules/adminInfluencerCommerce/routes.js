@@ -101,16 +101,6 @@ router.patch(
   controller.updateCampaign
 );
 router.get("/matching", validate(querySchema, "query"), controller.matching);
-router.post(
-  "/matching/recommend",
-  validate(Joi.object({
-    vendorId: Joi.string().trim().required(),
-    influencerId: Joi.string().trim().required(),
-    recommended: Joi.boolean().default(true),
-    note: Joi.string().trim().max(1000).allow("").default(""),
-  })),
-  controller.recommendMatch
-);
 router.get("/affiliate-links", validate(querySchema, "query"), controller.affiliateLinks);
 router.get("/affiliate-tracking", validate(querySchema, "query"), controller.tracking);
 router.get("/product-promotions", validate(querySchema, "query"), controller.productPromotions);

@@ -9,7 +9,6 @@ const vendors = asyncHandler(async (req, res) => ok(res, await service.vendors(r
 const campaigns = asyncHandler(async (req, res) => ok(res, await service.campaigns(req.query), "Campaigns loaded"));
 const updateCampaign = asyncHandler(async (req, res) => ok(res, await service.updateCampaign(req.user, req.params.campaignId, req.body), "Campaign updated"));
 const matching = asyncHandler(async (req, res) => ok(res, await service.matching(req.query), "Influencer-vendor matches loaded"));
-const recommendMatch = asyncHandler(async (req, res) => ok(res, await service.recommendMatch(req.user, req.body), req.body.recommended === false ? "Recommendation removed" : "Match recommended"));
 const affiliateLinks = asyncHandler(async (req, res) => ok(res, await service.affiliateLinks(req.query), "Affiliate links loaded"));
 const tracking = asyncHandler(async (req, res) => ok(res, await service.tracking(req.query), "Affiliate tracking loaded"));
 const productPromotions = asyncHandler(async (req, res) => ok(res, await service.productPromotions(req.query), "Product promotions loaded"));
@@ -37,7 +36,6 @@ module.exports = {
   campaigns,
   updateCampaign,
   matching,
-  recommendMatch,
   affiliateLinks,
   tracking,
   productPromotions,

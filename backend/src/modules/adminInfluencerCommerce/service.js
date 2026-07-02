@@ -577,7 +577,6 @@ class AdminInfluencerCommerceService {
     const matches = rawMatches.map((match) => {
       const relationship = relationshipMap.get(`${match.vendor?._id}:${match.influencer?._id}`);
       const relationshipStatus = relationship?.status || "";
-      const recommended = Boolean(relationship?.saved || ["saved", "invited", "approved", "active"].includes(relationshipStatus));
       return {
         ...match,
         id: `${match.vendor?._id}:${match.influencer?._id}`,
@@ -587,86 +586,9 @@ class AdminInfluencerCommerceService {
         influencerName: influencerName(match.influencer),
         relationshipId: relationship?._id,
         relationshipStatus,
-        recommended,
       };
     });
-    return { recommendedInfluencersForVendor: matches, recommendedCampaigns: campaigns, recommendedProducts: products };
-  }
-
-  async recommendMatch(actor, payload = {}) {
-    const vendorId = oid(payload.vendorId);
-    const influencerId = oid(payload.influencerId);
-    if (!vendorId || !influencerId) throw new AppError("Vendor and influencer are required", 400, "VALIDATION_ERROR");
-
-    const [vendor, influencer] = await Promise.all([
-      Vendor.findById(vendorId).lean(),
-      InfluencerProfile.findById(influencerId).populate("userId", "name email").lean(),
-    ]);
-    if (!vendor) throw new AppError("Vendor not found", 404, "NOT_FOUND");
-    if (!influencer) throw new AppError("Influencer not found", 404, "NOT_FOUND");
-
-    const recommended = payload.recommended !== false;
-    const now = new Date();
-    const update = recommended
-      ? {
-        $set: {
-          vendorId,
-          influencerId,
-          status: "invited",
-          source: "manual",
-          saved: true,
-          lastActivityAt: now,
-          notes: payload.note || (recommended ? "Recommended by platform admin" : "Recommendation removed by platform admin"),
-          "metricsSnapshot.calculatedAt": now,
-        },
-        $unset: { pausedAt: "" },
-        $setOnInsert: { activeCampaignIds: [] },
-      }
-      : {
-        $set: {
-          status: "paused",
-          source: "manual",
-          saved: false,
-          lastActivityAt: now,
-          pausedAt: now,
-          notes: payload.note || "Recommendation removed by platform admin",
-          "metricsSnapshot.calculatedAt": now,
-        },
-      };
-    const relationship = await VendorInfluencerRelationship.findOneAndUpdate(
-      { vendorId, influencerId },
-      update,
-      { upsert: recommended, returnDocument: "after", setDefaultsOnInsert: true }
-    );
-    if (!relationship) throw new AppError("Recommendation not found", 404, "NOT_FOUND");
-
-    await auditService.log({
-      actor,
-      action: recommended ? "admin.influencer_commerce.match.recommend" : "admin.influencer_commerce.match.unrecommend",
-      entityType: "VendorInfluencerRelationship",
-      entityId: relationship._id,
-      metadata: { vendorId: String(vendorId), influencerId: String(influencerId), note: payload.note || "" },
-    }).catch(() => {});
-
-    if (recommended) {
-      await notificationService.notifyVendorUser(vendorId, {
-        module: "GROWTH",
-        subModule: "INFLUENCER_COMMERCE",
-        type: "INFLUENCER_MATCH_RECOMMENDATION",
-        title: "Influencer match recommended",
-        message: `Platform admin recommended ${influencerName(influencer)} for ${vendorName(vendor)}.`,
-        referenceId: influencerId,
-      }).catch(() => {});
-    }
-
-    return {
-      relationship,
-      recommended,
-      vendorId,
-      influencerId,
-      vendorName: vendorName(vendor),
-      influencerName: influencerName(influencer),
-    };
+    return { matches, campaigns, products };
   }
 
   async affiliateLinks(query = {}) {

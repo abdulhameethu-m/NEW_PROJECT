@@ -359,7 +359,7 @@ class InfluencerRateCardService {
     };
   }
 
-  async buildInfluencerSnapshot(influencerId, selectedServices = []) {
+  async buildInfluencerSnapshot(influencerId, selectedServices = [], options = {}) {
     if (!influencerId) return { rateCard: [], selectedServices: [], requirements: null, profile: null };
     const profile = await InfluencerProfile.findById(influencerId).populate("userId", "name email username").lean();
     if (!profile) throw new AppError("Influencer not found", 404, "NOT_FOUND");
@@ -390,7 +390,9 @@ class InfluencerRateCardService {
           ? packages.find((pkg) => String(pkg.packageName || pkg.name || "").trim().toLowerCase() === requestedPackageName)
           : packages.slice().sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0];
       if (!selectedPackage) throw new AppError("Selected creator package is not available", 400, "PACKAGE_NOT_AVAILABLE");
-      const quantity = Math.max(1, Number(item.units ?? item.orderQuantity ?? item.selectedQuantity ?? item.quantity ?? 1) || 1);
+      const quantity = options.paymentType === "fixed"
+        ? 1
+        : Math.max(1, Number(item.units ?? item.orderQuantity ?? item.selectedQuantity ?? item.quantity ?? 1) || 1);
       const rate = money(selectedPackage.price);
       const commissionPercentage = Math.max(0, Math.min(50, Number(item.commissionPercentage ?? item.commissionPercent ?? 0) || 0));
       return {
@@ -468,7 +470,7 @@ class InfluencerRateCardService {
     const ruleEvaluation = campaignRuleEngine.evaluateCampaignRules(payload, configuration);
     const paymentType = ruleEvaluation.paymentType;
     const selectedInput = paymentInput.services || paymentInput.selectedServices || payload.services || payload.selectedServices || [];
-    const influencerSnapshot = await this.buildInfluencerSnapshot(influencerId, selectedInput);
+    const influencerSnapshot = await this.buildInfluencerSnapshot(influencerId, selectedInput, { paymentType });
     const selectedTotal = influencerSnapshot.selectedServices.reduce((sum, item) => sum + Number(item.total || 0), 0);
     if (paymentType === "fixed" && (!influencerId || !influencerSnapshot.selectedServices.length)) {
       throw new AppError("Fixed payment campaigns require selected deliverables from the influencer approved rate card", 400, "FIXED_RATE_CARD_DELIVERABLES_REQUIRED");

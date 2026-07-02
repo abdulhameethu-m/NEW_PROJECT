@@ -11,15 +11,22 @@ function computeTotal(items = []) {
   return items.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0), 0);
 }
 
+const LEGACY_VARIANT_ID = "__default__";
+
+function normalizeCartVariantId(variantId = "") {
+  const value = String(variantId || "").trim();
+  return value === LEGACY_VARIANT_ID ? "" : value;
+}
+
 function getItemKey(productId, variantId = "") {
-  return `${String(productId)}::${String(variantId || "")}`;
+  return `${String(productId)}::${normalizeCartVariantId(variantId)}`;
 }
 
 function buildCartItemCounts(cartItems = []) {
   const counts = new Map();
   for (const item of Array.isArray(cartItems) ? cartItems : []) {
     const productId = item?.productId?._id || item?.productId;
-    const variantId = String(item?.variantId || item?.variant?.variantId || "");
+    const variantId = normalizeCartVariantId(item?.variantId || item?.variant?.variantId || "");
     const quantity = Number(item?.quantity || 0);
     if (!productId || quantity <= 0) continue;
     const key = getItemKey(productId, variantId);
@@ -52,10 +59,11 @@ function asObjectId(id, fieldName) {
 function getVariantForProduct(product, variantId) {
   const variants = Array.isArray(product?.variants) ? product.variants : [];
   if (!variants.length) return null;
-  if (!variantId) {
+  const normalizedVariantId = normalizeCartVariantId(variantId);
+  if (!normalizedVariantId) {
     return resolveBestVariant(product);
   }
-  return variants.find((item) => item.variantId === variantId && item.isActive) || null;
+  return variants.find((item) => item.variantId === normalizedVariantId && item.isActive) || null;
 }
 
 function normalizeVariantAttributes(attributes = {}) {
@@ -158,18 +166,19 @@ class CartService {
     }
 
     const cart = await cartRepo.upsertEmpty(userId);
-    const resolverResult = variantId
+    const normalizedVariantId = normalizeCartVariantId(variantId);
+    const resolverResult = normalizedVariantId
       ? {
-          variant: getVariantForProduct(product, variantId),
-          availableStock: getVariantAvailableQuantity(productId, getVariantForProduct(product, variantId), cart.items),
+          variant: getVariantForProduct(product, normalizedVariantId),
+          availableStock: getVariantAvailableQuantity(productId, getVariantForProduct(product, normalizedVariantId), cart.items),
         }
       : resolveNextAvailableVariant(product, cart.items);
     const variant = resolverResult?.variant || null;
     const availableStock = Number(resolverResult?.availableStock || 0);
-    const itemKey = getItemKey(productId, variant?.variantId || variantId);
+    const itemKey = getItemKey(productId, variant?.variantId || normalizedVariantId);
     const existingIdx = cart.items.findIndex((x) => getItemKey(x.productId, x.variantId) === itemKey);
 
-    if (!variant && Array.isArray(product?.variants) && product.variants.length && variantId) {
+    if (!variant && Array.isArray(product?.variants) && product.variants.length && normalizedVariantId) {
       throw new AppError("Selected variant is not available", 400, "NOT_AVAILABLE");
     }
     if (availableStock <= 0) {
@@ -238,9 +247,10 @@ class CartService {
     asObjectId(productId, "productId");
     const qty = Number(quantity);
     if (!Number.isFinite(qty)) throw new AppError("Quantity is required", 400, "VALIDATION_ERROR");
+    const normalizedVariantId = normalizeCartVariantId(variantId);
 
     const cart = await cartRepo.upsertEmpty(userId);
-    const idx = cart.items.findIndex((x) => getItemKey(x.productId, x.variantId) === getItemKey(productId, variantId));
+    const idx = cart.items.findIndex((x) => getItemKey(x.productId, x.variantId) === getItemKey(productId, normalizedVariantId));
     if (idx < 0) throw new AppError("Item not found in cart", 404, "NOT_FOUND");
 
     if (qty <= 0) {
@@ -255,13 +265,18 @@ class CartService {
     if (product.status !== "APPROVED" || product.isActive !== true) {
       throw new AppError("Product not available", 400, "NOT_AVAILABLE");
     }
-    const variant = getVariantForProduct(product, variantId || cart.items[idx].variantId);
-    if (!variant) {
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+    const storedVariantId = normalizeCartVariantId(cart.items[idx].variantId);
+    const requestedVariantId = normalizedVariantId || storedVariantId;
+    const variant = getVariantForProduct(product, requestedVariantId);
+    if (!variant && variants.length) {
       throw new AppError("Selected variant is not available", 400, "NOT_AVAILABLE");
     }
 
     const currentQty = Number(cart.items[idx].quantity || 0);
-    const availableExtra = getVariantAvailableQuantity(productId, variant, cart.items);
+    const availableExtra = variant
+      ? getVariantAvailableQuantity(productId, variant, cart.items)
+      : getAvailableLegacyQuantity(product, cart.items);
     const maxAllowedQuantity = currentQty + availableExtra;
 
     if (availableExtra <= 0 && qty > currentQty) {

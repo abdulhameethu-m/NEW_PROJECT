@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   BarChart3,
   Bookmark,
@@ -27,7 +27,6 @@ import {
   saveCampaignMarketplace,
   saveInfluencerRequirements,
   saveInfluencerServices,
-  submitCampaignDeliverable,
 } from "../../services/influencerCommerceService";
 import { formatCurrency } from "../../utils/formatCurrency";
 
@@ -78,19 +77,20 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
   const applicationStatus = campaign.applicationStatus || "";
   const openInvitationStatuses = ["invitation_sent", "proposed", "pending_review"];
   const campaignState = campaign.state || "";
+  const invitationStatus = campaign.invitationStatus || "";
+  const hasOpenInvitation = campaign.hasInvitation && openInvitationStatuses.includes(invitationStatus);
   const workflowStatus = campaignState && !openInvitationStatuses.includes(campaignState)
     ? campaignState
-    : applicationStatus || campaign.status || campaignState || "";
-  const canAccept = openInvitationStatuses.includes(workflowStatus) && (!campaignState || openInvitationStatuses.includes(campaignState));
+    : invitationStatus || applicationStatus || campaign.status || campaignState || "";
+  const canAccept = hasOpenInvitation || (openInvitationStatuses.includes(workflowStatus) && (!campaignState || openInvitationStatuses.includes(campaignState)));
   const canReject = canAccept;
   const isApplied = ["submitted", "pending_review", "shortlisted", "approved", "accepted", "active", "completed"].includes(applicationStatus);
-  const isActive = ["approved", "accepted", "active", "product_shipped", "content_in_progress", "content_submitted", "under_review", "revision_requested", "published", "tracking_active", "completed"].includes(workflowStatus);
+  const isActive = ["approved", "accepted", "active", "product_shipped", "content_in_progress", "content_submitted", "under_review", "revision_requested", "partially_completed", "published", "tracking_active", "completed"].includes(workflowStatus);
   const contentEnabled = campaign.paymentType !== "fixed" || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled);
-  const isWaiting = ["submitted", "pending_review", "shortlisted"].includes(applicationStatus);
-  const canApply = campaign.marketplacePublic && !isApplied && !canAccept;
+  const isWaiting = !isActive && ["submitted", "pending_review", "shortlisted"].includes(applicationStatus);
+  const canApply = !isActive && campaign.marketplacePublic && !isApplied && !hasOpenInvitation && !canAccept;
   const deadline = campaign.applicationDeadline || campaign.deadline;
   const productIds = campaignProductIds(campaign);
-  const contentHref = campaignId ? `/influencer/campaigns/${campaignId}/content` : "";
 
   return (
     <article className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -193,7 +193,7 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
               className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-950"
             >
               <FileUp className="h-4 w-4" />
-              Submit
+              Create Content
             </button>
           ) : null}
           <button
@@ -205,15 +205,6 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
             <Bookmark className="h-4 w-4" />
             {campaign.saved ? "Saved" : "Save"}
           </button>
-          {isActive && contentEnabled ? (
-            <Link
-              to={contentHref}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-            >
-              <FileUp className="h-4 w-4" />
-              Create Content
-            </Link>
-          ) : null}
           <button
             type="button"
             disabled={!isActive || busy || !productIds.length}
@@ -884,6 +875,7 @@ function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServic
 
 export default function InfluencerCampaignsPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const activeTab = searchParams.get("tab") || "available";
   const [campaigns, setCampaigns] = useState([]);
   const [analytics, setAnalytics] = useState(null);
@@ -998,21 +990,8 @@ export default function InfluencerCampaignsPage() {
 
   async function handleSubmitDeliverable(campaign) {
     const id = campaignKey(campaign);
-    setBusyId(id);
-    setMessage("");
-    try {
-      await submitCampaignDeliverable(id, {
-        title: `${campaign.title} deliverable`,
-        type: "video",
-        notes: "Deliverable submitted from Campaign Marketplace.",
-      });
-      setMessage("Deliverable submitted.");
-      await loadCampaigns();
-    } catch (err) {
-      setError(err?.response?.data?.message || "Deliverable submission failed.");
-    } finally {
-      setBusyId("");
-    }
+    if (!id) return;
+    navigate(`/influencer/campaigns/${id}/content`);
   }
 
   async function handleGenerateLink(campaign) {
@@ -1089,9 +1068,9 @@ export default function InfluencerCampaignsPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link to="/influencer/content" className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+            <Link to="/influencer/campaigns?tab=accepted" className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
               <FileUp className="h-4 w-4" />
-              Submit Content
+              Create Campaign Content
             </Link>
             <Link to="/influencer/campaigns?tab=accepted" className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950">
               <CheckCircle2 className="h-4 w-4" />

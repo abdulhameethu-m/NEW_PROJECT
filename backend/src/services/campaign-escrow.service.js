@@ -1183,7 +1183,7 @@ class CampaignEscrowService {
     const refund = await CampaignRefund.findOneAndUpdate(
       { _id: refundId, status: "requested" },
       {
-        $set: { status: "approved", approvedBy, approvalReason, approvedAt: new Date() },
+        $set: { status: "approved", refundStatus: "refund_approved", approvedBy, approvalReason, approvedAt: new Date() },
         $push: {
           auditLog: {
             action: "refund_approved",
