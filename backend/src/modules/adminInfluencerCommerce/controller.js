@@ -10,6 +10,8 @@ const campaigns = asyncHandler(async (req, res) => ok(res, await service.campaig
 const updateCampaign = asyncHandler(async (req, res) => ok(res, await service.updateCampaign(req.user, req.params.campaignId, req.body), "Campaign updated"));
 const matching = asyncHandler(async (req, res) => ok(res, await service.matching(req.query), "Influencer-vendor matches loaded"));
 const affiliateLinks = asyncHandler(async (req, res) => ok(res, await service.affiliateLinks(req.query), "Affiliate links loaded"));
+const affiliateLinkDetails = asyncHandler(async (req, res) => ok(res, await service.affiliateLinkDetails(req.params.linkId), "Affiliate link details loaded"));
+const updateAffiliateLinkStatus = asyncHandler(async (req, res) => ok(res, await service.updateAffiliateLinkStatus(req.user, req.params.linkId, req.body, { ipAddress: req.ip, userAgent: req.get("user-agent") }), "Affiliate link status updated"));
 const tracking = asyncHandler(async (req, res) => ok(res, await service.tracking(req.query), "Affiliate tracking loaded"));
 const productPromotions = asyncHandler(async (req, res) => ok(res, await service.productPromotions(req.query), "Product promotions loaded"));
 const settlements = asyncHandler(async (req, res) => ok(res, await service.settlements(req.query), "Settlements loaded"));
@@ -37,6 +39,8 @@ module.exports = {
   updateCampaign,
   matching,
   affiliateLinks,
+  affiliateLinkDetails,
+  updateAffiliateLinkStatus,
   tracking,
   productPromotions,
   settlements,

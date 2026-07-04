@@ -5,11 +5,16 @@ import {
   getUserAddresses,
   updateUserAddress,
 } from "../services/userService";
+import {
+  getShippingDistricts,
+  getShippingStates,
+} from "../services/shippingLocationService";
 
 const defaultForm = {
   name: "",
   phone: "",
   addressLine: "",
+  district: "",
   city: "",
   state: "",
   pincode: "",
@@ -29,6 +34,8 @@ export function AddressesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [stateOptions, setStateOptions] = useState([]);
+  const [districtOptions, setDistrictOptions] = useState([]);
 
   async function loadAddresses() {
     setLoading(true);
@@ -47,6 +54,45 @@ export function AddressesPage() {
     loadAddresses();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    getShippingStates()
+      .then((states) => {
+        if (!cancelled) setStateOptions(states || []);
+      })
+      .catch(() => {
+        if (!cancelled) setStateOptions([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!showForm || !form.state) {
+      setDistrictOptions([]);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    getShippingDistricts(form.state)
+      .then((districts) => {
+        if (!cancelled) setDistrictOptions(districts || []);
+      })
+      .catch(() => {
+        if (!cancelled) setDistrictOptions([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.state, showForm]);
+
   function startCreate() {
     setForm(defaultForm);
     setEditingId("");
@@ -58,7 +104,8 @@ export function AddressesPage() {
       name: address.name || "",
       phone: address.phone || "",
       addressLine: address.addressLine || "",
-      city: address.city || "",
+      district: address.district || address.city || "",
+      city: address.city || address.district || "",
       state: address.state || "",
       pincode: address.pincode || "",
       country: address.country || "India",
@@ -68,15 +115,38 @@ export function AddressesPage() {
     setShowForm(true);
   }
 
+  function handleFieldChange(key, value) {
+    if (key === "state") {
+      setForm((current) => ({ ...current, state: value, district: "", city: "" }));
+      return;
+    }
+
+    if (key === "district") {
+      setForm((current) => ({ ...current, district: value, city: value }));
+      return;
+    }
+
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
   async function submitForm(event) {
     event.preventDefault();
     setSaving(true);
     setError("");
     try {
+      const payload = {
+        ...form,
+        district: form.district || form.city,
+        city: form.district || form.city,
+      };
+
+      if (!payload.state) throw new Error("Select the state.");
+      if (!payload.district) throw new Error("Select the district.");
+
       if (editingId) {
-        await updateUserAddress(editingId, form);
+        await updateUserAddress(editingId, payload);
       } else {
-        await createUserAddress(form);
+        await createUserAddress(payload);
       }
       setShowForm(false);
       setForm(defaultForm);
@@ -149,8 +219,6 @@ export function AddressesPage() {
               ["name", "Full name"],
               ["phone", "Phone"],
               ["addressLine", "Address line"],
-              ["city", "City"],
-              ["state", "State"],
               ["pincode", "Pincode"],
               ["country", "Country"],
             ].map(([key, label]) => (
@@ -158,11 +226,44 @@ export function AddressesPage() {
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</span>
                 <input
                   value={form[key]}
-                  onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
+                  onChange={(event) => handleFieldChange(key, event.target.value)}
                   className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 />
               </label>
             ))}
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">State</span>
+              <select
+                value={form.state}
+                onChange={(event) => handleFieldChange("state", event.target.value)}
+                className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                required
+              >
+                <option value="">Select state</option>
+                {Array.from(new Set([...(stateOptions || []), form.state].filter(Boolean))).map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">District</span>
+              <select
+                value={form.district}
+                onChange={(event) => handleFieldChange("district", event.target.value)}
+                disabled={!form.state}
+                className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-900"
+                required
+              >
+                <option value="">{form.state ? "Select district" : "Select state first"}</option>
+                {Array.from(new Set([...(districtOptions || []), form.district].filter(Boolean))).map((district) => (
+                  <option key={district} value={district}>
+                    {district}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="sm:col-span-2 flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-slate-800">
               <input
                 type="checkbox"
@@ -208,7 +309,7 @@ export function AddressesPage() {
               </div>
               <div className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
                 <div>{address.addressLine}</div>
-                <div>{address.city}, {address.state}</div>
+                <div>{address.district || address.city}, {address.state}</div>
                 <div>{address.pincode}, {address.country}</div>
               </div>
               <div className="mt-5 flex flex-wrap gap-2">

@@ -77,6 +77,7 @@ export const ADMIN_SECTION_ITEMS = [
         key: "influencer-commerce-affiliate",
         icon: LinkIcon,
         children: [
+          { name: "Affiliate Links", path: "/admin/influencer-commerce/affiliate-links", permission: "influencerCommerce.read", icon: LinkIcon, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
           { name: "Affiliate Tracking", path: "/admin/influencer-commerce/tracking", permission: "influencerCommerce.read", icon: Search, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
           { name: "Product Promotions", path: "/admin/influencer-commerce/promotions", permission: "influencerCommerce.read", icon: Package, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
         ],

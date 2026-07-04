@@ -30,6 +30,7 @@ const TRAFFIC_SOURCES = ["reels", "posts", "stories", "livestream", "storefront"
 const WITHDRAWAL_STATUSES = ["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING", "COMPLETED", "REJECTED", "CANCELLED", "FAILED"];
 const CAMPAIGN_COMMISSION_RULE_STATUSES = ["draft", "active", "paused", "closed", "archived"];
 const AFFILIATE_LINK_STATUSES = ["pending_content", "active", "paused", "expired", "disabled"];
+const AFFILIATE_LINK_TRACKING_STATUSES = ["active", "inactive", "expired"];
 const AFFILIATE_ATTRIBUTION_STATUSES = ["pending", "converted", "expired", "reversed"];
 const COMMISSION_EARNING_STATUSES = ["PENDING", "APPROVED", "CREDITED", "BLOCKED", "REVERSED", "CANCELLED"];
 
@@ -432,9 +433,24 @@ const affiliateLinkSchema = new mongoose.Schema(
     trackingCode: { type: String, required: true, trim: true, unique: true, index: true },
     destinationUrl: { type: String, trim: true, default: "" },
     status: { type: String, enum: AFFILIATE_LINK_STATUSES, default: "pending_content", index: true },
+    trackingStatus: { type: String, enum: AFFILIATE_LINK_TRACKING_STATUSES, default: "inactive", index: true },
     activatedAt: { type: Date },
+    activatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     expiresAt: { type: Date, index: true },
+    expiredAt: { type: Date, index: true },
+    disabledByAdmin: { type: Boolean, default: false, index: true },
+    disabledReason: { type: String, trim: true, maxlength: 1000, default: "" },
+    disabledAt: { type: Date },
+    disabledBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     lastClickedAt: { type: Date },
+    lastClick: { type: Date },
+    lastOrder: { type: Date },
+    lastCommission: { type: Date },
+    totalClicks: { type: Number, min: 0, default: 0 },
+    uniqueClicks: { type: Number, min: 0, default: 0 },
+    totalOrders: { type: Number, min: 0, default: 0 },
+    totalRevenue: moneyField,
+    totalCommission: moneyField,
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true, collection: "affiliate_links" }
@@ -442,6 +458,7 @@ const affiliateLinkSchema = new mongoose.Schema(
 
 affiliateLinkSchema.index({ campaignId: 1, influencerId: 1, productId: 1 }, { unique: true });
 affiliateLinkSchema.index({ campaignId: 1, status: 1 });
+affiliateLinkSchema.index({ trackingStatus: 1, expiresAt: 1 });
 
 const affiliateClickSchema = new mongoose.Schema(
   {

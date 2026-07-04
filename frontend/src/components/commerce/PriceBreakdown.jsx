@@ -39,6 +39,7 @@ export function PriceBreakdown({ breakdown }) {
   const shippingDiscount = Number(shippingCostBreakdown?.freeShippingDiscount || 0);
   const baseShipping = Number(shippingCostBreakdown?.basePrice || 0);
   const extraShipping = Number(shippingCostBreakdown?.extraCost || 0);
+  const isWeightSlabShipping = shippingCostBreakdown?.formula === "WEIGHT_SLAB";
 
   return (
     <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -73,7 +74,17 @@ export function PriceBreakdown({ breakdown }) {
           <>
             {shippingCostBreakdown ? (
               <>
-                {extraShipping > 0 || shippingDiscount > 0 ? (
+                {isWeightSlabShipping ? (
+                  <div className="flex items-center justify-between">
+                    <span>
+                      Shipping slab{" "}
+                      <span className="text-xs text-slate-400">
+                        ({formatWeight(shippingCostBreakdown.weightFrom, "kg")} - {formatWeight(shippingCostBreakdown.weightTo, "kg")})
+                      </span>
+                    </span>
+                    <AnimatedAmount value={shippingAmount} freeLabel="Free" className="font-medium text-slate-950 dark:text-white" />
+                  </div>
+                ) : extraShipping > 0 || shippingDiscount > 0 ? (
                   <>
                     <div className="flex items-center justify-between">
                       <span>Base shipping</span>
@@ -96,10 +107,12 @@ export function PriceBreakdown({ breakdown }) {
                   </>
                 ) : null}
 
-                <div className="flex items-center justify-between">
-                  <span>Shipping fee</span>
-                  <AnimatedAmount value={shippingAmount} freeLabel="Free" className="font-medium text-slate-950 dark:text-white" />
-                </div>
+                {!isWeightSlabShipping ? (
+                  <div className="flex items-center justify-between">
+                    <span>Shipping fee</span>
+                    <AnimatedAmount value={shippingAmount} freeLabel="Free" className="font-medium text-slate-950 dark:text-white" />
+                  </div>
+                ) : null}
               </>
             ) : shippingCharge ? (
               <div className="flex items-center justify-between">
@@ -157,12 +170,6 @@ export function PriceBreakdown({ breakdown }) {
       {shippingCharge?.metadata?.weight ? (
         <div className="mt-3 text-sm text-slate-500 dark:text-slate-400">
           Shipment weight: {formatWeight(shippingCharge.metadata.weight, "kg")}
-        </div>
-      ) : null}
-
-      {shippingCostBreakdown?.freeShippingApplied ? (
-        <div className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
-          Free shipping applied above {formatCurrency(shippingCostBreakdown.freeShippingThreshold || 0)}.
         </div>
       ) : null}
 

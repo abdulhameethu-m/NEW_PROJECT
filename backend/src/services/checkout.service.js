@@ -105,7 +105,8 @@ function normalizeAddressForCache(address = {}) {
     phone: String(address.phone || "").trim(),
     line1: String(address.line1 || "").trim(),
     line2: String(address.line2 || "").trim(),
-    city: String(address.city || "").trim(),
+    district: String(address.district || address.city || "").trim(),
+    city: String(address.city || address.district || "").trim(),
     state: String(address.state || "").trim(),
     postalCode: String(address.postalCode || "").trim(),
     country: String(address.country || "").trim(),
@@ -275,7 +276,7 @@ async function resolveOrderAttribution({ userId, items = [], fallbackTrackingCon
     trackingContext = await trackingService.validateTrackingToken(attributedItem.attribution.trackingToken, userId);
   } else if (attributedItem?.attribution?.trackingSessionId && mongoose.isValidObjectId(attributedItem.attribution.trackingSessionId)) {
     const session = await TrackingSession.findById(attributedItem.attribution.trackingSessionId);
-    if (session && session.expiresAt >= new Date()) trackingContext = { session };
+    trackingContext = await trackingService.validateTrackingSession(session, userId);
   }
 
   if (!trackingContext?.session && fallbackTrackingContext?.session) {
@@ -620,10 +621,9 @@ class CheckoutService {
         variantTitle: variant?.title || item.variantTitle || "",
         variantAttributes: variant?.attributes || item.variantAttributes || {},
         attribution:
-          item.attribution ||
-          (trackingContext?.session && String(trackingContext.session.productId) === String(product._id)
+          trackingContext?.session && String(trackingContext.session.productId) === String(product._id)
             ? attributionFromTrackingSession({ session: trackingContext.session, trackingToken })
-            : undefined),
+            : undefined,
         weight: getProductWeightSnapshot(product, variant),
       };
       return {

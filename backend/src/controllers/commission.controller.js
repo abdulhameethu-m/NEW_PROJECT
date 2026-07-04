@@ -4,7 +4,7 @@ const commissionRuleService = require("../services/commission-rule.service");
 const walletService = require("../services/wallet.service");
 const { Order } = require("../models/Order");
 const PricingRule = require("../models/PricingRule");
-const ShippingConfig = require("../models/ShippingConfig");
+const ShippingWeightSlab = require("../models/ShippingWeightSlab");
 
 const listRules = asyncHandler(async (req, res) => {
   const data = await commissionRuleService.listRules(req.query);
@@ -48,8 +48,8 @@ const getVendorSummary = asyncHandler(async (req, res) => {
       .sort({ sortOrder: 1, displayName: 1 })
       .select("key displayName settlementRecipient")
       .lean(),
-    ShippingConfig.find({ isActive: true })
-      .sort({ sortOrder: 1, state: 1, zone: 1 })
+    ShippingWeightSlab.find({ status: "active" })
+      .sort({ priority: 1, state: 1, district: 1, zone: 1 })
       .select("state zone settlementRecipient")
       .lean(),
   ]);

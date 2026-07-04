@@ -1,4 +1,5 @@
 const { AppError } = require("../utils/AppError");
+const mongoose = require("mongoose");
 const productRepo = require("../repositories/product.repository");
 const { Vendor } = require("../models/Vendor");
 const vendorRepo = require("../repositories/vendor.repository");
@@ -538,7 +539,9 @@ class ProductService {
    * Get product by ID
    */
   async getProductById(productId) {
-    const product = await productRepo.findById(productId);
+    const product = mongoose.Types.ObjectId.isValid(productId)
+      ? await productRepo.findById(productId)
+      : await productRepo.findBySlug(String(productId || "").trim().toLowerCase());
     if (!product) {
       throw new AppError("Product not found", 404, "NOT_FOUND");
     }

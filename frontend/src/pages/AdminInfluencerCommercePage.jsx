@@ -5,6 +5,9 @@ import {
   BarChart3,
   Calculator,
   CheckCircle2,
+  Copy,
+  ExternalLink,
+  Eye,
   Pencil,
   Link as LinkIcon,
   Package,
@@ -18,10 +21,13 @@ import {
   WalletCards,
   XCircle,
   Trash2,
+  Power,
+  PowerOff,
 } from "lucide-react";
 import {
   getAdminInfluencerCommerceDashboard,
   getAdminInfluencerCommerceRevenueDashboard,
+  getAdminAffiliateLinkDetails,
   getAdminInfluencerSettings,
   getAdminInfluencerVendorMatching,
   getInfluencerCommerceConfiguration,
@@ -37,6 +43,7 @@ import {
   createInfluencerCommerceConfig,
   deleteInfluencerCommerceConfig,
   updateAdminInfluencerCommerceCampaign,
+  updateAdminAffiliateLinkStatus,
   updateAdminInfluencerWithdrawal,
   updateAdminInfluencerSettings,
   updateInfluencerCommerceConfig,
@@ -52,6 +59,7 @@ const MODULES = {
   campaigns: { label: "Campaign Management", icon: BarChart3, path: "/admin/influencer-commerce/campaigns" },
   "vendor-campaign-commission": { label: "Vendor Campaign Commission", icon: Calculator, path: "/admin/influencer-commerce/vendor-campaign-commission" },
   matching: { label: "Influencer-Vendor Matching", icon: Search, path: "/admin/influencer-commerce/matching" },
+  "affiliate-links": { label: "Affiliate Links", icon: LinkIcon, path: "/admin/influencer-commerce/affiliate-links" },
   tracking: { label: "Affiliate Tracking", icon: LinkIcon, path: "/admin/influencer-commerce/tracking" },
   promotions: { label: "Product Promotions", icon: Package, path: "/admin/influencer-commerce/promotions" },
   settlements: { label: "Escrow & Settlements", icon: WalletCards, path: "/admin/influencer-commerce/settlements" },
@@ -71,6 +79,7 @@ const defaultFilters = {
   paymentModel: "all",
   category: "",
   status: "",
+  trackingStatus: "",
   startDate: "",
   endDate: "",
   page: 1,
@@ -219,10 +228,19 @@ function Filters({ filters, setFilters, compact = false }) {
         <option value="">All statuses</option>
         <option value="active">Active</option>
         <option value="pending">Pending</option>
+        <option value="pending_content">Pending Content</option>
+        <option value="disabled">Disabled</option>
+        <option value="expired">Expired</option>
         <option value="approved">Approved</option>
         <option value="rejected">Rejected</option>
         <option value="paid">Paid</option>
         <option value="hold">Hold</option>
+      </select>
+      <select value={filters.trackingStatus} onChange={(event) => setFilters((current) => ({ ...current, trackingStatus: event.target.value, page: 1 }))} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Tracking status filter">
+        <option value="">All tracking</option>
+        <option value="active">Tracking active</option>
+        <option value="inactive">Tracking inactive</option>
+        <option value="expired">Tracking expired</option>
       </select>
       {!compact ? (
         <>
@@ -318,6 +336,7 @@ export function AdminInfluencerCommercePage() {
     campaigns: listAdminInfluencerCommerceCampaigns,
     "vendor-campaign-commission": async () => ({ data: { items: await CampaignEscrowService.listFeeConfigurations() } }),
     matching: getAdminInfluencerVendorMatching,
+    "affiliate-links": listAdminAffiliateLinks,
     tracking: listAdminAffiliateTracking,
     promotions: listAdminProductPromotions,
     settlements: async (query) => {
@@ -429,6 +448,7 @@ function renderModule(moduleId, data, items, pagination, setFilters, runAction, 
   if (moduleId === "campaigns") return <CampaignsView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "vendor-campaign-commission") return <VendorCampaignCommissionView items={items} runAction={runAction} busyId={busyId} />;
   if (moduleId === "matching") return <MatchingView data={data} />;
+  if (moduleId === "affiliate-links") return <AffiliateLinksView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
   if (moduleId === "promotions") return <ProductPromotionsView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "tracking") return <TrackingView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "settlements") return <SettlementsView items={items} fixedPayments={data.fixedPayments || []} refunds={data.refunds || []} releaseQueue={data.releaseQueue || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
@@ -742,6 +762,145 @@ function MatchingView({ data }) {
         );
       }} />
     </Section>
+  );
+}
+
+function AffiliateLinksView({ items, pagination, setFilters, runAction, busyId }) {
+  const [selected, setSelected] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+
+  const openDetails = async (row) => {
+    setSelected(row);
+    setDetailError("");
+    setDetailsLoading(true);
+    try {
+      const response = await getAdminAffiliateLinkDetails(idOf(row));
+      setSelected(unwrap(response));
+    } catch (err) {
+      setDetailError(err?.response?.data?.message || err?.message || "Unable to load affiliate link details.");
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const copyLink = async (row) => {
+    const value = row.affiliateLink || row.shortUrl || "";
+    if (!value) return;
+    await navigator.clipboard?.writeText(value).catch(() => null);
+  };
+
+  const statusAction = (row, action) => runAction(
+    `affiliate-${idOf(row)}-${action}`,
+    () => updateAdminAffiliateLinkStatus(idOf(row), { action, reason: action === "deactivate" ? "Manually deactivated by admin from Affiliate Links module." : "Manually activated by admin from Affiliate Links module." }),
+    action === "deactivate" ? "Affiliate link deactivated." : "Affiliate link activated."
+  );
+
+  return (
+    <>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <Metric label="Total Links" value={numberValue(pagination?.total || items.length)} />
+        <Metric label="Tracking Active" value={numberValue(items.filter((row) => row.trackingStatus === "active").length)} />
+        <Metric label="Clicks" value={numberValue(items.reduce((sum, row) => sum + Number(row.clicks || 0), 0))} />
+        <Metric label="Orders" value={numberValue(items.reduce((sum, row) => sum + Number(row.orders || 0), 0))} />
+        <Metric label="Commission" value={formatCurrency(items.reduce((sum, row) => sum + Number(row.commission || 0), 0))} />
+      </div>
+      <Section title="Affiliate Link Management" icon={LinkIcon}>
+        <ResponsiveTable headers={["Link", "Campaign", "Vendor", "Influencer", "Product", "Status", "Metrics", "Expiry", "Actions"]} rows={items} renderRow={(row) => {
+          const id = idOf(row);
+          const canActivate = row.actions?.canActivate;
+          const canDeactivate = row.actions?.canDeactivate;
+          return (
+            <tr key={id}>
+              <td className="px-3 py-3">
+                <div className="font-mono text-xs text-slate-700 dark:text-slate-200" title={row.affiliateLink}>{shortText(row.trackingCode || row.trackingToken || id, 18)}</div>
+                <div className="mt-1 max-w-[28rem] whitespace-normal break-all text-xs leading-5 text-indigo-600" title={row.affiliateLink}>{row.affiliateLink || "-"}</div>
+              </td>
+              <td className="px-3 py-3">
+                <div className="font-medium text-slate-900 dark:text-white">{shortText(row.campaignName, 28)}</div>
+                <div className="mt-1 text-xs text-slate-500">{statusText(row.paymentModel || row.campaignType)}</div>
+              </td>
+              <td className="px-3 py-3">{text(row.vendorName)}</td>
+              <td className="px-3 py-3">{text(row.influencerName)}</td>
+              <td className="px-3 py-3" title={text(row.productName)}>{shortText(row.productName, 32)}</td>
+              <td className="px-3 py-3">
+                <div className="space-y-1">
+                  <StatusBadge value={row.status} />
+                  <StatusBadge value={row.trackingStatus} />
+                  {row.disabledReason ? <p className="max-w-40 text-xs text-slate-500">{shortText(row.disabledReason, 48)}</p> : null}
+                </div>
+              </td>
+              <td className="px-3 py-3 text-xs">
+                <div>{numberValue(row.clicks)} clicks · {numberValue(row.orders)} orders</div>
+                <div className="mt-1">{formatCurrency(row.revenue)} revenue</div>
+                <div className="mt-1 text-emerald-600">{formatCurrency(row.commission)} commission</div>
+              </td>
+              <td className="px-3 py-3">{dateValue(row.expiryDate || row.expiresAt)}</td>
+              <td className="px-3 py-3">
+                <div className="flex flex-wrap gap-2">
+                  <ActionButton tone="slate" icon={Eye} onClick={() => openDetails(row)}>View</ActionButton>
+                  <ActionButton tone="slate" icon={Copy} onClick={() => copyLink(row)} disabled={!row.affiliateLink}>Copy</ActionButton>
+                  <ActionButton tone="slate" icon={ExternalLink} onClick={() => row.affiliateLink && window.open(row.affiliateLink, "_blank", "noopener,noreferrer")} disabled={!row.affiliateLink}>Open</ActionButton>
+                  {row.trackingStatus === "active" ? (
+                    <ActionButton tone="red" icon={PowerOff} disabled={!canDeactivate || busyId === `affiliate-${id}-deactivate`} onClick={() => statusAction(row, "deactivate")}>Deactivate</ActionButton>
+                  ) : (
+                    <ActionButton tone="green" icon={Power} disabled={!canActivate || busyId === `affiliate-${id}-activate`} onClick={() => statusAction(row, "activate")}>Activate</ActionButton>
+                  )}
+                </div>
+              </td>
+            </tr>
+          );
+        }} />
+        <Pagination pagination={pagination} setFilters={setFilters} />
+      </Section>
+
+      {selected ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Affiliate link details</h3>
+                <p className="mt-1 text-sm text-slate-500">Centralized admin control for link status, attribution readiness, and historical metrics.</p>
+              </div>
+              <button type="button" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700" onClick={() => setSelected(null)}>Close</button>
+            </div>
+            {detailError ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{detailError}</div> : null}
+            {detailsLoading ? <div className="mt-4 rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500 dark:bg-slate-950">Loading details...</div> : (
+              <div className="mt-5 space-y-4">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <Metric label="Clicks" value={numberValue(selected.clicks)} hint={`${numberValue(selected.uniqueClicks)} unique`} />
+                  <Metric label="Orders" value={numberValue(selected.orders)} hint={`Last order ${dateValue(selected.lastOrder)}`} />
+                  <Metric label="Revenue" value={formatCurrency(selected.revenue)} />
+                  <Metric label="Commission" value={formatCurrency(selected.commission)} />
+                </div>
+                <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <p><span className="text-slate-500">Campaign:</span> {text(selected.campaignName)} ({statusText(selected.campaignStatus)})</p>
+                    <p><span className="text-slate-500">Product:</span> {text(selected.productName)}</p>
+                    <p><span className="text-slate-500">Vendor:</span> {text(selected.vendorName)}</p>
+                    <p><span className="text-slate-500">Influencer:</span> {text(selected.influencerName)}</p>
+                    <p><span className="text-slate-500">Tracking:</span> {statusText(selected.trackingStatus)}</p>
+                    <p><span className="text-slate-500">Expires:</span> {dateValue(selected.expiresAt)}</p>
+                  </div>
+                  <div className="mt-4 break-all rounded-xl bg-slate-50 p-3 font-mono text-xs dark:bg-slate-950">{selected.affiliateLink || "-"}</div>
+                </div>
+                <Section title="Audit History" icon={ShieldCheck}>
+                  <div className="space-y-3">
+                    {(selected.history || []).length ? selected.history.map((row) => (
+                      <div key={row.id} className="rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
+                        <div className="font-semibold text-slate-900 dark:text-white">{statusText(row.action)}</div>
+                        <div className="mt-1 text-xs text-slate-500">{dateValue(row.createdAt)} · {text(row.actor)}</div>
+                        {row.metadata?.reason ? <div className="mt-1 text-xs text-slate-500">{row.metadata.reason}</div> : null}
+                      </div>
+                    )) : <p className="text-sm text-slate-500">No audit events yet.</p>}
+                  </div>
+                </Section>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 

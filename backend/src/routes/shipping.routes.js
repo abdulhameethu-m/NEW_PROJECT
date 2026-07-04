@@ -2,11 +2,15 @@ const express = require("express");
 const { authRequired, requireRole } = require("../middleware/auth");
 const { requireApprovedVendor } = require("../middleware/vendorApproval");
 const shippingController = require("../controllers/shipping.controller");
+const shippingConfigController = require("../controllers/shippingConfig.controller");
 const { validate } = require("../middleware/validate");
 const { body } = require("express-validator");
 
 const router = express.Router();
 const vendorAuth = [authRequired, requireRole("vendor"), requireApprovedVendor];
+
+router.get("/locations/states", shippingConfigController.getPublicShippingStates);
+router.get("/locations/districts", shippingConfigController.getPublicShippingDistricts);
 
 /**
  * ==================== VENDOR ROUTES ====================

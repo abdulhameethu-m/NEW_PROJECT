@@ -213,19 +213,29 @@ function campaignAllowsInfluencerContent(campaign, influencerId) {
 async function activeCampaignAffiliateLinkMap(reels = []) {
   const campaignIds = Array.from(new Set(reels.map((reel) => idOf(reel.campaignId)).filter(Boolean)));
   if (!campaignIds.length) return new Map();
+  const now = new Date();
+  const openCampaigns = await Campaign.find({
+    _id: { $in: campaignIds },
+    state: "tracking_active",
+    deadline: { $gt: now },
+    "commissionWorkflow.trackingActive": true,
+  }).select("_id").lean();
+  const openCampaignIds = new Set(openCampaigns.map((campaign) => idOf(campaign._id)));
+  if (!openCampaignIds.size) return new Map();
+  const eligibleCampaignIds = campaignIds.filter((campaignId) => openCampaignIds.has(campaignId));
   let links = await AffiliateLink.find({
-    campaignId: { $in: campaignIds },
+    campaignId: { $in: eligibleCampaignIds },
     status: "active",
   }).select("campaignId productId trackingCode destinationUrl").lean();
   const linkedCampaigns = new Set(links.map((link) => idOf(link.campaignId)));
-  const missingCampaignIds = campaignIds.filter((campaignId) => !linkedCampaigns.has(campaignId));
+  const missingCampaignIds = eligibleCampaignIds.filter((campaignId) => !linkedCampaigns.has(campaignId));
   if (missingCampaignIds.length) {
     const commissionService = require("../commission/service");
     await Promise.all(missingCampaignIds.map((campaignId) =>
       commissionService.ensureCampaignAffiliateLinks(campaignId, { activate: true }).catch(() => [])
     ));
     links = await AffiliateLink.find({
-      campaignId: { $in: campaignIds },
+      campaignId: { $in: eligibleCampaignIds },
       status: "active",
     }).select("campaignId productId trackingCode destinationUrl").lean();
   }

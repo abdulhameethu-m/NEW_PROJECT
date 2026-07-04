@@ -62,7 +62,8 @@ function formatAddressForOrder(address) {
     fullName: address.name,
     phone: address.phone,
     line1: address.addressLine,
-    city: address.city,
+    district: address.district || address.city,
+    city: address.city || address.district,
     state: address.state,
     postalCode: address.pincode,
     country: address.country,
@@ -318,6 +319,8 @@ class UserService {
     const address = await UserAddress.create({
       userId,
       ...payload,
+      district: payload.district || payload.city,
+      city: payload.city || payload.district,
       isDefault: payload.isDefault || existingCount === 0,
     });
 
@@ -332,9 +335,15 @@ class UserService {
       await UserAddress.updateMany({ userId, isDefault: true }, { $set: { isDefault: false } });
     }
 
+    const updatePayload = { ...payload };
+    if (payload.district || payload.city) {
+      updatePayload.district = payload.district || payload.city;
+      updatePayload.city = payload.city || payload.district;
+    }
+
     const address = await UserAddress.findOneAndUpdate(
       { _id: addressId, userId },
-      { $set: payload },
+      { $set: updatePayload },
       { returnDocument: "after", runValidators: true }
     );
 

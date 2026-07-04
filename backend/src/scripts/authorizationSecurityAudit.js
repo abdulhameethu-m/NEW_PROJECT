@@ -98,8 +98,8 @@ const REVIEWED_NON_IDOR_CONTEXTS = [
     proof: "authentication middleware resolves the authenticated subject from verified cookies/tokens before authorization policies run",
   },
   {
-    pattern: /[\\/]models[\\/]ShippingConfig\.js$/,
-    proof: "model middleware enforces configuration uniqueness and is not a request authorization boundary",
+    pattern: /[\\/]models[\\/]ShippingWeightSlab\.js$/,
+    proof: "model middleware enforces shipping slab normalization and is not a request authorization boundary",
   },
   {
     pattern: /[\\/]repositories[\\/]/,

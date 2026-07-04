@@ -179,6 +179,10 @@ const pageMeta = {
     title: "Influencer Commerce",
     subtitle: "Inspect affiliate click sessions, attribution, token expiry, and risk signals.",
   },
+  "/admin/influencer-commerce/affiliate-links": {
+    title: "Affiliate Links",
+    subtitle: "Manage affiliate link status, lifecycle, campaign association, and attribution readiness.",
+  },
   "/admin/influencer-commerce/promotions": {
     title: "Influencer Commerce",
     subtitle: "Monitor product promotions across campaigns, vendors, and creators.",

@@ -13,9 +13,10 @@ const campaignRefundService = require("../../services/campaign-refund.service");
 const analyticsAggregator = require("../analytics/service");
 const { AppError } = require("../../utils/AppError");
 const { Campaign, CampaignStatusHistory, CampaignInvitation, CampaignAcceptance } = require("../campaign/model");
-const { CampaignAffiliateClick, CommissionRecord } = require("../commission/models");
+const { CampaignAffiliateClick, CampaignAffiliateAttribution, AffiliateLink, CommissionRecord } = require("../commission/models");
 const { InfluencerProfile, InfluencerSocialAccount, InfluencerProductAssignment } = require("../influencer/model");
 const { Reel } = require("../reel/model");
+const { TrackingSession } = require("../tracking/model");
 const { Product } = require("../../models/Product");
 const { Order } = require("../../models/Order");
 const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
@@ -129,6 +130,73 @@ function buildBuckets(start, end) {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return buckets;
+}
+
+function campaignEndReached(deadline, now = new Date()) {
+  if (!deadline) return false;
+  const end = new Date(deadline);
+  return !Number.isNaN(end.getTime()) && end.getTime() <= now.getTime();
+}
+
+async function deactivateExpiredTrackingCampaigns(vendorId, actorId = null) {
+  if (!vendorId) return [];
+  const now = new Date();
+  const expiredCampaigns = await Campaign.find({
+    vendorId,
+    state: "tracking_active",
+    deadline: { $ne: null, $lte: now },
+  }).select("_id state").lean();
+  if (!expiredCampaigns.length) return [];
+
+  const campaignIds = expiredCampaigns.map((campaign) => campaign._id);
+  await Campaign.updateMany(
+    { _id: { $in: campaignIds }, vendorId, state: "tracking_active" },
+    {
+      $set: {
+        state: "expired",
+        "commissionWorkflow.trackingActive": false,
+        "commissionWorkflow.closedAt": now,
+        "commissionWorkflow.closedReason": "Campaign end date reached; tracking deactivated",
+      },
+      $push: {
+        history: {
+          state: "expired",
+          actorId: actorId || null,
+          note: "Campaign end date reached; tracking deactivated",
+          changedAt: now,
+        },
+      },
+    }
+  );
+  await CampaignStatusHistory.insertMany(
+    expiredCampaigns.map((campaign) => ({
+      campaignId: campaign._id,
+      oldStatus: campaign.state || "tracking_active",
+      newStatus: "expired",
+      changedBy: actorId || undefined,
+      changedByRole: "system",
+      reason: "Campaign end date reached; tracking deactivated",
+      metadata: { source: "vendor_campaign_list_expiry_guard" },
+    })),
+    { ordered: false }
+  ).catch(() => {});
+  await CampaignEscrowWallet.updateMany(
+    { campaignId: { $in: campaignIds }, vendorId },
+    { $set: { campaignStatus: "expired" } }
+  ).catch(() => {});
+  await AffiliateLink.updateMany(
+    { campaignId: { $in: campaignIds }, status: { $in: ["pending_content", "active", "paused"] } },
+    { $set: { status: "expired", expiresAt: now } }
+  ).catch(() => {});
+  await CampaignAffiliateAttribution.updateMany(
+    { campaignId: { $in: campaignIds }, status: "pending" },
+    { $set: { status: "expired", expiresAt: now, "metadata.closedReason": "Campaign end date reached; tracking deactivated" } }
+  ).catch(() => {});
+  await TrackingSession.updateMany(
+    { campaignId: { $in: campaignIds }, expiresAt: { $gt: now } },
+    { $set: { expiresAt: now } }
+  ).catch(() => {});
+  return campaignIds;
 }
 
 function money(value) {
@@ -1499,6 +1567,7 @@ class InfluencerCommerceVendorService {
 
   async campaigns(userId, query = {}) {
     const vendor = await this.getVendor(userId);
+    await deactivateExpiredTrackingCampaigns(vendor._id, userId);
     const filter = { vendorId: vendor._id };
     applyPaymentModelFilter(filter, query);
     if (query.campaignId && objectId(query.campaignId)) filter._id = objectId(query.campaignId);
@@ -1571,6 +1640,8 @@ class InfluencerCommerceVendorService {
           ...campaign,
           paymentModel,
           attributionRule,
+          endDate: campaign.deadline || campaign.marketplace?.applicationDeadline || null,
+          trackingActive: campaign.state === "tracking_active" && !campaignEndReached(campaign.deadline),
           // Keep the management table aligned with Razorpay: only a fixed
           // reward is escrow-funded for hybrid campaigns; commission is earned
           // later from attributed orders and its cap remains separate.
@@ -1662,13 +1733,17 @@ class InfluencerCommerceVendorService {
 
   async updateCampaignStatus(userId, campaignId, payload = {}) {
     const vendor = await this.getVendor(userId);
+    await deactivateExpiredTrackingCampaigns(vendor._id, userId);
     const action = String(payload.action || "").toLowerCase();
     const state = action === "pause" ? "paused" : action === "close" ? "completed" : action === "activate" ? "active" : payload.state;
     if (!CAMPAIGN_STATES.includes(state)) {
       throw new AppError("Invalid campaign state", 400, "INVALID_STATE");
     }
-    const current = await Campaign.findOne({ _id: campaignId, vendorId: vendor._id }).select("state paymentType").lean();
+    const current = await Campaign.findOne({ _id: campaignId, vendorId: vendor._id }).select("state paymentType deadline").lean();
     if (!current) throw new AppError("Campaign not found", 404, "NOT_FOUND");
+    if (campaignEndReached(current.deadline) && ["tracking_active", "expired"].includes(String(current.state || "")) && ["active", "paused", "tracking_active"].includes(state)) {
+      throw new AppError("Campaign end date has passed. Tracking is inactive for this campaign.", 409, "CAMPAIGN_TRACKING_EXPIRED");
+    }
     if (state === "active" && ["fixed", "hybrid"].includes(current.paymentType)) {
       if (["proposed", "invitation_sent", "pending_review"].includes(current.state)) {
         throw new AppError("The influencer must accept this fixed-payment campaign before activation", 409, "CAMPAIGN_ACCEPTANCE_REQUIRED");

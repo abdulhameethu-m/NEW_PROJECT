@@ -174,6 +174,22 @@ function campaignHasCommissionEarnings(campaign = {}) {
   return ["commission", "hybrid"].includes(String(campaign.paymentType || campaign.paymentModelSnapshot?.paymentType || "").toLowerCase());
 }
 
+function campaignEndDate(campaign = {}) {
+  return campaign.deadline || campaign.marketplace?.applicationDeadline || campaign.termsFrozen?.deadline || null;
+}
+
+function isDateReached(date, now = new Date()) {
+  if (!date) return false;
+  const parsed = new Date(date);
+  return !Number.isNaN(parsed.getTime()) && parsed.getTime() <= now.getTime();
+}
+
+function isDateExpired(date, now = new Date()) {
+  if (!date) return false;
+  const parsed = new Date(date);
+  return !Number.isNaN(parsed.getTime()) && parsed.getTime() < now.getTime();
+}
+
 function selectedDeliverableRequirement(campaign = {}, deliverables = []) {
   if (deliverables.length) {
     return deliverables.reduce((sum, row) => sum + Math.max(1, Number(row.quantity || 1)), 0);
@@ -1474,6 +1490,143 @@ class CommissionService {
     }).catch(() => {});
   }
 
+  async closeExpiredCampaignAttribution(campaignOrId, { actor = {}, reason = "Campaign end date reached; attribution closed", session = null } = {}) {
+    const campaign = typeof campaignOrId === "object" && campaignOrId?._id
+      ? campaignOrId
+      : await attachSession(Campaign.findById(campaignOrId).select("_id state paymentType deadline marketplace termsFrozen commissionWorkflow vendorId influencerId").lean(), session);
+    if (!campaign?._id) return null;
+    const now = new Date();
+    const campaignId = campaign._id;
+    const state = String(campaign.state || "").toLowerCase();
+    const terminalState = ["completed", "closed", "cancelled"].includes(state);
+
+    const updates = [
+      Campaign.updateOne(
+        { _id: campaignId },
+        {
+          $set: {
+            ...(terminalState ? {} : { state: "expired" }),
+            "commissionWorkflow.trackingActive": false,
+            "commissionWorkflow.closedAt": campaign.commissionWorkflow?.closedAt || now,
+            "commissionWorkflow.closedReason": reason,
+          },
+          $push: {
+            history: {
+              state: "expired",
+              actorId: actor?._id || actor?.sub || null,
+              note: reason,
+              changedAt: now,
+            },
+          },
+        },
+        { session: session || undefined }
+      ),
+      AffiliateLink.updateMany(
+        { campaignId, status: { $in: ["pending_content", "active", "paused"] } },
+        { $set: { status: "expired", trackingStatus: "expired", expiresAt: now, expiredAt: now, disabledReason: reason } },
+        { session: session || undefined }
+      ),
+      CampaignAffiliateAttribution.updateMany(
+        { campaignId, status: "pending" },
+        { $set: { status: "expired", expiresAt: now, "metadata.closedReason": reason } },
+        { session: session || undefined }
+      ),
+      TrackingSession.updateMany(
+        { campaignId, expiresAt: { $gt: now } },
+        { $set: { expiresAt: now } },
+        { session: session || undefined }
+      ),
+      CampaignBudgetTracker.updateOne(
+        { campaignId },
+        { $set: { status: "EXPIRED", closedAt: now, closedReason: reason } },
+        { session: session || undefined }
+      ),
+      CampaignCommissionRule.updateOne(
+        { campaignId, status: "active" },
+        { $set: { status: "closed", "metadata.closedReason": reason } },
+        { session: session || undefined }
+      ),
+    ];
+
+    await Promise.all(updates.map((update) => attachSession(update, session).catch(() => null)));
+    try {
+      const { CampaignAttributionRule } = require("../influencerCommerce/model");
+      await attachSession(
+        CampaignAttributionRule.updateMany(
+          { campaignId, trackingEnabled: true },
+          { $set: { trackingEnabled: false, status: "inactive", "metadata.closedReason": reason } },
+          { session: session || undefined }
+        ),
+        session
+      ).catch(() => null);
+    } catch {
+      // Attribution rule collection is optional in older deployments.
+    }
+    await auditService.log({
+      actor,
+      action: "campaign.attribution.expired",
+      entityType: "Campaign",
+      entityId: campaignId,
+      metadata: { reason },
+    }).catch(() => {});
+    return { campaignId, expired: true };
+  }
+
+  async expireCampaignAffiliateLinks({ now = new Date(), actor = { role: "system" } } = {}) {
+    const campaigns = await Campaign.find({
+      state: { $in: ["tracking_active", "active", "accepted"] },
+      $or: [
+        { deadline: { $lte: now } },
+        { "termsFrozen.deadline": { $lte: now } },
+      ],
+    }).select("_id state paymentType deadline termsFrozen marketplace commissionWorkflow vendorId influencerId").lean();
+    let expired = 0;
+    for (const campaign of campaigns) {
+      const endDate = campaign.deadline || campaign.termsFrozen?.deadline || campaign.marketplace?.applicationDeadline;
+      if (!isDateExpired(endDate, now)) continue;
+      await this.closeExpiredCampaignAttribution(campaign, { actor, reason: "Campaign end date reached; affiliate links expired automatically" }).catch(() => null);
+      expired += 1;
+    }
+    await AffiliateLink.updateMany(
+      { trackingStatus: { $ne: "expired" }, expiresAt: { $lte: now } },
+      { $set: { status: "expired", trackingStatus: "expired", expiredAt: now, disabledReason: "Affiliate link expired automatically." } }
+    ).catch(() => null);
+    return { campaignsScanned: campaigns.length, campaignsExpired: expired };
+  }
+
+  async validateCampaignAttributionOpen(campaignOrId, { affiliateLink = null, attribution = null, session: trackingSession = null, mutateExpired = true } = {}) {
+    const now = new Date();
+    const campaign = typeof campaignOrId === "object" && campaignOrId?._id
+      ? campaignOrId
+      : await Campaign.findById(campaignOrId).select("_id state paymentType deadline marketplace termsFrozen commissionWorkflow vendorId influencerId").lean();
+    if (!campaign?._id) return { open: false, reason: "CAMPAIGN_NOT_FOUND" };
+    if (!campaignSupportsAffiliateTracking(campaign)) return { open: false, reason: "CAMPAIGN_NOT_TRACKABLE" };
+    const state = String(campaign.state || "").toLowerCase();
+    const trackingActive = campaign.commissionWorkflow?.trackingActive === true;
+    const endDate = campaignEndDate(campaign);
+
+    if (isDateReached(endDate, now)) {
+      if (mutateExpired) {
+        await this.closeExpiredCampaignAttribution(campaign, { reason: "Campaign end date reached; attribution closed" }).catch(() => null);
+      }
+      return { open: false, reason: "CAMPAIGN_EXPIRED" };
+    }
+    if (state !== "tracking_active") return { open: false, reason: "CAMPAIGN_NOT_ACTIVE" };
+    if (!trackingActive) return { open: false, reason: "TRACKING_INACTIVE" };
+    if (affiliateLink) {
+      if (String(affiliateLink.status || "").toLowerCase() !== "active") return { open: false, reason: "AFFILIATE_LINK_INACTIVE" };
+      if (String(affiliateLink.trackingStatus || "active").toLowerCase() !== "active") return { open: false, reason: "AFFILIATE_TRACKING_INACTIVE" };
+      if (affiliateLink.disabledByAdmin) return { open: false, reason: "AFFILIATE_LINK_DISABLED_BY_ADMIN" };
+      if (isDateExpired(affiliateLink.expiresAt, now)) return { open: false, reason: "AFFILIATE_LINK_EXPIRED" };
+    }
+    if (attribution) {
+      if (!["pending", "converted"].includes(String(attribution.status || "").toLowerCase())) return { open: false, reason: "ATTRIBUTION_CLOSED" };
+      if (isDateExpired(attribution.expiresAt, now)) return { open: false, reason: "ATTRIBUTION_WINDOW_CLOSED" };
+    }
+    if (trackingSession && isDateExpired(trackingSession.expiresAt, now)) return { open: false, reason: "TRACKING_SESSION_EXPIRED" };
+    return { open: true, reason: "" };
+  }
+
   async approveCampaignCommissionCredit({ record, order, wallet, session = null }) {
     const campaign = record.campaignId
       ? await attachSession(Campaign.findById(record.campaignId).select("_id paymentType commissionWorkflow vendorId influencerId title").lean(), session)
@@ -1620,6 +1773,10 @@ class CommissionService {
   async ensureCampaignAffiliateLinks(campaignId, { actor = {}, activate = false, reelId = null } = {}) {
     const campaign = await Campaign.findById(campaignId).lean();
     if (!campaign || !campaignSupportsAffiliateTracking(campaign)) return [];
+    if (isDateReached(campaignEndDate(campaign))) {
+      await this.closeExpiredCampaignAttribution(campaign, { actor, reason: "Campaign end date reached; affiliate links disabled" }).catch(() => null);
+      return [];
+    }
     const rule = await this.getCampaignCommissionRule(campaign._id);
     const attributionWindowDays = Number(rule?.attributionWindowDays ?? campaign.attributionWindowDays ?? campaign.termsFrozen?.attributionWindowDays ?? 30) || 30;
     const publication = activate ? { ready: true, reason: "DELIVERABLE_PUBLISHED" } : { ready: true };
@@ -1636,9 +1793,7 @@ class CommissionService {
         productId: product._id,
       });
       const trackingCode = trackingId.toLowerCase();
-      const destinationUrl = product.slug
-        ? `/product/${product.slug}?ref=${trackingCode}`
-        : `/product/${product._id}?ref=${trackingCode}`;
+      const destinationUrl = `/product/${product._id}?ref=${trackingCode}`;
       return AffiliateLink.findOneAndUpdate(
         { campaignId: campaign._id, influencerId: campaign.influencerId, productId: product._id },
         {
@@ -1653,7 +1808,13 @@ class CommissionService {
           $set: {
             destinationUrl,
             status: shouldActivate ? "active" : "pending_content",
+            trackingStatus: shouldActivate ? "active" : "inactive",
             activatedAt: shouldActivate ? now : undefined,
+            activatedBy: shouldActivate ? actor?._id || actor?.sub || undefined : undefined,
+            disabledByAdmin: shouldActivate ? false : undefined,
+            disabledReason: shouldActivate ? "" : undefined,
+            disabledAt: shouldActivate ? undefined : undefined,
+            disabledBy: shouldActivate ? undefined : undefined,
             expiresAt,
             metadata: { reelId, publication },
           },
@@ -1691,12 +1852,15 @@ class CommissionService {
   async findAffiliateLinkByCode(trackingCode) {
     const code = String(trackingCode || "").trim().toLowerCase();
     if (!code) return null;
-    return AffiliateLink.findOne({ trackingCode: code, status: "active" }).lean();
+    const link = await AffiliateLink.findOne({ trackingCode: code, status: "active" }).lean();
+    if (!link) return null;
+    const guard = await this.validateCampaignAttributionOpen(link.campaignId, { affiliateLink: link });
+    return guard.open ? link : null;
   }
 
   async recordAffiliateClickFromSession(session, meta = {}) {
     if (!session?.campaignId) return null;
-    const campaign = await Campaign.findById(session.campaignId).select("_id paymentType vendorId influencerId attributionWindowDays termsFrozen").lean();
+    const campaign = await Campaign.findById(session.campaignId).select("_id state paymentType vendorId influencerId attributionWindowDays termsFrozen deadline marketplace commissionWorkflow").lean();
     if (!campaign || !campaignSupportsAffiliateTracking(campaign)) return null;
     const rule = await this.getCampaignCommissionRule(campaign._id);
     const affiliateLink = await AffiliateLink.findOne({
@@ -1705,6 +1869,9 @@ class CommissionService {
       productId: session.productId,
       status: "active",
     }).lean();
+    if (!affiliateLink) return null;
+    const guard = await this.validateCampaignAttributionOpen(campaign, { affiliateLink, session });
+    if (!guard.open) return null;
     const attributionWindowDays = Number(rule?.attributionWindowDays ?? campaign.attributionWindowDays ?? campaign.termsFrozen?.attributionWindowDays ?? 30) || 30;
     const clickId = crypto.createHash("sha1").update(buildAffiliateClickKey(session._id, session.productId)).digest("hex");
     const expiresAt = session.expiresAt || addDays(new Date(), attributionWindowDays);

@@ -19,9 +19,19 @@ const querySchema = Joi.object({
   campaignId: Joi.string().trim().allow("").optional(),
   productId: Joi.string().trim().allow("").optional(),
   paymentModel: Joi.string().valid("all", "fixed", "commission", "hybrid", "free_product").optional(),
+  trackingStatus: Joi.string().valid("active", "inactive", "expired", "").optional(),
   startDate: Joi.date().iso().optional(),
   endDate: Joi.date().iso().optional(),
   sort: Joi.string().trim().allow("").optional(),
+});
+
+const objectIdParamSchema = Joi.object({
+  linkId: Joi.string().hex().length(24).required(),
+});
+
+const affiliateLinkStatusSchema = Joi.object({
+  action: Joi.string().valid("activate", "deactivate", "active", "inactive", "enable", "disable").required(),
+  reason: Joi.string().trim().max(1000).allow("").optional(),
 });
 
 const configEntitySchema = Joi.object({
@@ -102,6 +112,8 @@ router.patch(
 );
 router.get("/matching", validate(querySchema, "query"), controller.matching);
 router.get("/affiliate-links", validate(querySchema, "query"), controller.affiliateLinks);
+router.get("/affiliate-links/:linkId", validate(objectIdParamSchema, "params"), controller.affiliateLinkDetails);
+router.patch("/affiliate-links/:linkId/status", validate(objectIdParamSchema, "params"), validate(affiliateLinkStatusSchema), controller.updateAffiliateLinkStatus);
 router.get("/affiliate-tracking", validate(querySchema, "query"), controller.tracking);
 router.get("/product-promotions", validate(querySchema, "query"), controller.productPromotions);
 router.get("/settlements", validate(querySchema, "query"), controller.settlements);

@@ -61,6 +61,10 @@ async function initializeInfluencerCommerceJobs() {
     await trackingService.cleanupExpiredSessions();
   });
 
+  schedule(process.env.AFFILIATE_LINK_EXPIRY_SCHEDULE || "0 * * * *", "affiliate-link-expiry", async () => {
+    await commissionService.expireCampaignAffiliateLinks();
+  });
+
   schedule(process.env.INFLUENCER_METRICS_SCHEDULE || "30 2 * * *", "metrics-aggregation", async () => {
     await aggregateInfluencerMetrics();
   });

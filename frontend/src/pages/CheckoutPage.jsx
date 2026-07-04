@@ -68,7 +68,7 @@ function hasValidShippingAddress(address) {
     String(address?.fullName || "").trim() &&
       String(address?.phone || "").trim() &&
       String(address?.line1 || "").trim() &&
-      String(address?.city || "").trim() &&
+      String(address?.district || address?.city || "").trim() &&
       String(address?.state || "").trim() &&
       String(address?.postalCode || "").trim() &&
       String(address?.country || "").trim()
@@ -80,7 +80,7 @@ function getAddressFormFromShippingAddress(address = {}) {
     name: String(address.fullName || "").trim(),
     phone: String(address.phone || "").trim(),
     addressLine: String(address.line1 || "").trim(),
-    city: String(address.city || "").trim(),
+    district: String(address.district || address.city || "").trim(),
     state: String(address.state || "").trim(),
     pincode: String(address.postalCode || "").trim(),
     country: String(address.country || "India").trim() || "India",
@@ -1050,7 +1050,12 @@ export function CheckoutPage() {
                     address={selectedAddress}
                     selected
                     compact
-                    onEdit={() => setShowAddressSelector((current) => !current)}
+                    onEdit={() => {
+                      setAddressForm(getAddressFormFromSavedAddress(selectedAddress));
+                      setSelectedAddressId(String(selectedAddress._id));
+                      setShowAddressModal(true);
+                      setShowAddressSelector(false);
+                    }}
                   />
                 </div>
               ) : hasUsableAddress ? (
@@ -1058,7 +1063,7 @@ export function CheckoutPage() {
                   <div className="font-semibold text-slate-950 dark:text-white">{addressForm.name}</div>
                   <div className="mt-1">{addressForm.addressLine}</div>
                   <div className="mt-1">
-                    {addressForm.city}, {addressForm.state} {addressForm.pincode}
+                    {addressForm.district || addressForm.city}, {addressForm.state} {addressForm.pincode}
                   </div>
                   <div className="mt-1">{addressForm.phone}</div>
                 </div>
@@ -1078,6 +1083,11 @@ export function CheckoutPage() {
                         key={address._id}
                         address={address}
                         selected={String(address._id) === String(selectedAddressId)}
+                        onEdit={() => {
+                          setSelectedAddressId(String(address._id));
+                          setAddressForm(getAddressFormFromSavedAddress(address));
+                          setShowAddressModal(true);
+                        }}
                         onSelect={() => {
                           setSelectedAddressId(address._id);
                           setAddressForm(getAddressFormFromSavedAddress(address));

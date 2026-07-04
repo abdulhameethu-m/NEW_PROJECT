@@ -2553,7 +2553,7 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
       </Section>
       <Section title="Campaign Management" icon={Megaphone}>
         <ResponsiveTable
-          headers={["Campaign", "Budget", "Revenue", "Orders", "Applications", "Approved Creators", "Status", "Actions"]}
+          headers={["Campaign", "End Date", "Budget", "Revenue", "Orders", "Applications", "Approved Creators", "Status", "Actions"]}
           rows={campaigns}
           renderRow={(campaign) => (
             (() => {
@@ -2565,7 +2565,9 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
               const isPaused = state === "paused";
               const isCancelled = state === "cancelled";
               const isCompleted = state === "completed";
-              const isTerminal = isCancelled || isCompleted;
+              const isExpired = state === "expired";
+              const isTerminal = isCancelled || isCompleted || isExpired;
+              const endDate = campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline;
               const paymentModel = campaign.paymentModel || campaign.paymentModelSnapshot || {};
               const attributionRule = campaign.attributionRule || {};
               const pricing = campaign.pricing || paymentModel.pricing || {};
@@ -2581,6 +2583,10 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
                     <div className="text-xs font-normal capitalize text-slate-500">{statusText(campaign.campaignType)} - {paymentLabel || "Payment model"}</div>
                   </td>
                   <td className="px-3 py-3">
+                    {endDate ? formatDateTime(endDate) : "-"}
+                    {isExpired ? <div className="mt-1 text-xs font-semibold text-rose-600">Tracking inactive</div> : null}
+                  </td>
+                  <td className="px-3 py-3">
                     {formatCurrency(budgetValue)}
                     {attributionDays ? <div className="text-xs text-slate-500">{attributionDays} day attribution</div> : null}
                   </td>
@@ -2592,8 +2598,8 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap gap-2">
                       <button disabled={isBusy || isActive || isTerminal} onClick={() => onStatus(campaign, "activate")} className="rounded-lg border border-emerald-200 px-2 py-1 text-xs font-semibold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-900/50 dark:text-emerald-300">{isActive ? "Active" : "Activate"}</button>
-                      <button disabled={isBusy || isPaused || isTerminal} onClick={() => onStatus(campaign, "pause")} className="rounded-lg border border-amber-200 px-2 py-1 text-xs font-semibold text-amber-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-900/50 dark:text-amber-300">{isCancelled ? "Cancelled" : isPaused ? "Paused" : "Pause"}</button>
-                      <button disabled={isBusy || isTerminal} onClick={() => onStatus(campaign, "close")} className="rounded-lg border border-slate-200 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">{isCompleted ? "Closed" : isCancelled ? "Cancelled" : "Close"}</button>
+                      <button disabled={isBusy || isPaused || isTerminal} onClick={() => onStatus(campaign, "pause")} className="rounded-lg border border-amber-200 px-2 py-1 text-xs font-semibold text-amber-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-900/50 dark:text-amber-300">{isExpired ? "Expired" : isCancelled ? "Cancelled" : isPaused ? "Paused" : "Pause"}</button>
+                      <button disabled={isBusy || isCancelled || isCompleted} onClick={() => onStatus(campaign, "close")} className="rounded-lg border border-slate-200 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">{isCompleted ? "Closed" : isCancelled ? "Cancelled" : isExpired ? "Close" : "Close"}</button>
                       {["fixed", "hybrid"].includes(campaign.paymentType) && state === "accepted" && ["accepted_awaiting_funding", "funding_pending"].includes(campaign.fixedPaymentWorkflow?.status) ? (
                         <button disabled={busyId === `fund-${campaign._id}`} onClick={() => onFund(campaign)} className="rounded-lg bg-indigo-600 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
                           Fund Escrow
