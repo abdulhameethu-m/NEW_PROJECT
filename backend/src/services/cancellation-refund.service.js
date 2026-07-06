@@ -16,6 +16,7 @@ const cancellationPolicyService = require("./cancellation-policy.service");
 const auditService = require("./audit.service");
 const notificationService = require("./notification.service");
 const productAnalyticsService = require("./product-analytics.service");
+const pricingBreakdownEngine = require("./pricing-breakdown-engine.service");
 const { withOptionalTransaction } = require("../utils/withOptionalTransaction");
 
 function roundMoney(value) {
@@ -757,12 +758,17 @@ class CancellationRefundService {
       limit: Math.min(Math.max(Number(query.limit || 100), 1), 200),
     });
 
-    const grouped = refunds.map((refund) => ({
-      ...refund.toObject?.() || refund,
-      orderStatus: refund.orderId?.status || "",
-      paymentMethod: refund.orderId?.paymentMethod || refund.paymentMethod || "",
-      customer: refund.orderId?.userId || null,
-    }));
+    const grouped = refunds.map((refund) => {
+      const row = refund.toObject?.() || refund;
+      const order = row.orderId || refund.orderId || null;
+      return {
+        ...row,
+        orderStatus: order?.status || "",
+        paymentMethod: order?.paymentMethod || row.paymentMethod || "",
+        customer: order?.userId || null,
+        unifiedPricingBreakdown: order ? pricingBreakdownEngine.buildFromOrder(order) : null,
+      };
+    });
 
     const overview = grouped.reduce(
       (acc, refund) => {
@@ -787,7 +793,7 @@ class CancellationRefundService {
     const payment = await paymentRepo.findById(refund.paymentId?._id || refund.paymentId);
     return {
       refund,
-      order,
+      order: order ? pricingBreakdownEngine.attachToOrder(order) : order,
       payment,
       inventoryLogs: order?._id
         ? await require("../models/InventoryLedger").InventoryLedger.find({ orderId: order._id }).sort({ createdAt: -1 }).lean()

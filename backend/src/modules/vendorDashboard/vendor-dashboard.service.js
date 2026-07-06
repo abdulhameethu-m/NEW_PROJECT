@@ -25,6 +25,7 @@ const {
 const notificationService = require("../../services/notification.service");
 const productAnalyticsService = require("../../services/product-analytics.service");
 const analyticsAggregator = require("../analytics/service");
+const pricingBreakdownEngine = require("../../services/pricing-breakdown-engine.service");
 
 const VENDOR_ORDER_FLOW = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
 
@@ -273,7 +274,7 @@ class VendorDashboardService {
       throw new AppError("Order not found", 404, "NOT_FOUND");
     }
 
-    return order;
+    return pricingBreakdownEngine.attachToOrder(order);
   }
 
   async updateOrderStatus(userId, orderId, status) {

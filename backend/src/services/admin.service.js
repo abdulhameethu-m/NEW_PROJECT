@@ -21,6 +21,7 @@ const notificationService = require("./notification.service");
 const productAnalyticsService = require("./product-analytics.service");
 const cancellationRefundService = require("./cancellation-refund.service");
 const analyticsAggregator = require("../modules/analytics/service");
+const pricingBreakdownEngine = require("./pricing-breakdown-engine.service");
 
 function resolveGlobalShippingModes(configValue = {}) {
   const modes = [];
@@ -495,7 +496,7 @@ function assertValidOrderFlow(currentStatus, nextStatus) {
 async function getOrderById(orderId) {
   const order = await orderRepo.findById(orderId);
   if (!order) throw new AppError("Order not found", 404, "NOT_FOUND");
-  return order;
+  return pricingBreakdownEngine.attachToOrder(order);
 }
 
 async function createOrder(payload, actor, meta) {

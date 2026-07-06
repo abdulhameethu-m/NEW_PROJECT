@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { getRefundCase } from "../services/adminApi";
 import { formatCurrency } from "../utils/formatCurrency";
+import { UnifiedPricingBreakdown } from "../components/commerce/UnifiedPricingBreakdown";
 
 function normalizeError(error) {
   return error?.response?.data?.message || error?.message || "Request failed";
@@ -205,6 +206,10 @@ export function AdminRefundDetailsPage() {
               </div>
             </div>
           </div>
+
+          {order?.unifiedPricingBreakdown ? (
+            <UnifiedPricingBreakdown breakdown={order.unifiedPricingBreakdown} title="Original Pricing Source" />
+          ) : null}
         </section>
 
         <section className="space-y-6">

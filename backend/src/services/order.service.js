@@ -9,6 +9,7 @@ const checkoutService = require("./checkout.service");
 const inventoryService = require("./inventory.service");
 const productAnalyticsService = require("./product-analytics.service");
 const cancellationRefundService = require("./cancellation-refund.service");
+const pricingBreakdownEngine = require("./pricing-breakdown-engine.service");
 
 function normalizeAddress(address) {
   const a = address || {};
@@ -45,19 +46,23 @@ class OrderService {
   }
 
   async listForUser(userId, { page, limit, status } = {}) {
-    return await orderRepo.listByUserId({
+    const result = await orderRepo.listByUserId({
       userId,
       page: Number(page || 1),
       limit: Number(limit || 20),
       ...(status ? { status } : {}),
     });
+    return {
+      ...result,
+      orders: (result.orders || []).map((order) => pricingBreakdownEngine.attachToOrder(order)),
+    };
   }
 
   async getForUser(userId, orderId) {
     asObjectId(orderId, "orderId");
     const order = await orderRepo.findByIdForUser(orderId, userId);
     if (!order) throw new AppError("Order not found", 404, "NOT_FOUND");
-    return order;
+    return pricingBreakdownEngine.attachToOrder(order);
   }
 
   async cancelForUser(userId, orderId) {

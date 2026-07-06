@@ -28,6 +28,7 @@ const { Vendor } = require("../models/Vendor");
 const commissionRuleService = require("./commission-rule.service");
 const productAnalyticsService = require("./product-analytics.service");
 const marketplaceSettlementService = require("./marketplace-settlement.service");
+const pricingBreakdownEngine = require("./pricing-breakdown-engine.service");
 
 const PREPARED_CHECKOUT_CACHE_TTL_MS = 2 * 60 * 1000;
 const preparedCheckoutCache = new Map();
@@ -1196,7 +1197,12 @@ class CheckoutService {
         );
       });
 
-      return { orders, payouts: [], payment, orderGroupId: resolvedGroupId };
+      return {
+        orders: orders.map((order) => pricingBreakdownEngine.attachToOrder(order)),
+        payouts: [],
+        payment,
+        orderGroupId: resolvedGroupId,
+      };
     } catch (error) {
       for (const payout of payouts) {
         await payoutRepo
@@ -1854,7 +1860,12 @@ class CheckoutService {
         }
       });
 
-      return { orders, payouts: [], payment, orderGroupId: resolvedGroupId };
+      return {
+        orders: orders.map((order) => pricingBreakdownEngine.attachToOrder(order)),
+        payouts: [],
+        payment,
+        orderGroupId: resolvedGroupId,
+      };
     } catch (error) {
       for (const payout of payouts) {
         await payoutRepo

@@ -6,6 +6,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
 import { formatWeight, getWeightUnit, getWeightValue } from "../utils/weight";
 import { useAdminSession } from "../hooks/useAdminSession";
+import { UnifiedPricingBreakdown } from "../components/commerce/UnifiedPricingBreakdown";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
@@ -126,6 +127,7 @@ export function AdminOrderDetailsPage() {
     advanceSource: order?.codAdvance?.source || "",
   };
   const hasCodAdvance = order?.paymentMethod === "COD" && paymentSummary.advanceAmount > 0;
+  const unifiedPricingBreakdown = order?.unifiedPricingBreakdown || null;
 
   const canSave = useMemo(() => !!order && !saving && !loading, [order, saving, loading]);
   const hasTrackingFields = Boolean(trackingId.trim() && trackingUrl.trim());
@@ -324,39 +326,35 @@ export function AdminOrderDetailsPage() {
             )}
           </div>
 
-          <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
-            <div className="mb-2 font-semibold text-slate-950 dark:text-white">Payment summary</div>
-            <div className="grid gap-1 text-slate-600 dark:text-slate-300">
-              <div className="flex items-center justify-between"><span>Subtotal</span><span>{formatCurrency(paymentSummary.subtotal)}</span></div>
-              <div className="flex items-center justify-between"><span>Shipping Fee</span><span>{formatCurrency(paymentSummary.shippingFee)}</span></div>
-              <div className="flex items-center justify-between"><span>Platform Fee</span><span>{formatCurrency(paymentSummary.platformFee)}</span></div>
-              <div className="flex items-center justify-between"><span>Tax</span><span>{formatCurrency(paymentSummary.tax)}</span></div>
-              <div className="flex items-center justify-between"><span>Discount</span><span>- {formatCurrency(paymentSummary.discount)}</span></div>
-              <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2 font-semibold text-slate-950 dark:border-slate-800 dark:text-white"><span>Total Amount</span><span>{formatCurrency(paymentSummary.total)}</span></div>
-              {hasCodAdvance ? (
-                <div className="mt-3 grid gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
-                  <div className="flex items-center justify-between font-semibold">
-                    <span>COD Advance Paid</span>
-                    <span>{formatCurrency(paymentSummary.advanceAmount)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Balance Collectable</span>
-                    <span>{formatCurrency(paymentSummary.remainingCodAmount)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Payment Mode</span>
-                    <span className="font-medium">{paymentSummary.paymentMode}</span>
-                  </div>
-                  {paymentSummary.advanceRuleName || paymentSummary.advanceSource ? (
-                    <div className="border-t border-amber-200 pt-2 text-xs dark:border-amber-900">
-                      {paymentSummary.advanceRuleName ? <div>Rule: {paymentSummary.advanceRuleName}</div> : null}
-                      {paymentSummary.advanceSource ? <div>Source: {paymentSummary.advanceSource}</div> : null}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+          {unifiedPricingBreakdown ? (
+            <div className="mt-5">
+              <UnifiedPricingBreakdown breakdown={unifiedPricingBreakdown} title="Payment Summary" compact />
             </div>
-          </div>
+          ) : (
+            <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
+              <div className="mb-2 font-semibold text-slate-950 dark:text-white">Payment summary</div>
+              <div className="grid gap-1 text-slate-600 dark:text-slate-300">
+                <div className="flex items-center justify-between"><span>Subtotal</span><span>{formatCurrency(paymentSummary.subtotal)}</span></div>
+                <div className="flex items-center justify-between"><span>Shipping Fee</span><span>{formatCurrency(paymentSummary.shippingFee)}</span></div>
+                <div className="flex items-center justify-between"><span>Platform Fee</span><span>{formatCurrency(paymentSummary.platformFee)}</span></div>
+                <div className="flex items-center justify-between"><span>Tax</span><span>{formatCurrency(paymentSummary.tax)}</span></div>
+                <div className="flex items-center justify-between"><span>Discount</span><span>- {formatCurrency(paymentSummary.discount)}</span></div>
+                <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2 font-semibold text-slate-950 dark:border-slate-800 dark:text-white"><span>Total Amount</span><span>{formatCurrency(paymentSummary.total)}</span></div>
+                {hasCodAdvance ? (
+                  <div className="mt-3 grid gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                    <div className="flex items-center justify-between font-semibold">
+                      <span>COD Advance Paid</span>
+                      <span>{formatCurrency(paymentSummary.advanceAmount)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Balance Collectable</span>
+                      <span>{formatCurrency(paymentSummary.remainingCodAmount)}</span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="grid gap-4">

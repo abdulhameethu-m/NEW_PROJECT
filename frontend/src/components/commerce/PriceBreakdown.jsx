@@ -23,6 +23,39 @@ function AnimatedAmount({ value, freeLabel = "", className = "" }) {
   );
 }
 
+function ChargeRuleTrace({ charge }) {
+  const metadata = charge?.metadata || {};
+  const rule = metadata.matchedRule || metadata.configuredWeightRule || {};
+  const source = charge?.key === "shipping_cost" ? "Admin Shipping" : "Admin Pricing";
+  const ruleName =
+    charge?.key === "shipping_cost"
+      ? [metadata.state || rule.state, metadata.district || rule.district, metadata.zone || rule.zone].filter(Boolean).join(" / ") || "Shipping slab"
+      : charge?.displayName || charge?.key;
+  const details = [
+    ["Source", source],
+    ["Rule", ruleName],
+    ["Rule ID", rule.id || charge?.id],
+    ["Method", metadata.calculationMethod || charge?.type],
+    ["Priority", rule.priority ?? charge?.sortOrder],
+    ["Status", "Active"],
+    ["Weight", metadata.weight ? formatWeight(metadata.weight, "kg") : ""],
+    ["Formula", metadata.costBreakdown?.dynamicExpansion?.formula || metadata.costBreakdown?.formula],
+  ].filter(([, value]) => value !== undefined && value !== null && value !== "");
+
+  if (!details.length) return null;
+
+  return (
+    <div className="mt-2 grid gap-2 rounded-2xl bg-slate-50 p-3 text-xs dark:bg-slate-950/70 sm:grid-cols-2">
+      {details.map(([label, value]) => (
+        <div key={label}>
+          <div className="font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</div>
+          <div className="mt-1 break-words text-slate-700 dark:text-slate-200">{String(value)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function PriceBreakdown({ breakdown }) {
   if (!breakdown) return null;
 
@@ -124,9 +157,12 @@ export function PriceBreakdown({ breakdown }) {
             ) : null}
 
             {nonShippingCharges.map((charge) => (
-              <div key={charge.id || charge.key} className="flex items-center justify-between">
-                <span>{charge.displayName || charge.key}</span>
-                <AnimatedAmount value={charge.amount || 0} className="font-medium text-slate-950 dark:text-white" />
+              <div key={charge.id || charge.key}>
+                <div className="flex items-center justify-between">
+                  <span>{charge.displayName || charge.key}</span>
+                  <AnimatedAmount value={charge.amount || 0} className="font-medium text-slate-950 dark:text-white" />
+                </div>
+                <ChargeRuleTrace charge={charge} />
               </div>
             ))}
 
@@ -187,6 +223,8 @@ export function PriceBreakdown({ breakdown }) {
           Shipment weight: {formatWeight(shippingCharge.metadata.weight, "kg")}
         </div>
       ) : null}
+
+      {shippingCharge ? <ChargeRuleTrace charge={shippingCharge} /> : null}
 
       {!hasDynamicCharges && breakdown.totalSavings > 0 ? (
         <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
