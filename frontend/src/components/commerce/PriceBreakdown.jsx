@@ -27,6 +27,8 @@ export function PriceBreakdown({ breakdown }) {
   if (!breakdown) return null;
 
   const hasDynamicCharges = Array.isArray(breakdown.charges);
+  const codAdvance = breakdown.codAdvance || null;
+  const hasCodAdvance = codAdvance?.enabled && Number(codAdvance?.advanceAmount || 0) > 0;
   const itemCount = breakdown.itemCount || 1;
   const shippingCharge = hasDynamicCharges
     ? breakdown.charges.find((charge) => charge.key === "shipping_cost")
@@ -166,6 +168,19 @@ export function PriceBreakdown({ breakdown }) {
         <span>Total Amount</span>
         <AnimatedAmount value={breakdown.totalAmount || 0} className="text-lg" />
       </div>
+
+      {hasCodAdvance ? (
+        <div className="mt-4 space-y-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold">COD Advance Pay Now</span>
+            <AnimatedAmount value={codAdvance.advanceAmount || 0} className="font-bold" />
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Balance on Delivery</span>
+            <AnimatedAmount value={codAdvance.remainingCODAmount || 0} className="font-semibold" />
+          </div>
+        </div>
+      ) : null}
 
       {shippingCharge?.metadata?.weight ? (
         <div className="mt-3 text-sm text-slate-500 dark:text-slate-400">

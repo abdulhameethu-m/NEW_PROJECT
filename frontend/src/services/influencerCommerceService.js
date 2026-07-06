@@ -170,11 +170,6 @@ export async function saveInfluencerServices(payload = {}) {
   return data;
 }
 
-export async function saveInfluencerRequirements(payload = {}) {
-  const { data } = await api.put("/api/influencer/requirements", payload);
-  return data;
-}
-
 export async function listInfluencers(params = {}) {
   const { data } = await api.get("/api/influencer/list", { params });
   return data;

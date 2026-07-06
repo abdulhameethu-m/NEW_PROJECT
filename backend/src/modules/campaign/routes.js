@@ -59,7 +59,6 @@ router.post(
         applicationDeadline: Joi.date().iso().allow(null),
         availableSlots: Joi.number().min(0).default(1),
         requiredDeliverables: Joi.array().items(Joi.string().trim()).default([]),
-        requirements: Joi.object().unknown(true).default({}),
         assets: Joi.array().items(Joi.object().unknown(true)).default([]),
       }).default({}),
     })

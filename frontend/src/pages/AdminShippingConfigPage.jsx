@@ -50,17 +50,14 @@ function createRuleForm(defaultState = "Tamil Nadu") {
     priority: "0",
     status: "active",
     settlementRecipient: "ADMIN",
+    isFallback: false,
     description: "",
   };
 }
 
-function createRowId() {
-  return `shipping-state-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 function createLocationState(stateName = "Tamil Nadu") {
   return {
-    id: createRowId(),
+    id: `shipping-state-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     state: stateName,
     defaultZone: "REGIONAL",
     zones: {
@@ -104,6 +101,7 @@ export function AdminShippingConfigPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState(null);
   const [formData, setFormData] = useState(createRuleForm());
+  const [showFallbackWarning, setShowFallbackWarning] = useState(false);
   const [preview, setPreview] = useState({ weight: "", state: "Tamil Nadu", district: "" });
   const [previewResult, setPreviewResult] = useState(null);
 
@@ -174,16 +172,17 @@ export function AdminShippingConfigPage() {
       status: rule.status || "active",
       settlementRecipient: rule.settlementRecipient || "ADMIN",
       description: rule.description || "",
+      isFallback: Boolean(rule.isFallback),
     });
     setEditingRuleId(rule._id);
     setShowForm(true);
   }
 
   function handleFormChange(event) {
-    const { name, value } = event.target;
+    const { name, value, type, checked } = event.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
       ...(name === "state" ? { district: "" } : {}),
     }));
   }
@@ -205,6 +204,7 @@ export function AdminShippingConfigPage() {
         status: formData.status,
         settlementRecipient: formData.settlementRecipient === "VENDOR" ? "VENDOR" : "ADMIN",
         description: String(formData.description || "").trim(),
+        isFallback: Boolean(formData.isFallback),
       };
 
       if (!payload.state) throw new Error("State is required");
@@ -467,6 +467,19 @@ export function AdminShippingConfigPage() {
                 <span className="block text-sm font-medium text-gray-700">Description</span>
                 <textarea name="description" value={formData.description} onChange={handleFormChange} rows="3" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" placeholder="Optional slab notes" />
               </label>
+              <label className="mt-4 flex items-start gap-3 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  name="isFallback"
+                  checked={Boolean(formData.isFallback)}
+                  onChange={handleFormChange}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-slate-900"
+                />
+                <div>
+                  <div className="font-medium text-gray-900">Use As Fallback Rule</div>
+                  <div className="text-xs text-gray-500">When no matching weight slab exists, continue shipping calculation using this rule.</div>
+                </div>
+              </label>
               <div className="mt-5 flex gap-2">
                 <button type="button" onClick={handleSaveRule} disabled={savingRule} className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-60">{savingRule ? "Saving..." : editingRuleId ? "Update Slab" : "Create Slab"}</button>
                 <button type="button" onClick={resetForm} className="rounded-lg bg-gray-200 px-4 py-2 text-gray-800">Cancel</button>
@@ -563,7 +576,12 @@ export function AdminShippingConfigPage() {
                         <td className="px-6 py-4 text-sm text-gray-800">{rule.state}</td>
                         <td className="px-6 py-4 text-sm text-gray-800">{rule.district || "All districts"}</td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{rule.zone}</td>
-                        <td className="px-6 py-4 text-sm text-gray-800">{formatKg(rule.weightFrom)}kg - {formatKg(rule.weightTo)}kg</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">
+                          {formatKg(rule.weightFrom)}kg - {formatKg(rule.weightTo)}kg
+                          {rule.isFallback ? (
+                            <span className="ml-2 inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">Fallback</span>
+                          ) : null}
+                        </td>
                         <td className="px-6 py-4 text-sm font-semibold text-gray-900">{formatMoney(rule.shippingCharge)}</td>
                         <td className="px-6 py-4 text-sm text-gray-800">{Number(rule.priority || 0)}</td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-800">{rule.settlementRecipient === "VENDOR" ? "Vendor" : "Admin"}</td>

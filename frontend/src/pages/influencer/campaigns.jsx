@@ -13,7 +13,6 @@ import {
   Save,
   Search,
   Send,
-  Settings2,
   Trash2,
 } from "lucide-react";
 import {
@@ -25,7 +24,6 @@ import {
   getInfluencerCommerceProfile,
   listCampaignMarketplace,
   saveCampaignMarketplace,
-  saveInfluencerRequirements,
   saveInfluencerServices,
 } from "../../services/influencerCommerceService";
 import { formatCurrency } from "../../utils/formatCurrency";
@@ -240,110 +238,6 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
   );
 }
 
-function detailValue(value) {
-  if (value === null || value === undefined || value === "") return "Not provided";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (Array.isArray(value)) {
-    const values = value.map((item) => detailValue(item)).filter((item) => item !== "Not provided");
-    return values.length ? values.join(", ") : "Not provided";
-  }
-  if (typeof value === "object") {
-    const values = Object.values(value).filter((item) => item !== null && item !== undefined && item !== "");
-    return values.length ? values.join(", ") : "Not provided";
-  }
-  return String(value);
-}
-
-function hasDetailValue(value) {
-  if (value === null || value === undefined || value === "") return false;
-  if (Array.isArray(value)) return value.some(hasDetailValue);
-  if (typeof value === "object") return Object.values(value).some(hasDetailValue);
-  return true;
-}
-
-function firstDetailValue(...values) {
-  return values.find(hasDetailValue);
-}
-
-function formatDays(value) {
-  if (!hasDetailValue(value)) return "Not provided";
-  const days = Number(value);
-  return Number.isFinite(days) ? `${days} ${days === 1 ? "day" : "days"}` : detailValue(value);
-}
-
-function formatPercent(value) {
-  if (!hasDetailValue(value)) return "Not provided";
-  const percent = Number(value);
-  return Number.isFinite(percent) ? `${percent}%` : detailValue(value);
-}
-
-function formatRequirementCurrency(value) {
-  if (!hasDetailValue(value)) return "Not provided";
-  return formatCurrency(value);
-}
-
-function formatLocation(value) {
-  if (!hasDetailValue(value)) return "Not provided";
-  if (typeof value === "string") return value;
-  if (typeof value !== "object") return detailValue(value);
-  const parts = [value.city, value.state, value.country].filter(Boolean);
-  return parts.length ? parts.join(", ") : "Not provided";
-}
-
-function selectedServiceLabel(service = {}) {
-  const name = service.packageName || service.serviceName || statusLabel(service.serviceTypeKey || "Service");
-  const quantity = Number(service.quantity || service.units || 0);
-  const pieces = [];
-  if (quantity) pieces.push(`${quantity} ${quantity === 1 ? "unit" : "units"}`);
-  if (service.deliveryDays) pieces.push(`${service.deliveryDays}d delivery`);
-  if (service.revisionCount) pieces.push(`${service.revisionCount} rev`);
-  const price = service.price || service.packagePrice;
-  if (price) pieces.push(formatCurrency(price));
-  return pieces.length ? `${name} - ${pieces.join(" - ")}` : name;
-}
-
-function dynamicRequirementFields(requirements = {}) {
-  return requirements.dynamicFields && typeof requirements.dynamicFields === "object" && !Array.isArray(requirements.dynamicFields)
-    ? requirements.dynamicFields
-    : {};
-}
-
-function selectedServicesFromRequirements(requirements = {}) {
-  const services = dynamicRequirementFields(requirements).selectedServices;
-  return Array.isArray(services) ? services.map(selectedServiceLabel).filter(Boolean) : [];
-}
-
-function campaignRequirementRows(requirements = {}) {
-  const dynamicFields = dynamicRequirementFields(requirements);
-  const rows = [];
-  const add = (label, value, formatter = detailValue) => {
-    if (!hasDetailValue(value)) return;
-    const display = formatter(value);
-    if (display !== "Not provided") rows.push([label, display]);
-  };
-
-  add("Minimum budget", requirements.minimumBudget, formatRequirementCurrency);
-  add("Minimum attribution", firstDetailValue(requirements.minimumAttributionDays, dynamicFields.attributionDays), formatDays);
-  add("Commission", firstDetailValue(dynamicFields.commissionPercent, requirements.commissionPercent), formatPercent);
-  add("Languages", requirements.languages);
-  add("Preferred categories", firstDetailValue(requirements.preferredCategories, requirements.categories));
-  add("Location", requirements.location, formatLocation);
-  add("Target audience", requirements.targetAudience);
-  add("Delivery time", requirements.deliveryTime);
-  add("Communication", requirements.communicationPreferences);
-  add("Notes", requirements.notes);
-  add("Product required", requirements.productRequired);
-  add("Sample required", requirements.sampleRequired);
-  add("Product return", requirements.productReturnRequired);
-  add("Shipping required", requirements.shippingRequired);
-  add("Brand guidelines", requirements.brandGuidelinesRequired);
-  add("Creative approval", requirements.creativeApprovalRequired);
-  add("Content approval", requirements.contentApprovalRequired);
-  add("Milestone payment", dynamicFields.milestonePayment);
-
-  return rows;
-}
-
 function DetailBlock({ title, children }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -378,11 +272,8 @@ function CampaignDetailsPanel({ campaign, onClose, onAccept, onReject, busyId })
   const products = campaign.products || campaign.productIds || [];
   const paymentModel = campaign.paymentModel || {};
   const pricing = campaign.pricing || {};
-  const requirements = { ...(campaign.requirementsSnapshot || {}), ...(campaign.requirements || {}) };
-  const requirementRows = campaignRequirementRows(requirements);
   const deliverables = [
     ...(campaign.requiredDeliverables || []),
-    ...selectedServicesFromRequirements(requirements),
     ...((paymentModel.selectedServices || paymentModel.services || []).map((service) => `${service.serviceName || service.serviceTypeKey || "Service"}: ${service.quantity || service.units || 1}`)),
   ].filter(Boolean);
   const timeline = campaign.timeline || {};
@@ -481,11 +372,6 @@ function CampaignDetailsPanel({ campaign, onClose, onAccept, onReject, busyId })
             ["Shipping", formatCurrency(pricing.shippingCost || paymentModel.shippingCost || 0)],
             ["Estimated earnings", formatCurrency(campaign.expectedEarnings || campaign.fixedFee || pricing.fixedCost || 0)],
           ]} />
-        </DetailBlock>
-        <DetailBlock title="Requirements">
-          {requirementRows.length ? (
-            <KeyValueGrid rows={requirementRows} />
-          ) : <p className="text-sm text-slate-500">No extra requirements provided.</p>}
         </DetailBlock>
       </div>
     </div>
@@ -627,18 +513,11 @@ function TextInput({ label, value, onChange, type = "text", min, textarea = fals
   );
 }
 
-function csvFieldValue(value) {
-  if (Array.isArray(value)) return value.join(", ");
-  if (value === null || value === undefined) return "";
-  return String(value);
-}
-
-function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServices, onSaveRequirements }) {
+function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServices }) {
   const configuration = commerceProfile?.configuration || {};
   const serviceTypes = configuration.serviceTypes || [];
   const packageTemplates = configuration.packageTemplates || [];
   const services = commerceProfile?.services || [];
-  const requirements = commerceProfile?.requirements || {};
 
   function patchServices(nextServices) {
     setCommerceProfile((current) => ({ ...(current || {}), services: nextServices }));
@@ -705,19 +584,8 @@ function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServic
     patchServices(next);
   }
 
-  function updateRequirements(key, value) {
-    setCommerceProfile((current) => ({
-      ...(current || {}),
-      requirements: { ...(current?.requirements || {}), [key]: value },
-    }));
-  }
-
-  function toggleRequirement(key) {
-    updateRequirements(key, !requirements?.[key]);
-  }
-
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]">
+    <div className="grid gap-5">
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
           <div>
@@ -828,47 +696,6 @@ function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServic
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="font-semibold text-slate-950 dark:text-white">Requirements</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Used by vendors during direct campaign creation.</p>
-          </div>
-          <Settings2 className="h-5 w-5 text-slate-400" />
-        </div>
-        <div className="mt-4 grid gap-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <TextInput label="Minimum Budget" type="number" min="0" value={requirements.minimumBudget || 0} onChange={(value) => updateRequirements("minimumBudget", Number(value))} />
-            <TextInput label="Minimum Attribution Days" type="number" min="0" value={requirements.minimumAttributionDays || 0} onChange={(value) => updateRequirements("minimumAttributionDays", Number(value))} />
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {[
-              ["productRequired", "Product required"],
-              ["sampleRequired", "Sample required"],
-              ["productReturnRequired", "Product return"],
-              ["shippingRequired", "Shipping required"],
-              ["brandGuidelinesRequired", "Brand guidelines"],
-              ["creativeApprovalRequired", "Creative approval"],
-              ["contentApprovalRequired", "Content approval"],
-            ].map(([key, label]) => (
-              <label key={key} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:text-slate-200">
-                <input type="checkbox" checked={Boolean(requirements[key])} onChange={() => toggleRequirement(key)} className="h-4 w-4 rounded border-slate-300 text-indigo-600" />
-                {label}
-              </label>
-            ))}
-          </div>
-          <TextInput label="Preferred Categories" value={csvFieldValue(requirements.preferredCategories || requirements.categories)} onChange={(value) => updateRequirements("preferredCategories", value)} />
-          <TextInput label="Languages" value={csvFieldValue(requirements.languages)} onChange={(value) => updateRequirements("languages", value)} />
-          <TextInput label="Target Audience" textarea value={requirements.targetAudience || ""} onChange={(value) => updateRequirements("targetAudience", value)} />
-          <TextInput label="Delivery Time" value={requirements.deliveryTime || ""} onChange={(value) => updateRequirements("deliveryTime", value)} />
-          <TextInput label="Communication Preferences" textarea value={requirements.communicationPreferences || ""} onChange={(value) => updateRequirements("communicationPreferences", value)} />
-          <TextInput label="Notes" textarea value={requirements.notes || ""} onChange={(value) => updateRequirements("notes", value)} />
-          <button type="button" disabled={busy === "requirements"} onClick={() => onSaveRequirements(requirements)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-950">
-            <Save className="h-4 w-4" />
-            Save Requirements
-          </button>
-        </div>
-      </section>
     </div>
   );
 }
@@ -1038,21 +865,6 @@ export default function InfluencerCampaignsPage() {
     }
   }
 
-  async function handleSaveRequirements(requirements) {
-    setBusyId("requirements");
-    setError("");
-    setMessage("");
-    try {
-      const response = await saveInfluencerRequirements(requirements || {});
-      setCommerceProfile(response?.data || null);
-      setMessage("Requirements saved.");
-    } catch (err) {
-      setError(err?.response?.data?.message || "Unable to save requirements.");
-    } finally {
-      setBusyId("");
-    }
-  }
-
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
@@ -1144,7 +956,6 @@ export default function InfluencerCampaignsPage() {
             setCommerceProfile={setCommerceProfile}
             busy={busyId}
             onSaveServices={handleSaveServices}
-            onSaveRequirements={handleSaveRequirements}
           />
         )
       ) : tab === "analytics" ? (

@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { AppError } = require("../utils/AppError");
 const CODConfig = require("../models/CODConfig");
+const CODAdvanceRule = require("../models/CODAdvanceRule");
 const Shipment = require("../models/Shipment");
 const VendorOrder = require("../models/VendorOrder");
 const { Order } = require("../models/Order");
@@ -29,6 +30,93 @@ function normalizePostalCode(value = "") {
 
 function normalizeState(value = "") {
   return String(value || "").trim().toLowerCase();
+}
+
+function normalizeLocation(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getRuleShippingZones(rule = {}) {
+  const zones = Array.isArray(rule.shippingZones) ? rule.shippingZones : [];
+  return zones.length ? zones : [rule.shippingZone].filter(Boolean);
+}
+
+function calculateRuleAmount({ type = "FIXED", value = 0, basis = 0, min = 0, max = 0 }) {
+  const raw =
+    String(type).toUpperCase() === "PERCENTAGE"
+      ? (Number(basis || 0) * Number(value || 0)) / 100
+      : Number(value || 0);
+  let amount = roundMoney(Math.max(0, raw));
+  if (Number(min || 0) > 0) amount = Math.max(amount, Number(min || 0));
+  if (Number(max || 0) > 0) amount = Math.min(amount, Number(max || 0));
+  return roundMoney(Math.min(amount, Number(basis || 0)));
+}
+
+function orderValueMatches(rule, orderValue) {
+  const min = Number(rule?.minOrderValue || 0);
+  const max = Number(rule?.maxOrderValue || 0);
+  return Number(orderValue || 0) >= min && (max <= 0 || Number(orderValue || 0) <= max);
+}
+
+function resolveBestAdvanceRule(rules = [], { state = "", district = "", shippingZone = "", orderValue = 0 } = {}) {
+  const normalizedState = normalizeLocation(state);
+  const normalizedDistrict = normalizeLocation(district);
+  const normalizedZone = normalizeLocation(shippingZone);
+  const activeRules = (rules || [])
+    .filter((rule) => rule?.isActive !== false && orderValueMatches(rule, orderValue))
+    .sort((left, right) => Number(left.priority || 100) - Number(right.priority || 100));
+
+  const districtRule = activeRules.find(
+    (rule) =>
+      normalizeLocation(rule.district) &&
+      normalizeLocation(rule.district) === normalizedDistrict &&
+      (!normalizeLocation(rule.state) || normalizeLocation(rule.state) === normalizedState)
+  );
+  if (districtRule) return { rule: districtRule, source: "DISTRICT" };
+
+  const stateRule = activeRules.find(
+    (rule) => normalizeLocation(rule.state) && normalizeLocation(rule.state) === normalizedState && !normalizeLocation(rule.district)
+  );
+  if (stateRule) return { rule: stateRule, source: "STATE" };
+
+  const zoneRule = activeRules.find(
+    (rule) => getRuleShippingZones(rule).some((zone) => normalizeLocation(zone) === normalizedZone)
+  );
+  if (zoneRule) return { rule: zoneRule, source: "SHIPPING_ZONE" };
+
+  return { rule: null, source: "GLOBAL" };
+}
+
+function calculateCancellationDeduction({ config = {}, paymentMode = "COD", orderStatus = "", advancePaid = 0, orderAmount = 0 }) {
+  const settings = config.cancellationCharges || {};
+  if (!settings.isEnabled) return { enabled: false, deductionAmount: 0, refundableAmount: roundMoney(paymentMode === "COD" ? advancePaid : orderAmount) };
+  if (paymentMode === "ONLINE" && !settings.onlineEnabled) {
+    return { enabled: false, deductionAmount: 0, refundableAmount: roundMoney(orderAmount) };
+  }
+
+  const shipped = ["Shipped", "Out for Delivery", "Delivered"].includes(String(orderStatus || ""));
+  if (shipped && !settings.applicableAfterShipment) {
+    return { enabled: true, skipped: true, reason: "NOT_APPLICABLE_AFTER_SHIPMENT", deductionAmount: 0, refundableAmount: roundMoney(paymentMode === "COD" ? advancePaid : orderAmount) };
+  }
+  if (!shipped && !settings.applicableBeforeShipment) {
+    return { enabled: true, skipped: true, reason: "NOT_APPLICABLE_BEFORE_SHIPMENT", deductionAmount: 0, refundableAmount: roundMoney(paymentMode === "COD" ? advancePaid : orderAmount) };
+  }
+
+  const basis = paymentMode === "COD" ? Number(advancePaid || 0) : Number(orderAmount || 0);
+  const deductionAmount = calculateRuleAmount({
+    type: settings.type,
+    value: settings.amount,
+    basis,
+    min: settings.minimumDeduction,
+    max: settings.maximumDeduction,
+  });
+  return {
+    enabled: true,
+    deductionAmount,
+    refundableAmount: roundMoney(Math.max(0, basis - deductionAmount)),
+    basis,
+    type: settings.type,
+  };
 }
 
 function buildSettlementRef(order) {
@@ -68,6 +156,42 @@ class CODService {
     Object.assign(config, payload, { updatedBy: actorId || config.updatedBy });
     await config.save();
     return config;
+  }
+
+  async listAdvanceRules(query = {}) {
+    const filter = {};
+    if (query.state) filter.state = new RegExp(`^${String(query.state).trim()}$`, "i");
+    if (query.district) filter.district = new RegExp(`^${String(query.district).trim()}$`, "i");
+    if (query.isActive !== undefined) filter.isActive = query.isActive === true || query.isActive === "true";
+    return CODAdvanceRule.find(filter).sort({ priority: 1, updatedAt: -1 });
+  }
+
+  async createAdvanceRule(payload = {}, actorId = null) {
+    return CODAdvanceRule.create({
+      ...payload,
+      createdBy: actorId || undefined,
+      updatedBy: actorId || undefined,
+    });
+  }
+
+  async updateAdvanceRule(ruleId, payload = {}, actorId = null) {
+    const rule = await CODAdvanceRule.findByIdAndUpdate(
+      ruleId,
+      { $set: { ...payload, updatedBy: actorId || undefined } },
+      { returnDocument: "after", runValidators: true }
+    );
+    if (!rule) throw new AppError("COD advance rule not found", 404, "COD_ADVANCE_RULE_NOT_FOUND");
+    return rule;
+  }
+
+  async deleteAdvanceRule(ruleId, actorId = null) {
+    const rule = await CODAdvanceRule.findByIdAndUpdate(
+      ruleId,
+      { $set: { isActive: false, updatedBy: actorId || undefined } },
+      { returnDocument: "after" }
+    );
+    if (!rule) throw new AppError("COD advance rule not found", 404, "COD_ADVANCE_RULE_NOT_FOUND");
+    return rule;
   }
 
   matchZoneRule(config, address = {}) {
@@ -145,6 +269,68 @@ class CODService {
     };
   }
 
+  async resolveAdvanceQuote({ address = {}, subtotal = 0, shippingFee = 0, orderTotal = 0, shippingZone = "" } = {}) {
+    const config = await this.getConfig();
+    const settings = config.advance || {};
+    const basis = settings.includeShippingInBasis
+      ? roundMoney(orderTotal || Number(subtotal || 0) + Number(shippingFee || 0))
+      : roundMoney(subtotal);
+
+    if (!settings.isEnabled) {
+      return {
+        enabled: false,
+        advanceAmount: 0,
+        remainingCODAmount: roundMoney(orderTotal || basis),
+        basis,
+        source: "DISABLED",
+      };
+    }
+
+    const state = address.state || "";
+    const district = address.district || address.city || "";
+    const rules = await CODAdvanceRule.find({ isActive: true }).lean();
+    const match = resolveBestAdvanceRule(rules, {
+      state,
+      district,
+      shippingZone,
+      orderValue: basis,
+    });
+
+    const rule = match.rule;
+    const advanceType = rule?.advanceType || settings.defaultAdvanceType || "FIXED";
+    const advanceValue = rule ? rule.advanceValue : settings.defaultAdvanceValue;
+    const advanceAmount = calculateRuleAmount({
+      type: advanceType,
+      value: advanceValue,
+      basis,
+      min: settings.minAdvanceAmount,
+      max: settings.maxAdvanceAmount,
+    });
+    const orderTotalValue = roundMoney(orderTotal || basis);
+
+    return {
+      enabled: true,
+      advanceAmount,
+      remainingCODAmount: roundMoney(Math.max(0, orderTotalValue - advanceAmount)),
+      basis,
+      orderTotal: orderTotalValue,
+      source: match.source,
+      ruleId: rule?._id || null,
+      ruleName: rule?.name || "Global default",
+      advanceType,
+      advanceValue,
+      state,
+      district,
+      tooltip:
+        "You are paying only the advance amount now. The remaining amount must be paid to the delivery partner when the order is delivered.",
+    };
+  }
+
+  async calculateCancellationRefund({ paymentMode = "COD", orderStatus = "", advancePaid = 0, orderAmount = 0 } = {}) {
+    const config = await this.getConfig();
+    return calculateCancellationDeduction({ config, paymentMode, orderStatus, advancePaid, orderAmount });
+  }
+
   buildOrderPriceBreakdown({ pricingBreakdown = {}, subtotal = 0, shippingFee = 0, taxAmount = 0, discountAmount = 0, totalAmount = 0, paymentMethod = "COD", currency = "INR" }) {
     return {
       subtotal: roundMoney(subtotal),
@@ -173,7 +359,10 @@ class CODService {
           prepaid: order.paymentMethod === "ONLINE",
           shipmentStatus: "PENDING",
           shippingMode: order.shippingMode || "SELF",
-          codAmountCollectable: order.paymentMethod === "COD" ? roundMoney(order.totalAmount || 0) : 0,
+          codAmountCollectable:
+            order.paymentMethod === "COD"
+              ? roundMoney(order.remainingCODAmount ?? order.codAdvance?.remainingCODAmount ?? order.totalAmount ?? 0)
+              : 0,
           shippingAddressSnapshot: order.shippingAddress || {},
         },
       ],
@@ -198,7 +387,10 @@ class CODService {
           grossAmount: roundMoney(order.totalAmount || order.subtotal || 0),
           commissionAmount: roundMoney(order.platformCommissionAmount || 0),
           vendorNetAmount: roundMoney(order.vendorEarning || 0),
-          codAmount: order.paymentMethod === "COD" ? roundMoney(order.totalAmount || 0) : 0,
+          codAmount:
+            order.paymentMethod === "COD"
+              ? roundMoney(order.remainingCODAmount ?? order.codAdvance?.remainingCODAmount ?? order.totalAmount ?? 0)
+              : 0,
           shipmentId: order.shipmentId || "",
           settlementStatus:
             order.paymentMethod === "COD" ? "PENDING_COLLECTION" : "NOT_APPLICABLE",
@@ -227,7 +419,12 @@ class CODService {
       throw new AppError("COD order not found", 404, "COD_ORDER_NOT_FOUND");
     }
 
-    const totalCollectable = roundMoney(orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0));
+    const totalCollectable = roundMoney(
+      orders.reduce(
+        (sum, order) => sum + Number(order.remainingCODAmount ?? order.codAdvance?.remainingCODAmount ?? order.totalAmount ?? 0),
+        0
+      )
+    );
     const amountToCollect = roundMoney(collectedAmount == null ? totalCollectable : collectedAmount);
     if (amountToCollect !== totalCollectable) {
       throw new AppError("Collected amount does not match COD payable total", 400, "COD_AMOUNT_MISMATCH");
@@ -244,6 +441,7 @@ class CODService {
       order.paymentCapturedAt = new Date();
       order.settlementStatus = "COLLECTED";
       order.cod.status = "collected";
+      order.remainingCollected = true;
       order.cod.collectedAt = new Date();
       order.cod.collectedBy = String(actor || "SYSTEM");
       order.cod.collectedReference = String(reference || "");
@@ -410,3 +608,9 @@ class CODService {
 
 module.exports = new CODService();
 module.exports.COD_EVENTS = COD_EVENTS;
+module.exports._private = {
+  calculateRuleAmount,
+  resolveBestAdvanceRule,
+  getRuleShippingZones,
+  calculateCancellationDeduction,
+};

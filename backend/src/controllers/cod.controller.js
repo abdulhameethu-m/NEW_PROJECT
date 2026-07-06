@@ -40,10 +40,34 @@ const getAnalytics = asyncHandler(async (req, res) => {
   return ok(res, analytics, "COD analytics retrieved");
 });
 
+const listAdvanceRules = asyncHandler(async (req, res) => {
+  const rules = await codService.listAdvanceRules(req.query || {});
+  return ok(res, rules, "COD advance rules loaded");
+});
+
+const createAdvanceRule = asyncHandler(async (req, res) => {
+  const rule = await codService.createAdvanceRule(req.body || {}, req.user?.sub || null);
+  return ok(res, rule, "COD advance rule created");
+});
+
+const updateAdvanceRule = asyncHandler(async (req, res) => {
+  const rule = await codService.updateAdvanceRule(req.params.id, req.body || {}, req.user?.sub || null);
+  return ok(res, rule, "COD advance rule updated");
+});
+
+const deleteAdvanceRule = asyncHandler(async (req, res) => {
+  const rule = await codService.deleteAdvanceRule(req.params.id, req.user?.sub || null);
+  return ok(res, rule, "COD advance rule disabled");
+});
+
 module.exports = {
   checkAvailability,
   collect,
   getSettings,
   updateSettings,
   getAnalytics,
+  listAdvanceRules,
+  createAdvanceRule,
+  updateAdvanceRule,
+  deleteAdvanceRule,
 };

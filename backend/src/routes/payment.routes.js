@@ -6,6 +6,7 @@ const paymentController = require("../controllers/payment.controller");
 const codController = require("../controllers/cod.controller");
 const {
   createRazorpayOrderSchema,
+  createCodAdvanceOrderSchema,
   verifyRazorpayPaymentSchema,
   checkoutFailureSchema,
   checkoutOpenedSchema,
@@ -24,6 +25,7 @@ function deprecatedRouteAlias(canonicalPath) {
 }
 
 router.post("/create-order", authRequired, validate(createRazorpayOrderSchema), paymentController.createRazorpayOrder);
+router.post("/cod/advance/create-order", authRequired, validate(createCodAdvanceOrderSchema), paymentController.createCodAdvanceOrder);
 router.post("/verify", authRequired, validate(verifyRazorpayPaymentSchema), paymentController.verifyRazorpayPayment);
 router.post("/checkout-opened", authRequired, validate(checkoutOpenedSchema), paymentController.recordCheckoutOpened);
 router.post("/checkout-failure", authRequired, validate(checkoutFailureSchema), paymentController.recordCheckoutFailure);

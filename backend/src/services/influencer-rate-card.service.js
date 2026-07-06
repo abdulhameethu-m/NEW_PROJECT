@@ -11,7 +11,6 @@ const {
 } = require("../modules/influencer/model");
 const {
   InfluencerService,
-  InfluencerRequirement,
   CampaignPaymentModel,
   CampaignServiceSnapshot,
   CampaignAttributionRule,
@@ -26,12 +25,6 @@ function objectId(value) {
 function money(value) {
   const number = Number(value || 0);
   return Number(number.toFixed(2));
-}
-
-function arrayValue(value) {
-  if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
-  if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
-  return [];
 }
 
 function normalizePaymentType(value = "") {
@@ -125,21 +118,15 @@ class InfluencerRateCardService {
     return InfluencerService.find(filter).sort({ serviceName: 1, createdAt: 1 }).lean();
   }
 
-  async getRequirement(influencerId) {
-    return InfluencerRequirement.findOne({ influencerId }).lean();
-  }
-
   async getMyCommerceProfile(userId) {
     const profile = await this.getProfileForUser(userId);
-    const [configuration, services, requirements] = await Promise.all([
+    const [configuration, services] = await Promise.all([
       this.getConfiguration(),
       this.listServices(profile._id, true),
-      this.getRequirement(profile._id),
     ]);
     return {
       profile,
       services,
-      requirements: requirements || null,
       configuration,
     };
   }
@@ -251,49 +238,11 @@ class InfluencerRateCardService {
     return this.getMyCommerceProfile(userId);
   }
 
-  async saveMyRequirements(userId, payload = {}) {
-    const profile = await this.getProfileForUser(userId);
-    const update = {
-      influencerId: profile._id,
-      minimumBudget: money(payload.minimumBudget),
-      minimumAttributionDays: Math.max(0, Number(payload.minimumAttributionDays ?? payload.minimumAttributionWindow ?? 0) || 0),
-      productRequired: Boolean(payload.productRequired),
-      sampleRequired: Boolean(payload.sampleRequired),
-      productReturnRequired: Boolean(payload.productReturnRequired),
-      shippingRequired: Boolean(payload.shippingRequired),
-      brandGuidelinesRequired: Boolean(payload.brandGuidelinesRequired),
-      creativeApprovalRequired: Boolean(payload.creativeApprovalRequired),
-      contentApprovalRequired: Boolean(payload.contentApprovalRequired),
-      approvalRequired: Boolean(payload.approvalRequired ?? payload.creativeApprovalRequired ?? payload.contentApprovalRequired),
-      languages: arrayValue(payload.languages),
-      categories: arrayValue(payload.categories),
-      preferredCategories: arrayValue(payload.preferredCategories || payload.categories),
-      targetAudience: String(payload.targetAudience || "").trim(),
-      deliveryTime: String(payload.deliveryTime || "").trim(),
-      communicationPreferences: String(payload.communicationPreferences || "").trim(),
-      location: {
-        country: payload.location?.country || payload.country || "",
-        state: payload.location?.state || payload.state || "",
-        city: payload.location?.city || payload.city || "",
-      },
-      shippingAddress: payload.shippingAddress || {},
-      notes: String(payload.notes || "").trim(),
-      customFields: payload.customFields || {},
-    };
-    await InfluencerRequirement.findOneAndUpdate(
-      { influencerId: profile._id },
-      { $set: update },
-      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
-    );
-    return this.getMyCommerceProfile(userId);
-  }
-
   async getCreatorCards(influencerIds = []) {
     const ids = [...new Set(influencerIds.map(String).filter(Boolean))].map(objectId).filter(Boolean);
     if (!ids.length) return new Map();
-    const [services, requirements, socials] = await Promise.all([
+    const [services, socials] = await Promise.all([
       InfluencerService.find({ influencerId: { $in: ids }, status: "active" }).sort({ price: 1 }).lean(),
-      InfluencerRequirement.find({ influencerId: { $in: ids } }).lean(),
       InfluencerSocialAccount.find({ influencerId: { $in: ids }, verificationStatus: "verified" }).lean(),
     ]);
     const serviceMap = new Map();
@@ -303,7 +252,6 @@ class InfluencerRateCardService {
       rows.push(service);
       serviceMap.set(key, rows);
     });
-    const requirementMap = new Map(requirements.map((row) => [String(row.influencerId), row]));
     const socialMap = new Map();
     socials.forEach((account) => {
       const key = String(account.influencerId);
@@ -321,7 +269,6 @@ class InfluencerRateCardService {
         services: rateCard,
         rateCard,
         startingRate: money(startingRate),
-        requirements: requirementMap.get(key) || null,
         socialAccounts: socialMap.get(key) || [],
       }];
     }));
@@ -351,7 +298,6 @@ class InfluencerRateCardService {
       reviews: [],
       services: card.services || [],
       rateCard: card.rateCard || [],
-      requirements: card.requirements || null,
       categories: profile.categories || [],
       languages: profile.languages || [],
       socialLinks: profile.socialHandles || {},
@@ -360,13 +306,10 @@ class InfluencerRateCardService {
   }
 
   async buildInfluencerSnapshot(influencerId, selectedServices = [], options = {}) {
-    if (!influencerId) return { rateCard: [], selectedServices: [], requirements: null, profile: null };
+    if (!influencerId) return { rateCard: [], selectedServices: [], profile: null };
     const profile = await InfluencerProfile.findById(influencerId).populate("userId", "name email username").lean();
     if (!profile) throw new AppError("Influencer not found", 404, "NOT_FOUND");
-    const [services, requirements] = await Promise.all([
-      InfluencerService.find({ influencerId, status: "active" }).lean(),
-      InfluencerRequirement.findOne({ influencerId }).lean(),
-    ]);
+    const services = await InfluencerService.find({ influencerId, status: "active" }).lean();
     const decoratedServices = services.map((service) => ({
       ...service,
       startingPrice: serviceStartingRate(service),
@@ -444,7 +387,6 @@ class InfluencerRateCardService {
       profile: { id: profile._id, name: profileName(profile), username: profileUsername(profile) },
       rateCard: decoratedServices,
       selectedServices: selected,
-      requirements: requirements || null,
     };
   }
 
@@ -503,15 +445,6 @@ class InfluencerRateCardService {
       ? money(paymentInput.commissionReserve ?? ((expectedBudget * commissionPercentage) / 100))
       : 0;
     const totalBudget = money(fixedCost + commissionReserve + productValue + shippingCost + taxes + platformFees);
-    const requirements = influencerSnapshot.requirements;
-
-    if (requirements?.minimumBudget && totalBudget < Number(requirements.minimumBudget)) {
-      throw new AppError("Campaign budget is below the influencer minimum", 400, "INFLUENCER_MINIMUM_BUDGET");
-    }
-    if (requirements?.minimumAttributionDays && attributionDays && attributionDays < Number(requirements.minimumAttributionDays)) {
-      throw new AppError("Attribution window is below the influencer minimum", 400, "INFLUENCER_MINIMUM_ATTRIBUTION");
-    }
-
     const pricing = {
       fixedCost,
       commissionReserve,
@@ -581,7 +514,6 @@ class InfluencerRateCardService {
         pricing,
         paymentModelSnapshot: paymentModel,
         influencerRateSnapshot: influencerSnapshot,
-        requirementsSnapshot: influencerSnapshot.requirements || {},
       },
       budgetValue: totalBudget || fixedCost || expectedBudget,
     };
@@ -668,7 +600,6 @@ class InfluencerRateCardService {
         ? await this.buildInfluencerSnapshot(participantId, campaign.paymentModelSnapshot?.selectedServices || [])
         : (existingSnapshot || {});
     const paymentModel = campaign.paymentModelSnapshot || {};
-    const requirements = influencerSnapshot.requirements || campaign.requirementsSnapshot || {};
     const lockedAt = new Date();
     const contract = {
       influencerId: participantId || null,
@@ -677,13 +608,11 @@ class InfluencerRateCardService {
       source,
       paymentModel,
       influencerRateCard: influencerSnapshot,
-      requirements,
       termsHash: crypto.createHash("sha256").update(serializeForHash({
         campaignId: campaign._id,
         participantId,
         paymentModel,
         influencerSnapshot,
-        requirements,
       })).digest("hex"),
     };
     const existingIndex = (campaign.contractSnapshots || []).findIndex((row) => String(row.influencerId || "") === String(participantId || ""));
@@ -698,7 +627,6 @@ class InfluencerRateCardService {
       termsHash: contract.termsHash,
       paymentModel,
       influencerRateCard: influencerSnapshot,
-      requirements,
     };
     campaign.termsFrozen = {
       commissionPercent: campaign.commissionPercent,
@@ -710,7 +638,6 @@ class InfluencerRateCardService {
       pricing: campaign.pricing,
       paymentModelSnapshot: paymentModel,
       influencerRateSnapshot: influencerSnapshot,
-      requirementsSnapshot: requirements,
       frozenAt: lockedAt,
     };
     campaign.history.push({ state: "contract_locked", actorId, note: "Campaign contract locked with immutable pricing snapshots", changedAt: lockedAt });

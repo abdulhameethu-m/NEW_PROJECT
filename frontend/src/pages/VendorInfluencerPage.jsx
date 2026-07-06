@@ -279,7 +279,6 @@ function mergeInfluencerOptions(rows = []) {
       ...normalized,
       rateCard: normalized.rateCard?.length ? normalized.rateCard : current.rateCard,
       services: normalized.services?.length ? normalized.services : current.services,
-      requirements: normalized.requirements || current.requirements,
     });
   });
   return [...map.values()];
@@ -1067,10 +1066,6 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       marketplace: {
         ...source.marketplace,
         requiredDeliverables: splitLines(dynamicFieldValues.expectedDeliverables || dynamicFieldValues.deliverables || source.marketplace?.requiredDeliverables || []),
-        requirements: {
-          ...(source.marketplace?.requirements || {}),
-          dynamicFields: dynamicFieldValues,
-        },
       },
       paymentModel: {
         paymentType: source.paymentType,
@@ -2463,7 +2458,6 @@ function DiscoverView({ rows, pagination, subscriptionData = {}, busyId, onSubsc
                     ) : null}
                   </div>
                 ) : null}
-                {row.requirements?.minimumAttributionDays ? <p className="text-slate-500">Minimum attribution: {row.requirements.minimumAttributionDays} days</p> : null}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" disabled={inviteBusy} onClick={() => onInvite(row)} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"><Send className="h-3.5 w-3.5" />{invited ? "Invite Again" : "Invite"}</button>

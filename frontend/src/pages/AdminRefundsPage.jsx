@@ -15,6 +15,41 @@ function normalizeError(error) {
   return error?.response?.data?.message || error?.message || "Request failed";
 }
 
+function getRefundOrder(refund) {
+  return refund?.orderId || refund?.order || {};
+}
+
+function getRefundAdvancePaid(refund) {
+  const order = getRefundOrder(refund);
+  const value =
+    refund?.breakdown?.advancePaid ??
+    order?.advanceAmount ??
+    order?.codAdvance?.advanceAmount ??
+    0;
+  return Number(value || 0);
+}
+
+function getRefundOrderTotal(refund) {
+  const order = getRefundOrder(refund);
+  const value = refund?.breakdown?.orderTotal ?? order?.totalAmount ?? refund?.grossAmount ?? 0;
+  return Number(value || 0);
+}
+
+function getRefundBalanceOnDelivery(refund) {
+  const order = getRefundOrder(refund);
+  const explicitBalance = order?.remainingCODAmount ?? order?.codAdvance?.remainingCODAmount;
+  if (explicitBalance !== undefined && explicitBalance !== null) {
+    return Number(explicitBalance || 0);
+  }
+  return Math.max(0, getRefundOrderTotal(refund) - getRefundAdvancePaid(refund));
+}
+
+function isCodAdvanceRefund(refund) {
+  const order = getRefundOrder(refund);
+  const paymentMethod = String(refund?.paymentMethod || order?.paymentMethod || "").toUpperCase();
+  return paymentMethod === "COD" && getRefundAdvancePaid(refund) > 0;
+}
+
 function RefundProcessModal({ refund, loading, onClose, onSubmit }) {
   const [refundMethod, setRefundMethod] = useState("RAZORPAY");
   const [transactionReference, setTransactionReference] = useState("");
@@ -58,6 +93,12 @@ function RefundProcessModal({ refund, loading, onClose, onSubmit }) {
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
             <div>Refund amount: <span className="font-semibold text-slate-950">{formatCurrency(refund.amount || 0)}</span></div>
             <div className="mt-1">Deduction amount: <span className="font-semibold text-slate-950">{formatCurrency(refund.deductionAmount || 0)}</span></div>
+            {isCodAdvanceRefund(refund) ? (
+              <>
+                <div className="mt-1">COD advance paid: <span className="font-semibold text-slate-950">{formatCurrency(getRefundAdvancePaid(refund))}</span></div>
+                <div className="mt-1">Balance on delivery: <span className="font-semibold text-slate-950">{formatCurrency(getRefundBalanceOnDelivery(refund))}</span></div>
+              </>
+            ) : null}
             <div className="mt-1">Customer: <span className="font-semibold text-slate-950">{refund.orderId?.userId?.name || refund.orderId?.shippingAddress?.fullName || "Not available"}</span></div>
           </div>
 
@@ -239,7 +280,7 @@ export function AdminRefundsPage() {
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Customer</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Vendor</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Payment Method</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">Order Amount</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Refund Base</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Deduction</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Refund Amount</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Refund Status</th>
@@ -256,15 +297,30 @@ export function AdminRefundsPage() {
                   const customer = refund.orderId?.userId?.name || refund.orderId?.shippingAddress?.fullName || "Not available";
                   const vendor = refund.orderId?.sellerId?.companyName || refund.orderId?.sellerId?.shopName || "Platform";
                   const isCompleted = refund.status === "PROCESSED";
+                  const isCodAdvance = isCodAdvanceRefund(refund);
+                  const orderTotal = getRefundOrderTotal(refund);
+                  const advancePaid = getRefundAdvancePaid(refund);
+                  const balanceOnDelivery = getRefundBalanceOnDelivery(refund);
                   return (
                     <tr key={refund._id}>
                       <td className="px-4 py-3 font-semibold text-slate-950">{refund.orderId?.orderNumber || refund.orderId?._id}</td>
                       <td className="px-4 py-3 text-slate-600">{customer}</td>
                       <td className="px-4 py-3 text-slate-600">{vendor}</td>
-                      <td className="px-4 py-3 text-slate-600">{refund.paymentMethod || refund.orderId?.paymentMethod || "NA"}</td>
-                      <td className="px-4 py-3 text-slate-600">{formatCurrency(refund.grossAmount || refund.orderId?.totalAmount || 0)}</td>
+                      <td className="px-4 py-3 text-slate-600">{isCodAdvance ? "COD Advance" : refund.paymentMethod || refund.orderId?.paymentMethod || "NA"}</td>
+                      <td className="px-4 py-3 text-slate-600">
+                        <div className="font-semibold text-slate-950">{formatCurrency(refund.grossAmount || advancePaid || refund.orderId?.totalAmount || 0)}</div>
+                        {isCodAdvance ? (
+                          <div className="mt-1 text-xs leading-5 text-slate-500">
+                            <div>Order total: {formatCurrency(orderTotal)}</div>
+                            <div>Balance COD: {formatCurrency(balanceOnDelivery)}</div>
+                          </div>
+                        ) : null}
+                      </td>
                       <td className="px-4 py-3 text-slate-600">{formatCurrency(refund.deductionAmount || 0)}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-950">{formatCurrency(refund.amount || 0)}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-slate-950">{formatCurrency(refund.amount || 0)}</div>
+                        {isCodAdvance ? <div className="mt-1 text-xs text-emerald-700">From {formatCurrency(advancePaid)} advance paid</div> : null}
+                      </td>
                       <td className="px-4 py-3"><StatusBadge value={refund.status} /></td>
                       <td className="px-4 py-3 text-slate-600">{refund.refundMethod || refund.recommendedRefundMethod || "Finance Pending"}</td>
                       <td className="px-4 py-3 text-slate-600">{new Date(refund.createdAt).toLocaleString()}</td>

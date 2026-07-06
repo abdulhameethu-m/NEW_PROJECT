@@ -111,46 +111,6 @@ influencerServiceSchema.index({ influencerId: 1, status: 1, serviceTypeKey: 1 })
 influencerServiceSchema.index({ influencerId: 1, serviceName: 1 });
 influencerServiceSchema.index({ influencerId: 1, "packages.status": 1, "packages.price": 1 });
 
-const influencerRequirementSchema = new mongoose.Schema(
-  {
-    influencerId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "InfluencerProfile",
-      required: true,
-      unique: true,
-      index: true,
-    },
-    minimumBudget: { type: Number, min: 0, default: 0 },
-    minimumAttributionDays: { type: Number, min: 0, default: 0 },
-    productRequired: { type: Boolean, default: false },
-    sampleRequired: { type: Boolean, default: false },
-    productReturnRequired: { type: Boolean, default: false },
-    shippingRequired: { type: Boolean, default: false },
-    brandGuidelinesRequired: { type: Boolean, default: false },
-    creativeApprovalRequired: { type: Boolean, default: false },
-    contentApprovalRequired: { type: Boolean, default: false },
-    approvalRequired: { type: Boolean, default: false },
-    languages: { type: [String], default: [] },
-    categories: { type: [String], default: [] },
-    preferredCategories: { type: [String], default: [] },
-    targetAudience: { type: String, trim: true, maxlength: 1200, default: "" },
-    deliveryTime: { type: String, trim: true, maxlength: 160, default: "" },
-    communicationPreferences: { type: String, trim: true, maxlength: 1200, default: "" },
-    location: {
-      country: { type: String, trim: true, default: "" },
-      state: { type: String, trim: true, default: "" },
-      city: { type: String, trim: true, default: "" },
-    },
-    shippingAddress: { type: mongoose.Schema.Types.Mixed, default: {} },
-    notes: { type: String, trim: true, maxlength: 2000, default: "" },
-    customFields: { type: mongoose.Schema.Types.Mixed, default: {} },
-  },
-  {
-    timestamps: true,
-    collection: "influencer_requirements",
-  }
-);
-
 const campaignPaymentModelSchema = new mongoose.Schema(
   {
     campaignId: {
@@ -247,9 +207,6 @@ module.exports = {
   InfluencerService:
     mongoose.models.InfluencerService ||
     mongoose.model("InfluencerService", influencerServiceSchema),
-  InfluencerRequirement:
-    mongoose.models.InfluencerRequirement ||
-    mongoose.model("InfluencerRequirement", influencerRequirementSchema),
   CampaignPaymentModel:
     mongoose.models.CampaignPaymentModel ||
     mongoose.model("CampaignPaymentModel", campaignPaymentModelSchema),

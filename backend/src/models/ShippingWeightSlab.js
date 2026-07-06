@@ -78,6 +78,11 @@ const shippingWeightSlabSchema = new mongoose.Schema(
       enum: ["ADMIN", "VENDOR"],
       default: "ADMIN",
     },
+    isFallback: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -98,6 +103,7 @@ shippingWeightSlabSchema.index({
   weightTo: 1,
   status: 1,
 });
+shippingWeightSlabSchema.index({ stateKey: 1, districtKey: 1, zone: 1, isFallback: 1 });
 shippingWeightSlabSchema.index({ stateKey: 1, zone: 1, status: 1, priority: 1 });
 
 shippingWeightSlabSchema.pre("validate", function normalizeSlab() {

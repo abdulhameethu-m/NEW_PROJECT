@@ -1380,8 +1380,6 @@ const PAYMENT_MODEL_OPTIONS = [
   { value: "free_product", label: "Free Product" },
 ];
 
-const REQUIREMENT_FIELD_TYPES = ["text", "textarea", "number", "currency", "select", "multi_select", "boolean", "location", "address", "json"].map((value) => ({ value, label: statusText(value) }));
-
 const COMMERCE_EDITOR_DEFS = {
   serviceTypes: {
     title: "Service Types",
@@ -1465,18 +1463,6 @@ const COMMERCE_EDITOR_DEFS = {
       { key: "description", label: "Description", type: "textarea" },
     ],
     detail: (row) => (row.budgetComponents || []).join(", ") || "No budget components",
-  },
-  requirementFields: {
-    title: "Requirement Fields",
-    defaults: { key: "", label: "", fieldType: "text", required: false, displayOrder: 0 },
-    fields: [
-      { key: "key", label: "Key", type: "text" },
-      { key: "label", label: "Label", type: "text" },
-      { key: "fieldType", label: "Field Type", type: "select", options: REQUIREMENT_FIELD_TYPES },
-      { key: "displayOrder", label: "Display Order", type: "number" },
-      { key: "required", label: "Required", type: "checkbox" },
-    ],
-    detail: (row) => `${statusText(row.fieldType)}${row.required ? " - required" : ""}`,
   },
 };
 

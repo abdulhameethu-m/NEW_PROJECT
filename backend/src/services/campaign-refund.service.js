@@ -188,7 +188,7 @@ class CampaignRefundService {
     }
 
     const now = new Date();
-    const deadline = campaign.deadline || campaign.marketplace?.requirements?.contentSubmissionDeadline || campaign.marketplace?.applicationDeadline;
+    const deadline = campaign.deadline || campaign.marketplace?.applicationDeadline;
     const deadlineExpired = deadline ? new Date(deadline) < now : false;
     const state = String(campaign.state || "").toLowerCase();
     const hasUploads = submissions.length > 0;
@@ -255,7 +255,7 @@ class CampaignRefundService {
       refundReason: refund?.refundReason || refund?.reason || eligibility.reason,
       refundReasonLabel: reasonLabel(refund?.refundReason || refund?.reason || eligibility.reason),
       createdDate: refund?.createdAt || escrow.createdAt,
-      deadline: campaign?.deadline || campaign?.marketplace?.requirements?.contentSubmissionDeadline || null,
+      deadline: campaign?.deadline || null,
       status,
       rawStatus: refund?.status || "",
       statusLabel: refund ? refundActionLabel(refund.status) : reasonLabel(status),
@@ -434,7 +434,7 @@ class CampaignRefundService {
         title: campaign.title || "Campaign",
         state: campaign.state,
         paymentModel: campaign.paymentType,
-        deadline: campaign.deadline || campaign.marketplace?.requirements?.contentSubmissionDeadline || campaign.marketplace?.applicationDeadline || null,
+        deadline: campaign.deadline || campaign.marketplace?.applicationDeadline || null,
         vendor: campaign.vendorId || escrow.vendorId,
         influencer: campaign.influencerId || null,
       },

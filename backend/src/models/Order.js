@@ -171,6 +171,12 @@ const orderSchema = new mongoose.Schema(
       enum: ["ONLINE", "COD"],
       default: "ONLINE",
     },
+    paymentMode: {
+      type: String,
+      enum: ["ONLINE", "COD", "COD_ADVANCE"],
+      default: "ONLINE",
+      index: true,
+    },
     settlementStatus: {
       type: String,
       enum: ["NOT_APPLICABLE", "PENDING_COLLECTION", "COLLECTED", "ON_HOLD", "SETTLED", "REVERSED", "CANCELLED"],
@@ -178,6 +184,44 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
     codAmount: { type: Number, min: 0, default: 0 },
+    advanceAmount: { type: Number, min: 0, default: 0 },
+    remainingCODAmount: { type: Number, min: 0, default: 0 },
+    advancePaymentStatus: {
+      type: String,
+      enum: ["NOT_REQUIRED", "PENDING", "PAID", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"],
+      default: "NOT_REQUIRED",
+      index: true,
+    },
+    advanceTransactionId: { type: String, trim: true, index: true },
+    advanceRazorpayOrderId: { type: String, trim: true, index: true },
+    advancePaidAt: { type: Date },
+    advanceRefundAmount: { type: Number, min: 0, default: 0 },
+    advanceRefundStatus: {
+      type: String,
+      enum: ["NONE", "PENDING", "PROCESSING", "REFUNDED", "FAILED", "PARTIAL"],
+      default: "NONE",
+      index: true,
+    },
+    advanceCollected: { type: Boolean, default: false },
+    remainingCollected: { type: Boolean, default: false },
+    codAdvance: {
+      enabled: { type: Boolean, default: false },
+      advanceAmount: { type: Number, min: 0, default: 0 },
+      remainingCODAmount: { type: Number, min: 0, default: 0 },
+      ruleId: { type: mongoose.Schema.Types.ObjectId, ref: "CODAdvanceRule" },
+      ruleName: { type: String, trim: true, default: "" },
+      source: { type: String, trim: true, default: "" },
+      basis: { type: Number, min: 0, default: 0 },
+      state: { type: String, trim: true, default: "" },
+      district: { type: String, trim: true, default: "" },
+      paymentSessionId: { type: mongoose.Schema.Types.ObjectId, ref: "PaymentSession" },
+      paymentRecordId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment" },
+      razorpayOrderId: { type: String, trim: true, default: "" },
+      razorpayPaymentId: { type: String, trim: true, default: "" },
+      paidAt: { type: Date },
+      refundAmount: { type: Number, min: 0, default: 0 },
+      refundStatus: { type: String, trim: true, default: "NONE" },
+    },
     paymentRecordId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Payment",
@@ -440,6 +484,8 @@ orderSchema.index({ "attribution.productId": 1, createdAt: -1 });
 orderSchema.index({ "attribution.trackingSessionId": 1, createdAt: -1 });
 orderSchema.index({ "cancellation.status": 1, createdAt: -1 });
 orderSchema.index({ "refundSummary.status": 1, createdAt: -1 });
+orderSchema.index({ paymentMode: 1, advancePaymentStatus: 1, createdAt: -1 });
+orderSchema.index({ "codAdvance.ruleId": 1, createdAt: -1 });
 
 orderSchema.pre("findOneAndUpdate", async function preventLockedAttributionMutation() {
   const update = this.getUpdate() || {};

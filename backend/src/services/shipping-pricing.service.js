@@ -78,7 +78,7 @@ class ShippingPricingService {
     return slab;
   }
 
-  async getExpansionBaseSlab({ state, district, zone }) {
+  async getFallbackSlab({ state, district, zone }) {
     const stateKey = normalizeToken(state);
     const districtKey = normalizeToken(district);
     const normalizedZone = String(zone || "").trim().toUpperCase();
@@ -90,14 +90,25 @@ class ShippingPricingService {
       throw new AppError("Shipping zone could not be resolved", 400, "SHIPPING_ZONE_REQUIRED");
     }
 
-    const slabs = await ShippingWeightSlab.find(this.buildRuleQuery({ stateKey, districtKey, zone: normalizedZone }))
-      .sort({ weightTo: -1, priority: 1, weightFrom: -1, createdAt: 1 })
+    const query = {
+      ...this.buildRuleQuery({ stateKey, districtKey, zone: normalizedZone }),
+      isFallback: true,
+    };
+
+    const fallbackSlab = await ShippingWeightSlab.findOne(query)
+      .sort({ districtKey: -1, priority: 1, createdAt: 1 })
       .lean();
 
-    if (!slabs.length) return null;
+    if (fallbackSlab) return fallbackSlab;
 
-    const districtSpecificSlabs = districtKey ? slabs.filter((slab) => slab.districtKey === districtKey) : [];
-    return districtSpecificSlabs[0] || slabs[0];
+    const parentDistrictQuery = {
+      ...this.buildRuleQuery({ stateKey, districtKey: "", zone: normalizedZone }),
+      isFallback: true,
+    };
+
+    return ShippingWeightSlab.findOne(parentDistrictQuery)
+      .sort({ priority: 1, createdAt: 1 })
+      .lean();
   }
 
   buildRulePayload(slab) {
@@ -191,30 +202,21 @@ class ShippingPricingService {
       };
     }
 
-    const baseSlab = await this.getExpansionBaseSlab({
+    const fallbackSlab = await this.getFallbackSlab({
       state: derivedState,
       district: derivedDistrict,
       zone: normalizedZone,
     });
 
-    if (!baseSlab) {
-      return {
-        cost: roundMoney(fallbackCost),
-        weight: roundedWeight,
-        zone: normalizedZone,
-        state: derivedState,
-        district: derivedDistrict,
-        ruleApplied: false,
-        fallbackApplied: true,
-        dynamicExpansionApplied: false,
-        calculationMethod: "NO_RULE_FALLBACK",
-        matchType: "no_slab_match",
-        matchedOn,
-        note: "No active shipping weight slab found, using fallback cost",
-      };
+    if (!fallbackSlab) {
+      throw new AppError(
+        "No fallback shipping rule configured.",
+        400,
+        "NO_FALLBACK_SHIPPING_RULE"
+      );
     }
 
-    const dynamicExpansion = this.buildDynamicExpansion({ slab: baseSlab, weight: roundedWeight });
+    const dynamicExpansion = this.buildDynamicExpansion({ slab: fallbackSlab, weight: roundedWeight });
 
     return {
       cost: dynamicExpansion.finalCost,
@@ -222,18 +224,18 @@ class ShippingPricingService {
       zone: normalizedZone,
       state: derivedState,
       district: derivedDistrict,
-      rule: this.buildRulePayload(baseSlab),
-      slab: this.buildRulePayload(baseSlab),
-      matchedRule: this.buildRulePayload(baseSlab),
-      configuredWeightRule: this.buildRulePayload(baseSlab),
-      calculationMethod: "DYNAMIC_EXPANSION",
-      costBreakdown: this.buildCostBreakdown(baseSlab, roundedWeight, dynamicExpansion),
+      rule: this.buildRulePayload(fallbackSlab),
+      slab: this.buildRulePayload(fallbackSlab),
+      matchedRule: this.buildRulePayload(fallbackSlab),
+      configuredWeightRule: this.buildRulePayload(fallbackSlab),
+      calculationMethod: "FALLBACK_EXPANSION",
+      costBreakdown: this.buildCostBreakdown(fallbackSlab, roundedWeight, dynamicExpansion),
       ruleApplied: true,
-      fallbackApplied: false,
+      fallbackApplied: true,
       dynamicExpansionApplied: true,
-      matchType: baseSlab.districtKey ? "district_zone_dynamic_expansion" : "state_zone_dynamic_expansion",
+      matchType: fallbackSlab.districtKey ? "district_zone_fallback_expansion" : "state_zone_fallback_expansion",
       matchedOn,
-      note: "No exact weight slab matched; extended pricing from the highest configured slab",
+      note: "No exact weight slab matched; extended pricing from the configured fallback rule",
     };
   }
 

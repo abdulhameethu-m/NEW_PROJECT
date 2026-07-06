@@ -1296,7 +1296,6 @@ class InfluencerCommerceVendorService {
           lastVisitedAt: relationshipMap.get(String(profile._id))?.lastVisitedAt,
           services: creatorCard.services || [],
           rateCard: creatorCard.rateCard || [],
-          requirements: creatorCard.requirements || null,
           startingRate: creatorCard.startingRate || 0,
         };
       });
@@ -1542,7 +1541,6 @@ class InfluencerCommerceVendorService {
           applicationDeadline: payload.marketplace?.applicationDeadline || payload.deadline,
           availableSlots: payload.marketplace?.availableSlots || 1,
           requiredDeliverables: payload.marketplace?.requiredDeliverables || [],
-          requirements: payload.marketplace?.requirements || {},
           assets: payload.marketplace?.assets || [],
         },
         productIds,
@@ -1553,7 +1551,6 @@ class InfluencerCommerceVendorService {
         pricing: pricing.pricing,
         paymentModelSnapshot: pricing.paymentModel,
         influencerRateSnapshot: pricing.influencerSnapshot,
-        requirementsSnapshot: pricing.influencerSnapshot?.requirements || {},
         deadline: payload.deadline,
         state: "draft",
         history: [{ state: "draft", actorId: userId, note: "Marketplace campaign created by vendor", changedAt: new Date() }],

@@ -37,7 +37,6 @@ const campaignSchema = new mongoose.Schema(
       applicationDeadline: { type: Date, index: true },
       availableSlots: { type: Number, min: 0, default: 1 },
       requiredDeliverables: { type: [String], default: [] },
-      requirements: { type: mongoose.Schema.Types.Mixed, default: {} },
       assets: { type: [mongoose.Schema.Types.Mixed], default: [] },
       savedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "InfluencerProfile" }],
     },
@@ -161,12 +160,10 @@ const campaignSchema = new mongoose.Schema(
       pricing: { type: mongoose.Schema.Types.Mixed, default: {} },
       paymentModelSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
       influencerRateSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
-      requirementsSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
       frozenAt: { type: Date },
     },
     paymentModelSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
     influencerRateSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
-    requirementsSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
     contractSnapshot: {
       locked: { type: Boolean, default: false, index: true },
       lockedAt: { type: Date },
@@ -176,7 +173,6 @@ const campaignSchema = new mongoose.Schema(
       termsHash: { type: String, trim: true, default: "" },
       paymentModel: { type: mongoose.Schema.Types.Mixed, default: {} },
       influencerRateCard: { type: mongoose.Schema.Types.Mixed, default: {} },
-      requirements: { type: mongoose.Schema.Types.Mixed, default: {} },
     },
     contractSnapshots: {
       type: [mongoose.Schema.Types.Mixed],

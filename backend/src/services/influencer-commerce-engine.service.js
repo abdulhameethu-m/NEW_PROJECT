@@ -26,7 +26,6 @@ const {
   CampaignPaymentRuleConfig,
   CampaignDynamicFieldConfig,
   CampaignValidationRuleConfig,
-  InfluencerRequirementField,
   InfluencerCampaignTemplate,
   InfluencerDiscoveryRule,
   InfluencerCampaignRule,
@@ -56,7 +55,6 @@ const ENTITY = {
   campaignPaymentRules: CampaignPaymentRuleConfig,
   campaignDynamicFields: CampaignDynamicFieldConfig,
   campaignValidationRules: CampaignValidationRuleConfig,
-  requirementFields: InfluencerRequirementField,
   campaignTemplates: InfluencerCampaignTemplate,
   discoveryRules: InfluencerDiscoveryRule,
   campaignRules: InfluencerCampaignRule,
@@ -332,31 +330,6 @@ const CAMPAIGN_DYNAMIC_FIELD_DEFAULTS = {
     ["productOwnershipTransfer", "Product Ownership Transfer", "boolean", false, { defaultValue: true }],
   ],
 };
-
-const REQUIREMENT_FIELD_DEFAULTS = [
-  ["productRequired", "Product Required", "boolean", 1],
-  ["sampleRequired", "Sample Required", "boolean", 2],
-  ["productReturnRequired", "Product Return Required", "boolean", 3],
-  ["brandGuidelinesRequired", "Brand Guidelines Required", "boolean", 4],
-  ["creativeApprovalRequired", "Creative Approval Required", "boolean", 5],
-  ["contentApprovalRequired", "Content Approval Required", "boolean", 6],
-  ["minimumBudget", "Minimum Campaign Budget", "currency", 7],
-  ["minimumAttributionDays", "Minimum Attribution Window", "number", 8],
-  ["preferredCategories", "Preferred Categories", "multi_select", 9],
-  ["languages", "Languages", "multi_select", 10],
-  ["targetAudience", "Target Audience", "textarea", 11],
-  ["deliveryTime", "Delivery Time", "text", 12],
-  ["communicationPreferences", "Communication Preferences", "textarea", 13],
-  ["location", "Location", "location", 14],
-  ["shippingAddress", "Shipping Address", "address", 15],
-  ["notes", "Notes", "textarea", 16],
-].map(([key, label, fieldType, displayOrder]) => ({
-  key,
-  label,
-  fieldType,
-  displayOrder,
-  approval: { status: "active", version: 1 },
-}));
 
 const DYNAMIC_FORM_FIELD_DEFAULTS = PAYMENT_MODEL_DEFAULTS.flatMap((model) => (
   model.fields.map((field) => ({
@@ -826,7 +799,6 @@ class InfluencerCommerceEngineService {
       campaignPaymentRuleConfigCount,
       campaignDynamicFieldConfigCount,
       campaignValidationRuleConfigCount,
-      requirementFieldCount,
       campaignTemplateCount,
       discoveryRuleCount,
       campaignRuleCount,
@@ -843,7 +815,6 @@ class InfluencerCommerceEngineService {
       CampaignPaymentRuleConfig.countDocuments(),
       CampaignDynamicFieldConfig.countDocuments(),
       CampaignValidationRuleConfig.countDocuments(),
-      InfluencerRequirementField.countDocuments(),
       InfluencerCampaignTemplate.countDocuments(),
       InfluencerDiscoveryRule.countDocuments(),
       InfluencerCampaignRule.countDocuments(),
@@ -946,7 +917,6 @@ class InfluencerCommerceEngineService {
         if (validationRules.length) await CampaignValidationRuleConfig.insertMany(validationRules);
       }
     }
-    if (!requirementFieldCount) await InfluencerRequirementField.insertMany(REQUIREMENT_FIELD_DEFAULTS);
     if (!campaignTemplateCount) {
       await InfluencerCampaignTemplate.insertMany([
         {
@@ -1359,7 +1329,6 @@ class InfluencerCommerceEngineService {
       campaignPaymentRules,
       campaignDynamicFields,
       campaignValidationRules,
-      requirementFields,
       campaignTemplates,
       discoveryRules,
       campaignRules,
@@ -1376,7 +1345,6 @@ class InfluencerCommerceEngineService {
       CampaignPaymentRuleConfig.find({ ...configQuery, ...configStatusQuery }).sort({ createdAt: 1 }).lean(),
       CampaignDynamicFieldConfig.find(configQuery).sort(sort).lean(),
       CampaignValidationRuleConfig.find(configQuery).sort(sort).lean(),
-      InfluencerRequirementField.find(configQuery).sort(sort).lean(),
       InfluencerCampaignTemplate.find(configQuery).sort(sort).lean(),
       InfluencerDiscoveryRule.find(configQuery).sort(sort).lean(),
       InfluencerCampaignRule.find(configQuery).sort(sort).lean(),
@@ -1402,7 +1370,6 @@ class InfluencerCommerceEngineService {
         campaignValidationRules,
         attributionWindows,
       }),
-      requirementFields,
       campaignTemplates,
       discoveryRules,
       campaignRules,

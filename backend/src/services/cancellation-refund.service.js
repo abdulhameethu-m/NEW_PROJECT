@@ -158,7 +158,7 @@ function resolveFinanceSelectedRefundMethod(refund = {}, payload = {}) {
   return normalizeRefundMethod(payload.refundMethod || refund.refundMethod || refund.recommendedRefundMethod);
 }
 
-function buildRefundPreview({ order, payment, policy }) {
+async function buildRefundPreview({ order, payment, policy }) {
   const stage = getOrderStage(order);
   const paymentMethod = getPaymentMethodKey(order, payment);
   const stageRule = (policy.stages || []).find((item) => item.stage === stage);
@@ -174,7 +174,11 @@ function buildRefundPreview({ order, payment, policy }) {
   const couponDiscount = roundMoney(order.discountAmount || order.priceBreakdown?.discountAmount || 0);
   const platformFee = roundMoney(order.platformFee || 0);
   const gatewayFee = getGatewayFee(order, payment);
-  const grossAmount = roundMoney(order.totalAmount || order.priceBreakdown?.totalAmount || 0);
+  const grossOrderAmount = roundMoney(order.totalAmount || order.priceBreakdown?.totalAmount || 0);
+  const isCodAdvance = paymentMethod === "COD" && Number(order.advanceAmount || order.codAdvance?.advanceAmount || 0) > 0;
+  const grossAmount = isCodAdvance
+    ? roundMoney(order.advanceAmount || order.codAdvance?.advanceAmount || payment?.amount || 0)
+    : grossOrderAmount;
   const refundableBase = grossAmount;
   const deductions = (stageRule.deductions || []).map((deduction) => ({
     type: deduction.type,
@@ -189,7 +193,7 @@ function buildRefundPreview({ order, payment, policy }) {
       gatewayFee,
     }),
   }));
-  const deductionAmount = roundMoney(deductions.reduce((sum, item) => sum + Number(item.amount || 0), 0));
+  const deductionAmount = roundMoney(Math.min(grossAmount, deductions.reduce((sum, item) => sum + Number(item.amount || 0), 0)));
   const refundAmount = roundMoney(Math.max(0, grossAmount - deductionAmount));
   const refundMethod = decideRefundMethod({ paymentMethod, payment, policy, paymentConfig });
   const approvalRequired = Boolean(stageRule.manualApproval && !stageRule.autoApproval);
@@ -213,6 +217,8 @@ function buildRefundPreview({ order, payment, policy }) {
       platformFee,
       gatewayFee,
       cancellationDeduction: deductionAmount,
+      orderTotal: grossOrderAmount,
+      advancePaid: isCodAdvance ? grossAmount : 0,
       deductions,
     },
     featureFlags: policy.featureFlags,
@@ -254,7 +260,7 @@ class CancellationRefundService {
         ? await paymentRepo.findById(order.paymentRecordId)
         : null;
     const policy = await cancellationPolicyService.getActivePolicy();
-    const preview = buildRefundPreview({ order, payment, policy });
+    const preview = await buildRefundPreview({ order, payment, policy });
     return {
       orderId: order._id,
       orderNumber: order.orderNumber,
@@ -556,7 +562,7 @@ class CancellationRefundService {
         ? await paymentRepo.findById(order.paymentRecordId)
         : null;
     const policy = await cancellationPolicyService.getActivePolicy();
-    const preview = buildRefundPreview({ order, payment, policy });
+    const preview = await buildRefundPreview({ order, payment, policy });
 
     if (previewOnly) {
       return {

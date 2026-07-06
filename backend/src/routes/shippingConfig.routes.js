@@ -50,6 +50,7 @@ router.post(
       .optional()
       .isInt()
       .withMessage("Priority must be an integer"),
+    body("isFallback").optional().isBoolean().withMessage("isFallback must be a boolean"),
   ]),
   shippingConfigController.createShippingRule
 );
@@ -180,6 +181,7 @@ router.put(
     body("isActive").optional().isBoolean().withMessage("isActive must be boolean"),
     body("priority").optional().isInt().withMessage("Priority must be an integer"),
     body("settlementRecipient").optional().isIn(["ADMIN", "VENDOR"]).withMessage("Settlement recipient must be ADMIN or VENDOR"),
+    body("isFallback").optional().isBoolean().withMessage("isFallback must be a boolean"),
   ]),
   shippingConfigController.updateShippingRule
 );

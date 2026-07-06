@@ -95,6 +95,21 @@ function getOrderDiscount(order) {
   );
 }
 
+function getOrderAdvanceAmount(order) {
+  return Number(order?.advanceAmount ?? order?.codAdvance?.advanceAmount ?? 0);
+}
+
+function getOrderRemainingCodAmount(order) {
+  const advanceAmount = getOrderAdvanceAmount(order);
+  if (order?.remainingCODAmount !== undefined && order?.remainingCODAmount !== null) {
+    return Number(order.remainingCODAmount || 0);
+  }
+  if (order?.codAdvance?.remainingCODAmount !== undefined && order?.codAdvance?.remainingCODAmount !== null) {
+    return Number(order.codAdvance.remainingCODAmount || 0);
+  }
+  return Math.max(0, Number(order?.totalAmount || 0) - advanceAmount);
+}
+
 export function OrderSuccessPage() {
   const location = useLocation();
   const baseState = location.state || loadPersistedCheckoutSuccessPayload() || {};
@@ -103,7 +118,10 @@ export function OrderSuccessPage() {
   const payment = state.payment || null;
   const processing = Boolean(state.processing);
   const isCod = (orders[0]?.paymentMethod || payment?.method || "ONLINE") === "COD";
-  const codPayable = orders.reduce((sum, order) => sum + Number(order?.totalAmount || 0), 0);
+  const codAdvancePaid = orders.reduce((sum, order) => sum + getOrderAdvanceAmount(order), 0);
+  const hasCodAdvance = isCod && codAdvancePaid > 0;
+  const codPayable = orders.reduce((sum, order) => sum + getOrderRemainingCodAmount(order), 0);
+  const orderGrandTotal = orders.reduce((sum, order) => sum + Number(order?.totalAmount || 0), 0);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState("");
 
   useEffect(() => {
@@ -181,7 +199,9 @@ export function OrderSuccessPage() {
           {processing
             ? "Payment was successful. We are finishing verification and loading your order summary now."
             : isCod
-            ? `Please keep ${formatCurrency(codPayable)} ready for delivery. You can track every vendor shipment from your orders page.`
+            ? hasCodAdvance
+              ? `Advance payment of ${formatCurrency(codAdvancePaid)} is recorded. Please keep ${formatCurrency(codPayable)} ready for delivery.`
+              : `Please keep ${formatCurrency(codPayable)} ready for delivery. You can track every vendor shipment from your orders page.`
             : "Payment status and order routing have been recorded. You can track every vendor shipment from your orders page."}
         </p>
       </section>
@@ -189,8 +209,15 @@ export function OrderSuccessPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard label="Orders created" value={String(orders.length)} />
         <StatCard label="Payment method" value={orders[0]?.paymentMethod || payment?.method || "ONLINE"} />
-        <StatCard label={isCod ? "Payable on delivery" : "Payment status"} value={isCod ? formatCurrency(codPayable) : (orders[0]?.paymentStatus || payment?.status || "Pending")} />
+        <StatCard label={isCod ? (hasCodAdvance ? "Advance paid" : "Payable on delivery") : "Payment status"} value={isCod ? formatCurrency(hasCodAdvance ? codAdvancePaid : codPayable) : (orders[0]?.paymentStatus || payment?.status || "Pending")} />
       </section>
+
+      {hasCodAdvance ? (
+        <section className="grid gap-4 md:grid-cols-2">
+          <StatCard label="Balance on delivery" value={formatCurrency(codPayable)} />
+          <StatCard label="Order total" value={formatCurrency(orderGrandTotal)} />
+        </section>
+      ) : null}
 
       {processing && !orders.length ? (
         <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm text-sm text-slate-600">
@@ -200,7 +227,9 @@ export function OrderSuccessPage() {
 
       {isCod ? (
         <section className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-          Cash on Delivery instructions: collectable amount is {formatCurrency(codPayable)}. Our delivery or operations team may contact you before dispatch to confirm the order.
+          {hasCodAdvance
+            ? `COD advance instructions: advance paid is ${formatCurrency(codAdvancePaid)}. Balance collectable on delivery is ${formatCurrency(codPayable)}.`
+            : `Cash on Delivery instructions: collectable amount is ${formatCurrency(codPayable)}. Our delivery or operations team may contact you before dispatch to confirm the order.`}
         </section>
       ) : null}
 
@@ -311,6 +340,18 @@ export function OrderSuccessPage() {
                   <span>Total</span>
                   <span>{formatCurrency(order.totalAmount || 0, { currency: getCurrency(order) })}</span>
                 </div>
+                {getOrderAdvanceAmount(order) > 0 ? (
+                  <div className="rounded-xl bg-amber-50 px-3 py-3 text-amber-900">
+                    <div className="flex justify-between font-semibold">
+                      <span>COD Advance Paid</span>
+                      <span>{formatCurrency(getOrderAdvanceAmount(order), { currency: getCurrency(order) })}</span>
+                    </div>
+                    <div className="mt-2 flex justify-between">
+                      <span>Balance on Delivery</span>
+                      <span>{formatCurrency(getOrderRemainingCodAmount(order), { currency: getCurrency(order) })}</span>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
 

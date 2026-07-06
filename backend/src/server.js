@@ -18,6 +18,11 @@ const {
 const { initializeRecommendationJobs } = require("./modules/recommendation/job");
 const paymentService = require("./services/payment.service");
 
+function shouldVerifyRazorpayOnStartup() {
+  if (process.env.NODE_ENV === "production") return true;
+  return process.env.RAZORPAY_VERIFY_ON_STARTUP === "true";
+}
+
 async function start() {
   await connectDb();
   await ensurePaymentIndexes();
@@ -26,7 +31,7 @@ async function start() {
   await ensureDefaultPricingCategories();
 
   const razorpayHealth = await paymentService.validateRazorpayConfiguration({
-    verifyCredentials: process.env.NODE_ENV !== "test",
+    verifyCredentials: shouldVerifyRazorpayOnStartup(),
   });
   logger.info("Razorpay configuration validated", razorpayHealth);
 

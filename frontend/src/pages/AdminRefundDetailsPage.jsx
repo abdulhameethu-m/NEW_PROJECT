@@ -17,6 +17,33 @@ function DetailRow({ label, value }) {
   );
 }
 
+function getAdvancePaid(refund, order) {
+  const value =
+    refund?.breakdown?.advancePaid ??
+    order?.advanceAmount ??
+    order?.codAdvance?.advanceAmount ??
+    0;
+  return Number(value || 0);
+}
+
+function getOrderTotal(refund, order) {
+  const value = refund?.breakdown?.orderTotal ?? order?.totalAmount ?? refund?.grossAmount ?? 0;
+  return Number(value || 0);
+}
+
+function getBalanceOnDelivery(refund, order) {
+  const explicitBalance = order?.remainingCODAmount ?? order?.codAdvance?.remainingCODAmount;
+  if (explicitBalance !== undefined && explicitBalance !== null) {
+    return Number(explicitBalance || 0);
+  }
+  return Math.max(0, getOrderTotal(refund, order) - getAdvancePaid(refund, order));
+}
+
+function isCodAdvanceRefund(refund, order) {
+  const paymentMethod = String(refund?.paymentMethod || order?.paymentMethod || "").toUpperCase();
+  return paymentMethod === "COD" && getAdvancePaid(refund, order) > 0;
+}
+
 export function AdminRefundDetailsPage() {
   const { id } = useParams();
   const [details, setDetails] = useState(null);
@@ -46,6 +73,10 @@ export function AdminRefundDetailsPage() {
   const breakdown = refund?.breakdown || {};
   const customer = order?.userId?.name || order?.shippingAddress?.fullName || "Not available";
   const vendor = order?.sellerId?.companyName || order?.sellerId?.shopName || "Platform";
+  const isCodAdvance = isCodAdvanceRefund(refund, order);
+  const advancePaid = getAdvancePaid(refund, order);
+  const orderTotal = getOrderTotal(refund, order);
+  const balanceOnDelivery = getBalanceOnDelivery(refund, order);
 
   return (
     <div className="space-y-6">
@@ -69,8 +100,22 @@ export function AdminRefundDetailsPage() {
         <section className="space-y-6">
           <div className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-950">Refund Calculation</h2>
+            {isCodAdvance ? (
+              <div className="mt-4 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                This is a COD advance refund. Finance refunds against the advance paid now; the unpaid delivery balance is cancelled with the order.
+              </div>
+            ) : null}
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <DetailRow label="Order Amount" value={formatCurrency(refund?.grossAmount || order?.totalAmount || 0)} />
+              {isCodAdvance ? (
+                <>
+                  <DetailRow label="Order Total" value={formatCurrency(orderTotal)} />
+                  <DetailRow label="COD Advance Paid" value={formatCurrency(advancePaid)} />
+                  <DetailRow label="Balance On Delivery" value={formatCurrency(balanceOnDelivery)} />
+                  <DetailRow label="Refund Base" value={formatCurrency(refund?.grossAmount || advancePaid || 0)} />
+                </>
+              ) : (
+                <DetailRow label="Order Amount" value={formatCurrency(refund?.grossAmount || order?.totalAmount || 0)} />
+              )}
               <DetailRow label="Refund Amount" value={formatCurrency(refund?.amount || 0)} />
               <DetailRow label="Deduction Amount" value={formatCurrency(refund?.deductionAmount || 0)} />
               <DetailRow label="Refund Status" value={refund?.status} />
@@ -87,6 +132,18 @@ export function AdminRefundDetailsPage() {
             <div className="mt-6 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
               <div className="text-sm font-semibold text-slate-950">Deduction Breakdown</div>
               <div className="mt-3 space-y-2 text-sm text-slate-600">
+                {isCodAdvance ? (
+                  <>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>COD Advance Paid</span>
+                      <span className="font-semibold text-slate-950">{formatCurrency(advancePaid)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Balance On Delivery Cancelled</span>
+                      <span className="font-semibold text-slate-950">{formatCurrency(balanceOnDelivery)}</span>
+                    </div>
+                  </>
+                ) : null}
                 <div className="flex items-center justify-between gap-3">
                   <span>Shipping Deduction</span>
                   <span className="font-semibold text-slate-950">{formatCurrency(breakdown.shippingDeduction || breakdown.shipping || 0)}</span>
@@ -110,7 +167,8 @@ export function AdminRefundDetailsPage() {
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <DetailRow label="Customer" value={customer} />
               <DetailRow label="Vendor" value={vendor} />
-              <DetailRow label="Payment Method" value={order?.paymentMethod || refund?.paymentMethod} />
+              <DetailRow label="Payment Method" value={isCodAdvance ? "COD Advance" : order?.paymentMethod || refund?.paymentMethod} />
+              {isCodAdvance ? <DetailRow label="Payment Mode" value="Advance paid online, balance on delivery" /> : null}
               <DetailRow label="Payment Status" value={order?.paymentStatus} />
               <DetailRow label="Order Status" value={order?.status} />
               <DetailRow label="Created At" value={order?.createdAt ? new Date(order.createdAt).toLocaleString() : "Not available"} />

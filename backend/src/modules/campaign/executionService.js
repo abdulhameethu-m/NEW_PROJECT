@@ -97,7 +97,7 @@ function normalizeServiceDeliverable(row = {}, campaign = {}) {
     unitPrice,
     totalPrice: money(total || unitPrice * quantity),
     currency: row.currency || campaign.pricing?.currency || "INR",
-    expectedCompletionDate: row.dueDate || campaign.deadline || campaign.marketplace?.requirements?.contentSubmissionDeadline || undefined,
+    expectedCompletionDate: row.dueDate || campaign.deadline || undefined,
     source: "selected_services",
     snapshot: row,
   };

@@ -6,6 +6,11 @@ export async function createRazorpayOrder(payload) {
   return data?.data || data;
 }
 
+export async function createCodAdvanceOrder(payload) {
+  const { data } = await api.post("/api/payments/cod/advance/create-order", payload, { timeout: 30000 });
+  return data?.data || data;
+}
+
 export async function verifyRazorpayPayment(payload) {
   const { data } = await api.post("/api/payments/verify", payload, { timeout: 90000 });
   return data?.data || data;
@@ -75,6 +80,26 @@ export async function updateCodSettings(payload) {
 
 export async function getCodAnalytics(params = {}) {
   const { data } = await adminHttp.get("/api/admin/cod/analytics", { params });
+  return data?.data || data;
+}
+
+export async function listCodAdvanceRules(params = {}) {
+  const { data } = await adminHttp.get("/api/admin/finance/cod-advance/rules", { params });
+  return data?.data || data;
+}
+
+export async function createCodAdvanceRule(payload) {
+  const { data } = await adminHttp.post("/api/admin/finance/cod-advance/rules", payload);
+  return data?.data || data;
+}
+
+export async function updateCodAdvanceRule(id, payload) {
+  const { data } = await adminHttp.patch(`/api/admin/finance/cod-advance/rules/${id}`, payload);
+  return data?.data || data;
+}
+
+export async function deleteCodAdvanceRule(id) {
+  const { data } = await adminHttp.delete(`/api/admin/finance/cod-advance/rules/${id}`);
   return data?.data || data;
 }
 

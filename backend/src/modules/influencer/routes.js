@@ -454,29 +454,6 @@ const servicesSchema = Joi.object({
   replace: Joi.boolean().optional(),
   services: Joi.array().items(serviceItemSchema).max(100).default([]),
 }).unknown(true);
-const requirementsSchema = Joi.object({
-  minimumBudget: Joi.number().min(0).default(0),
-  minimumAttributionDays: Joi.number().integer().min(0).optional(),
-  minimumAttributionWindow: Joi.number().integer().min(0).optional(),
-  productRequired: Joi.boolean().default(false),
-  sampleRequired: Joi.boolean().default(false),
-  productReturnRequired: Joi.boolean().default(false),
-  shippingRequired: Joi.boolean().default(false),
-  brandGuidelinesRequired: Joi.boolean().default(false),
-  creativeApprovalRequired: Joi.boolean().default(false),
-  contentApprovalRequired: Joi.boolean().default(false),
-  approvalRequired: Joi.boolean().optional(),
-  languages: Joi.alternatives().try(Joi.array().items(Joi.string()), Joi.string()).optional(),
-  categories: Joi.alternatives().try(Joi.array().items(Joi.string()), Joi.string()).optional(),
-  preferredCategories: Joi.alternatives().try(Joi.array().items(Joi.string()), Joi.string()).optional(),
-  targetAudience: Joi.string().trim().max(1200).allow("").default(""),
-  deliveryTime: Joi.string().trim().max(160).allow("").default(""),
-  communicationPreferences: Joi.string().trim().max(1200).allow("").default(""),
-  location: Joi.object().unknown(true).optional(),
-  shippingAddress: Joi.alternatives().try(Joi.object().unknown(true), Joi.string().allow("")).optional(),
-  notes: Joi.string().trim().max(2000).allow("").default(""),
-  customFields: Joi.object().unknown(true).default({}),
-}).unknown(true);
 const publicStorefrontQuery = Joi.object({
   tab: Joi.string().valid("storefront", "posts", "reels", "collections", "about").optional(),
   filter: Joi.string().allow("").optional(),
@@ -591,8 +568,6 @@ router.post("/register", authRequired, requireRole("influencer", "user"), valida
 router.get("/commerce-profile", authRequired, requireRole("influencer"), controller.commerceProfile);
 router.get("/services", authRequired, requireRole("influencer"), controller.commerceProfile);
 router.put("/services", authRequired, requireRole("influencer"), validate(servicesSchema), controller.saveServices);
-router.get("/requirements", authRequired, requireRole("influencer"), controller.commerceProfile);
-router.put("/requirements", authRequired, requireRole("influencer"), validate(requirementsSchema), controller.saveRequirements);
 router.post("/generate-affiliate-link", authRequired, requireRole("influencer"), validate(affiliateLinkSchema), controller.generateAffiliateLink);
 router.get("/earnings-withdrawals", authRequired, requireRole("influencer"), validate(earningsQuery, "query"), controller.earningsDashboard);
 router.post("/earnings-withdrawals/withdrawals", authRequired, requireRole("influencer"), validate(withdrawalRequestSchema), controller.requestWithdrawal);

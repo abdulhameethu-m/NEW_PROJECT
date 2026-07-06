@@ -30,6 +30,7 @@ function normalizeSlabPayload(data = {}) {
     status: data.isActive === false ? "inactive" : normalizeStatus(data.status),
     description: String(data.description ?? data.notes ?? "").trim(),
     settlementRecipient: data.settlementRecipient === "VENDOR" ? "VENDOR" : "ADMIN",
+    isFallback: Boolean(data.isFallback),
   };
 
   if (!payload.state) throw new AppError("State is required", 400, "VALIDATION_ERROR");
@@ -116,15 +117,28 @@ class ShippingConfigAdminService {
   async createRule(data, actorId) {
     const payload = normalizeSlabPayload(data);
     await this.assertNoOverlap(payload);
+
+    let previousFallback = null;
+    if (payload.isFallback) {
+      const fallbackQuery = {
+        stateKey: normalizeToken(payload.state),
+        districtKey: normalizeToken(payload.district),
+        zone: payload.zone,
+        isFallback: true,
+      };
+      previousFallback = await ShippingWeightSlab.findOne(fallbackQuery).lean();
+      await ShippingWeightSlab.updateMany(fallbackQuery, { isFallback: false }).catch(() => {});
+    }
+
     try {
       const rule = await ShippingWeightSlab.create({ ...payload, createdBy: actorId, updatedBy: actorId });
       clearShippingCaches();
       await recordConfigChange({
-        action: "shipping.weight_slab.created",
+        action: payload.isFallback ? "shipping.weight_slab.fallback.created" : "shipping.weight_slab.created",
         entityId: rule._id,
-        metadata: rule.toObject(),
+        metadata: { current: rule.toObject(), previousFallback },
         actorId,
-        title: "Shipping weight slab created",
+        title: payload.isFallback ? "Fallback shipping weight slab created" : "Shipping weight slab created",
         message: `${rule.state} ${rule.district || "all districts"} ${rule.zone} slab was created.`,
       });
       return rule;
@@ -175,6 +189,35 @@ class ShippingConfigAdminService {
     const payload = normalizeSlabPayload({ ...current.toObject(), ...updates });
     await this.assertNoOverlap(payload, ruleId);
 
+    let previousFallback = null;
+    let warning = null;
+
+    if (payload.isFallback) {
+      const fallbackQuery = {
+        stateKey: normalizeToken(payload.state),
+        districtKey: normalizeToken(payload.district),
+        zone: payload.zone,
+        isFallback: true,
+        _id: { $ne: ruleId },
+      };
+      previousFallback = await ShippingWeightSlab.findOne(fallbackQuery).lean();
+      await ShippingWeightSlab.updateMany(fallbackQuery, { isFallback: false }).catch(() => {});
+    }
+
+    if (current.isFallback && !payload.isFallback) {
+      const fallbackQuery = {
+        stateKey: normalizeToken(payload.state),
+        districtKey: normalizeToken(payload.district),
+        zone: payload.zone,
+        isFallback: true,
+        _id: { $ne: ruleId },
+      };
+      const remainingFallback = await ShippingWeightSlab.findOne(fallbackQuery).lean();
+      if (!remainingFallback) {
+        warning = "No fallback rule configured. Shipping calculation beyond configured slabs will fail.";
+      }
+    }
+
     try {
       const rule = await ShippingWeightSlab.findByIdAndUpdate(
         ruleId,
@@ -183,13 +226,16 @@ class ShippingConfigAdminService {
       );
       clearShippingCaches();
       await recordConfigChange({
-        action: "shipping.weight_slab.updated",
+        action: payload.isFallback ? "shipping.weight_slab.fallback.updated" : "shipping.weight_slab.updated",
         entityId: rule._id,
-        metadata: rule.toObject(),
+        metadata: { current: rule.toObject(), previousFallback },
         actorId,
-        title: "Shipping weight slab updated",
+        title: payload.isFallback ? "Fallback shipping weight slab updated" : "Shipping weight slab updated",
         message: `${rule.state} ${rule.district || "all districts"} ${rule.zone} slab was updated.`,
       });
+      if (warning) {
+        rule.warning = warning;
+      }
       return rule;
     } catch (error) {
       this.normalizeValidationError(error);

@@ -7,6 +7,8 @@ const createRazorpayOrderSchema = Joi.object({
   trackingToken: Joi.string().allow("", null),
 });
 
+const createCodAdvanceOrderSchema = createRazorpayOrderSchema;
+
 const verifyRazorpayPaymentSchema = Joi.object({
   razorpay_order_id: Joi.string().trim().pattern(/^order_[A-Za-z0-9]+$/).required().max(120),
   razorpay_payment_id: Joi.string().trim().pattern(/^pay_[A-Za-z0-9]+$/).required().max(120),
@@ -58,11 +60,31 @@ const razorpaySettingsSchema = Joi.object({
   notes: Joi.string().trim().allow("").max(500).optional(),
 });
 
+const codAdvanceRuleSchema = Joi.object({
+  name: Joi.string().trim().max(120).required(),
+  state: Joi.string().trim().allow("").max(100).optional(),
+  district: Joi.string().trim().allow("").max(100).optional(),
+  shippingZone: Joi.string().trim().allow("").max(120).optional(),
+  shippingZones: Joi.array().items(Joi.string().trim().max(120)).max(20).optional(),
+  advanceType: Joi.string().valid("FIXED", "PERCENTAGE").default("FIXED"),
+  advanceValue: Joi.number().min(0).required(),
+  minOrderValue: Joi.number().min(0).optional(),
+  maxOrderValue: Joi.number().min(0).optional(),
+  priority: Joi.number().integer().min(0).optional(),
+  isActive: Joi.boolean().optional(),
+  description: Joi.string().trim().allow("").max(500).optional(),
+});
+
+const codAdvanceRuleUpdateSchema = codAdvanceRuleSchema.fork(["name", "advanceValue"], (schema) => schema.optional());
+
 module.exports = {
   createRazorpayOrderSchema,
+  createCodAdvanceOrderSchema,
   verifyRazorpayPaymentSchema,
   checkoutFailureSchema,
   checkoutOpenedSchema,
   refundPaymentSchema,
   razorpaySettingsSchema,
+  codAdvanceRuleSchema,
+  codAdvanceRuleUpdateSchema,
 };

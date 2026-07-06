@@ -145,9 +145,6 @@ const commerceProfile = asyncHandler(async (req, res) =>
 const saveServices = asyncHandler(async (req, res) =>
   ok(res, await influencerRateCardService.saveMyServices(req.user.sub, req.body), "Influencer services saved")
 );
-const saveRequirements = asyncHandler(async (req, res) =>
-  ok(res, await influencerRateCardService.saveMyRequirements(req.user.sub, req.body), "Influencer requirements saved")
-);
 
 module.exports = {
   checkEmail,
@@ -204,5 +201,4 @@ module.exports = {
   requestWithdrawal,
   commerceProfile,
   saveServices,
-  saveRequirements,
 };

@@ -618,10 +618,9 @@ class AdminInfluencerCommerceService {
     if (payload.marketplace?.applicationDeadline !== undefined) allowed["marketplace.applicationDeadline"] = payload.marketplace.applicationDeadline || null;
     if (payload.marketplace?.availableSlots !== undefined) allowed["marketplace.availableSlots"] = payload.marketplace.availableSlots;
     if (payload.marketplace?.requiredDeliverables !== undefined) allowed["marketplace.requiredDeliverables"] = payload.marketplace.requiredDeliverables;
-    if (payload.marketplace?.requirements !== undefined) allowed["marketplace.requirements"] = payload.marketplace.requirements;
     if (payload.marketplace?.assets !== undefined) allowed["marketplace.assets"] = payload.marketplace.assets;
     if (!Object.keys(allowed).length) throw new AppError("No campaign updates supplied", 400, "VALIDATION_ERROR");
-    const pricingKeys = new Set(["commissionPercent", "fixedFee", "paymentType", "attributionWindowDays", "pricing", "paymentModelSnapshot", "influencerRateSnapshot", "requirementsSnapshot"]);
+    const pricingKeys = new Set(["commissionPercent", "fixedFee", "paymentType", "attributionWindowDays", "pricing", "paymentModelSnapshot", "influencerRateSnapshot"]);
     const touchesPricing = Object.keys(allowed).some((key) => pricingKeys.has(key));
     if (touchesPricing) {
       const current = await Campaign.findById(campaignId).select("contractSnapshot.locked termsFrozen.frozenAt").lean();

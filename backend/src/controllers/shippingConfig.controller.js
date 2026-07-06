@@ -15,7 +15,7 @@ const shippingZoneConfigService = require("../services/shipping-zone-config.serv
  * Body: {state, district?, zone, weightFrom, weightTo, shippingCharge, priority?, status?, description?}
  */
 const createShippingRule = asyncHandler(async (req, res) => {
-  const { state, district, zone, weightFrom, weightTo, shippingCharge, priority, status, isActive, settlementRecipient, description, notes } = req.body;
+  const { state, district, zone, weightFrom, weightTo, shippingCharge, priority, status, isActive, settlementRecipient, description, notes, isFallback } = req.body;
 
   const rule = await shippingConfigAdminService.createRule({
     state: state || "Tamil Nadu",
@@ -29,6 +29,7 @@ const createShippingRule = asyncHandler(async (req, res) => {
     isActive,
     settlementRecipient: settlementRecipient === "VENDOR" ? "VENDOR" : "ADMIN",
     description: description || notes,
+    isFallback: Boolean(isFallback),
   }, req.user?.sub);
 
   return ok(res, rule, "Shipping rule created successfully", 201);
@@ -70,6 +71,10 @@ const getShippingRule = asyncHandler(async (req, res) => {
 const updateShippingRule = asyncHandler(async (req, res) => {
   const { ruleId } = req.params;
   const updates = req.body;
+
+  if (updates.isFallback !== undefined) {
+    updates.isFallback = Boolean(updates.isFallback);
+  }
 
   const rule = await shippingConfigAdminService.updateRule(ruleId, updates, req.user?.sub);
   return ok(res, rule, "Shipping rule updated successfully");

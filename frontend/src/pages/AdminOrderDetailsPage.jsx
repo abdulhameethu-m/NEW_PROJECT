@@ -46,6 +46,21 @@ function resolvePickupAddress(order) {
 
 const STATUS_OPTIONS = ["Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Returned"];
 
+function getAdvanceAmount(order) {
+  return Number(order?.advanceAmount ?? order?.codAdvance?.advanceAmount ?? 0);
+}
+
+function getRemainingCodAmount(order) {
+  const advanceAmount = getAdvanceAmount(order);
+  if (order?.remainingCODAmount !== undefined && order?.remainingCODAmount !== null) {
+    return Number(order.remainingCODAmount || 0);
+  }
+  if (order?.codAdvance?.remainingCODAmount !== undefined && order?.codAdvance?.remainingCODAmount !== null) {
+    return Number(order.codAdvance.remainingCODAmount || 0);
+  }
+  return Math.max(0, Number(order?.totalAmount || 0) - advanceAmount);
+}
+
 export function AdminOrderDetailsPage() {
   const { basePath, isLegacyAdmin } = useAdminSession();
   const { id } = useParams();
@@ -104,7 +119,13 @@ export function AdminOrderDetailsPage() {
     tax: Number(order?.taxAmount || 0),
     discount: Number(order?.discountAmount || 0),
     total: Number(order?.totalAmount || 0),
+    advanceAmount: getAdvanceAmount(order),
+    remainingCodAmount: getRemainingCodAmount(order),
+    paymentMode: order?.paymentMode || (order?.codAdvance?.enabled ? "COD_ADVANCE" : order?.paymentMethod || "ONLINE"),
+    advanceRuleName: order?.codAdvance?.ruleName || "",
+    advanceSource: order?.codAdvance?.source || "",
   };
+  const hasCodAdvance = order?.paymentMethod === "COD" && paymentSummary.advanceAmount > 0;
 
   const canSave = useMemo(() => !!order && !saving && !loading, [order, saving, loading]);
   const hasTrackingFields = Boolean(trackingId.trim() && trackingUrl.trim());
@@ -312,6 +333,28 @@ export function AdminOrderDetailsPage() {
               <div className="flex items-center justify-between"><span>Tax</span><span>{formatCurrency(paymentSummary.tax)}</span></div>
               <div className="flex items-center justify-between"><span>Discount</span><span>- {formatCurrency(paymentSummary.discount)}</span></div>
               <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2 font-semibold text-slate-950 dark:border-slate-800 dark:text-white"><span>Total Amount</span><span>{formatCurrency(paymentSummary.total)}</span></div>
+              {hasCodAdvance ? (
+                <div className="mt-3 grid gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>COD Advance Paid</span>
+                    <span>{formatCurrency(paymentSummary.advanceAmount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Balance Collectable</span>
+                    <span>{formatCurrency(paymentSummary.remainingCodAmount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Payment Mode</span>
+                    <span className="font-medium">{paymentSummary.paymentMode}</span>
+                  </div>
+                  {paymentSummary.advanceRuleName || paymentSummary.advanceSource ? (
+                    <div className="border-t border-amber-200 pt-2 text-xs dark:border-amber-900">
+                      {paymentSummary.advanceRuleName ? <div>Rule: {paymentSummary.advanceRuleName}</div> : null}
+                      {paymentSummary.advanceSource ? <div>Source: {paymentSummary.advanceSource}</div> : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </section>
