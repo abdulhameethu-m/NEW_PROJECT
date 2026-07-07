@@ -6,8 +6,6 @@ import react from "@vitejs/plugin-react";
 const frontendRoot = fileURLToPath(new URL(".", import.meta.url));
 const reactRoot = path.resolve(frontendRoot, "node_modules/react");
 const reactDomRoot = path.resolve(frontendRoot, "node_modules/react-dom");
-const nodeModuleReactPackages = /\/node_modules\/(?:react|react-dom|react-router|react-router-dom)\//;
-
 // Vendor-only chunking. App routes already use React.lazy; grouping app pages here
 // makes one route download whole admin/vendor/influencer feature bundles.
 const vendorChunks = {
@@ -54,16 +52,13 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Optimize chunk file names for caching
-        chunkFileNames: (chunkInfo) => {
-          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split("/").slice(-1)[0].replace(/\.[^.]*$/, "") : "chunk";
+        chunkFileNames: () => {
           return `chunks/[name]-[hash].js`;
         },
         entryFileNames: "[name]-[hash].js",
         
         // Advanced code splitting strategy
         manualChunks(id) {
-          const normalizedId = id.replace(/\\/g, "/");
-
           // Vendor chunks
           const vendorChunk = getChunkName(id);
           if (vendorChunk) return vendorChunk;

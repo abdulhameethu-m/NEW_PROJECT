@@ -101,7 +101,6 @@ export function AdminShippingConfigPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState(null);
   const [formData, setFormData] = useState(createRuleForm());
-  const [showFallbackWarning, setShowFallbackWarning] = useState(false);
   const [preview, setPreview] = useState({ weight: "", state: "Tamil Nadu", district: "" });
   const [previewResult, setPreviewResult] = useState(null);
 

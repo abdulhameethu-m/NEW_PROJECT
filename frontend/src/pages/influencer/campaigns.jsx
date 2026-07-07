@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { requestInput } from "../../services/notificationService";
 import {
   BarChart3,
   Bookmark,
@@ -495,7 +496,11 @@ function servicePackageRows(service = {}) {
 function normalizedServicesForSave(services = []) {
   return services.map((service) => ({
     ...service,
-    packages: servicePackageRows(service).map(({ __fallback, ...row }) => row),
+    packages: servicePackageRows(service).map((item) => {
+      const row = { ...item };
+      delete row.__fallback;
+      return row;
+    }),
   }));
 }
 
@@ -783,7 +788,13 @@ export default function InfluencerCampaignsPage() {
   }
 
   async function handleRejectCampaign(campaign) {
-    const note = window.prompt("Optional reason: Too Busy, Budget Too Low, Not Relevant, Other", "");
+    const note = await requestInput({
+      title: "Reject campaign",
+      message: "Optional reason: Too Busy, Budget Too Low, Not Relevant, Other",
+      label: "Reason",
+      required: false,
+      confirmLabel: "Reject",
+    });
     const id = campaignKey(campaign);
     setBusyId(id);
     setError("");

@@ -5,7 +5,6 @@ import * as authService from "../services/authService";
 import * as staffAuthService from "../services/staffAuthService";
 import { validateAuthForm } from "../utils/authValidation";
 import { BrandLogo } from "../components/BrandLogo";
-import { useBranding } from "../context/BrandingContext";
 
 function normalizeError(err) {
   return (
@@ -16,7 +15,6 @@ function normalizeError(err) {
 }
 
 export function ForgotPasswordPage() {
-  const { branding } = useBranding();
   const nav = useNavigate();
 
   // Steps: "identifier" | "otp" | "password"
@@ -78,7 +76,7 @@ export function ForgotPasswordPage() {
             setOtpTimer(300);
             startOtpTimer();
           } catch (staffError) {
-            setError(normalizeError(primaryError));
+            setError(normalizeError(staffError) || normalizeError(primaryError));
           }
         } else {
           setError(normalizeError(primaryError));
@@ -246,6 +244,7 @@ export function ForgotPasswordPage() {
 
           <p className="mb-4 text-sm text-slate-600">
             We've sent a 6-digit OTP to <strong>{identifier}</strong>
+            {deliveryMethod ? ` by ${deliveryMethod === "sms" ? "SMS" : "email"}` : ""}
           </p>
 
           <label className="block text-sm font-medium">

@@ -1,5 +1,6 @@
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { confirmAction } from "../../services/notificationService";
 import {
   Archive,
   BarChart3,
@@ -409,7 +410,11 @@ export default function InfluencerCollectionsPage() {
 
   async function handleDelete() {
     if (!selected?._id) return;
-    const confirmed = window.confirm(`Delete "${selected.title || "this collection"}"? This cannot be undone.`);
+    const confirmed = await confirmAction({
+      message: `Delete "${selected.title || "this collection"}"? This cannot be undone.`,
+      tone: "danger",
+      confirmLabel: "Confirm",
+    });
     if (!confirmed) return;
     setSaving(true);
     setMessage("");

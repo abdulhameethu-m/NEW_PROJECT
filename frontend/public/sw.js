@@ -24,9 +24,7 @@ const STATIC_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAMES.static).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((error) => {
-        console.warn('Failed to cache static assets:', error);
-      });
+      return cache.addAll(STATIC_ASSETS).catch(() => undefined);
     })
   );
   self.skipWaiting();
@@ -108,8 +106,7 @@ async function cacheChunkStrategy(request) {
     // Cache successful response
     cache.put(request, response.clone());
     return response;
-  } catch (error) {
-    console.error('Chunk cache strategy error:', error);
+  } catch {
     return new Response('Offline - resource not available', {
       status: 503,
       statusText: 'Service Unavailable',
@@ -149,9 +146,7 @@ async function cacheImageStrategy(request) {
     }
 
     return response;
-  } catch (error) {
-    console.error('Image cache strategy error:', error);
-    
+  } catch {
     // Return placeholder if offline
     if (cached) {
       return cached;
@@ -182,7 +177,7 @@ async function networkFirstApiStrategy(request) {
     }
 
     return response;
-  } catch (error) {
+  } catch {
     // Network failed, try cache
     try {
       const cache = await caches.open(CACHE_NAMES.api);
@@ -197,8 +192,7 @@ async function networkFirstApiStrategy(request) {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
       });
-    } catch (cacheError) {
-      console.error('API cache strategy error:', cacheError);
+    } catch {
       return new Response(JSON.stringify({ error: 'offline' }), {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
@@ -222,7 +216,7 @@ async function networkFirstStrategy(request) {
     }
 
     return response;
-  } catch (error) {
+  } catch {
     // Network failed, try cache
     try {
       const cache = await caches.open(CACHE_NAMES.dynamic);
@@ -234,8 +228,7 @@ async function networkFirstStrategy(request) {
 
       // Try root/index.html as fallback
       return cache.match('/');
-    } catch (cacheError) {
-      console.error('Network-first strategy error:', cacheError);
+    } catch {
       return new Response('Offline - please check your connection', {
         status: 503,
         headers: { 'Content-Type': 'text/plain' },
@@ -275,8 +268,8 @@ async function handleCacheUrls(urls) {
   try {
     const cache = await caches.open(CACHE_NAMES.dynamic);
     await cache.addAll(urls);
-  } catch (error) {
-    console.error('Failed to cache URLs:', error);
+  } catch {
+    // Best-effort pre-cache request.
   }
 }
 
@@ -287,8 +280,8 @@ async function handleClearCache(cacheType) {
   try {
     const cacheName = CACHE_NAMES[cacheType] || cacheType;
     await caches.delete(cacheName);
-  } catch (error) {
-    console.error('Failed to clear cache:', error);
+  } catch {
+    // Best-effort cache clear request.
   }
 }
 
@@ -308,10 +301,6 @@ async function handleGetCacheSize(event) {
 
     event.ports[0].postMessage({ type: 'CACHE_SIZE', size: totalSize });
   } catch (error) {
-    console.error('Failed to get cache size:', error);
-    event.ports[0].postMessage({ type: 'ERROR', error: error.message });
+    event.ports[0].postMessage({ type: 'ERROR', error: error?.message || 'Unable to read cache size' });
   }
 }
-
-// Log service worker status
-console.log('Service Worker initialized');

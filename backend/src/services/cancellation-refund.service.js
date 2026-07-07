@@ -159,7 +159,7 @@ function resolveFinanceSelectedRefundMethod(refund = {}, payload = {}) {
   return normalizeRefundMethod(payload.refundMethod || refund.refundMethod || refund.recommendedRefundMethod);
 }
 
-async function buildRefundPreview({ order, payment, policy }) {
+function buildRefundPreview({ order, payment, policy }) {
   const stage = getOrderStage(order);
   const paymentMethod = getPaymentMethodKey(order, payment);
   const stageRule = (policy.stages || []).find((item) => item.stage === stage);

@@ -190,7 +190,7 @@ function WithdrawalPanel({ data, onSubmitted }) {
   const [error, setError] = useState("");
 
   const withdrawal = data?.withdrawals || {};
-  const accounts = withdrawal.bankAccounts || [];
+  const accounts = useMemo(() => withdrawal.bankAccounts || [], [withdrawal.bankAccounts]);
   const eligibility = withdrawal.eligibility || {};
 
   useEffect(() => {

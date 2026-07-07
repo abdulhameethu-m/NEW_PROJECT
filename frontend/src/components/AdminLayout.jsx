@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Topbar } from "./Topbar";
 import { useAdminSidebarData } from "../hooks/useAdminSidebarData";
@@ -237,28 +237,30 @@ const pageMeta = {
   },
 };
 
+function getActiveNotificationTarget(pathname) {
+  for (const section of ADMIN_SECTION_ITEMS) {
+    for (const item of section.items) {
+      const entries = item.children || [item];
+      const match = entries.find(
+        (entry) => entry.path && (entry.exact
+          ? pathname === entry.path
+          : pathname === entry.path || pathname.startsWith(`${entry.path}/`))
+      );
+      if (match?.notificationModule || match?.notificationSubModule) {
+        return {
+          module: match.notificationModule,
+          subModule: match.notificationSubModule,
+        };
+      }
+    }
+  }
+  return null;
+}
+
 export function AdminLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const activeNotificationTarget = useMemo(() => {
-    for (const section of ADMIN_SECTION_ITEMS) {
-      for (const item of section.items) {
-        const entries = item.children || [item];
-        const match = entries.find(
-          (entry) => entry.path && (entry.exact
-            ? location.pathname === entry.path
-            : location.pathname === entry.path || location.pathname.startsWith(`${entry.path}/`))
-        );
-        if (match?.notificationModule || match?.notificationSubModule) {
-          return {
-            module: match.notificationModule,
-            subModule: match.notificationSubModule,
-          };
-        }
-      }
-    }
-    return null;
-  }, [location.pathname]);
+  const activeNotificationTarget = getActiveNotificationTarget(location.pathname);
   const { summary } = useRoleNotifications("admin", activeNotificationTarget);
   const sidebarData = useAdminSidebarData(summary);
 

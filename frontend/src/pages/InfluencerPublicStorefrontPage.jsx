@@ -597,7 +597,7 @@ function Sidebar({ data, following, followBusy = false, onFollow, onShare, canEd
             [Truck, "Fast Delivery"],
             [BadgeCheck, "Secure Payments"],
           ].map(([Icon, label]) => (
-            <div key={label} className="flex items-center gap-2"><Icon className="h-4 w-4 text-indigo-600" /> {label}</div>
+            <div key={label} className="flex items-center gap-2">{createElement(Icon, { className: "h-4 w-4 text-indigo-600" })} {label}</div>
           ))}
         </div>
       </section>
@@ -792,7 +792,7 @@ function CollectionDetail({ data, collection, showSearch = true }) {
 }
 
 function StorefrontTab({ data, initialCollectionSlug = "" }) {
-  const collections = data.collections || [];
+  const collections = useMemo(() => data.collections || [], [data.collections]);
   const initialCollection = collections.find((collection) => collection.slug === initialCollectionSlug);
   const [selectedId, setSelectedId] = useState(initialCollection?._id || collections[0]?._id || "");
   useEffect(() => {
@@ -996,7 +996,6 @@ function PublicStoreNav({ data, search, setSearch }) {
 
 export function InfluencerPublicStorefrontPage() {
   const { username, slug, tab, collectionSlug } = useParams();
-  const navigate = useNavigate();
   const location = useLocation();
   const authUser = useAuthStore((state) => state.user);
   const routeUsername = username || slug;
@@ -1006,7 +1005,6 @@ export function InfluencerPublicStorefrontPage() {
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [loginPrompt, setLoginPrompt] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
   const [search, setSearch] = useState(() => new URLSearchParams(location.search).get("search") || "");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [actionStatus, setActionStatus] = useState("");
@@ -1089,43 +1087,6 @@ export function InfluencerPublicStorefrontPage() {
     if (result.shared) setActionStatus(result.destination === "copy_link" ? "Profile link copied." : "Profile shared.");
   }
 
-  async function handleCopyProfileUrl() {
-    if (!data || !navigator.clipboard) return;
-    await navigator.clipboard.writeText(window.location.href);
-    await trackPublicInfluencerEvent(data.profile.username, {
-      eventType: "share",
-      surface: "profile-menu",
-      metadata: { action: "copy_profile_url", destination: "clipboard", url: window.location.href },
-    }).catch(() => null);
-    setMoreOpen(false);
-    setActionStatus("Profile URL copied.");
-  }
-
-  async function handleReportProfile() {
-    if (!data) return;
-    await trackPublicInfluencerEvent(data.profile.username, {
-      eventType: "profile_report",
-      surface: "profile-menu",
-      metadata: { action: "report_profile", url: window.location.href },
-    }).catch(() => null);
-    setMoreOpen(false);
-    setActionStatus("Report submitted for moderation review.");
-  }
-
-  async function handleBlockProfile() {
-    if (!data) return;
-    const blocked = getStoredActionSet("blocked_creator_profiles");
-    blocked.add(data.profile.username);
-    setStoredActionSet("blocked_creator_profiles", blocked);
-    await trackPublicInfluencerEvent(data.profile.username, {
-      eventType: "profile_block",
-      surface: "profile-menu",
-      metadata: { action: "block_profile" },
-    }).catch(() => null);
-    setMoreOpen(false);
-    setActionStatus("Creator blocked on this device.");
-    navigate("/influencers", { replace: true });
-  }
 
   function toggleFilters() {
     const nextOpen = !filtersOpen;

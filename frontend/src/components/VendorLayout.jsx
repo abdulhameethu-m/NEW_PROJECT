@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { Topbar } from "./Topbar";
 import { Sidebar } from "./sidebar/Sidebar";
@@ -126,6 +126,21 @@ const pageMeta = {
   },
 };
 
+function getActiveNotificationTarget(sections, pathname) {
+  for (const section of sections) {
+    const item = section.items.find(
+      (entry) => pathname === entry.path || pathname.startsWith(`${entry.path}/`)
+    );
+    if (item?.notificationModule || item?.notificationSubModule) {
+      return {
+        module: item.notificationModule,
+        subModule: item.notificationSubModule,
+      };
+    }
+  }
+  return null;
+}
+
 function VendorAccessGate({ children }) {
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
@@ -155,7 +170,7 @@ function VendorAccessGate({ children }) {
     return () => {
       active = false;
     };
-  }, [user?.id, user?._id, user?.email, user?.role, location.pathname]);
+  }, [user, location.pathname]);
 
   if (state.loading) {
     return (
@@ -179,20 +194,7 @@ function VendorLayoutInner() {
   const { can } = useModuleAccess();
   const [subscriptionPlanName, setSubscriptionPlanName] = useState("");
   const baseSidebarData = useVendorSidebarData();
-  const activeNotificationTarget = useMemo(() => {
-    for (const section of baseSidebarData.sections) {
-      const item = section.items.find(
-        (entry) => location.pathname === entry.path || location.pathname.startsWith(`${entry.path}/`)
-      );
-      if (item?.notificationModule || item?.notificationSubModule) {
-        return {
-          module: item.notificationModule,
-          subModule: item.notificationSubModule,
-        };
-      }
-    }
-    return null;
-  }, [baseSidebarData.sections, location.pathname]);
+  const activeNotificationTarget = getActiveNotificationTarget(baseSidebarData.sections, location.pathname);
   const { summary } = useRoleNotifications("vendor", activeNotificationTarget);
   const sidebarData = useVendorSidebarData({
     unreadCount: summary.total,

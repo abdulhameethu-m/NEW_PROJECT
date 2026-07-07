@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, Download, Eye, RefreshCw, RotateCcw, ShieldCheck, Wallet } from "lucide-react";
 import {
   FinanceField,
@@ -66,7 +66,7 @@ function MetricCard({ label, value, icon: Icon, hint }) {
           {hint ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p> : null}
         </div>
         <div className="rounded-2xl bg-slate-950 p-3 text-white dark:bg-white dark:text-slate-950">
-          <Icon size={18} />
+          {createElement(Icon, { size: 18 })}
         </div>
       </div>
     </div>
@@ -305,10 +305,11 @@ export function AdminEscrowRefundsPage() {
     loadDashboard();
   }, [loadDashboard]);
 
-  const cards = data.cards || {};
   const rows = data.rows || [];
 
-  const metrics = useMemo(() => [
+  const metrics = useMemo(() => {
+    const cards = data.cards || {};
+    return [
     { label: "Pending Refund", value: cards.pendingRefund || 0, icon: AlertCircle, hint: "Eligible/requested fixed escrow" },
     { label: "Refunded Today", value: cards.refundedToday || 0, icon: CheckCircle2, hint: "Completed today" },
     { label: "Refund Value", value: formatCurrency(cards.refundValue || 0), icon: RotateCcw, hint: "Visible queue value" },
@@ -316,7 +317,8 @@ export function AdminEscrowRefundsPage() {
     { label: "Expired Campaigns", value: cards.expiredCampaigns || 0, icon: AlertCircle, hint: "Deadline/expiry based" },
     { label: "Pending Escrow", value: formatCurrency(cards.pendingEscrow || 0), icon: Wallet, hint: "Unreleased balance" },
     { label: "Released Escrow", value: formatCurrency(cards.releasedEscrow || 0), icon: Wallet, hint: "Blocked from refund" },
-  ], [cards]);
+    ];
+  }, [data.cards]);
 
   async function handleRefund(payload) {
     if (!refundTarget) return;

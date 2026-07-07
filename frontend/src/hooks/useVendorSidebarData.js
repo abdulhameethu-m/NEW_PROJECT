@@ -16,6 +16,8 @@ function normalizeSectionKey(section) {
 export function useVendorSidebarData({ unreadCount = 0, summary = { modules: {}, subModules: {} } } = {}) {
   const { modules, loading, error } = useModuleAccess();
   const { influencerCommerceEnabled, loading: platformFeaturesLoading } = usePlatformFeatures();
+  const moduleSummary = useMemo(() => summary?.modules || {}, [summary?.modules]);
+  const subModuleSummary = useMemo(() => summary?.subModules || {}, [summary?.subModules]);
 
   const dynamicSections = useMemo(() => {
     const grouped = new Map();
@@ -65,20 +67,20 @@ export function useVendorSidebarData({ unreadCount = 0, summary = { modules: {},
     return Array.from(grouped.entries()).map(([section, items]) => ({
       section,
       key: normalizeSectionKey(section),
-      badgeCount: 0,
+      badgeCount: Number(moduleSummary[normalizeSectionKey(section)] || 0),
       items: items.map((item) => ({
         ...item,
-        badgeCount: 0,
+        badgeCount: Number(moduleSummary[item.moduleKey] || subModuleSummary[item.path] || 0),
       })),
     }));
-  }, [modules]);
+  }, [modules, moduleSummary, subModuleSummary]);
 
   const staticSections = useMemo(() => {
     const hideInfluencerCommerce = !platformFeaturesLoading && !influencerCommerceEnabled;
 
     return VENDOR_STATIC_ITEMS.map((section) => ({
       ...section,
-      badgeCount: 0,
+      badgeCount: Number(moduleSummary[section.key] || 0),
       items: section.items
         .filter((item) => !(hideInfluencerCommerce && item.path?.startsWith("/vendor/influencer-commerce")))
         .map((item) => ({
@@ -88,10 +90,10 @@ export function useVendorSidebarData({ unreadCount = 0, summary = { modules: {},
           badgeCount:
             item.badgeKey === "notificationsUnread"
               ? unreadCount
-              : 0,
+              : Number(moduleSummary[item.moduleKey] || subModuleSummary[item.path] || 0),
         })),
     }));
-  }, [unreadCount, platformFeaturesLoading, influencerCommerceEnabled]);
+  }, [unreadCount, platformFeaturesLoading, influencerCommerceEnabled, moduleSummary, subModuleSummary]);
 
   return {
     title: "Vendor Central",

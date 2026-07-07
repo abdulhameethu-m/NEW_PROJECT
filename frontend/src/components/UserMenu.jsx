@@ -97,7 +97,7 @@ export function UserMenu() {
     return () => {
       alive = false;
     };
-  }, [user?.id, user?._id, user?.email, user?.role]);
+  }, [user]);
 
   const handleLogout = async () => {
     try {

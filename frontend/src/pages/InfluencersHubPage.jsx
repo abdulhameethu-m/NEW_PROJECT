@@ -116,7 +116,6 @@ function normalizeInfluencers(payload) {
 }
 
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
-const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "qt"]);
 
 function assetExtension(value = "") {
   const clean = String(value || "").split("?")[0].split("#")[0];
@@ -125,10 +124,6 @@ function assetExtension(value = "") {
 
 function isImageAsset(value = "") {
   return IMAGE_EXTENSIONS.has(assetExtension(value));
-}
-
-function isVideoAsset(value = "") {
-  return VIDEO_EXTENSIONS.has(assetExtension(value));
 }
 
 function contentKind(item = {}) {
