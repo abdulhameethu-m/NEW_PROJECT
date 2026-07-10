@@ -10,6 +10,7 @@ const paymentService = require("../../services/payment.service");
 const influencerCommerceEngine = require("../../services/influencer-commerce-engine.service");
 const influencerRateCardService = require("../../services/influencer-rate-card.service");
 const campaignRefundService = require("../../services/campaign-refund.service");
+const campaignSchedulingService = require("../../services/campaign-scheduling.service");
 const analyticsAggregator = require("../analytics/service");
 const { AppError } = require("../../utils/AppError");
 const { Campaign, CampaignStatusHistory, CampaignInvitation, CampaignAcceptance } = require("../campaign/model");
@@ -1527,6 +1528,7 @@ class InfluencerCommerceVendorService {
         payload,
         products,
       });
+      const schedule = await campaignSchedulingService.normalizeCampaignSchedule(payload, pricing.paymentType);
       campaign = await Campaign.create({
         vendorId: vendor._id,
         title: payload.title || "",
@@ -1538,7 +1540,7 @@ class InfluencerCommerceVendorService {
         language: payload.language || "en",
         marketplace: {
           public: payload.marketplace?.public !== false,
-          applicationDeadline: payload.marketplace?.applicationDeadline || payload.deadline,
+          applicationDeadline: payload.marketplace?.applicationDeadline || undefined,
           availableSlots: payload.marketplace?.availableSlots || 1,
           requiredDeliverables: payload.marketplace?.requiredDeliverables || [],
           assets: payload.marketplace?.assets || [],
@@ -1549,9 +1551,15 @@ class InfluencerCommerceVendorService {
         paymentType: pricing.paymentType,
         attributionWindowDays: pricing.attributionDays,
         pricing: pricing.pricing,
+        startDate: schedule.startDate || undefined,
+        endDate: schedule.endDate || payload.deadline || undefined,
+        scheduling: {
+          ...(schedule.scheduling || {}),
+          autoPublishEnabled: Boolean(schedule.scheduling?.settingsSnapshot?.autoPublish),
+        },
         paymentModelSnapshot: pricing.paymentModel,
         influencerRateSnapshot: pricing.influencerSnapshot,
-        deadline: payload.deadline,
+        deadline: schedule.endDate || payload.deadline,
         state: "draft",
         history: [{ state: "draft", actorId: userId, note: "Marketplace campaign created by vendor", changedAt: new Date() }],
       });
@@ -1690,8 +1698,22 @@ class InfluencerCommerceVendorService {
     application.reviewedAt = new Date();
     campaign.history.push({ state: decision, actorId: userId, note: payload.note || `Application ${decision}`, changedAt: new Date() });
     if (decision === "approved") {
+      const approvedAt = new Date();
       if (!campaign.influencerId) campaign.influencerId = influencerObjectId;
-      if (campaign.state === "draft") campaign.state = "active";
+      if (["fixed", "hybrid"].includes(campaign.paymentType)) {
+        campaign.state = "accepted";
+        campaign.fixedPaymentWorkflow = {
+          ...(campaign.fixedPaymentWorkflow || {}),
+          status: "accepted_awaiting_funding",
+          contentEnabled: false,
+          acceptedAt: approvedAt,
+          lastTransitionAt: approvedAt,
+        };
+      } else if (campaign.state === "draft") {
+        campaign.state = "active";
+        if (!campaign.startDate) campaign.startDate = approvedAt;
+        campaign.scheduling = { ...(campaign.scheduling || {}), activatedAt: approvedAt };
+      }
     }
     await campaign.save();
     if (decision === "approved") {

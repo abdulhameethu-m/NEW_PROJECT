@@ -6,6 +6,7 @@ const { InfluencerProfile, InfluencerSocialAccount } = require("../modules/influ
 const { CommissionRecord } = require("../modules/commission/models");
 const { Vendor } = require("../models/Vendor");
 const notificationService = require("./notification.service");
+const campaignSchedulingService = require("./campaign-scheduling.service");
 const {
   InfluencerScoreConfig,
   InfluencerTier,
@@ -1379,7 +1380,7 @@ class InfluencerCommerceEngineService {
 
   async overview() {
     await this.ensureDefaults();
-    const [scoreConfig, rankingRule, budgetRule, tiers, plans, subscriptionCount, budgetControls, commerceConfiguration] = await Promise.all([
+    const [scoreConfig, rankingRule, budgetRule, tiers, plans, subscriptionCount, budgetControls, commerceConfiguration, schedulingSettings] = await Promise.all([
       editableSingleton(InfluencerScoreConfig),
       editableSingleton(MarketplaceRankingRule),
       editableSingleton(BudgetProtectionRule),
@@ -1388,6 +1389,7 @@ class InfluencerCommerceEngineService {
       VendorSubscription.countDocuments({ status: { $in: ["trialing", "active"] } }),
       CampaignBudgetControl.find({}).sort({ updatedAt: -1 }).limit(20).lean(),
       this.commerceConfiguration({ includeInactive: true }),
+      campaignSchedulingService.getSettings(),
     ]);
     return {
       scoreConfig,
@@ -1397,6 +1399,7 @@ class InfluencerCommerceEngineService {
       plans,
       subscriptionCount,
       budgetControls,
+      schedulingSettings,
       ...commerceConfiguration,
     };
   }

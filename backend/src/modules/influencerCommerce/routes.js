@@ -79,6 +79,10 @@ const campaignPayload = Joi.object({
   }).unknown(true).optional(),
   payment: Joi.object().unknown(true).optional(),
   budget: Joi.number().min(0).optional(),
+  startDate: Joi.date().iso().allow(null).optional(),
+  endDate: Joi.date().iso().allow(null).optional(),
+  campaignStartDate: Joi.date().iso().allow(null).optional(),
+  campaignEndDate: Joi.date().iso().allow(null).optional(),
   deadline: Joi.date().iso().allow(null),
   marketplace: Joi.object({
     public: Joi.boolean().default(false),

@@ -53,6 +53,10 @@ router.post(
       }).unknown(true).optional(),
       payment: Joi.object().unknown(true).optional(),
       budget: Joi.number().min(0).optional(),
+      startDate: Joi.date().iso().allow(null).optional(),
+      endDate: Joi.date().iso().allow(null).optional(),
+      campaignStartDate: Joi.date().iso().allow(null).optional(),
+      campaignEndDate: Joi.date().iso().allow(null).optional(),
       deadline: Joi.date().iso().allow(null),
       marketplace: Joi.object({
         public: Joi.boolean().default(false),
@@ -124,6 +128,11 @@ router.patch(
     Joi.object({
       submissionId: Joi.string().trim().allow("").optional(),
       decision: Joi.string().valid("approve", "reject", "revision_requested", "changes").required(),
+      publishDate: Joi.date().iso().allow(null).optional(),
+      publishTime: Joi.string().pattern(/^\d{1,2}:\d{2}$/).allow("").optional(),
+      timezone: Joi.string().trim().max(80).allow("").optional(),
+      publishTimezone: Joi.string().trim().max(80).allow("").optional(),
+      scheduledPublishAt: Joi.date().iso().allow(null).optional(),
       comments: Joi.string().trim().max(1500).allow("").default(""),
       note: Joi.string().trim().max(1500).allow("").default(""),
     })

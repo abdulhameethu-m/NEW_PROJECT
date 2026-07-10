@@ -7,6 +7,7 @@ const influencerRateCardService = require("../../services/influencer-rate-card.s
 const auditService = require("../../services/audit.service");
 const notificationService = require("../../services/notification.service");
 const commissionService = require("../commission/service");
+const schedulingService = require("../../services/campaign-scheduling.service");
 const { emitDomainEvent } = require("../events/event-bus");
 const { INFLUENCER_EVENTS } = require("../shared/constants");
 const { CommissionRecord } = require("../commission/models");
@@ -65,12 +66,41 @@ function profileUserId(profile = {}) {
 }
 
 function campaignDeadline(campaign = {}) {
-  return campaign.marketplace?.applicationDeadline || campaign.deadline || null;
+  return campaign.marketplace?.applicationDeadline || null;
 }
 
-function ensureDeadlineOpen(campaign = {}) {
+function endOfInvitationDay(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+async function ensureDeadlineOpen(campaign = {}, { actorId = null, actorRole = "influencer" } = {}) {
   const deadline = campaignDeadline(campaign);
-  if (deadline && new Date(deadline).getTime() < Date.now()) {
+  const expiresAt = endOfInvitationDay(deadline);
+  if (expiresAt && expiresAt.getTime() < Date.now()) {
+    await CampaignInvitation.updateMany(
+      { campaignId: campaign._id, status: { $in: [WORKFLOW.INVITATION_SENT, "viewed"] } },
+      { $set: { status: "expired", "metadata.expiredAt": new Date(), "metadata.expiredReason": "Invitation acceptance deadline passed" } }
+    );
+    await Campaign.updateOne(
+      { _id: campaign._id, state: { $in: INVITATION_OPEN_STATES } },
+      {
+        $set: { state: WORKFLOW.EXPIRED, "scheduling.expiredAt": new Date() },
+        $push: { history: pushHistory(WORKFLOW.EXPIRED, actorId, "Invitation acceptance deadline passed") },
+      }
+    );
+    await CampaignStatusHistory.create({
+      campaignId: campaign._id,
+      oldStatus: campaign.state || WORKFLOW.INVITATION_SENT,
+      newStatus: WORKFLOW.EXPIRED,
+      changedBy: actorId,
+      changedByRole: actorRole,
+      reason: "Invitation acceptance deadline passed",
+      metadata: { invitationDeadline: deadline },
+    }).catch(() => null);
     throw new AppError("Campaign invitation deadline has passed", 409, "CAMPAIGN_INVITATION_EXPIRED");
   }
 }
@@ -129,7 +159,7 @@ async function createInvitationRecord({ campaign, influencerId, actorId }) {
       },
       $set: {
         status: WORKFLOW.INVITATION_SENT,
-        metadata: { title: campaign.title || "", paymentType: campaign.paymentType || "" },
+        metadata: { title: campaign.title || "", paymentType: campaign.paymentType || "", acceptanceDeadline: campaign.marketplace?.applicationDeadline || null },
       },
     },
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
@@ -313,7 +343,9 @@ function presentCampaign(campaign, profileId) {
     applicationDate: application?.submittedAt || null,
     expectedEarnings: Number(application?.expectedEarnings || campaign.fixedFee || 0),
     applicationDeadline: campaign.marketplace?.applicationDeadline || campaign.deadline || null,
-    deadline: campaign.deadline || campaign.marketplace?.applicationDeadline || null,
+    deadline: campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || null,
+    startDate: campaign.startDate || null,
+    endDate: campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || null,
     availableSlots: Number(campaign.marketplace?.availableSlots || 0),
     requiredDeliverables: campaign.marketplace?.requiredDeliverables || [],
     paymentType: campaign.paymentType,
@@ -332,12 +364,12 @@ function presentCampaign(campaign, profileId) {
     rejectionReason: invitation?.rejectionReason || "",
     timeline: {
       campaignStart: campaign.startDate || campaign.createdAt,
-      contentSubmissionDeadline: campaign.deadline || null,
+      contentSubmissionDeadline: campaign.deadline || campaign.endDate || null,
       revisionDeadline: null,
       publishingDeadline: null,
-      campaignEndDate: campaign.deadline || campaign.marketplace?.applicationDeadline || null,
-      attributionEndDate: campaign.deadline && campaign.attributionWindowDays
-        ? new Date(new Date(campaign.deadline).getTime() + Number(campaign.attributionWindowDays || 0) * 24 * 60 * 60 * 1000)
+      campaignEndDate: campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || null,
+      attributionEndDate: (campaign.endDate || campaign.deadline) && campaign.attributionWindowDays
+        ? new Date(new Date(campaign.endDate || campaign.deadline).getTime() + Number(campaign.attributionWindowDays || 0) * 24 * 60 * 60 * 1000)
         : null,
     },
     saved: Boolean((campaign.marketplace?.savedBy || []).some((id) => String(id) === String(profileId))),
@@ -447,6 +479,11 @@ class CampaignService {
       influencerId: influencer._id,
       payload,
     });
+    const schedule = await schedulingService.normalizeCampaignSchedule(payload, pricing.paymentType);
+    const invitationDeadline = payload.marketplace?.applicationDeadline || null;
+    if (payload.influencerId && !invitationDeadline) {
+      throw new AppError("Invitation acceptance date is required for invite-only campaigns", 400, "INVITATION_DEADLINE_REQUIRED", { field: "marketplace.applicationDeadline" });
+    }
 
     const requiresFunding = ["fixed", "hybrid"].includes(pricing.paymentType);
     const initialState = WORKFLOW.INVITATION_SENT;
@@ -462,7 +499,7 @@ class CampaignService {
       language: payload.language || "en",
       marketplace: {
         public: Boolean(payload.marketplace?.public),
-        applicationDeadline: payload.marketplace?.applicationDeadline || payload.deadline,
+        applicationDeadline: invitationDeadline || undefined,
         availableSlots: payload.marketplace?.availableSlots || 1,
         requiredDeliverables: payload.marketplace?.requiredDeliverables || [],
         assets: payload.marketplace?.assets || [],
@@ -492,9 +529,15 @@ class CampaignService {
         : {}),
       attributionWindowDays: pricing.attributionDays,
       pricing: pricing.pricing,
+      startDate: schedule.startDate || undefined,
+      endDate: schedule.endDate || payload.deadline || undefined,
+      scheduling: {
+        ...(schedule.scheduling || {}),
+        autoPublishEnabled: Boolean(schedule.scheduling?.settingsSnapshot?.autoPublish),
+      },
       paymentModelSnapshot: pricing.paymentModel,
       influencerRateSnapshot: pricing.influencerSnapshot,
-      deadline: payload.deadline,
+      deadline: schedule.endDate || payload.deadline,
       state: initialState,
       history: [pushHistory(initialState, userId, "Campaign invitation sent by vendor")],
     });
@@ -532,7 +575,11 @@ class CampaignService {
     if (!INVITATION_OPEN_STATES.includes(campaign.state)) {
       throw new AppError("Campaign cannot be accepted in the current state", 400, "INVALID_STATE");
     }
-    ensureDeadlineOpen(campaign);
+    const invitation = await CampaignInvitation.findOne({ campaignId: campaign._id, influencerId: profile._id }).lean();
+    if (invitation && ["expired", "cancelled", "rejected"].includes(String(invitation.status || ""))) {
+      throw new AppError("Campaign invitation is no longer available", 409, "CAMPAIGN_INVITATION_UNAVAILABLE");
+    }
+    await ensureDeadlineOpen(campaign, { actorId: userId, actorRole: "influencer" });
     const subscription = await influencerCommerceEngine.getVendorSubscription(campaign.vendorId);
     if (!subscription) {
       throw new AppError("Vendor subscription must be active before accepting this campaign", 403, "SUBSCRIPTION_REQUIRED");
@@ -540,17 +587,20 @@ class CampaignService {
 
     const oldStatus = campaign.state;
     const state = WORKFLOW.ACCEPTED;
+    const acceptedAt = new Date();
+    const startsOnAcceptance = !["fixed", "hybrid"].includes(campaign.paymentType);
     const updated = await Campaign.findByIdAndUpdate(
       campaignId,
       {
         $set: {
           state,
+          ...(startsOnAcceptance && !campaign.startDate ? { startDate: acceptedAt, "scheduling.activatedAt": acceptedAt } : {}),
           ...(["fixed", "hybrid"].includes(campaign.paymentType)
             ? {
                 "fixedPaymentWorkflow.status": "accepted_awaiting_funding",
                 "fixedPaymentWorkflow.contentEnabled": false,
-                "fixedPaymentWorkflow.acceptedAt": new Date(),
-                "fixedPaymentWorkflow.lastTransitionAt": new Date(),
+                "fixedPaymentWorkflow.acceptedAt": acceptedAt,
+                "fixedPaymentWorkflow.lastTransitionAt": acceptedAt,
               }
             : {}),
           ...(["commission", "hybrid"].includes(campaign.paymentType)
@@ -570,7 +620,7 @@ class CampaignService {
             pricing: campaign.pricing,
             paymentModelSnapshot: campaign.paymentModelSnapshot,
             influencerRateSnapshot: campaign.influencerRateSnapshot,
-            frozenAt: new Date(),
+            frozenAt: acceptedAt,
           },
         },
         $push: {

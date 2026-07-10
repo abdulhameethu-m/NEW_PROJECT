@@ -3,10 +3,14 @@ const mongoose = require("mongoose");
 const DELIVERABLE_STATUSES = [
   "pending",
   "uploaded",
+  "vendor_review",
   "under_review",
   "approved",
   "revision_requested",
   "rejected",
+  "published",
+  "expired",
+  "missed_deadline",
   "completed",
   "cancelled",
 ];
@@ -27,10 +31,29 @@ const campaignDeliverableSchema = new mongoose.Schema(
     totalPrice: { type: Number, min: 0, default: 0 },
     currency: { type: String, trim: true, uppercase: true, default: "INR" },
     expectedCompletionDate: { type: Date },
+    dueDate: { type: Date, index: true },
+    dueTime: { type: String, trim: true, default: "" },
     status: { type: String, enum: DELIVERABLE_STATUSES, default: "pending", index: true },
     completionStatus: { type: String, enum: ["pending", "partial", "completed", "cancelled"], default: "pending", index: true },
     approvalStatus: { type: String, enum: ["pending", "uploaded", "under_review", "approved", "revision_requested", "rejected"], default: "pending", index: true },
     paymentEligibility: { type: String, enum: ["not_eligible", "eligible", "paid"], default: "not_eligible", index: true },
+    approvedAt: { type: Date },
+    publishDate: { type: Date },
+    publishTime: { type: String, trim: true, default: "" },
+    publishTimezone: { type: String, trim: true, default: "UTC" },
+    scheduledPublishAt: { type: Date, index: true },
+    publishedAt: { type: Date },
+    expiredAt: { type: Date },
+    refundEligible: { type: Boolean, default: false, index: true },
+    refundStatus: {
+      type: String,
+      enum: ["not_eligible", "refund_eligible", "refund_pending", "refund_approved", "refund_completed"],
+      default: "not_eligible",
+      index: true,
+    },
+    missedDeadline: { type: Boolean, default: false, index: true },
+    affiliateEnabled: { type: Boolean, default: false },
+    trackingEnabled: { type: Boolean, default: false },
     completedAt: { type: Date },
     latestSubmissionId: { type: mongoose.Schema.Types.ObjectId, ref: "DeliverableSubmission" },
     fundingAllocationId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignDeliverableFunding", default: null, index: true },
@@ -41,6 +64,9 @@ const campaignDeliverableSchema = new mongoose.Schema(
 );
 
 campaignDeliverableSchema.index({ campaignId: 1, influencerId: 1, deliverableType: 1 });
+campaignDeliverableSchema.index({ status: 1, dueDate: 1 });
+campaignDeliverableSchema.index({ status: 1, scheduledPublishAt: 1 });
+campaignDeliverableSchema.index({ refundEligible: 1, refundStatus: 1 });
 
 const deliverableSubmissionSchema = new mongoose.Schema(
   {

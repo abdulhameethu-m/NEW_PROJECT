@@ -889,6 +889,18 @@ function PayoutsView({ items, withdrawalRequests = [], pagination, setFilters, r
 function SettingsView({ data, runAction, busyId }) {
   const settings = data.settings || data || {};
   const enabled = Boolean(settings.enabled ?? settings.influencerCommerceEnabled);
+  const [scheduling, setScheduling] = useState({
+    minimumCampaignLeadTimeDays: settings.scheduling?.minimumCampaignLeadTimeDays ?? 3,
+    minimumPublishNoticeHours: settings.scheduling?.minimumPublishNoticeHours ?? 0,
+    autoPublish: settings.scheduling?.autoPublish ?? false,
+    enableDeadlineReminders: settings.scheduling?.enableDeadlineReminders ?? true,
+    autoExpireDeliverables: settings.scheduling?.autoExpireDeliverables ?? true,
+    autoExpireCampaign: settings.scheduling?.autoExpireCampaign ?? true,
+    enableEscrowRefund: settings.scheduling?.enableEscrowRefund ?? true,
+    gracePeriodHours: settings.scheduling?.gracePeriodHours ?? 0,
+  });
+  const inputClass = "h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white";
+  const setSchedule = (key, value) => setScheduling((current) => ({ ...current, [key]: value }));
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
@@ -915,6 +927,38 @@ function SettingsView({ data, runAction, busyId }) {
           <p className="text-sm text-slate-500 dark:text-slate-400">This updates the existing platform configuration used by admin, vendor, and influencer dashboards.</p>
           <ActionButton disabled={busyId === "toggle-settings"} onClick={() => runAction("toggle-settings", () => updateAdminInfluencerSettings({ enabled: !enabled }), "Influencer commerce settings updated.")}>
             {enabled ? "Disable" : "Enable"} Commerce
+          </ActionButton>
+        </div>
+      </Section>
+      <Section title="Campaign Scheduling Settings" icon={SlidersHorizontal}>
+        <div className="grid gap-3 md:grid-cols-2">
+          <FieldShell label="Minimum Campaign Lead Time">
+            <select className={inputClass} value={scheduling.minimumCampaignLeadTimeDays} onChange={(event) => setSchedule("minimumCampaignLeadTimeDays", Number(event.target.value))}>
+              {[3, 5, 7, 10].map((days) => <option key={days} value={days}>{days} days</option>)}
+            </select>
+          </FieldShell>
+          <FieldShell label="Minimum Publish Notice">
+            <input type="number" min="0" className={inputClass} value={scheduling.minimumPublishNoticeHours} onChange={(event) => setSchedule("minimumPublishNoticeHours", Number(event.target.value))} />
+          </FieldShell>
+          <FieldShell label="Grace Period">
+            <input type="number" min="0" className={inputClass} value={scheduling.gracePeriodHours} onChange={(event) => setSchedule("gracePeriodHours", Number(event.target.value))} />
+          </FieldShell>
+          {[
+            ["autoPublish", "Enable Auto Publish"],
+            ["enableDeadlineReminders", "Enable Deadline Reminders"],
+            ["autoExpireDeliverables", "Auto Expire Deliverables"],
+            ["autoExpireCampaign", "Auto Expire Campaign"],
+            ["enableEscrowRefund", "Enable Escrow Refund"],
+          ].map(([key, label]) => (
+            <label key={key} className={`${inputClass} flex items-center gap-2`}>
+              <input type="checkbox" checked={Boolean(scheduling[key])} onChange={(event) => setSchedule(key, event.target.checked)} />
+              {label}
+            </label>
+          ))}
+        </div>
+        <div className="mt-4">
+          <ActionButton disabled={busyId === "save-scheduling-settings"} onClick={() => runAction("save-scheduling-settings", () => updateAdminInfluencerSettings({ scheduling }), "Campaign scheduling settings updated.")}>
+            Save Scheduling Settings
           </ActionButton>
         </div>
       </Section>

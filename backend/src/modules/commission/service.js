@@ -175,7 +175,7 @@ function campaignHasCommissionEarnings(campaign = {}) {
 }
 
 function campaignEndDate(campaign = {}) {
-  return campaign.deadline || campaign.marketplace?.applicationDeadline || campaign.termsFrozen?.deadline || null;
+  return campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || campaign.termsFrozen?.deadline || null;
 }
 
 function isDateReached(date, now = new Date()) {
@@ -1576,10 +1576,11 @@ class CommissionService {
     const campaigns = await Campaign.find({
       state: { $in: ["tracking_active", "active", "accepted"] },
       $or: [
+        { endDate: { $lte: now } },
         { deadline: { $lte: now } },
         { "termsFrozen.deadline": { $lte: now } },
       ],
-    }).select("_id state paymentType deadline termsFrozen marketplace commissionWorkflow vendorId influencerId").lean();
+    }).select("_id state paymentType startDate endDate deadline termsFrozen marketplace commissionWorkflow vendorId influencerId").lean();
     let expired = 0;
     for (const campaign of campaigns) {
       const endDate = campaign.deadline || campaign.termsFrozen?.deadline || campaign.marketplace?.applicationDeadline;
@@ -1598,7 +1599,7 @@ class CommissionService {
     const now = new Date();
     const campaign = typeof campaignOrId === "object" && campaignOrId?._id
       ? campaignOrId
-      : await Campaign.findById(campaignOrId).select("_id state paymentType deadline marketplace termsFrozen commissionWorkflow vendorId influencerId").lean();
+      : await Campaign.findById(campaignOrId).select("_id state paymentType endDate deadline marketplace termsFrozen commissionWorkflow vendorId influencerId").lean();
     if (!campaign?._id) return { open: false, reason: "CAMPAIGN_NOT_FOUND" };
     if (!campaignSupportsAffiliateTracking(campaign)) return { open: false, reason: "CAMPAIGN_NOT_TRACKABLE" };
     const state = String(campaign.state || "").toLowerCase();
@@ -1777,14 +1778,23 @@ class CommissionService {
       await this.closeExpiredCampaignAttribution(campaign, { actor, reason: "Campaign end date reached; affiliate links disabled" }).catch(() => null);
       return [];
     }
+    if (activate && ["fixed", "hybrid"].includes(String(campaign.paymentType || "").toLowerCase())) {
+      const firstPublished = await CampaignDeliverable.exists({
+        campaignId: campaign._id,
+        status: "published",
+        publishedAt: { $ne: null },
+      });
+      if (!firstPublished) return [];
+    }
     const rule = await this.getCampaignCommissionRule(campaign._id);
     const attributionWindowDays = Number(rule?.attributionWindowDays ?? campaign.attributionWindowDays ?? campaign.termsFrozen?.attributionWindowDays ?? 30) || 30;
     const publication = activate ? { ready: true, reason: "DELIVERABLE_PUBLISHED" } : { ready: true };
     const shouldActivate = Boolean(activate);
     const products = await Product.find({ _id: { $in: campaign.productIds || [] } }).select("_id slug").lean();
     const now = new Date();
-    const expiresAt = campaign.deadline && attributionWindowDays > 0
-      ? addDays(campaign.deadline, attributionWindowDays)
+    const endDate = campaignEndDate(campaign);
+    const expiresAt = endDate && attributionWindowDays > 0
+      ? addDays(endDate, attributionWindowDays)
       : undefined;
     const rows = await Promise.all(products.map(async (product) => {
       const trackingId = buildAffiliateTrackingId({
@@ -1832,6 +1842,9 @@ class CommissionService {
             "commissionWorkflow.trackingActive": true,
             "commissionWorkflow.trackingActivatedAt": now,
             "commissionWorkflow.publishEnabled": true,
+            "scheduling.affiliateEnabled": true,
+            "scheduling.trackingEnabled": true,
+            "scheduling.commissionEnabled": ["commission", "hybrid"].includes(campaign.paymentType),
           },
           $push: {
             history: { state: "tracking_active", actorId: actor?._id || actor?.sub || null, note: "Affiliate tracking activated", changedAt: now },

@@ -314,6 +314,8 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
   const [isUploading, setIsUploading] = useState(false);
   const refundLock = deliverable.refundLock || {};
   const isRefundedLocked = Boolean(refundLock.locked);
+  const isUploadLocked = Boolean(deliverable.uploadLocked);
+  const isPublishLocked = Boolean(deliverable.publishLocked);
   const closed = ["completed", "approved", "cancelled"].includes(deliverable.status);
   const latest = deliverable.submissions?.[0] || null;
   const isApproved = ["approved", "completed"].includes(deliverable.status);
@@ -492,7 +494,14 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
         </div>
       ) : null}
 
-      {!isRefundedLocked && !closed ? (
+      {isUploadLocked && !latest ? (
+        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+          <p className="font-semibold">Deliverable Deadline Expired</p>
+          <p className="mt-1 text-sm">This deliverable can no longer be uploaded.</p>
+        </div>
+      ) : null}
+
+      {!isRefundedLocked && !isUploadLocked && !closed ? (
         <div className="mt-4 grid gap-3">
           <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 text-sm text-indigo-950 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-100">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -625,13 +634,14 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
           <button
             type="button"
             onClick={handlePublish}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-600"
+            disabled={isPublishLocked}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-500 dark:hover:bg-emerald-600"
           >
             <Share2 className="h-4 w-4" />
-            Publish Content
+            {isPublishLocked ? "Publishing Scheduled" : "Publish Content"}
           </button>
           <p className="flex items-center text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-            Content approved! Ready to publish.
+            {isPublishLocked ? `Available on ${dateTimeLabel(deliverable.publishAvailableAt)}` : "Content approved! Ready to publish."}
           </p>
         </div>
       ) : null}

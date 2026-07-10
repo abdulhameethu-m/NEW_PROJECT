@@ -143,6 +143,17 @@ const campaignSchema = new mongoose.Schema(
       totalBudget: { type: Number, min: 0, default: 0 },
       currency: { type: String, trim: true, uppercase: true, default: "INR" },
     },
+    startDate: { type: Date, index: true },
+    endDate: { type: Date, index: true },
+    scheduling: {
+      settingsSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
+      activatedAt: { type: Date },
+      expiredAt: { type: Date },
+      affiliateEnabled: { type: Boolean, default: false, index: true },
+      trackingEnabled: { type: Boolean, default: false, index: true },
+      commissionEnabled: { type: Boolean, default: false, index: true },
+      autoPublishEnabled: { type: Boolean, default: false },
+    },
     deadline: { type: Date },
     state: {
       type: String,
@@ -195,6 +206,7 @@ campaignSchema.index({ "marketplace.public": 1, state: 1, createdAt: -1 });
 campaignSchema.index({ "applications.influencerId": 1, "applications.status": 1 });
 campaignSchema.index({ paymentType: 1, attributionWindowDays: 1 });
 campaignSchema.index({ "contractSnapshot.locked": 1, state: 1 });
+campaignSchema.index({ startDate: 1, endDate: 1, paymentType: 1, state: 1 });
 
 const campaignInvitationSchema = new mongoose.Schema(
   {

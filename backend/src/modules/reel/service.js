@@ -13,6 +13,7 @@ const { Reel, ContentAnalytics } = require("./model");
 const CampaignPaymentRelease = require("../../models/CampaignPaymentRelease");
 const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
 const auditService = require("../../services/audit.service");
+const schedulingService = require("../../services/campaign-scheduling.service");
 const {
   AffiliateLink,
   CampaignAffiliateClick,
@@ -217,7 +218,7 @@ async function activeCampaignAffiliateLinkMap(reels = []) {
   const openCampaigns = await Campaign.find({
     _id: { $in: campaignIds },
     state: "tracking_active",
-    deadline: { $gt: now },
+    $or: [{ endDate: { $gt: now } }, { deadline: { $gt: now } }, { endDate: null, deadline: null }],
     "commissionWorkflow.trackingActive": true,
   }).select("_id").lean();
   const openCampaignIds = new Set(openCampaigns.map((campaign) => idOf(campaign._id)));
@@ -264,6 +265,22 @@ async function activateAffiliateLinksForPublishedReel(reel, actor = {}) {
     reelId: reel._id,
     actor,
   });
+}
+
+async function assertCampaignPublishAllowed(campaign, influencerId) {
+  if (!campaign?._id) return;
+  const deliverable = await require("../campaign/executionModel").CampaignDeliverable.findOne({
+    campaignId: campaign._id,
+    influencerId,
+    status: { $in: ["approved", "completed"] },
+  }).sort({ scheduledPublishAt: 1, approvedAt: 1 }).lean();
+  if (!deliverable) {
+    if (["commission", "hybrid"].includes(campaign.paymentType) && !campaign.commissionWorkflow?.publishEnabled) {
+      throw new AppError("Content must be approved before publishing this campaign", 409, "CONTENT_APPROVAL_REQUIRED");
+    }
+    return;
+  }
+  schedulingService.assertPublishOpen(campaign, deliverable);
 }
 
 const CONTENT_READY_CAMPAIGN_STATES = new Set([
@@ -439,6 +456,9 @@ class ReelService {
       if (!campaignAcceptsCreatorContent(campaign)) {
         throw new AppError("Reels can only be submitted for accepted or active campaigns", 400, "CAMPAIGN_NOT_ACTIVE");
       }
+      if (payload.visibility === "published") {
+        await assertCampaignPublishAllowed(campaign, profile._id);
+      }
       const allowedProducts = new Set((campaign.productIds || []).map(String));
       const requestedProducts = (payload.productIds || []).map(String);
       if (requestedProducts.some((productId) => !allowedProducts.has(productId))) {
@@ -511,9 +531,7 @@ class ReelService {
         if (!campaign || !campaignAllowsInfluencerContent(campaign, profile._id) || !campaignAcceptsCreatorContent(campaign)) {
           throw new AppError("Campaign does not allow product tagging", 403, "FORBIDDEN");
         }
-        if (payload.action === "publish" && ["commission", "hybrid"].includes(campaign.paymentType) && !campaign.commissionWorkflow?.publishEnabled) {
-          throw new AppError("Content must be approved before publishing this commission campaign", 409, "CONTENT_APPROVAL_REQUIRED");
-        }
+        if (payload.action === "publish" || payload.visibility === "published") await assertCampaignPublishAllowed(campaign, profile._id);
         const allowedProducts = new Set((campaign.productIds || []).map(String));
         const requestedProducts = (payload.productIds || []).map(String);
         if (requestedProducts.some((productId) => !allowedProducts.has(productId))) {
@@ -551,6 +569,11 @@ class ReelService {
     }
     const reel = await Reel.findByIdAndUpdate(existing._id, { $set: update }, { returnDocument: "after", runValidators: true }).lean();
     if (payload.action === "publish" && reel.campaignId) {
+      await require("../campaign/executionModel").CampaignDeliverable.updateOne(
+        { campaignId: reel.campaignId, influencerId: reel.influencerId, status: { $in: ["approved", "completed"] } },
+        { $set: { status: "published", publishedAt: reel.publishedAt || new Date(), affiliateEnabled: true, trackingEnabled: true } },
+        { sort: { scheduledPublishAt: 1, approvedAt: 1 } }
+      ).catch(() => null);
       await activateAffiliateLinksForPublishedReel(reel, { _id: userId, sub: userId, role: "influencer" });
       await emitDomainEvent(INFLUENCER_EVENTS.REEL_PUBLISHED, {
         reelId: reel._id,
@@ -655,6 +678,9 @@ class ReelService {
         throw new AppError("You can only view statistics for your campaign content", 403, "FORBIDDEN");
       }
       return reel;
+    }
+    if (payload.action !== "reject" && reel.campaignId) {
+      await assertCampaignPublishAllowed(reel.campaignId, reel.influencerId);
     }
 
     throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
@@ -1057,6 +1083,11 @@ class ReelService {
     );
 
     if (nextState === "published") {
+      await require("../campaign/executionModel").CampaignDeliverable.updateOne(
+        { campaignId: updated.campaignId, influencerId: updated.influencerId, status: { $in: ["approved", "completed"] } },
+        { $set: { status: "published", publishedAt: updated.publishedAt || new Date(), affiliateEnabled: true, trackingEnabled: true } },
+        { sort: { scheduledPublishAt: 1, approvedAt: 1 } }
+      ).catch(() => null);
       await activateAffiliateLinksForPublishedReel(updated, actor);
       await emitDomainEvent(INFLUENCER_EVENTS.REEL_PUBLISHED, {
         reelId: updated._id,

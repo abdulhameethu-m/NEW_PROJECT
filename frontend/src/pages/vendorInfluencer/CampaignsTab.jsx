@@ -119,6 +119,21 @@ function splitLines(value = "") {
     .map((item) => item.trim())
     .filter(Boolean);
 }
+
+function toDateInputValue(date = new Date()) {
+  const next = new Date(date);
+  next.setMinutes(next.getMinutes() - next.getTimezoneOffset());
+  return next.toISOString().slice(0, 10);
+}
+
+function addDaysToInputDate(value, days = 0) {
+  if (!value) return "";
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return "";
+  const next = new Date(year, month - 1, day);
+  next.setDate(next.getDate() + Number(days || 0));
+  return toDateInputValue(next);
+}
 function DynamicCampaignField({ field, value, onChange }) {
   const name = field.fieldName || field.key;
   const label = field.label || name;
@@ -243,6 +258,8 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     shippingCost: 0,
     selectedServices: [],
     dynamicFields: {},
+    invitationDeadline: "",
+    endDate: "",
     deadline: "",
     marketplace: { public: true },
   });
@@ -277,6 +294,14 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   const selectedCampaignType = rules.campaignTypes.find((type) => type.key === form.campaignType) || rules.campaignTypes[0] || null;
   const paymentModels = selectedCampaignType?.allowedPaymentModels?.length ? selectedCampaignType.allowedPaymentModels : rules.paymentModels;
   const selectedPaymentModel = paymentModels.find((model) => model.key === form.paymentType) || paymentModels[0];
+  const schedulingSettings = configuration.schedulingSettings || {};
+  const minimumCampaignLeadTimeDays = Math.max(0, Number(schedulingSettings.minimumCampaignLeadTimeDays ?? 0) || 0);
+  const minimumDeliverableDueDate = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + minimumCampaignLeadTimeDays);
+    return toDateInputValue(date);
+  }, [minimumCampaignLeadTimeDays]);
+  const maximumDeliverableDueDate = useMemo(() => addDaysToInputDate(form.endDate, -1), [form.endDate]);
   const fixedCalculationRows = useMemo(() => fixedRewardCalculationRows(form.selectedServices), [form.selectedServices]);
   const calculatedFixedReward = useMemo(() => fixedCalculationRows.reduce((sum, item) => sum + Number(item.total || 0), 0), [fixedCalculationRows]);
   const fixedPaymentSummary = useMemo(() => {
@@ -355,6 +380,24 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
 
   function setField(key, value) {
     setForm((current) => ({ ...current, [key]: value, dynamicFields: { ...current.dynamicFields, [key]: value } }));
+  }
+
+  function setCampaignEndDate(value) {
+    const nextMaximumDueDate = addDaysToInputDate(value, -1);
+    setForm((current) => {
+      const selectedServices = current.selectedServices.map((item) => (
+        item.dueDate && nextMaximumDueDate && item.dueDate > nextMaximumDueDate
+          ? { ...item, dueDate: "" }
+          : item
+      ));
+      return {
+        ...current,
+        endDate: value,
+        deadline: value,
+        selectedServices,
+        dynamicFields: { ...current.dynamicFields, endDate: value, selectedServices, deliverableCommissionRates: selectedServices },
+      };
+    });
   }
 
   function setDynamicField(key, value) {
@@ -452,6 +495,21 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     });
   }
 
+  function setDeliverableDueDate(selectionKey, dueDate) {
+    setForm((current) => {
+      const selectedServices = current.selectedServices.map((item) => (
+        String(item.selectionKey || "") === String(selectionKey || "")
+          ? { ...item, dueDate }
+          : item
+      ));
+      return {
+        ...current,
+        selectedServices,
+        dynamicFields: { ...current.dynamicFields, selectedServices, deliverableCommissionRates: selectedServices },
+      };
+    });
+  }
+
   function selectedPackage(service, pkg) {
     const key = packageKey(service, pkg);
     return form.selectedServices.find((item) => String(item.selectionKey || "") === key) || null;
@@ -495,11 +553,13 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       selectedServices,
       deliverableCommissionRates,
       dynamicFields: dynamicFieldValues,
+      endDate: source.endDate || source.deadline || null,
       deadline: source.deadline || null,
       commissionPercent: fallbackCommissionPercent,
       ...(source.paymentType === "fixed" ? {} : { fixedFee: fixedReward }),
       marketplace: {
         ...source.marketplace,
+        applicationDeadline: source.invitationDeadline || null,
         requiredDeliverables: splitLines(dynamicFieldValues.expectedDeliverables || dynamicFieldValues.deliverables || source.marketplace?.requiredDeliverables || []),
       },
       paymentModel: {
@@ -569,6 +629,8 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       shippingCost: 0,
       selectedServices: [],
       dynamicFields: defaults,
+      invitationDeadline: "",
+      endDate: "",
       deadline: "",
       marketplace: { public: true },
     });
@@ -578,20 +640,29 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   const fixedNeedsDeliverables = form.paymentType === "fixed" && !form.selectedServices.length;
   const commissionNeedsDeliverables = ["commission", "hybrid"].includes(form.paymentType) && !form.selectedServices.length;
   const commissionNeedsRates = ["commission", "hybrid"].includes(form.paymentType) && form.selectedServices.some((item) => Number(item.commissionPercentage || 0) <= 0);
-  const canSubmit = !busy && form.title.trim() && form.productIds.length && form.campaignType && form.paymentType && !fixedNeedsDeliverables && !commissionNeedsDeliverables && !commissionNeedsRates && !previewError;
-  const submitHelp = !form.title.trim()
-    ? "Add a campaign title to continue."
-    : !form.productIds.length
-      ? "Select at least one product."
-      : !form.campaignType || !form.paymentType
-        ? "Choose campaign and payment rules."
-        : fixedNeedsDeliverables
-          ? "Select deliverables from the creator's approved rate card to calculate the fixed reward."
-          : commissionNeedsDeliverables
-          ? "Select the creator deliverables before creating a commission campaign."
-          : commissionNeedsRates
-            ? "Set a commission percentage for each selected deliverable."
-          : previewError || "";
+  const needsScheduling = ["fixed", "hybrid"].includes(form.paymentType) || form.selectedServices.length > 0;
+  const missingInvitationDeadline = Boolean(form.influencerId) && !form.invitationDeadline;
+  const missingCampaignDates = needsScheduling && !form.endDate;
+  const missingDeliverableDueDates = needsScheduling && form.selectedServices.some((item) => !item.dueDate);
+  const invalidDeliverableDueDates = needsScheduling && form.selectedServices.some((item) => {
+    if (!item.dueDate) return false;
+    if (minimumDeliverableDueDate && item.dueDate < minimumDeliverableDueDate) return true;
+    if (maximumDeliverableDueDate && item.dueDate > maximumDeliverableDueDate) return true;
+    return false;
+  });
+  const canSubmit = !busy && form.title.trim() && form.productIds.length && form.campaignType && form.paymentType && !fixedNeedsDeliverables && !commissionNeedsDeliverables && !commissionNeedsRates && !missingInvitationDeadline && !missingCampaignDates && !missingDeliverableDueDates && !invalidDeliverableDueDates && !previewError;
+  const submitHelp =
+    !form.title.trim() ? "Add a campaign title to continue."
+    : !form.productIds.length ? "Select at least one product."
+    : !form.campaignType || !form.paymentType ? "Choose campaign and payment rules."
+    : fixedNeedsDeliverables ? "Select deliverables from the creator's approved rate card to calculate the fixed reward."
+    : commissionNeedsDeliverables ? "Select the creator deliverables before creating a commission campaign."
+    : commissionNeedsRates ? "Set a commission percentage for each selected deliverable."
+    : missingInvitationDeadline ? "Set the invitation acceptance deadline."
+    : missingCampaignDates ? "Set the campaign end date."
+    : missingDeliverableDueDates ? "Set a due date for every fixed deliverable."
+    : invalidDeliverableDueDates ? `Deliverable due dates must be between ${minimumDeliverableDueDate} and ${maximumDeliverableDueDate || "the day before campaign end"}.`
+    : previewError || "";
 
   return (
     <form onSubmit={submit} className="space-y-5">
@@ -625,8 +696,14 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
             </select>
           </label>
           <label className="block space-y-1.5">
-            <FieldLabel>Campaign Deadline</FieldLabel>
-            <input type="date" value={form.deadline} onChange={(event) => setField("deadline", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Campaign deadline" />
+            <FieldLabel>Invitation Acceptance Date Before</FieldLabel>
+            <input type="date" min={toDateInputValue(new Date())} value={form.invitationDeadline} onChange={(event) => setField("invitationDeadline", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Invitation acceptance date before" />
+            <FieldHint>The influencer must accept before this date, otherwise the invitation expires automatically.</FieldHint>
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>Campaign End Date</FieldLabel>
+            <input type="date" min={minimumDeliverableDueDate ? addDaysToInputDate(minimumDeliverableDueDate, 1) : undefined} value={form.endDate} onChange={(event) => setCampaignEndDate(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Campaign end date" />
+            <FieldHint>Campaign end must be after every deliverable due date.</FieldHint>
           </label>
           <label className="block space-y-1.5">
             <FieldLabel>Visibility</FieldLabel>
@@ -809,6 +886,20 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                           <span className="min-w-0">
                             <span className="block truncate font-medium text-slate-800 dark:text-slate-100">{pkg.packageName || pkg.name || "Package"}</span>
                             <span className="text-xs text-slate-500">Package: {pkg.packageName || pkg.name || "Package"} · Quantity: {packageQuantity(pkg)} · Unit Price: {formatCurrency(packageUnitPrice(pkg, service))} · {pkg.deliveryDays ?? service.deliveryDays ?? 0}d · {pkg.revisionCount ?? service.revisionCount ?? 0} rev</span>
+                            {selected && needsScheduling ? (
+                              <span className="mt-2 grid max-w-56 gap-1" onClick={(event) => event.stopPropagation()}>
+                                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Due Date</span>
+                                <input
+                                  type="date"
+                                  min={minimumDeliverableDueDate || undefined}
+                                  max={form.endDate || undefined}
+                                  value={selectedItem?.dueDate || ""}
+                                  onChange={(event) => setDeliverableDueDate(selectedItem.selectionKey, event.target.value)}
+                                  className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                                  aria-label={`${pkg.packageName || service.serviceName} due date`}
+                                />
+                              </span>
+                            ) : null}
                           </span>
                           {commissionMode ? (
                             selected ? (

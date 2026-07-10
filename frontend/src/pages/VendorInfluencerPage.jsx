@@ -625,7 +625,20 @@ export function VendorInfluencerPage() {
             const note = decision === "changes" ? "Please update this content and resubmit." : "";
             if (row.source === "deliverable_execution") {
               const apiDecision = decision === "changes" ? "revision_requested" : decision;
-              return runAction(row.id, () => reviewCampaignExecutionDeliverable(row.campaignId, row.deliverableId, { submissionId: row.submissionId, decision: apiDecision, comments: note }), "Deliverable review synchronized.");
+              let schedule = {};
+              if (apiDecision === "approve") {
+                const defaultDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                const publishDate = window.prompt("Publish date (YYYY-MM-DD)", defaultDate);
+                if (!publishDate) return null;
+                const publishTime = window.prompt("Publish time (HH:mm, 24-hour)", "10:00");
+                if (!publishTime) return null;
+                schedule = {
+                  publishDate,
+                  publishTime,
+                  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+                };
+              }
+              return runAction(row.id, () => reviewCampaignExecutionDeliverable(row.campaignId, row.deliverableId, { submissionId: row.submissionId, decision: apiDecision, comments: note, ...schedule }), "Deliverable review synchronized.");
             }
             return runAction(row.id, () => reviewVendorInfluencerContent(row.id, { decision, note }), "Content review synchronized.");
           }}

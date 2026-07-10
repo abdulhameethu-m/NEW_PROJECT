@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const auditService = require("../../services/audit.service");
 const notificationService = require("../../services/notification.service");
 const { isInfluencerCommerceEnabled, invalidateInfluencerCommerceConfigCache } = require("../../services/influencer-commerce-config.service");
+const campaignSchedulingService = require("../../services/campaign-scheduling.service");
 const influencerRateCardService = require("../../services/influencer-rate-card.service");
 const analyticsAggregator = require("../analytics/service");
 const { AppError } = require("../../utils/AppError");
@@ -193,7 +194,7 @@ function normalizeCampaignState(payload = {}) {
 }
 
 function campaignEndDate(campaign = {}) {
-  return campaign.deadline || campaign.marketplace?.applicationDeadline || campaign.termsFrozen?.deadline || null;
+  return campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || campaign.termsFrozen?.deadline || null;
 }
 
 function isDateReached(value, now = new Date()) {
@@ -1821,6 +1822,7 @@ class AdminInfluencerCommerceService {
   async settings() {
     return {
       enabled: await isInfluencerCommerceEnabled(),
+      scheduling: await campaignSchedulingService.getSettings(),
       defaultCommissionRate: Number(process.env.INFLUENCER_DEFAULT_COMMISSION_RATE || 10),
       maximumCommissionRate: Number(process.env.INFLUENCER_MAX_COMMISSION_RATE || 50),
       commissionHoldDays: Number(process.env.INFLUENCER_HOLD_DAYS || 7),
@@ -1850,6 +1852,9 @@ class AdminInfluencerCommerceService {
         { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
       );
       invalidateInfluencerCommerceConfigCache();
+    }
+    if (payload.scheduling) {
+      await campaignSchedulingService.updateSettings(payload.scheduling);
     }
     await auditService.log({ actor, action: "admin.influencer_commerce.settings.update", entityType: "PlatformConfig", entityId: "influencer_commerce", metadata: payload }).catch(() => {});
     return this.settings();

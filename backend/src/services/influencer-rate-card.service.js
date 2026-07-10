@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const { AppError } = require("../utils/AppError");
 const influencerCommerceEngine = require("./influencer-commerce-engine.service");
 const campaignRuleEngine = require("./campaign-rule-engine.service");
+const campaignSchedulingService = require("./campaign-scheduling.service");
 const { Campaign } = require("../modules/campaign/model");
 const { Product } = require("../models/Product");
 const {
@@ -103,7 +104,11 @@ function packageId(pkg = {}) {
 
 class InfluencerRateCardService {
   async getConfiguration() {
-    return influencerCommerceEngine.commerceConfiguration();
+    const [configuration, schedulingSettings] = await Promise.all([
+      influencerCommerceEngine.commerceConfiguration(),
+      campaignSchedulingService.getSettings(),
+    ]);
+    return { ...configuration, schedulingSettings };
   }
 
   async getProfileForUser(userId) {

@@ -5,8 +5,9 @@ const notificationService = require("../../services/notification.service");
 const vendorRepo = require("../../repositories/vendor.repository");
 const influencerService = require("../influencer/service");
 const commissionService = require("../commission/service");
+const schedulingService = require("../../services/campaign-scheduling.service");
 const { CommissionRecord } = require("../commission/models");
-const { Campaign, CampaignStatusHistory } = require("./model");
+const { Campaign, CampaignInvitation, CampaignStatusHistory } = require("./model");
 const { Reel } = require("../reel/model");
 const { InfluencerProfile } = require("../influencer/model");
 const CampaignDeliverableFunding = require("../../models/CampaignDeliverableFunding");
@@ -90,6 +91,7 @@ function normalizeServiceDeliverable(row = {}, campaign = {}) {
   const total = money(row.total || row.totalPrice || row.price || row.packagePrice || 0);
   const unitPrice = money(row.unitPrice || (quantity ? total / quantity : total));
   const serviceName = row.serviceName || row.packageName || row.serviceType || row.serviceTypeKey || row.type || "Deliverable";
+  const dueDate = row.dueDate || row.deliveryDate || row.expectedCompletionDate || campaign.endDate || campaign.deadline || undefined;
   return {
     deliverableType: String(row.serviceTypeKey || row.serviceType || row.type || serviceName).toLowerCase().replace(/\s+/g, "_"),
     title: serviceName,
@@ -97,7 +99,9 @@ function normalizeServiceDeliverable(row = {}, campaign = {}) {
     unitPrice,
     totalPrice: money(total || unitPrice * quantity),
     currency: row.currency || campaign.pricing?.currency || "INR",
-    expectedCompletionDate: row.dueDate || campaign.deadline || undefined,
+    expectedCompletionDate: dueDate,
+    dueDate,
+    dueTime: row.dueTime || row.deliveryTime || "",
     source: "selected_services",
     snapshot: row,
   };
@@ -369,6 +373,8 @@ class CampaignExecutionService {
       : [];
     const created = await CampaignDeliverable.insertMany(rows.map((row, index) => ({
       ...row,
+      dueDate: schedulingService.validateDeliverableDueDate(row.dueDate || row.expectedCompletionDate, campaign) || row.dueDate || row.expectedCompletionDate,
+      expectedCompletionDate: schedulingService.validateDeliverableDueDate(row.dueDate || row.expectedCompletionDate, campaign) || row.expectedCompletionDate,
       campaignId: campaign._id,
       influencerId: campaign.influencerId?._id || campaign.influencerId,
       vendorId: campaign.vendorId?._id || campaign.vendorId,
@@ -455,9 +461,10 @@ class CampaignExecutionService {
         influencer: campaign.influencerId,
         paymentModel: paymentType,
         budget: campaignBudget(campaign),
-        startDate: campaign.createdAt,
-        endDate: campaign.deadline || campaign.marketplace?.applicationDeadline || null,
+        startDate: campaign.startDate || campaign.createdAt,
+        endDate: campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || null,
         status: campaign.state,
+        scheduling: campaign.scheduling || null,
         fixedPaymentWorkflow: campaign.fixedPaymentWorkflow || null,
         contentEnabled: !["fixed", "hybrid"].includes(paymentType) || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled),
       },
@@ -483,10 +490,25 @@ class CampaignExecutionService {
         totalPrice: row.totalPrice,
         currency: row.currency,
         expectedCompletionDate: row.expectedCompletionDate,
+        dueDate: row.dueDate || row.expectedCompletionDate,
+        dueTime: row.dueTime || "",
         status: row.status,
         approvalStatus: row.approvalStatus,
         completionStatus: row.completionStatus,
         paymentEligibility: row.paymentEligibility,
+        approvedAt: row.approvedAt,
+        publishDate: row.publishDate,
+        publishTime: row.publishTime,
+        publishTimezone: row.publishTimezone,
+        scheduledPublishAt: row.scheduledPublishAt,
+        publishedAt: row.publishedAt,
+        expiredAt: row.expiredAt,
+        refundEligible: Boolean(row.refundEligible),
+        refundStatus: row.refundStatus || "not_eligible",
+        missedDeadline: Boolean(row.missedDeadline),
+        uploadLocked: ["expired", "missed_deadline", "cancelled", "published"].includes(String(row.status || "").toLowerCase()) || Boolean((row.dueDate || row.expectedCompletionDate) && new Date(row.dueDate || row.expectedCompletionDate).getTime() < Date.now()),
+        publishLocked: Boolean(row.scheduledPublishAt && new Date(row.scheduledPublishAt).getTime() > Date.now()),
+        publishAvailableAt: row.scheduledPublishAt || null,
         latestSubmissionId: row.latestSubmissionId,
         fundingAllocationId: row.fundingAllocationId,
         submissions: submissionMap.get(String(row._id)) || [],
@@ -518,6 +540,7 @@ class CampaignExecutionService {
     await assertFixedContentEnabled(campaign);
     const deliverable = await CampaignDeliverable.findOne({ _id: deliverableObjectId, campaignId: campaignObjectId, influencerId: profile._id });
     if (!deliverable) throw new AppError("Deliverable not found", 404, "NOT_FOUND");
+    schedulingService.assertUploadOpen(deliverable);
     if (["approved", "completed", "cancelled"].includes(deliverable.status)) throw new AppError("This deliverable is closed for uploads", 409, "INVALID_STATE");
     const funding = await CampaignDeliverableFunding.findOne({ campaignId: campaignObjectId, deliverableId: deliverableObjectId }).lean();
     const refundLock = deliverableRefundLock(funding);
@@ -580,6 +603,13 @@ class CampaignExecutionService {
       reviewedBy: userId,
     });
     if (decision === "approve") {
+      const publishSchedule = await schedulingService.validatePublishSchedule({
+        campaign,
+        deliverable,
+        publishDate: payload.publishDate || payload.scheduledPublishAt,
+        publishTime: payload.publishTime || "00:00",
+        timezone: payload.timezone || payload.publishTimezone || "UTC",
+      });
       const allDeliverables = await CampaignDeliverable.find({ campaignId: campaign._id }).lean();
       const totalDeliverableValue = money(allDeliverables.reduce((sum, row) => sum + Number(row.totalPrice || 0), 0));
       const fixedFee = money(campaign.fixedFee || campaign.pricing?.fixedCost || 0);
@@ -596,6 +626,11 @@ class CampaignExecutionService {
       deliverable.approvalStatus = "approved";
       deliverable.completionStatus = "completed";
       deliverable.paymentEligibility = "eligible";
+      deliverable.approvedAt = new Date();
+      deliverable.publishDate = publishSchedule.publishDate;
+      deliverable.publishTime = publishSchedule.publishTime;
+      deliverable.publishTimezone = publishSchedule.publishTimezone;
+      deliverable.scheduledPublishAt = publishSchedule.scheduledPublishAt;
       deliverable.completedAt = new Date();
       await DeliverablePayout.findOneAndUpdate(
         { deliverableId: deliverable._id, influencerId: deliverable.influencerId },
@@ -790,6 +825,216 @@ class CampaignExecutionService {
       publishedCount,
       totalDeliverables
     };
+  }
+
+  async runScheduledMaintenance({ now = new Date(), actor = { role: "system" } } = {}) {
+    const settings = await schedulingService.getSettings();
+    const graceMs = Number(settings.gracePeriodHours || 0) * 60 * 60 * 1000;
+    const deadlineCutoff = new Date(now.getTime() - graceMs);
+    const summary = {
+      activatedCampaigns: 0,
+      expiredDeliverables: 0,
+      refundEligibleDeliverables: 0,
+      expiredCampaigns: 0,
+      autoPublishedContent: 0,
+      deadlineRemindersSent: 0,
+      expiredInvitations: 0,
+    };
+
+    const expiredInvitationCampaigns = await Campaign.find({
+      state: { $in: ["proposed", "invitation_sent", "pending_review"] },
+      "marketplace.applicationDeadline": { $ne: null, $lte: now },
+    }).limit(500);
+    for (const campaign of expiredInvitationCampaigns) {
+      const previous = campaign.state;
+      campaign.state = "expired";
+      campaign.scheduling = { ...(campaign.scheduling || {}), expiredAt: now };
+      campaign.history.push({ state: "expired", actorId: actor?._id || actor?.sub || null, note: "Invitation acceptance deadline passed", changedAt: now });
+      await campaign.save();
+      await CampaignInvitation.updateMany(
+        { campaignId: campaign._id, status: { $in: ["invitation_sent", "viewed"] } },
+        { $set: { status: "expired", "metadata.expiredAt": now, "metadata.expiredReason": "Invitation acceptance deadline passed" } }
+      );
+      await CampaignStatusHistory.create({
+        campaignId: campaign._id,
+        oldStatus: previous,
+        newStatus: "expired",
+        changedBy: actor?._id || actor?.sub || null,
+        changedByRole: actor?.role || "system",
+        reason: "Invitation acceptance deadline passed",
+      }).catch(() => null);
+      summary.expiredInvitations += 1;
+    }
+
+    const activatableCampaigns = await Campaign.find({
+      paymentType: { $in: ["fixed", "hybrid"] },
+      state: "accepted",
+      startDate: { $lte: now },
+      "fixedPaymentWorkflow.status": "funded",
+    }).limit(500);
+    for (const campaign of activatableCampaigns) {
+      const escrow = await CampaignEscrowWallet.findOne({ campaignId: campaign._id, status: { $in: ["funded", "partially_released"] } }).lean();
+      if (!escrow) continue;
+      const previous = campaign.state;
+      campaign.state = "active";
+      campaign.fixedPaymentWorkflow = {
+        ...(campaign.fixedPaymentWorkflow || {}),
+        status: "funded",
+        contentEnabled: true,
+        lastTransitionAt: now,
+      };
+      campaign.scheduling = { ...(campaign.scheduling || {}), activatedAt: now };
+      campaign.history.push({ state: "active", actorId: actor?._id || actor?.sub || null, note: "Campaign activated automatically on start date", changedAt: now });
+      await campaign.save();
+      await CampaignStatusHistory.create({
+        campaignId: campaign._id,
+        oldStatus: previous,
+        newStatus: "active",
+        changedBy: actor?._id || actor?.sub || null,
+        changedByRole: actor?.role || "system",
+        reason: "Campaign start date reached",
+      }).catch(() => null);
+      summary.activatedCampaigns += 1;
+    }
+
+    if (settings.enableDeadlineReminders) {
+      const reminderWindows = [
+        { key: "due24h", hours: 24, title: "Deliverable due soon", message: "1 day remaining to upload your campaign deliverable." },
+        { key: "due6h", hours: 6, title: "Deliverable due soon", message: "6 hours remaining to upload your campaign deliverable." },
+      ];
+      for (const window of reminderWindows) {
+        const upper = new Date(now.getTime() + window.hours * 60 * 60 * 1000);
+        const rows = await CampaignDeliverable.find({
+          status: { $in: ["pending", "uploaded", "revision_requested"] },
+          dueDate: { $gt: now, $lte: upper },
+          [`snapshot.reminders.${window.key}`]: { $ne: true },
+        }).limit(200);
+        for (const deliverable of rows) {
+          const profile = await InfluencerProfile.findById(deliverable.influencerId).select("userId").lean();
+          if (profile?.userId) {
+            await notificationService.createNotification({
+              userId: profile.userId,
+              role: "INFLUENCER",
+              module: "GROWTH",
+              subModule: "INFLUENCER_COMMERCE",
+              type: "DELIVERABLE_DUE_SOON",
+              title: window.title,
+              message: `${window.message} ${deliverable.title || "Deliverable"} is due on ${new Date(deliverable.dueDate).toLocaleString()}.`,
+              referenceId: deliverable.campaignId,
+              meta: { campaignId: String(deliverable.campaignId), deliverableId: String(deliverable._id), reminder: window.key },
+            }).catch(() => null);
+          }
+          deliverable.snapshot = {
+            ...(deliverable.snapshot || {}),
+            reminders: { ...(deliverable.snapshot?.reminders || {}), [window.key]: true },
+          };
+          await deliverable.save();
+          summary.deadlineRemindersSent += 1;
+        }
+      }
+    }
+
+    if (settings.autoExpireDeliverables) {
+      const dueDeliverables = await CampaignDeliverable.find({
+        dueDate: { $lte: deadlineCutoff },
+        status: { $in: ["pending", "uploaded"] },
+      }).limit(500);
+      for (const deliverable of dueDeliverables) {
+        const campaign = await Campaign.findById(deliverable.campaignId).select("_id title paymentType vendorId influencerId state").lean();
+        const hasUpload = Boolean(deliverable.latestSubmissionId);
+        const refundEligible = settings.enableEscrowRefund && schedulingService.supportsFixedScheduling(campaign) && !hasUpload;
+        deliverable.status = hasUpload ? "expired" : "missed_deadline";
+        deliverable.approvalStatus = hasUpload ? deliverable.approvalStatus : "pending";
+        deliverable.missedDeadline = !hasUpload;
+        deliverable.expiredAt = now;
+        deliverable.refundEligible = refundEligible;
+        deliverable.refundStatus = refundEligible ? "refund_eligible" : "not_eligible";
+        await deliverable.save();
+        summary.expiredDeliverables += 1;
+        if (refundEligible) summary.refundEligibleDeliverables += 1;
+        await audit({
+          actorId: actor?._id || actor?.sub || null,
+          role: actor?.role || "system",
+          action: refundEligible ? "refund_enabled" : "deadline_missed",
+          campaignId: deliverable.campaignId,
+          deliverableId: deliverable._id,
+          oldValue: { status: "pending" },
+          newValue: { status: deliverable.status, refundEligible },
+        }).catch(() => null);
+      }
+    }
+
+    if (settings.autoExpireCampaign) {
+      const campaigns = await Campaign.find({
+        state: { $nin: ["completed", "cancelled", "expired", "rejected"] },
+        $or: [{ endDate: { $lte: now } }, { deadline: { $lte: now } }],
+      }).limit(500);
+      for (const campaign of campaigns) {
+        const previous = campaign.state;
+        campaign.state = "expired";
+        campaign.scheduling = {
+          ...(campaign.scheduling || {}),
+          expiredAt: now,
+          affiliateEnabled: false,
+          trackingEnabled: false,
+          commissionEnabled: false,
+        };
+        campaign.commissionWorkflow = {
+          ...(campaign.commissionWorkflow || {}),
+          publishEnabled: false,
+          trackingActive: false,
+          closedAt: now,
+          closedReason: "Campaign end date reached",
+        };
+        campaign.history.push({ state: "expired", actorId: actor?._id || actor?.sub || null, note: "Campaign expired automatically", changedAt: now });
+        await campaign.save();
+        await CampaignStatusHistory.create({
+          campaignId: campaign._id,
+          oldStatus: previous,
+          newStatus: "expired",
+          changedBy: actor?._id || actor?.sub || null,
+          changedByRole: actor?.role || "system",
+          reason: "Campaign end date reached",
+        }).catch(() => null);
+        summary.expiredCampaigns += 1;
+      }
+    }
+
+    if (settings.autoPublish) {
+      const scheduledReels = await Reel.find({
+        campaignId: { $ne: null },
+        visibility: "scheduled",
+        scheduledAt: { $lte: now },
+      }).limit(200);
+      for (const reel of scheduledReels) {
+        const campaign = await Campaign.findById(reel.campaignId).lean();
+        const deliverable = await CampaignDeliverable.findOne({
+          campaignId: reel.campaignId,
+          influencerId: reel.influencerId,
+          status: { $in: ["approved", "completed"] },
+          scheduledPublishAt: { $lte: now },
+        });
+        if (!campaign || !deliverable) continue;
+        try {
+          schedulingService.assertPublishOpen(campaign, deliverable, now);
+        } catch {
+          continue;
+        }
+        reel.visibility = "published";
+        reel.state = "published";
+        reel.publishedAt = now;
+        await reel.save();
+        deliverable.status = "published";
+        deliverable.publishedAt = now;
+        deliverable.affiliateEnabled = true;
+        deliverable.trackingEnabled = true;
+        await deliverable.save();
+        await commissionService.ensureCampaignAffiliateLinks(reel.campaignId, { activate: true, reelId: reel._id, actor }).catch(() => null);
+        summary.autoPublishedContent += 1;
+      }
+    }
+
+    return summary;
   }
 }
 
