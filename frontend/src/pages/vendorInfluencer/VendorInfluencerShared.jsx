@@ -12,6 +12,17 @@ const TABS = [
   ["escrow-refunds", "Escrow Refunds", RotateCcw],
 ];
 
+const CAMPAIGN_TYPES = [
+  ["affiliate", "Affiliate"],
+  ["sponsored", "Sponsored"],
+  ["product_review", "Product Review"],
+  ["ugc", "UGC"],
+  ["video", "Video"],
+  ["live_commerce", "Live Commerce"],
+  ["brand_ambassador", "Brand Ambassador"],
+  ["custom", "Custom"],
+];
+
 const TAB_IDS = new Set(TABS.map(([id]) => id));
 const TAB_PATHS = {
   dashboard: "/vendor/influencer-commerce",
@@ -508,6 +519,7 @@ function EmptyState({ message }) {
 
 export {
   TABS,
+  CAMPAIGN_TYPES,
   TAB_IDS,
   TAB_PATHS,
   defaultFilters,

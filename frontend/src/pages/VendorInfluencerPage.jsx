@@ -37,6 +37,7 @@ import CampaignEscrowService from "../services/campaignEscrowService";
 import {
   ACTIVE_TAB_REFRESH_INTERVAL_MS,
   arrayValue,
+  CAMPAIGN_TYPES,
   campaignBuilderPath,
   defaultFilters,
   Filters,
