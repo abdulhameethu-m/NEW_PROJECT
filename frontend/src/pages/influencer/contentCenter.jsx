@@ -32,6 +32,7 @@ const initialForm = {
   scheduledAt: "",
   productIds: "",
   campaignId: "",
+  deliverableId: "",
 };
 
 function normalizeContentTab(value = "") {
@@ -609,6 +610,7 @@ export default function InfluencerContentCenterPage() {
     setForm((current) => ({
       ...current,
       campaignId: publishData.campaignId || current.campaignId,
+      deliverableId: publishData.deliverableId || current.deliverableId,
       videoUrl: publishData.videoUrl || current.videoUrl,
       thumbnailUrl: publishData.thumbnailUrl || current.thumbnailUrl,
       imageUrls: publishData.imageUrls || current.imageUrls,

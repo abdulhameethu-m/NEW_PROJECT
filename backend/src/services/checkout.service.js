@@ -319,6 +319,7 @@ async function resolveOrderAttribution({ userId, items = [], fallbackTrackingCon
     attribution: {
       influencerId: session.influencerId,
       campaignId: session.campaignId,
+      deliverableId: session.deliverableId || affiliateAttribution?.deliverableId || undefined,
       reelId: session.reelId,
       postId: session.postId,
       storefrontId: session.storefrontId,

@@ -6,7 +6,7 @@ const vendorRepo = require("../../repositories/vendor.repository");
 const influencerService = require("../influencer/service");
 const commissionService = require("../commission/service");
 const schedulingService = require("../../services/campaign-scheduling.service");
-const { CommissionRecord } = require("../commission/models");
+const { CommissionRecord, AffiliateLink } = require("../commission/models");
 const { Campaign, CampaignInvitation, CampaignStatusHistory } = require("./model");
 const { Reel } = require("../reel/model");
 const { InfluencerProfile } = require("../influencer/model");
@@ -22,6 +22,7 @@ const {
 
 const ACTIVE_STATES = [
   "accepted",
+  "content_creation",
   "active",
   "product_shipped",
   "content_in_progress",
@@ -29,11 +30,26 @@ const ACTIVE_STATES = [
   "under_review",
   "revision_requested",
   "approved",
+  "ready_for_publish",
+  "publish_scheduled",
   "published",
   "tracking_active",
+  "live",
   "partially_completed",
   "completed",
 ];
+
+const LIFECYCLE = Object.freeze({
+  INVITATION_PENDING: "INVITATION_PENDING",
+  INVITATION_EXPIRED: "INVITATION_EXPIRED",
+  CONTENT_CREATION: "CONTENT_CREATION",
+  UNDER_REVIEW: "UNDER_REVIEW",
+  READY_FOR_PUBLISH: "READY_FOR_PUBLISH",
+  PUBLISH_SCHEDULED: "PUBLISH_SCHEDULED",
+  LIVE: "LIVE",
+  CONTENT_DEADLINE_MISSED: "CONTENT_DEADLINE_MISSED",
+  COMPLETED: "COMPLETED",
+});
 
 function money(value) {
   const number = Number(value || 0);
@@ -143,6 +159,12 @@ function allDeliverablesPublished(deliverables = [], publishedCount = 0) {
     publishedCount: Number(publishedCount || 0),
     complete: requiredCount > 0 && Number(publishedCount || 0) >= requiredCount,
   };
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + Number(days || 0));
+  return next;
 }
 
 function deliverableRefundLock(allocation = null) {
@@ -417,12 +439,13 @@ class CampaignExecutionService {
 
   async presentExecution(campaign, deliverables, influencerId) {
     const deliverableIds = deliverables.map((row) => row._id);
-    const [submissions, reviews, payouts, fundings, commissions] = await Promise.all([
+    const [submissions, reviews, payouts, fundings, commissions, affiliateLinks] = await Promise.all([
       deliverableIds.length ? DeliverableSubmission.find({ deliverableId: { $in: deliverableIds } }).sort({ submittedAt: -1 }).lean() : [],
       deliverableIds.length ? DeliverableReview.find({ deliverableId: { $in: deliverableIds } }).sort({ reviewedAt: -1 }).lean() : [],
       deliverableIds.length ? DeliverablePayout.find({ deliverableId: { $in: deliverableIds } }).lean() : [],
       deliverableIds.length ? CampaignDeliverableFunding.find({ deliverableId: { $in: deliverableIds } }).lean() : [],
       CommissionRecord.find({ campaignId: campaign._id, influencerId }).lean().catch(() => []),
+      deliverableIds.length ? AffiliateLink.find({ deliverableId: { $in: deliverableIds } }).sort({ createdAt: 1 }).lean() : [],
     ]);
     const submissionMap = submissions.reduce((map, row) => {
       const key = String(row.deliverableId);
@@ -438,6 +461,12 @@ class CampaignExecutionService {
     }, new Map());
     const payoutMap = new Map(payouts.map((row) => [String(row.deliverableId), row]));
     const fundingMap = new Map(fundings.map((row) => [String(row.deliverableId), row]));
+    const affiliateLinkMap = affiliateLinks.reduce((map, row) => {
+      const key = String(row.deliverableId || "");
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(row);
+      return map;
+    }, new Map());
     const approvedValue = money(deliverables.filter((row) => row.paymentEligibility === "eligible" || row.status === "completed").reduce((sum, row) => sum + Number(row.totalPrice || 0), 0));
     const totalDeliverableValue = money(deliverables.reduce((sum, row) => sum + Number(row.totalPrice || 0), 0));
     const commissionPayout = money(commissions.reduce((sum, row) => sum + Number(row.influencerShare || 0), 0));
@@ -452,6 +481,17 @@ class CampaignExecutionService {
         : paymentType === "free_product"
           ? 0
           : fixedEligible;
+    const affiliateTotals = deliverables.reduce((totals, row) => {
+      const metrics = row.affiliateMetrics || {};
+      totals.clicks += Number(metrics.clicks || 0);
+      totals.orders += Number(metrics.orders || 0);
+      totals.conversions += Number(metrics.conversions || 0);
+      totals.revenue += Number(metrics.revenue || 0);
+      totals.commission += Number(metrics.commissionGenerated || 0);
+      if (row.status === "published") totals.publishedDeliverables += 1;
+      else if (!["expired", "cancelled", "missed_deadline"].includes(String(row.status || "").toLowerCase())) totals.pendingDeliverables += 1;
+      return totals;
+    }, { clicks: 0, orders: 0, conversions: 0, revenue: 0, commission: 0, publishedDeliverables: 0, pendingDeliverables: 0 });
     return {
       campaign: {
         id: campaign._id,
@@ -463,12 +503,35 @@ class CampaignExecutionService {
         budget: campaignBudget(campaign),
         startDate: campaign.startDate || campaign.createdAt,
         endDate: campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || null,
+        lifecycleStatus: campaign.currentLifecycleStatus || null,
+        lifecycle: {
+          invitationSentAt: campaign.invitationSentAt || null,
+          invitationDeadline: campaign.invitationDeadline || campaign.marketplace?.applicationDeadline || null,
+          acceptedAt: campaign.acceptedAt || null,
+          contentCreationStartDate: campaign.contentCreationStartDate || null,
+          contentCreationDeadline: campaign.contentCreationDeadline || null,
+          publishScheduledAt: campaign.publishScheduledAt || null,
+          publishedAt: campaign.publishedAt || null,
+          campaignStartedAt: campaign.campaignStartedAt || null,
+          campaignEndDate: campaign.campaignEndDate || campaign.endDate || null,
+          campaignCompletedAt: campaign.campaignCompletedAt || null,
+          campaignDurationDays: campaign.campaignDurationDays || null,
+          affiliateEnabled: Boolean(campaign.scheduling?.affiliateEnabled),
+          trackingEnabled: Boolean(campaign.scheduling?.trackingEnabled),
+          commissionEnabled: Boolean(campaign.scheduling?.commissionEnabled),
+        },
         status: campaign.state,
         scheduling: campaign.scheduling || null,
         fixedPaymentWorkflow: campaign.fixedPaymentWorkflow || null,
         contentEnabled: !["fixed", "hybrid"].includes(paymentType) || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled),
       },
       progress: progress(deliverables),
+      affiliatePerformance: {
+        ...affiliateTotals,
+        revenue: money(affiliateTotals.revenue),
+        commission: money(affiliateTotals.commission),
+        conversionRate: affiliateTotals.clicks ? Number(((affiliateTotals.conversions / affiliateTotals.clicks) * 100).toFixed(2)) : 0,
+      },
       payout: {
         paymentModel: paymentType,
         approvedDeliverableValue: approvedValue,
@@ -481,6 +544,10 @@ class CampaignExecutionService {
       deliverables: deliverables.map((row) => {
         const deliverableReviews = reviewMap.get(String(row._id)) || [];
         const funding = fundingMap.get(String(row._id)) || null;
+        const links = affiliateLinkMap.get(String(row._id)) || [];
+        const primaryLink = links.find((link) => String(link.status).toLowerCase() === "active") || links[0] || null;
+        const affiliateMetrics = row.affiliateMetrics || {};
+        const impressions = Number(row.snapshot?.impressions || row.snapshot?.views || 0);
         return {
         id: row._id,
         deliverableType: row.deliverableType,
@@ -502,6 +569,31 @@ class CampaignExecutionService {
         publishTimezone: row.publishTimezone,
         scheduledPublishAt: row.scheduledPublishAt,
         publishedAt: row.publishedAt,
+        trackingStartDate: row.trackingStartDate || null,
+        trackingEndDate: row.trackingEndDate || null,
+        trackingStatus: row.trackingStatus || "inactive",
+        affiliateStatus: row.affiliateStatus || "pending_content",
+        affiliateLink: primaryLink?.destinationUrl || "",
+        affiliateTrackingCode: primaryLink?.trackingCode || "",
+        affiliateLinks: links.map((link) => ({
+          id: link._id,
+          productId: link.productId,
+          url: link.destinationUrl,
+          trackingCode: link.trackingCode,
+          status: link.status,
+          trackingStatus: link.trackingStatus,
+          trackingStartDate: link.activatedAt || null,
+          trackingEndDate: link.expiresAt || null,
+        })),
+        affiliateMetrics: {
+          clicks: Number(affiliateMetrics.clicks || 0),
+          orders: Number(affiliateMetrics.orders || 0),
+          conversions: Number(affiliateMetrics.conversions || 0),
+          revenue: money(affiliateMetrics.revenue),
+          commission: money(affiliateMetrics.commissionGenerated),
+          conversionRate: Number(affiliateMetrics.clicks || 0) ? Number(((Number(affiliateMetrics.conversions || 0) / Number(affiliateMetrics.clicks)) * 100).toFixed(2)) : 0,
+          ctr: impressions ? Number(((Number(affiliateMetrics.clicks || 0) / impressions) * 100).toFixed(2)) : 0,
+        },
         expiredAt: row.expiredAt,
         refundEligible: Boolean(row.refundEligible),
         refundStatus: row.refundStatus || "not_eligible",
@@ -537,6 +629,14 @@ class CampaignExecutionService {
     const profile = await influencerService.getProfile(userId);
     const campaign = await Campaign.findOne({ _id: campaignObjectId, influencerId: profile._id }).lean();
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
+    if (![LIFECYCLE.CONTENT_CREATION, LIFECYCLE.UNDER_REVIEW].includes(campaign.currentLifecycleStatus)) {
+      throw new AppError("Content upload is not available in the current campaign lifecycle phase", 409, "CAMPAIGN_UPLOAD_LOCKED", {
+        lifecycleStatus: campaign.currentLifecycleStatus,
+      });
+    }
+    if (campaign.contentCreationDeadline && new Date(campaign.contentCreationDeadline).getTime() < Date.now()) {
+      throw new AppError("Content creation deadline has passed. Upload is disabled.", 409, "CONTENT_CREATION_DEADLINE_EXPIRED");
+    }
     await assertFixedContentEnabled(campaign);
     const deliverable = await CampaignDeliverable.findOne({ _id: deliverableObjectId, campaignId: campaignObjectId, influencerId: profile._id });
     if (!deliverable) throw new AppError("Deliverable not found", 404, "NOT_FOUND");
@@ -575,7 +675,13 @@ class CampaignExecutionService {
     deliverable.approvalStatus = "under_review";
     deliverable.latestSubmissionId = submission._id;
     await deliverable.save();
-    await Campaign.findByIdAndUpdate(campaignObjectId, { $set: { state: "under_review" }, $push: { history: { state: "under_review", actorId: userId, note: "Deliverable content uploaded", changedAt: new Date() } } });
+    await Campaign.findByIdAndUpdate(campaignObjectId, {
+      $set: {
+        state: "under_review",
+        currentLifecycleStatus: LIFECYCLE.UNDER_REVIEW,
+      },
+      $push: { history: { state: "under_review", actorId: userId, note: "Deliverable content uploaded; vendor review requested", changedAt: new Date() } },
+    });
     await audit({ actorId: userId, role: "influencer", action: "content_uploaded", campaignId: campaignObjectId, deliverableId: deliverableObjectId, submissionId: submission._id, oldValue, newValue: { status: "under_review" } });
     return this.influencerExecution(userId, campaignObjectId);
   }
@@ -587,6 +693,9 @@ class CampaignExecutionService {
     if (!vendor) throw new AppError("Vendor profile not found", 404, "VENDOR_NOT_FOUND");
     const campaign = await Campaign.findOne({ _id: campaignObjectId, vendorId: vendor._id });
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
+    if (campaign.contentCreationDeadline && new Date(campaign.contentCreationDeadline).getTime() < Date.now()) {
+      throw new AppError("Content creation deadline has passed. Review is disabled.", 409, "CONTENT_CREATION_DEADLINE_EXPIRED");
+    }
     const deliverable = await CampaignDeliverable.findOne({ _id: deliverableObjectId, campaignId: campaignObjectId, vendorId: vendor._id });
     if (!deliverable) throw new AppError("Deliverable not found", 404, "NOT_FOUND");
     const submission = await DeliverableSubmission.findById(payload.submissionId || deliverable.latestSubmissionId);
@@ -622,7 +731,7 @@ class CampaignExecutionService {
         ? money((Number(deliverable.totalPrice || 0) / totalDeliverableValue) * (fixedFee || totalDeliverableValue))
         : deliverable.totalPrice;
       submission.status = "approved";
-      deliverable.status = ["fixed", "hybrid"].includes(campaign.paymentType) ? "approved" : "completed";
+      deliverable.status = "approved";
       deliverable.approvalStatus = "approved";
       deliverable.completionStatus = "completed";
       deliverable.paymentEligibility = "eligible";
@@ -632,6 +741,17 @@ class CampaignExecutionService {
       deliverable.publishTimezone = publishSchedule.publishTimezone;
       deliverable.scheduledPublishAt = publishSchedule.scheduledPublishAt;
       deliverable.completedAt = new Date();
+      campaign.publishScheduledAt = campaign.publishScheduledAt && campaign.publishScheduledAt < publishSchedule.scheduledPublishAt
+        ? campaign.publishScheduledAt
+        : publishSchedule.scheduledPublishAt;
+      campaign.currentLifecycleStatus = LIFECYCLE.PUBLISH_SCHEDULED;
+      campaign.state = "publish_scheduled";
+      campaign.scheduling = {
+        ...(campaign.scheduling || {}),
+        affiliateEnabled: false,
+        trackingEnabled: false,
+        commissionEnabled: false,
+      };
       await DeliverablePayout.findOneAndUpdate(
         { deliverableId: deliverable._id, influencerId: deliverable.influencerId },
         {
@@ -674,9 +794,10 @@ class CampaignExecutionService {
           contentEnabled: true,
           publishEnabled: true,
           contentApprovedAt: new Date(),
+          trackingActive: false,
         };
         await campaign.save();
-        await commissionService.ensureCampaignAffiliateLinks(campaign._id, { activate: false, actor: { _id: userId, role: "vendor" } });
+        await commissionService.ensureDeliverableAffiliateLinks(campaign._id, deliverable._id, { activate: false, actor: { _id: userId, role: "vendor" } });
         const influencerProfile = await InfluencerProfile.findById(deliverable.influencerId).select("userId").lean();
         if (influencerProfile?.userId) {
           await notificationService.createNotification({
@@ -698,6 +819,7 @@ class CampaignExecutionService {
       deliverable.approvalStatus = decision === "reject" ? "rejected" : "revision_requested";
       deliverable.paymentEligibility = "not_eligible";
     }
+    await campaign.save();
     await submission.save();
     await deliverable.save();
     await this.refreshCampaignStatus(campaign._id, userId);
@@ -711,15 +833,26 @@ class CampaignExecutionService {
     const deliverables = await CampaignDeliverable.find({ campaignId }).lean();
     const current = progress(deliverables);
     let nextStatus = campaign.state;
+    if (["publish_scheduled", "live", "completed", "content_deadline_missed", "expired", "cancelled", "rejected"].includes(campaign.state)) {
+      return campaign;
+    }
     // Only set to partially_completed or under_review, NOT completed
     // Campaign should only be marked completed when influencer publishes content
-    if (current.total > 0 && current.completed === current.total) nextStatus = "approved";
+    if (current.total > 0 && current.completed === current.total) nextStatus = deliverables.some((row) => row.scheduledPublishAt) ? "publish_scheduled" : "ready_for_publish";
     else if (current.completed > 0) nextStatus = "partially_completed";
     else if (deliverables.some((row) => row.status === "under_review")) nextStatus = "under_review";
     
     if (nextStatus !== campaign.state) {
       await CampaignStatusHistory.create({ campaignId, oldStatus: campaign.state, newStatus: nextStatus, changedBy: actorId, changedByRole: "system", reason: "Deliverable execution progress updated" });
+      const nextLifecycle = nextStatus === "under_review"
+        ? LIFECYCLE.UNDER_REVIEW
+        : nextStatus === "publish_scheduled"
+          ? LIFECYCLE.PUBLISH_SCHEDULED
+          : nextStatus === "ready_for_publish"
+            ? LIFECYCLE.READY_FOR_PUBLISH
+            : campaign.currentLifecycleStatus;
       campaign.state = nextStatus;
+      campaign.currentLifecycleStatus = nextLifecycle;
       campaign.history.push({ state: nextStatus, actorId, note: "Deliverable execution progress updated", changedAt: new Date() });
       await campaign.save();
       await audit({ actorId, role: "system", action: "partial_completion", campaignId, oldValue: { state: campaign.state }, newValue: { state: nextStatus, progress: current } });
@@ -788,35 +921,55 @@ class CampaignExecutionService {
     const publication = allDeliverablesPublished(deliverables, publishedCount);
     const totalDeliverables = publication.requiredCount;
     
-    if (publication.complete && campaign.state !== "completed") {
-      // All deliverables have been published - mark campaign as completed
+    if (publication.complete && campaign.currentLifecycleStatus !== LIFECYCLE.LIVE && campaign.currentLifecycleStatus !== LIFECYCLE.COMPLETED) {
+      const now = new Date();
+      const durationDays = Number(campaign.campaignDurationDays || campaign.lifecycleConfig?.campaignDurationDays || 30);
+      const campaignEndDate = campaign.campaignEndDate || addDays(now, durationDays);
       await CampaignStatusHistory.create({
         campaignId: campaignObjectId,
         oldStatus: campaign.state,
-        newStatus: "completed",
+        newStatus: "live",
         changedBy: userId,
         changedByRole: "influencer",
-        reason: "All deliverables published to platform"
+        reason: "All approved deliverables published; campaign is live"
       });
       
-      campaign.state = "completed";
+      campaign.state = "live";
+      campaign.currentLifecycleStatus = LIFECYCLE.LIVE;
+      campaign.publishedAt = campaign.publishedAt || now;
+      campaign.campaignStartedAt = campaign.campaignStartedAt || now;
+      campaign.startDate = campaign.startDate || now;
+      campaign.campaignEndDate = campaignEndDate;
+      campaign.endDate = campaignEndDate;
+      campaign.scheduling = {
+        ...(campaign.scheduling || {}),
+        activatedAt: campaign.scheduling?.activatedAt || now,
+        affiliateEnabled: true,
+        trackingEnabled: true,
+        commissionEnabled: ["commission", "hybrid"].includes(campaign.paymentType),
+      };
+      campaign.commissionWorkflow = {
+        ...(campaign.commissionWorkflow || {}),
+        publishEnabled: true,
+        trackingActive: ["commission", "hybrid"].includes(campaign.paymentType),
+        trackingActivatedAt: ["commission", "hybrid"].includes(campaign.paymentType) ? now : campaign.commissionWorkflow?.trackingActivatedAt,
+      };
       campaign.history.push({
-        state: "completed",
+        state: "live",
         actorId: userId,
-        note: "All deliverables published to platform",
-        changedAt: new Date()
+        note: "All deliverables published; campaign is live",
+        changedAt: now
       });
       await campaign.save();
-      
       await auditService.log({
         actorId: userId,
         role: "influencer",
-        action: "campaign_completed",
+        action: "campaign_started",
         campaignId: campaignObjectId,
         metadata: { reason: "All deliverables published", publishedCount, totalDeliverables }
       });
       
-      return { success: true, message: "Campaign marked as completed", campaignState: "completed" };
+      return { success: true, message: "Campaign is live", campaignState: "live", campaignEndDate };
     }
     
     return { 
@@ -836,9 +989,11 @@ class CampaignExecutionService {
       expiredDeliverables: 0,
       refundEligibleDeliverables: 0,
       expiredCampaigns: 0,
+      completedCampaigns: 0,
       autoPublishedContent: 0,
       deadlineRemindersSent: 0,
       expiredInvitations: 0,
+      contentDeadlineMissed: 0,
     };
 
     const expiredInvitationCampaigns = await Campaign.find({
@@ -847,9 +1002,16 @@ class CampaignExecutionService {
     }).limit(500);
     for (const campaign of expiredInvitationCampaigns) {
       const previous = campaign.state;
-      campaign.state = "expired";
-      campaign.scheduling = { ...(campaign.scheduling || {}), expiredAt: now };
-      campaign.history.push({ state: "expired", actorId: actor?._id || actor?.sub || null, note: "Invitation acceptance deadline passed", changedAt: now });
+      campaign.state = "invitation_expired";
+      campaign.currentLifecycleStatus = LIFECYCLE.INVITATION_EXPIRED;
+      campaign.scheduling = {
+        ...(campaign.scheduling || {}),
+        expiredAt: now,
+        affiliateEnabled: false,
+        trackingEnabled: false,
+        commissionEnabled: false,
+      };
+      campaign.history.push({ state: "invitation_expired", actorId: actor?._id || actor?.sub || null, note: "Invitation acceptance deadline passed", changedAt: now });
       await campaign.save();
       await CampaignInvitation.updateMany(
         { campaignId: campaign._id, status: { $in: ["invitation_sent", "viewed"] } },
@@ -858,12 +1020,66 @@ class CampaignExecutionService {
       await CampaignStatusHistory.create({
         campaignId: campaign._id,
         oldStatus: previous,
-        newStatus: "expired",
+        newStatus: "invitation_expired",
         changedBy: actor?._id || actor?.sub || null,
         changedByRole: actor?.role || "system",
         reason: "Invitation acceptance deadline passed",
       }).catch(() => null);
       summary.expiredInvitations += 1;
+    }
+
+    const missedContentCampaigns = await Campaign.find({
+      currentLifecycleStatus: { $in: [LIFECYCLE.CONTENT_CREATION, LIFECYCLE.UNDER_REVIEW] },
+      contentCreationDeadline: { $ne: null, $lte: deadlineCutoff },
+    }).limit(500);
+    for (const campaign of missedContentCampaigns) {
+      const pendingCount = await CampaignDeliverable.countDocuments({
+        campaignId: campaign._id,
+        status: { $nin: ["approved", "published", "completed", "cancelled"] },
+      });
+      if (!pendingCount) continue;
+      const previous = campaign.state;
+      campaign.state = "content_deadline_missed";
+      campaign.currentLifecycleStatus = LIFECYCLE.CONTENT_DEADLINE_MISSED;
+      campaign.scheduling = {
+        ...(campaign.scheduling || {}),
+        affiliateEnabled: false,
+        trackingEnabled: false,
+        commissionEnabled: false,
+      };
+      campaign.commissionWorkflow = {
+        ...(campaign.commissionWorkflow || {}),
+        publishEnabled: false,
+        trackingActive: false,
+        closedAt: now,
+        closedReason: "Content creation deadline missed",
+      };
+      campaign.history.push({ state: "content_deadline_missed", actorId: actor?._id || actor?.sub || null, note: "Content creation deadline missed", changedAt: now });
+      await campaign.save();
+      await CampaignDeliverable.updateMany(
+        {
+          campaignId: campaign._id,
+          status: { $nin: ["approved", "published", "completed", "cancelled"] },
+        },
+        {
+          $set: {
+            status: "missed_deadline",
+            missedDeadline: true,
+            expiredAt: now,
+            refundEligible: settings.enableEscrowRefund && schedulingService.supportsFixedScheduling(campaign),
+            refundStatus: settings.enableEscrowRefund && schedulingService.supportsFixedScheduling(campaign) ? "refund_eligible" : "not_eligible",
+          },
+        }
+      );
+      await CampaignStatusHistory.create({
+        campaignId: campaign._id,
+        oldStatus: previous,
+        newStatus: "content_deadline_missed",
+        changedBy: actor?._id || actor?.sub || null,
+        changedByRole: actor?.role || "system",
+        reason: "Content creation deadline missed",
+      }).catch(() => null);
+      summary.contentDeadlineMissed += 1;
     }
 
     const activatableCampaigns = await Campaign.find({
@@ -966,15 +1182,16 @@ class CampaignExecutionService {
 
     if (settings.autoExpireCampaign) {
       const campaigns = await Campaign.find({
-        state: { $nin: ["completed", "cancelled", "expired", "rejected"] },
-        $or: [{ endDate: { $lte: now } }, { deadline: { $lte: now } }],
+        currentLifecycleStatus: LIFECYCLE.LIVE,
+        campaignEndDate: { $ne: null, $lte: now },
       }).limit(500);
       for (const campaign of campaigns) {
         const previous = campaign.state;
-        campaign.state = "expired";
+        campaign.state = "completed";
+        campaign.currentLifecycleStatus = LIFECYCLE.COMPLETED;
+        campaign.campaignCompletedAt = now;
         campaign.scheduling = {
           ...(campaign.scheduling || {}),
-          expiredAt: now,
           affiliateEnabled: false,
           trackingEnabled: false,
           commissionEnabled: false,
@@ -984,19 +1201,23 @@ class CampaignExecutionService {
           publishEnabled: false,
           trackingActive: false,
           closedAt: now,
-          closedReason: "Campaign end date reached",
+          closedReason: "Campaign completed after configured duration",
         };
-        campaign.history.push({ state: "expired", actorId: actor?._id || actor?.sub || null, note: "Campaign expired automatically", changedAt: now });
+        campaign.history.push({ state: "completed", actorId: actor?._id || actor?.sub || null, note: "Campaign completed after configured duration", changedAt: now });
         await campaign.save();
+        await commissionService.closeExpiredCampaignAttribution(campaign, {
+          actor,
+          reason: "Campaign completed after configured duration",
+        }).catch(() => null);
         await CampaignStatusHistory.create({
           campaignId: campaign._id,
           oldStatus: previous,
-          newStatus: "expired",
+          newStatus: "completed",
           changedBy: actor?._id || actor?.sub || null,
           changedByRole: actor?.role || "system",
-          reason: "Campaign end date reached",
+          reason: "Campaign completed after configured duration",
         }).catch(() => null);
-        summary.expiredCampaigns += 1;
+        summary.completedCampaigns += 1;
       }
     }
 
@@ -1011,6 +1232,7 @@ class CampaignExecutionService {
         const deliverable = await CampaignDeliverable.findOne({
           campaignId: reel.campaignId,
           influencerId: reel.influencerId,
+          ...(reel.deliverableId ? { _id: reel.deliverableId } : {}),
           status: { $in: ["approved", "completed"] },
           scheduledPublishAt: { $lte: now },
         });
@@ -1029,7 +1251,43 @@ class CampaignExecutionService {
         deliverable.affiliateEnabled = true;
         deliverable.trackingEnabled = true;
         await deliverable.save();
-        await commissionService.ensureCampaignAffiliateLinks(reel.campaignId, { activate: true, reelId: reel._id, actor }).catch(() => null);
+        const liveEndDate = campaign.campaignEndDate || addDays(now, Number(campaign.campaignDurationDays || campaign.lifecycleConfig?.campaignDurationDays || settings.defaultCampaignDurationDays || 30));
+        await Campaign.updateOne(
+          { _id: reel.campaignId, currentLifecycleStatus: { $ne: LIFECYCLE.COMPLETED } },
+          {
+            $set: {
+              state: "live",
+              currentLifecycleStatus: LIFECYCLE.LIVE,
+              publishedAt: campaign.publishedAt || now,
+              campaignStartedAt: campaign.campaignStartedAt || now,
+              startDate: campaign.startDate || now,
+              campaignEndDate: liveEndDate,
+              endDate: liveEndDate,
+              "scheduling.activatedAt": campaign.scheduling?.activatedAt || now,
+              "scheduling.affiliateEnabled": true,
+              "scheduling.trackingEnabled": true,
+              "scheduling.commissionEnabled": ["commission", "hybrid"].includes(campaign.paymentType),
+              "commissionWorkflow.publishEnabled": true,
+              "commissionWorkflow.trackingActive": ["commission", "hybrid"].includes(campaign.paymentType),
+              "commissionWorkflow.trackingActivatedAt": ["commission", "hybrid"].includes(campaign.paymentType) ? now : campaign.commissionWorkflow?.trackingActivatedAt,
+            },
+            $push: { history: { state: "live", actorId: actor?._id || actor?.sub || null, note: "Scheduled content published; campaign is live", changedAt: now } },
+          }
+        );
+        await CampaignStatusHistory.create({
+          campaignId: reel.campaignId,
+          oldStatus: campaign.state,
+          newStatus: "live",
+          changedBy: actor?._id || actor?.sub || null,
+          changedByRole: actor?.role || "system",
+          reason: "Scheduled content published",
+        }).catch(() => null);
+        await commissionService.ensureDeliverableAffiliateLinks(reel.campaignId, deliverable._id, {
+          activate: true,
+          reelId: reel._id,
+          publishedAt: now,
+          actor,
+        }).catch(() => null);
         summary.autoPublishedContent += 1;
       }
     }

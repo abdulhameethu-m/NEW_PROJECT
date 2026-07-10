@@ -54,6 +54,18 @@ const campaignDeliverableSchema = new mongoose.Schema(
     missedDeadline: { type: Boolean, default: false, index: true },
     affiliateEnabled: { type: Boolean, default: false },
     trackingEnabled: { type: Boolean, default: false },
+    trackingStartDate: { type: Date, index: true },
+    trackingEndDate: { type: Date, index: true },
+    trackingStatus: { type: String, enum: ["inactive", "active", "expired", "disabled"], default: "inactive", index: true },
+    affiliateStatus: { type: String, enum: ["pending_content", "active", "expired", "disabled"], default: "pending_content", index: true },
+    primaryAffiliateLinkId: { type: mongoose.Schema.Types.ObjectId, ref: "AffiliateLink", default: null, index: true },
+    affiliateMetrics: {
+      clicks: { type: Number, min: 0, default: 0 },
+      orders: { type: Number, min: 0, default: 0 },
+      conversions: { type: Number, min: 0, default: 0 },
+      revenue: { type: Number, min: 0, default: 0 },
+      commissionGenerated: { type: Number, min: 0, default: 0 },
+    },
     completedAt: { type: Date },
     latestSubmissionId: { type: mongoose.Schema.Types.ObjectId, ref: "DeliverableSubmission" },
     fundingAllocationId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignDeliverableFunding", default: null, index: true },
@@ -67,6 +79,7 @@ campaignDeliverableSchema.index({ campaignId: 1, influencerId: 1, deliverableTyp
 campaignDeliverableSchema.index({ status: 1, dueDate: 1 });
 campaignDeliverableSchema.index({ status: 1, scheduledPublishAt: 1 });
 campaignDeliverableSchema.index({ refundEligible: 1, refundStatus: 1 });
+campaignDeliverableSchema.index({ campaignId: 1, trackingStatus: 1 });
 
 const deliverableSubmissionSchema = new mongoose.Schema(
   {

@@ -5,6 +5,9 @@ const path = require("node:path");
 const { Campaign } = require("../../modules/campaign/model");
 const { FIXED_PAYMENT_WORKFLOW_STATUSES } = require("../../modules/shared/constants");
 const campaignRuleEngine = require("../campaign-rule-engine.service");
+const campaignService = require("../../modules/campaign/service");
+
+const { campaignContentCreationEndDate, validateCampaignEndDate } = campaignService.__private__;
 
 test("campaign model supports influencer applications and deliverables", () => {
   assert.equal(Campaign.collection.collectionName, "campaigns");
@@ -44,6 +47,19 @@ test("fixed escrow release is exposed only through the admin route", () => {
   assert.match(routes, /"\/admin\/release-payment\/:campaignId"[\s\S]*?adminAuth/);
   assert.doesNotMatch(routes, /"\/release-payment\/:campaignId"[\s\S]*?vendorAuth/);
   assert.doesNotMatch(routes, /request-refund/);
+});
+
+test("campaign end date starts after the full planned content creation period", () => {
+  const contentEnd = campaignContentCreationEndDate("2026-07-10", 7);
+  assert.equal(contentEnd.toISOString().slice(0, 10), "2026-07-18");
+  assert.throws(
+    () => validateCampaignEndDate("2026-07-18", { invitationDeadline: "2026-07-10", contentCreationDays: 7 }),
+    (error) => error.code === "CAMPAIGN_END_DATE_OUT_OF_RANGE" && error.details?.earliestAllowedDate === "2026-07-19"
+  );
+  assert.equal(
+    validateCampaignEndDate("2026-07-19", { invitationDeadline: "2026-07-10", contentCreationDays: 7 }).toISOString().slice(0, 10),
+    "2026-07-19"
+  );
 });
 
 test("captured checkout verification securely reconciles escrow funding without waiting for localhost webhooks", () => {

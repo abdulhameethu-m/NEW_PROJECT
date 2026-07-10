@@ -246,6 +246,11 @@ const orderSchema = new mongoose.Schema(
         ref: "Campaign",
         index: true,
       },
+      deliverableId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CampaignDeliverable",
+        index: true,
+      },
       reelId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Reel",

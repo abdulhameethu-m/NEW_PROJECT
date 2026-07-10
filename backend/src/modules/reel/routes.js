@@ -46,6 +46,7 @@ router.post(
   validate(
     Joi.object({
       campaignId: Joi.string().allow("").optional(),
+      deliverableId: Joi.string().allow("").optional(),
       productIds: Joi.array().items(Joi.string()).default([]),
       collectionIds: Joi.array().items(Joi.string()).default([]),
       videoUrl: Joi.string().allow("").min(0).max(2000).optional(),
@@ -96,6 +97,7 @@ const contentUpdateSchema = Joi.object({
   productIds: Joi.array().items(Joi.string()).optional(),
   collectionIds: Joi.array().items(Joi.string()).optional(),
   campaignId: Joi.string().allow("").optional(),
+  deliverableId: Joi.string().allow("").optional(),
   visibility: Joi.string().valid("draft", "scheduled", "published", "private", "unlisted", "archived").optional(),
   scheduledAt: Joi.date().iso().allow(null).optional(),
   seo: Joi.object().unknown(true).optional(),

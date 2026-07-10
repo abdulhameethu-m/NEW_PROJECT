@@ -37,6 +37,7 @@ async function resolveStorefrontContext({ reelId, storefrontId, collectionId, po
     return {
       reel,
       campaignId: reel.campaignId?._id || reel.campaignId || undefined,
+      deliverableId: reel.deliverableId || undefined,
       influencerId: reel.influencerId,
       surface: "reel",
       assertProduct(productId) {
@@ -91,6 +92,8 @@ async function resolveStorefrontContext({ reelId, storefrontId, collectionId, po
       return {
         influencerId: campaignLink.influencerId,
         campaignId: campaignLink.campaignId,
+        deliverableId: campaignLink.deliverableId || undefined,
+        affiliateLink: campaignLink,
         surface: "affiliate_link",
         assertProduct(productId) {
           if (String(campaignLink.productId) !== String(productId)) {
@@ -126,7 +129,7 @@ class TrackingService {
     const context = await resolveStorefrontContext({ reelId, storefrontId, collectionId, postId, influencerId, trackingCode });
     context.assertProduct(productId);
     if (context.campaignId) {
-      const guard = await commissionService.validateCampaignAttributionOpen(context.campaignId);
+      const guard = await commissionService.validateCampaignAttributionOpen(context.campaignId, { affiliateLink: context.affiliateLink || null });
       if (!guard.open) {
         return {
           tracked: false,
@@ -145,7 +148,10 @@ class TrackingService {
     }
 
     const attributionHours = await attributionHoursForCampaign(context.campaignId);
-    const expiresAt = nowPlusHours(attributionHours);
+    const attributionExpiry = nowPlusHours(attributionHours);
+    const expiresAt = context.affiliateLink?.expiresAt && new Date(context.affiliateLink.expiresAt).getTime() < attributionExpiry.getTime()
+      ? new Date(context.affiliateLink.expiresAt)
+      : attributionExpiry;
     const identity = buildIdentityQuery({
       userId: user?.sub || null,
       anonymousId: anonymousId || `anon_${crypto.randomBytes(8).toString("hex")}`,
@@ -161,6 +167,7 @@ class TrackingService {
       anon: identity.anonymousId,
       reelId: reelId || null,
       campaignId: context.campaignId || null,
+      deliverableId: context.deliverableId || null,
       influencerId: context.influencerId,
       productId,
       storefrontId: storefrontId || null,
@@ -173,6 +180,7 @@ class TrackingService {
       ...identity,
       reelId: reelId || undefined,
       campaignId: context.campaignId || undefined,
+      deliverableId: context.deliverableId || undefined,
       influencerId: context.influencerId,
       productId,
       storefrontId: storefrontId || undefined,
@@ -207,6 +215,7 @@ class TrackingService {
       trackingSessionId: session._id,
       reelId,
       campaignId: session.campaignId,
+      deliverableId: session.deliverableId,
       influencerId: session.influencerId,
       productId,
       counted,

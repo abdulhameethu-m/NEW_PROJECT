@@ -3,6 +3,7 @@ import { confirmAction } from "../../services/notificationService";
 import { CheckCircle2, Megaphone, Package, Plus, Send, XCircle } from "lucide-react";
 import { previewVendorInfluencerCampaign } from "../../services/influencerCommerceService";
 import { BudgetSummaryPanel } from "../../components/campaign/BudgetSummaryPanel";
+import { CampaignLifecycleTimeline } from "../../components/campaign/CampaignLifecycleTimeline";
 import { formatCurrency } from "../../utils/formatCurrency";
 import {
   FieldLabel,
@@ -134,6 +135,18 @@ function addDaysToInputDate(value, days = 0) {
   next.setDate(next.getDate() + Number(days || 0));
   return toDateInputValue(next);
 }
+
+function dateRangeLabel(value = "") {
+  if (!value) return "";
+  const [year, month, day] = String(value).split("-");
+  return year && month && day ? `${day}-${month}-${year}` : value;
+}
+
+function isInputDateInRange(value, start, end) {
+  if (!value || !start || !end) return false;
+  return value >= start && value <= end;
+}
+
 function DynamicCampaignField({ field, value, onChange }) {
   const name = field.fieldName || field.key;
   const label = field.label || name;
@@ -259,6 +272,8 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     selectedServices: [],
     dynamicFields: {},
     invitationDeadline: "",
+    contentCreationDays: 7,
+    campaignDurationDays: 30,
     endDate: "",
     deadline: "",
     marketplace: { public: true },
@@ -295,13 +310,37 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   const paymentModels = selectedCampaignType?.allowedPaymentModels?.length ? selectedCampaignType.allowedPaymentModels : rules.paymentModels;
   const selectedPaymentModel = paymentModels.find((model) => model.key === form.paymentType) || paymentModels[0];
   const schedulingSettings = configuration.schedulingSettings || {};
-  const minimumCampaignLeadTimeDays = Math.max(0, Number(schedulingSettings.minimumCampaignLeadTimeDays ?? 0) || 0);
+  const adminContentCreationDays = Math.max(1, Math.floor(Number(form.contentCreationDays || schedulingSettings.contentCreationDays || 7) || 7));
+  const contentCreationWindow = useMemo(() => {
+    if (!form.invitationDeadline) return { start: "", end: "" };
+    return {
+      start: form.invitationDeadline,
+      end: addDaysToInputDate(form.invitationDeadline, adminContentCreationDays),
+    };
+  }, [adminContentCreationDays, form.invitationDeadline]);
+  const contentCreationWindowLabel = contentCreationWindow.start && contentCreationWindow.end
+    ? `Selectable dates: ${dateRangeLabel(contentCreationWindow.start)} to ${dateRangeLabel(contentCreationWindow.end)}`
+    : "Due Date must be within the Content Creation Period.";
   const minimumDeliverableDueDate = useMemo(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + minimumCampaignLeadTimeDays);
-    return toDateInputValue(date);
-  }, [minimumCampaignLeadTimeDays]);
-  const maximumDeliverableDueDate = useMemo(() => addDaysToInputDate(form.endDate, -1), [form.endDate]);
+    const today = toDateInputValue(new Date());
+    if (!contentCreationWindow.start) return today;
+    return contentCreationWindow.start > today ? contentCreationWindow.start : today;
+  }, [contentCreationWindow.start]);
+  const maximumDeliverableDueDate = contentCreationWindow.end;
+  const campaignContentCreationWindow = useMemo(() => {
+    if (!form.invitationDeadline) return { start: "", end: "", firstCampaignEndDate: "" };
+    const start = addDaysToInputDate(form.invitationDeadline, 1);
+    const end = addDaysToInputDate(start, adminContentCreationDays);
+    return {
+      start,
+      end,
+      firstCampaignEndDate: addDaysToInputDate(end, 1),
+    };
+  }, [adminContentCreationDays, form.invitationDeadline]);
+  const minimumCampaignEndDate = campaignContentCreationWindow.firstCampaignEndDate;
+  const campaignEndDateHint = campaignContentCreationWindow.end && minimumCampaignEndDate
+    ? `Content creation ends ${dateRangeLabel(campaignContentCreationWindow.end)}. First selectable campaign end date: ${dateRangeLabel(minimumCampaignEndDate)}.`
+    : "Set the invitation deadline and content creation days first.";
   const fixedCalculationRows = useMemo(() => fixedRewardCalculationRows(form.selectedServices), [form.selectedServices]);
   const calculatedFixedReward = useMemo(() => fixedCalculationRows.reduce((sum, item) => sum + Number(item.total || 0), 0), [fixedCalculationRows]);
   const fixedPaymentSummary = useMemo(() => {
@@ -383,22 +422,29 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   }
 
   function setCampaignEndDate(value) {
-    const nextMaximumDueDate = addDaysToInputDate(value, -1);
+    if (value && minimumCampaignEndDate && value < minimumCampaignEndDate) return;
     setForm((current) => {
-      const selectedServices = current.selectedServices.map((item) => (
-        item.dueDate && nextMaximumDueDate && item.dueDate > nextMaximumDueDate
-          ? { ...item, dueDate: "" }
-          : item
-      ));
       return {
         ...current,
         endDate: value,
         deadline: value,
-        selectedServices,
-        dynamicFields: { ...current.dynamicFields, endDate: value, selectedServices, deliverableCommissionRates: selectedServices },
+        dynamicFields: { ...current.dynamicFields, endDate: value },
       };
     });
   }
+
+  useEffect(() => {
+    if (!minimumCampaignEndDate) return;
+    setForm((current) => {
+      if (!current.endDate || current.endDate >= minimumCampaignEndDate) return current;
+      return {
+        ...current,
+        endDate: "",
+        deadline: "",
+        dynamicFields: { ...current.dynamicFields, endDate: "" },
+      };
+    });
+  }, [minimumCampaignEndDate]);
 
   function setDynamicField(key, value) {
     setForm((current) => ({ ...current, dynamicFields: { ...current.dynamicFields, [key]: value } }));
@@ -496,6 +542,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   }
 
   function setDeliverableDueDate(selectionKey, dueDate) {
+    if (dueDate && !isInputDateInRange(dueDate, minimumDeliverableDueDate, maximumDeliverableDueDate)) return;
     setForm((current) => {
       const selectedServices = current.selectedServices.map((item) => (
         String(item.selectionKey || "") === String(selectionKey || "")
@@ -509,6 +556,23 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       };
     });
   }
+
+  useEffect(() => {
+    setForm((current) => {
+      let changed = false;
+      const selectedServices = current.selectedServices.map((item) => {
+        if (!item.dueDate || isInputDateInRange(item.dueDate, minimumDeliverableDueDate, maximumDeliverableDueDate)) return item;
+        changed = true;
+        return { ...item, dueDate: "" };
+      });
+      if (!changed) return current;
+      return {
+        ...current,
+        selectedServices,
+        dynamicFields: { ...current.dynamicFields, selectedServices, deliverableCommissionRates: selectedServices },
+      };
+    });
+  }, [maximumDeliverableDueDate, minimumDeliverableDueDate]);
 
   function selectedPackage(service, pkg) {
     const key = packageKey(service, pkg);
@@ -547,6 +611,8 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       expectedBudget: Number(source.expectedBudget || 0),
       productValue: Number(source.productValue || 0),
       shippingCost: Number(source.shippingCost || 0),
+      contentCreationDays: Number(source.contentCreationDays || 7),
+      campaignDurationDays: Number(source.campaignDurationDays || 30),
     };
     return {
       ...source,
@@ -555,6 +621,12 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       dynamicFields: dynamicFieldValues,
       endDate: source.endDate || source.deadline || null,
       deadline: source.deadline || null,
+      contentCreationDays: Number(source.contentCreationDays || 7),
+      campaignDurationDays: Number(source.campaignDurationDays || 30),
+      lifecycle: {
+        contentCreationDays: Number(source.contentCreationDays || 7),
+        campaignDurationDays: Number(source.campaignDurationDays || 30),
+      },
       commissionPercent: fallbackCommissionPercent,
       ...(source.paymentType === "fixed" ? {} : { fixedFee: fixedReward }),
       marketplace: {
@@ -630,6 +702,8 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       selectedServices: [],
       dynamicFields: defaults,
       invitationDeadline: "",
+      contentCreationDays: Number(configuration.schedulingSettings?.contentCreationDays || 7),
+      campaignDurationDays: Number(configuration.schedulingSettings?.defaultCampaignDurationDays || configuration.schedulingSettings?.campaignDurationDays || 30),
       endDate: "",
       deadline: "",
       marketplace: { public: true },
@@ -643,14 +717,13 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   const needsScheduling = ["fixed", "hybrid"].includes(form.paymentType) || form.selectedServices.length > 0;
   const missingInvitationDeadline = Boolean(form.influencerId) && !form.invitationDeadline;
   const missingCampaignDates = needsScheduling && !form.endDate;
+  const invalidCampaignEndDate = Boolean(form.endDate && minimumCampaignEndDate && form.endDate < minimumCampaignEndDate);
   const missingDeliverableDueDates = needsScheduling && form.selectedServices.some((item) => !item.dueDate);
   const invalidDeliverableDueDates = needsScheduling && form.selectedServices.some((item) => {
     if (!item.dueDate) return false;
-    if (minimumDeliverableDueDate && item.dueDate < minimumDeliverableDueDate) return true;
-    if (maximumDeliverableDueDate && item.dueDate > maximumDeliverableDueDate) return true;
-    return false;
+    return !isInputDateInRange(item.dueDate, minimumDeliverableDueDate, maximumDeliverableDueDate);
   });
-  const canSubmit = !busy && form.title.trim() && form.productIds.length && form.campaignType && form.paymentType && !fixedNeedsDeliverables && !commissionNeedsDeliverables && !commissionNeedsRates && !missingInvitationDeadline && !missingCampaignDates && !missingDeliverableDueDates && !invalidDeliverableDueDates && !previewError;
+  const canSubmit = !busy && form.title.trim() && form.productIds.length && form.campaignType && form.paymentType && !fixedNeedsDeliverables && !commissionNeedsDeliverables && !commissionNeedsRates && !missingInvitationDeadline && !missingCampaignDates && !invalidCampaignEndDate && !missingDeliverableDueDates && !invalidDeliverableDueDates && !previewError;
   const submitHelp =
     !form.title.trim() ? "Add a campaign title to continue."
     : !form.productIds.length ? "Select at least one product."
@@ -660,8 +733,9 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     : commissionNeedsRates ? "Set a commission percentage for each selected deliverable."
     : missingInvitationDeadline ? "Set the invitation acceptance deadline."
     : missingCampaignDates ? "Set the campaign end date."
+    : invalidCampaignEndDate ? campaignEndDateHint
     : missingDeliverableDueDates ? "Set a due date for every fixed deliverable."
-    : invalidDeliverableDueDates ? `Deliverable due dates must be between ${minimumDeliverableDueDate} and ${maximumDeliverableDueDate || "the day before campaign end"}.`
+    : invalidDeliverableDueDates ? contentCreationWindowLabel
     : previewError || "";
 
   return (
@@ -702,8 +776,18 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
           </label>
           <label className="block space-y-1.5">
             <FieldLabel>Campaign End Date</FieldLabel>
-            <input type="date" min={minimumDeliverableDueDate ? addDaysToInputDate(minimumDeliverableDueDate, 1) : undefined} value={form.endDate} onChange={(event) => setCampaignEndDate(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Campaign end date" />
-            <FieldHint>Campaign end must be after every deliverable due date.</FieldHint>
+            <input type="date" min={minimumCampaignEndDate || undefined} value={form.endDate} onChange={(event) => setCampaignEndDate(event.target.value)} disabled={!minimumCampaignEndDate} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-900" aria-label="Campaign end date" />
+            <FieldHint>{campaignEndDateHint}</FieldHint>
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>Content Creation Days</FieldLabel>
+            <input type="number" min="1" max="365" value={form.contentCreationDays} onChange={(event) => setField("contentCreationDays", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Content creation days" />
+            <FieldHint>Countdown starts after the influencer accepts.</FieldHint>
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>Live Campaign Days</FieldLabel>
+            <input type="number" min="1" max="3650" value={form.campaignDurationDays} onChange={(event) => setField("campaignDurationDays", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Live campaign days" />
+            <FieldHint>Runtime starts only after approved content is published.</FieldHint>
           </label>
           <label className="block space-y-1.5">
             <FieldLabel>Visibility</FieldLabel>
@@ -892,12 +976,14 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                                 <input
                                   type="date"
                                   min={minimumDeliverableDueDate || undefined}
-                                  max={form.endDate || undefined}
+                                  max={maximumDeliverableDueDate || undefined}
                                   value={selectedItem?.dueDate || ""}
+                                  disabled={!contentCreationWindow.start || !contentCreationWindow.end}
                                   onChange={(event) => setDeliverableDueDate(selectedItem.selectionKey, event.target.value)}
                                   className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                                   aria-label={`${pkg.packageName || service.serviceName} due date`}
                                 />
+                                <span className="text-[11px] font-medium text-slate-500">{contentCreationWindowLabel}</span>
                               </span>
                             ) : null}
                           </span>
@@ -1020,7 +1106,7 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
       </Section>
       <Section title="Campaign Management" icon={Megaphone}>
         <ResponsiveTable
-          headers={["Campaign", "End Date", "Budget", "Revenue", "Orders", "Applications", "Approved Creators", "Status", "Actions"]}
+          headers={["Campaign", "Lifecycle", "End Date", "Budget", "Revenue", "Orders", "Applications", "Approved Creators", "Status", "Actions"]}
           rows={campaigns}
           renderRow={(campaign) => (
             (() => {
@@ -1049,6 +1135,7 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
                     {campaign.title || "Campaign"}
                     <div className="text-xs font-normal capitalize text-slate-500">{statusText(campaign.campaignType)} - {paymentLabel || "Payment model"}</div>
                   </td>
+                  <td className="px-3 py-3"><CampaignLifecycleTimeline campaign={campaign} /></td>
                   <td className="px-3 py-3">
                     {endDate ? formatDateTime(endDate) : "-"}
                     {isExpired ? <div className="mt-1 text-xs font-semibold text-rose-600">Tracking inactive</div> : null}

@@ -24,6 +24,11 @@ const trackingSessionSchema = new mongoose.Schema(
       ref: "Campaign",
       index: true,
     },
+    deliverableId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CampaignDeliverable",
+      index: true,
+    },
     influencerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "InfluencerProfile",

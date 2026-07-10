@@ -6,6 +6,9 @@ const SETTINGS_CATEGORY = "feature";
 const SETTINGS_TYPE = "object";
 
 const DEFAULT_SETTINGS = Object.freeze({
+  invitationAcceptanceDays: 2,
+  contentCreationDays: 7,
+  defaultCampaignDurationDays: 30,
   minimumCampaignLeadTimeDays: 3,
   minimumPublishNoticeHours: 0,
   autoPublish: false,
@@ -26,6 +29,9 @@ function number(value, fallback = 0) {
 
 function cleanSettings(value = {}) {
   return {
+    invitationAcceptanceDays: Math.max(1, Math.floor(number(value.invitationAcceptanceDays, DEFAULT_SETTINGS.invitationAcceptanceDays))),
+    contentCreationDays: Math.max(1, Math.floor(number(value.contentCreationDays, DEFAULT_SETTINGS.contentCreationDays))),
+    defaultCampaignDurationDays: Math.max(1, Math.floor(number(value.defaultCampaignDurationDays, DEFAULT_SETTINGS.defaultCampaignDurationDays))),
     minimumCampaignLeadTimeDays: Math.max(0, Math.floor(number(value.minimumCampaignLeadTimeDays, DEFAULT_SETTINGS.minimumCampaignLeadTimeDays))),
     minimumPublishNoticeHours: Math.max(0, number(value.minimumPublishNoticeHours, DEFAULT_SETTINGS.minimumPublishNoticeHours)),
     autoPublish: Boolean(value.autoPublish),

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, AlertCircle, CheckCircle2, Clock3, FileUp, LinkIcon, RefreshCw, Send, Upload, Loader2, Share2, XCircle } from "lucide-react";
 import { getCampaignExecution, submitCampaignExecutionDeliverable, uploadInfluencerContentMedia } from "../../services/influencerCommerceService";
+import { CampaignLifecycleTimeline } from "../../components/campaign/CampaignLifecycleTimeline";
 import { formatCurrency } from "../../utils/formatCurrency";
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
@@ -342,6 +343,7 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
   function handlePublish() {
     const publishData = {
       campaignId: campaignId,
+      deliverableId: deliverable.id,
       videoUrl: latest?.contentUrl || "",
       title: deliverable.title || "",
       description: `Deliverable for ${campaignData?.campaign?.title || "campaign"}`,
@@ -454,6 +456,33 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
           </p>
         </div>
       </div>
+
+      {deliverable.publishedAt || deliverable.affiliateStatus === "active" ? (
+        <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-800">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">Affiliate Tracking</p>
+              <p className="mt-1 text-sm font-semibold capitalize text-slate-950 dark:text-white">{statusLabel(deliverable.trackingStatus || "inactive")}</p>
+            </div>
+            {deliverable.affiliateLink ? (
+              <a href={deliverable.affiliateLink} target="_blank" rel="noreferrer" className="inline-flex max-w-full items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-300">
+                <LinkIcon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{deliverable.affiliateTrackingCode || "Open affiliate link"}</span>
+              </a>
+            ) : null}
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Info label="Published" value={dateTimeLabel(deliverable.publishedAt)} />
+            <Info label="Tracking Start" value={dateTimeLabel(deliverable.trackingStartDate)} />
+            <Info label="Tracking End" value={dateTimeLabel(deliverable.trackingEndDate)} />
+            <Info label="Clicks" value={String(deliverable.affiliateMetrics?.clicks || 0)} />
+            <Info label="Orders" value={String(deliverable.affiliateMetrics?.orders || 0)} />
+            <Info label="Revenue" value={formatCurrency(deliverable.affiliateMetrics?.revenue || 0)} />
+            <Info label="Commission" value={formatCurrency(deliverable.affiliateMetrics?.commission || 0)} />
+            <Info label="Conversion / CTR" value={`${deliverable.affiliateMetrics?.conversionRate || 0}% / ${deliverable.affiliateMetrics?.ctr || 0}%`} />
+          </div>
+        </div>
+      ) : null}
 
       {isRefundedLocked ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
@@ -717,6 +746,7 @@ export default function CampaignExecutionPage() {
   const campaign = execution?.campaign || {};
   const progress = execution?.progress || {};
   const payout = execution?.payout || {};
+  const affiliatePerformance = execution?.affiliatePerformance || {};
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5">
@@ -762,6 +792,22 @@ export default function CampaignExecutionPage() {
           <Info label="End Date" value={dateLabel(campaign.endDate)} />
           <Info label="Approved Value" value={formatCurrency(payout.approvedDeliverableValue || 0)} />
           <Info label="Eligible Payout" value={formatCurrency(payout.eligiblePayout || 0)} />
+        </div>
+        <div className="mt-4">
+          <CampaignLifecycleTimeline campaign={campaign} />
+        </div>
+      </section>
+
+      <section className="border-y border-slate-200 py-4 dark:border-slate-800">
+        <h2 className="text-base font-semibold text-slate-950 dark:text-white">Campaign Affiliate Performance</h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <Info label="Clicks" value={String(affiliatePerformance.clicks || 0)} />
+          <Info label="Orders" value={String(affiliatePerformance.orders || 0)} />
+          <Info label="Revenue" value={formatCurrency(affiliatePerformance.revenue || 0)} />
+          <Info label="Commission" value={formatCurrency(affiliatePerformance.commission || 0)} />
+          <Info label="Conversions" value={String(affiliatePerformance.conversions || 0)} />
+          <Info label="Published" value={String(affiliatePerformance.publishedDeliverables || 0)} />
+          <Info label="Pending" value={String(affiliatePerformance.pendingDeliverables || 0)} />
         </div>
       </section>
 

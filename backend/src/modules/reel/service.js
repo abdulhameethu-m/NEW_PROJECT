@@ -227,7 +227,7 @@ async function activeCampaignAffiliateLinkMap(reels = []) {
   let links = await AffiliateLink.find({
     campaignId: { $in: eligibleCampaignIds },
     status: "active",
-  }).select("campaignId productId trackingCode destinationUrl").lean();
+  }).select("campaignId deliverableId productId trackingCode destinationUrl").lean();
   const linkedCampaigns = new Set(links.map((link) => idOf(link.campaignId)));
   const missingCampaignIds = eligibleCampaignIds.filter((campaignId) => !linkedCampaigns.has(campaignId));
   if (missingCampaignIds.length) {
@@ -238,14 +238,15 @@ async function activeCampaignAffiliateLinkMap(reels = []) {
     links = await AffiliateLink.find({
       campaignId: { $in: eligibleCampaignIds },
       status: "active",
-    }).select("campaignId productId trackingCode destinationUrl").lean();
+    }).select("campaignId deliverableId productId trackingCode destinationUrl").lean();
   }
-  return new Map(links.map((link) => [`${idOf(link.campaignId)}:${idOf(link.productId)}`, link]));
+  return new Map(links.map((link) => [`${idOf(link.campaignId)}:${idOf(link.deliverableId)}:${idOf(link.productId)}`, link]));
 }
 
-function attachProductAffiliateLinks(products = [], campaignId = "", linkByCampaignProduct = new Map()) {
+function attachProductAffiliateLinks(products = [], campaignId = "", deliverableId = "", linkByCampaignProduct = new Map()) {
   return products.map((product) => {
-    const link = linkByCampaignProduct.get(`${idOf(campaignId)}:${idOf(product)}`);
+    const link = linkByCampaignProduct.get(`${idOf(campaignId)}:${idOf(deliverableId)}:${idOf(product)}`)
+      || linkByCampaignProduct.get(`${idOf(campaignId)}::${idOf(product)}`);
     if (!link) return product;
     return {
       ...product,
@@ -260,6 +261,14 @@ function attachProductAffiliateLinks(products = [], campaignId = "", linkByCampa
 async function activateAffiliateLinksForPublishedReel(reel, actor = {}) {
   if (!reel?.campaignId) return [];
   const commissionService = require("../commission/service");
+  if (reel.deliverableId) {
+    return commissionService.ensureDeliverableAffiliateLinks(reel.campaignId, reel.deliverableId, {
+      activate: true,
+      reelId: reel._id,
+      publishedAt: reel.publishedAt,
+      actor,
+    });
+  }
   return commissionService.ensureCampaignAffiliateLinks(reel.campaignId, {
     activate: true,
     reelId: reel._id,
@@ -267,11 +276,53 @@ async function activateAffiliateLinksForPublishedReel(reel, actor = {}) {
   });
 }
 
-async function assertCampaignPublishAllowed(campaign, influencerId) {
+async function markCampaignDeliverablePublishedForReel(reel, actor = {}) {
+  if (!reel?.campaignId) return null;
+  const { CampaignDeliverable, CampaignExecutionAudit } = require("../campaign/executionModel");
+  const filter = {
+    campaignId: reel.campaignId?._id || reel.campaignId,
+    influencerId: reel.influencerId?._id || reel.influencerId,
+    status: { $in: ["approved", "completed", "published"] },
+    ...(reel.deliverableId ? { _id: reel.deliverableId } : {}),
+  };
+  const deliverable = await CampaignDeliverable.findOneAndUpdate(
+    filter,
+    {
+      $set: {
+        status: "published",
+        publishedAt: reel.publishedAt || new Date(),
+        affiliateEnabled: false,
+        trackingEnabled: false,
+        affiliateStatus: "pending_content",
+        trackingStatus: "inactive",
+      },
+    },
+    { returnDocument: "after", sort: { scheduledPublishAt: 1, approvedAt: 1 } }
+  );
+  if (!deliverable) throw new AppError("Approved campaign deliverable not found", 409, "DELIVERABLE_NOT_READY");
+  if (!reel.deliverableId || String(reel.deliverableId) !== String(deliverable._id)) {
+    await Reel.updateOne({ _id: reel._id }, { $set: { deliverableId: deliverable._id } });
+    reel.deliverableId = deliverable._id;
+  }
+  await activateAffiliateLinksForPublishedReel(reel, actor);
+  await CampaignExecutionAudit.create({
+    userId: actor?._id || actor?.sub || null,
+    role: actor?.role || "system",
+    action: "deliverable_published",
+    campaignId: deliverable.campaignId,
+    deliverableId: deliverable._id,
+    oldValue: { status: deliverable.status === "published" ? "approved" : deliverable.status },
+    newValue: { status: "published", publishedAt: reel.publishedAt || new Date(), reelId: reel._id },
+  }).catch(() => null);
+  return deliverable;
+}
+
+async function assertCampaignPublishAllowed(campaign, influencerId, deliverableId = null) {
   if (!campaign?._id) return;
   const deliverable = await require("../campaign/executionModel").CampaignDeliverable.findOne({
     campaignId: campaign._id,
     influencerId,
+    ...(deliverableId ? { _id: deliverableId } : {}),
     status: { $in: ["approved", "completed"] },
   }).sort({ scheduledPublishAt: 1, approvedAt: 1 }).lean();
   if (!deliverable) {
@@ -457,7 +508,15 @@ class ReelService {
         throw new AppError("Reels can only be submitted for accepted or active campaigns", 400, "CAMPAIGN_NOT_ACTIVE");
       }
       if (payload.visibility === "published") {
-        await assertCampaignPublishAllowed(campaign, profile._id);
+        await assertCampaignPublishAllowed(campaign, profile._id, payload.deliverableId || null);
+      }
+      if (payload.deliverableId) {
+        const deliverable = await require("../campaign/executionModel").CampaignDeliverable.findOne({
+          _id: payload.deliverableId,
+          campaignId: campaign._id,
+          influencerId: profile._id,
+        }).select("_id status").lean();
+        if (!deliverable) throw new AppError("Campaign deliverable not found", 404, "DELIVERABLE_NOT_FOUND");
       }
       const allowedProducts = new Set((campaign.productIds || []).map(String));
       const requestedProducts = (payload.productIds || []).map(String);
@@ -472,9 +531,10 @@ class ReelService {
     const imageUrls = Array.isArray(payload.imageUrls) ? payload.imageUrls : [];
     const mediaUrls = Array.isArray(payload.mediaUrls) ? payload.mediaUrls : [];
     const primaryMediaUrl = payload.videoUrl || imageUrls[0] || mediaUrls[0] || payload.thumbnailUrl;
-    return await Reel.create({
+    const reel = await Reel.create({
       influencerId: profile._id,
       campaignId: campaign?._id || payload.campaignId || undefined,
+      deliverableId: payload.deliverableId || undefined,
       productIds: payload.productIds?.length ? payload.productIds : campaign?.productIds || [],
       videoUrl: primaryMediaUrl,
       thumbnailUrl: payload.thumbnailUrl || "",
@@ -494,6 +554,16 @@ class ReelService {
       state: payload.visibility === "published" ? "published" : "pending_review",
       publishedAt: payload.visibility === "published" ? new Date() : undefined,
     });
+    if (reel.visibility === "published" && reel.campaignId) {
+      await markCampaignDeliverablePublishedForReel(reel, { _id: userId, sub: userId, role: "influencer" });
+      await emitDomainEvent(INFLUENCER_EVENTS.REEL_PUBLISHED, {
+        reelId: reel._id,
+        campaignId: reel.campaignId,
+        deliverableId: reel.deliverableId,
+        influencerId: reel.influencerId,
+      });
+    }
+    return reel;
   }
 
   async listContent(userId, query = {}) {
@@ -531,7 +601,7 @@ class ReelService {
         if (!campaign || !campaignAllowsInfluencerContent(campaign, profile._id) || !campaignAcceptsCreatorContent(campaign)) {
           throw new AppError("Campaign does not allow product tagging", 403, "FORBIDDEN");
         }
-        if (payload.action === "publish" || payload.visibility === "published") await assertCampaignPublishAllowed(campaign, profile._id);
+        if (payload.action === "publish" || payload.visibility === "published") await assertCampaignPublishAllowed(campaign, profile._id, existingObject.deliverableId || payload.deliverableId || null);
         const allowedProducts = new Set((campaign.productIds || []).map(String));
         const requestedProducts = (payload.productIds || []).map(String);
         if (requestedProducts.some((productId) => !allowedProducts.has(productId))) {
@@ -553,6 +623,7 @@ class ReelService {
       ...(payload.productIds !== undefined ? { productIds: payload.productIds } : {}),
       ...(payload.collectionIds !== undefined ? { collectionIds: payload.collectionIds } : {}),
       ...(payload.campaignId !== undefined ? { campaignId: payload.campaignId || undefined } : {}),
+      ...(payload.deliverableId !== undefined ? { deliverableId: payload.deliverableId || undefined } : {}),
       ...(payload.visibility !== undefined ? { visibility: payload.visibility } : {}),
       ...(payload.scheduledAt !== undefined ? { scheduledAt: payload.scheduledAt || null } : {}),
       ...(payload.seo !== undefined ? { seo: payload.seo } : {}),
@@ -569,15 +640,11 @@ class ReelService {
     }
     const reel = await Reel.findByIdAndUpdate(existing._id, { $set: update }, { returnDocument: "after", runValidators: true }).lean();
     if (payload.action === "publish" && reel.campaignId) {
-      await require("../campaign/executionModel").CampaignDeliverable.updateOne(
-        { campaignId: reel.campaignId, influencerId: reel.influencerId, status: { $in: ["approved", "completed"] } },
-        { $set: { status: "published", publishedAt: reel.publishedAt || new Date(), affiliateEnabled: true, trackingEnabled: true } },
-        { sort: { scheduledPublishAt: 1, approvedAt: 1 } }
-      ).catch(() => null);
-      await activateAffiliateLinksForPublishedReel(reel, { _id: userId, sub: userId, role: "influencer" });
+      await markCampaignDeliverablePublishedForReel(reel, { _id: userId, sub: userId, role: "influencer" });
       await emitDomainEvent(INFLUENCER_EVENTS.REEL_PUBLISHED, {
         reelId: reel._id,
         campaignId: reel.campaignId,
+        deliverableId: reel.deliverableId,
         influencerId: reel.influencerId,
       });
     }
@@ -719,12 +786,12 @@ class ReelService {
       EngagementAnalytics.find({ reelId: reel._id }).sort({ date: 1 }).lean(),
       ReelProductClick.countDocuments({ reelId: reel._id }),
       ReelStoreVisit.countDocuments({ reelId: reel._id }),
-      campaignId ? AffiliateLink.find({ campaignId, influencerId }).select("trackingCode destinationUrl createdAt activatedAt expiresAt attributionWindowDays productId status").lean() : [],
-      campaignId ? CampaignAffiliateClick.find({ campaignId, influencerId }).sort({ clickedAt: -1 }).limit(25).lean() : [],
+      campaignId ? AffiliateLink.find({ campaignId, influencerId, ...(reel.deliverableId ? { deliverableId: reel.deliverableId } : {}) }).select("deliverableId trackingCode destinationUrl createdAt activatedAt expiresAt attributionWindowDays productId status trackingStatus").lean() : [],
+      campaignId ? CampaignAffiliateClick.find({ campaignId, influencerId, ...(reel.deliverableId ? { deliverableId: reel.deliverableId } : {}) }).sort({ clickedAt: -1 }).limit(25).lean() : [],
       CommissionRecord.find({
-        $or: [{ reelId: reel._id }, ...(campaignId ? [{ campaignId, influencerId }] : [])],
+        $or: [{ reelId: reel._id }, ...(reel.deliverableId ? [{ deliverableId: reel.deliverableId }] : campaignId ? [{ campaignId, influencerId }] : [])],
       }).populate("orderId", "orderNumber totalAmount status paymentStatus items createdAt").sort({ createdAt: -1 }).limit(100).lean(),
-      campaignId ? CommissionEarning.find({ campaignId, influencerId }).sort({ createdAt: -1 }).limit(100).lean() : [],
+      campaignId ? CommissionEarning.find({ campaignId, influencerId, ...(reel.deliverableId ? { deliverableId: reel.deliverableId } : {}) }).sort({ createdAt: -1 }).limit(100).lean() : [],
       campaignId ? CommissionWalletTransaction.find({ campaignId, influencerId, type: "CREDIT" }).lean() : [],
       campaignId ? InfluencerLedger.find({ influencerId, source: "CAMPAIGN", "meta.campaignId": String(campaignId) }).lean() : [],
       campaignId ? CampaignPaymentRelease.find({ campaignId, influencerId, status: { $ne: "cancelled" } }).lean() : [],
@@ -1083,15 +1150,11 @@ class ReelService {
     );
 
     if (nextState === "published") {
-      await require("../campaign/executionModel").CampaignDeliverable.updateOne(
-        { campaignId: updated.campaignId, influencerId: updated.influencerId, status: { $in: ["approved", "completed"] } },
-        { $set: { status: "published", publishedAt: updated.publishedAt || new Date(), affiliateEnabled: true, trackingEnabled: true } },
-        { sort: { scheduledPublishAt: 1, approvedAt: 1 } }
-      ).catch(() => null);
-      await activateAffiliateLinksForPublishedReel(updated, actor);
+      await markCampaignDeliverablePublishedForReel(updated, actor);
       await emitDomainEvent(INFLUENCER_EVENTS.REEL_PUBLISHED, {
         reelId: updated._id,
         campaignId: updated.campaignId,
+        deliverableId: updated.deliverableId,
         influencerId: updated.influencerId,
       });
     }
@@ -1156,7 +1219,7 @@ class ReelService {
           if (!id || seen.has(id)) return false;
           seen.add(id);
           return true;
-        }), reel.campaignId, linkByCampaignProduct);
+        }), reel.campaignId, reel.deliverableId, linkByCampaignProduct);
         const publicContentType = normalizePublishedContentType(reel);
         const postImages = imageUrlsForContent(reel);
         return this.mergeEngagement({
@@ -1215,7 +1278,7 @@ class ReelService {
       if (!id || seen.has(id)) return false;
       seen.add(id);
       return true;
-    }), row.campaignId, linkByCampaignProduct);
+    }), row.campaignId, row.deliverableId, linkByCampaignProduct);
     return this.mergeEngagement({
       ...row,
       influencerId: row.influencerId ? {

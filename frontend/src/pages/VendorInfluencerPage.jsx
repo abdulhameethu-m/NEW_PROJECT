@@ -32,6 +32,7 @@ import {
   verifyVendorInfluencerSubscriptionPayment,
 } from "../services/influencerCommerceService";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
+import { requestInput } from "../services/notificationService";
 import CampaignEscrowService from "../services/campaignEscrowService";
 import {
   ACTIVE_TAB_REFRESH_INTERVAL_MS,
@@ -621,16 +622,16 @@ export function VendorInfluencerPage() {
             const url = resolveApiAssetUrl(row.url);
             if (url) window.open(url, "_blank", "noopener,noreferrer");
           }}
-          onReview={(row, decision) => {
+          onReview={async (row, decision) => {
             const note = decision === "changes" ? "Please update this content and resubmit." : "";
             if (row.source === "deliverable_execution") {
               const apiDecision = decision === "changes" ? "revision_requested" : decision;
               let schedule = {};
               if (apiDecision === "approve") {
                 const defaultDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-                const publishDate = window.prompt("Publish date (YYYY-MM-DD)", defaultDate);
+                const publishDate = await requestInput({ title: "Schedule publish", label: "Publish date (YYYY-MM-DD)", defaultValue: defaultDate, required: true });
                 if (!publishDate) return null;
-                const publishTime = window.prompt("Publish time (HH:mm, 24-hour)", "10:00");
+                const publishTime = await requestInput({ title: "Schedule publish", label: "Publish time (HH:mm, 24-hour)", defaultValue: "10:00", required: true });
                 if (!publishTime) return null;
                 schedule = {
                   publishDate,

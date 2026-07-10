@@ -39,6 +39,7 @@
     "migrate:pricing:categories": "node src/scripts/migratePricingCategories.js",
     "migrate:indexes:session-ttl": "node src/scripts/reconcileSessionTtlIndexes.js",
     "migrate:indexes:campaign-payment-releases": "node src/scripts/ensureCampaignPaymentReleaseIndexes.js",
+    "migrate:indexes:deliverable-affiliate-links": "node src/scripts/ensureDeliverableAffiliateIndexes.js",
     "migrate:company-branding": "node src/scripts/migrateCompanyBranding.js",
     "migrate:remove-influencer-panel-modules": "node src/scripts/removeInfluencerPanelModules.js",
     "migrate:remove-influencer-requirements": "node src/scripts/removeInfluencerRequirements.js",

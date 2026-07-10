@@ -7,6 +7,22 @@ const {
   FIXED_PAYMENT_WORKFLOW_STATUSES,
 } = require("../shared/constants");
 
+const CAMPAIGN_LIFECYCLE_STATUSES = [
+  "DRAFT",
+  "INVITATION_PENDING",
+  "INVITATION_EXPIRED",
+  "CONTENT_CREATION",
+  "UNDER_REVIEW",
+  "READY_FOR_PUBLISH",
+  "PUBLISH_SCHEDULED",
+  "LIVE",
+  "CONTENT_DEADLINE_MISSED",
+  "COMPLETED",
+  "REFUND_PENDING",
+  "REFUNDED",
+  "CANCELLED",
+];
+
 const campaignSchema = new mongoose.Schema(
   {
     vendorId: {
@@ -153,6 +169,32 @@ const campaignSchema = new mongoose.Schema(
       trackingEnabled: { type: Boolean, default: false, index: true },
       commissionEnabled: { type: Boolean, default: false, index: true },
       autoPublishEnabled: { type: Boolean, default: false },
+      affiliateActivatedNotificationSentAt: { type: Date },
+      affiliateExpiryReminderSentAt: { type: Date },
+      affiliateClosedNotificationSentAt: { type: Date },
+    },
+    campaignCreatedAt: { type: Date, default: Date.now, index: true },
+    invitationSentAt: { type: Date, index: true },
+    invitationDeadline: { type: Date, index: true },
+    acceptedAt: { type: Date, index: true },
+    contentCreationStartDate: { type: Date, index: true },
+    contentCreationDeadline: { type: Date, index: true },
+    publishScheduledAt: { type: Date, index: true },
+    publishedAt: { type: Date, index: true },
+    campaignStartedAt: { type: Date, index: true },
+    campaignEndDate: { type: Date, index: true },
+    campaignCompletedAt: { type: Date, index: true },
+    campaignDurationDays: { type: Number, min: 1, default: 30 },
+    lifecycleConfig: {
+      invitationAcceptanceDays: { type: Number, min: 1, default: 2 },
+      contentCreationDays: { type: Number, min: 1, default: 7 },
+      campaignDurationDays: { type: Number, min: 1, default: 30 },
+    },
+    currentLifecycleStatus: {
+      type: String,
+      enum: CAMPAIGN_LIFECYCLE_STATUSES,
+      default: "DRAFT",
+      index: true,
     },
     deadline: { type: Date },
     state: {
@@ -207,6 +249,10 @@ campaignSchema.index({ "applications.influencerId": 1, "applications.status": 1 
 campaignSchema.index({ paymentType: 1, attributionWindowDays: 1 });
 campaignSchema.index({ "contractSnapshot.locked": 1, state: 1 });
 campaignSchema.index({ startDate: 1, endDate: 1, paymentType: 1, state: 1 });
+campaignSchema.index({ currentLifecycleStatus: 1, invitationDeadline: 1 });
+campaignSchema.index({ currentLifecycleStatus: 1, contentCreationDeadline: 1 });
+campaignSchema.index({ currentLifecycleStatus: 1, publishScheduledAt: 1 });
+campaignSchema.index({ currentLifecycleStatus: 1, campaignEndDate: 1 });
 
 const campaignInvitationSchema = new mongoose.Schema(
   {
@@ -215,6 +261,7 @@ const campaignInvitationSchema = new mongoose.Schema(
     influencerId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerProfile", required: true, index: true },
     status: { type: String, enum: CAMPAIGN_INVITATION_STATUSES, default: "invitation_sent", index: true },
     invitedAt: { type: Date, default: Date.now, index: true },
+    deadline: { type: Date, index: true },
     viewedAt: { type: Date },
     acceptedAt: { type: Date },
     rejectedAt: { type: Date },
@@ -226,6 +273,7 @@ const campaignInvitationSchema = new mongoose.Schema(
 
 campaignInvitationSchema.index({ campaignId: 1, influencerId: 1 }, { unique: true });
 campaignInvitationSchema.index({ influencerId: 1, status: 1, invitedAt: -1 });
+campaignInvitationSchema.index({ influencerId: 1, status: 1, deadline: 1 });
 
 const campaignAcceptanceSchema = new mongoose.Schema(
   {
@@ -263,4 +311,5 @@ module.exports = {
   CampaignInvitation: mongoose.models.CampaignInvitation || mongoose.model("CampaignInvitation", campaignInvitationSchema),
   CampaignAcceptance: mongoose.models.CampaignAcceptance || mongoose.model("CampaignAcceptance", campaignAcceptanceSchema),
   CampaignStatusHistory: mongoose.models.CampaignStatusHistory || mongoose.model("CampaignStatusHistory", campaignStatusHistorySchema),
+  CAMPAIGN_LIFECYCLE_STATUSES,
 };

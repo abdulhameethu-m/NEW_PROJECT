@@ -27,6 +27,7 @@ import {
   saveCampaignMarketplace,
   saveInfluencerServices,
 } from "../../services/influencerCommerceService";
+import { CampaignLifecycleTimeline, campaignLifecycleLabel } from "../../components/campaign/CampaignLifecycleTimeline";
 import { formatCurrency } from "../../utils/formatCurrency";
 
 const TABS = [
@@ -81,11 +82,13 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
   const workflowStatus = campaignState && !openInvitationStatuses.includes(campaignState)
     ? campaignState
     : invitationStatus || applicationStatus || campaign.status || campaignState || "";
+  const lifecycleStatus = String(campaign.lifecycleStatus || campaign.currentLifecycleStatus || campaignState || "").toUpperCase();
   const canAccept = hasOpenInvitation || (openInvitationStatuses.includes(workflowStatus) && (!campaignState || openInvitationStatuses.includes(campaignState)));
   const canReject = canAccept;
   const isApplied = ["submitted", "pending_review", "shortlisted", "approved", "accepted", "active", "completed"].includes(applicationStatus);
   const isActive = ["approved", "accepted", "active", "product_shipped", "content_in_progress", "content_submitted", "under_review", "revision_requested", "partially_completed", "published", "tracking_active", "completed"].includes(workflowStatus);
-  const contentEnabled = campaign.paymentType !== "fixed" || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled);
+  const contentEnabled = ["CONTENT_CREATION", "UNDER_REVIEW"].includes(lifecycleStatus) && (campaign.paymentType !== "fixed" || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled));
+  const linksEnabled = lifecycleStatus === "LIVE";
   const isWaiting = !isActive && ["submitted", "pending_review", "shortlisted"].includes(applicationStatus);
   const canApply = !isActive && campaign.marketplacePublic && !isApplied && !hasOpenInvitation && !canAccept;
   const deadline = campaign.applicationDeadline || campaign.deadline;
@@ -110,7 +113,7 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{campaign.category || "General"} - {statusLabel(campaign.campaignType)}</p>
           </div>
           <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-            {statusLabel(workflowStatus)}
+            {campaignLifecycleLabel(campaign) || statusLabel(workflowStatus)}
           </span>
         </div>
 
@@ -136,6 +139,8 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
             <p className="mt-1 font-semibold text-slate-950 dark:text-white">{deadline ? formatDate(deadline) : "Open"}</p>
           </div>
         </div>
+
+        <CampaignLifecycleTimeline campaign={campaign} />
 
         {campaign.recommendationScore ? (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">
@@ -184,7 +189,7 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
             <ExternalLink className="h-4 w-4" />
             View Details
           </button>
-          {isActive && contentEnabled ? (
+          {contentEnabled ? (
             <button
               type="button"
               disabled={busy}
@@ -206,7 +211,7 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
           </button>
           <button
             type="button"
-            disabled={!isActive || busy || !productIds.length}
+            disabled={!linksEnabled || busy || !productIds.length}
             onClick={() => onGenerateLink(campaign)}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
