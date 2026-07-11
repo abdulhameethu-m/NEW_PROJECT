@@ -36,8 +36,9 @@ export function VendorCatalogRequestsPage() {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ requestType: "category", requestedName: "", description: "", businessJustification: "", requestNote: "", categoryId: "", subCategoryId: "" });
+  const [form, setForm] = useState({ requestType: "category", requestedName: "", description: "", businessJustification: "", requestNote: "", categoryId: "", subCategoryId: "", optionsValue: "" });
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("");
 
   useEffect(() => {
     loadRequests();
@@ -91,6 +92,17 @@ export function VendorCatalogRequestsPage() {
     }
   }
 
+  function hasDuplicateVendorRequest(requestedName) {
+    const normalizedName = requestedName.toLowerCase();
+    return requests.some((item) => {
+      if (!item.requestedName) return false;
+      if (String(item.requestType) !== String(form.requestType)) return false;
+      if (item.status === "cancelled") return false;
+      const existingName = String(item.requestedName).trim().toLowerCase();
+      return existingName === normalizedName;
+    });
+  }
+
   async function loadRequests() {
     setLoading(true);
     try {
@@ -104,24 +116,73 @@ export function VendorCatalogRequestsPage() {
   async function submitRequest(event) {
     event.preventDefault();
     setMessage("");
+    setMessageType("");
+
+    const requestedName = String(form.requestedName || "").trim();
+    if (!requestedName) {
+      setMessage("Requested name is required.");
+      setMessageType("error");
+      return;
+    }
+
+    if (hasDuplicateVendorRequest(requestedName)) {
+      setMessage("You already have an active request for this item.");
+      setMessageType("error");
+      return;
+    }
+
+    if (form.requestType === "product_module") {
+      try {
+        const result = await searchCatalog({ type: "product_module", query: requestedName, page: 1, limit: 10 });
+        const found = (result?.data?.items || []).some((item) => String(item.name || "").trim().toLowerCase() === requestedName.toLowerCase());
+        if (found) {
+          setMessage("A product module with this name already exists or has already been requested.");
+          setMessageType("error");
+          return;
+        }
+      } catch {
+        // Ignore search failures; server-side duplicate validation will still apply.
+      }
+    }
+
+    if (form.requestType === "attribute") {
+      const options = String(form.optionsValue || "").split(",").map((value) => value.trim()).filter(Boolean);
+      if (options.length === 0) {
+        setMessage("Attribute values are required when requesting a new attribute.");
+        setMessageType("error");
+        return;
+      }
+    }
+
     try {
       const payload = {
         requestType: form.requestType,
-        requestedName: form.requestedName,
+        requestedName,
         description: form.description,
         businessJustification: form.businessJustification,
         payload: {
           requestNote: form.requestNote || undefined,
+          options: form.requestType === "attribute"
+            ? String(form.optionsValue || "").split(",").map((value) => value.trim()).filter(Boolean)
+            : undefined,
+          options: form.requestType === "attribute"
+            ? form.optionsValue
+                .split(",")
+                .map((value) => value.trim())
+                .filter(Boolean)
+            : undefined,
         },
         categoryId: form.categoryId || undefined,
         subCategoryId: form.subCategoryId || undefined,
       };
       await createCatalogRequest(payload);
       setMessage("Request submitted successfully.");
-      setForm({ requestType: "category", requestedName: "", description: "", businessJustification: "", requestNote: "", categoryId: "", subCategoryId: "" });
+      setMessageType("success");
+      setForm({ requestType: "category", requestedName: "", description: "", businessJustification: "", requestNote: "", categoryId: "", subCategoryId: "", optionsValue: "" });
       loadRequests();
     } catch (error) {
       setMessage(error?.response?.data?.message || "Failed to submit request.");
+      setMessageType("error");
     }
   }
 
@@ -199,21 +260,36 @@ export function VendorCatalogRequestsPage() {
               </Field>
             ) : null}
             {form.requestType === "attribute" ? (
-              <Field label="Parent subcategory (optional)">
-                <select value={form.subCategoryId} onChange={(e) => setForm((current) => ({ ...current, subCategoryId: e.target.value }))} disabled={!form.categoryId} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100">
-                  <option value="">Select subcategory</option>
-                  {subcategories.map((subcategory) => (
-                    <option key={subcategory._id} value={subcategory._id}>{subcategory.name}</option>
-                  ))}
-                </select>
-              </Field>
+              <>
+                <Field label="Parent subcategory (optional)">
+                  <select value={form.subCategoryId} onChange={(e) => setForm((current) => ({ ...current, subCategoryId: e.target.value }))} disabled={!form.categoryId} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100">
+                    <option value="">Select subcategory</option>
+                    {subcategories.map((subcategory) => (
+                      <option key={subcategory._id} value={subcategory._id}>{subcategory.name}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Attribute values">
+                  <textarea
+                    required
+                    rows={3}
+                    value={form.optionsValue}
+                    onChange={(e) => setForm((current) => ({ ...current, optionsValue: e.target.value }))}
+                    placeholder="Enter values separated by commas, e.g. Red, Blue, Green"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">These are the options vendors should be able to select, for example colors or sizes.</p>
+                </Field>
+              </>
             ) : null}
             <Field label="Request note (optional)">
               <textarea rows={3} value={form.requestNote} onChange={(e) => setForm((current) => ({ ...current, requestNote: e.target.value }))} placeholder="Explain what you want and why this should be added." className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
               <p className="mt-1 text-xs text-slate-500">For example: create a new subcategory under Electronics called Mobile Accessories.</p>
             </Field>
             <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">Submit request</button>
-            {message ? <div className="text-sm text-slate-600">{message}</div> : null}
+            {message ? (
+              <div className={`text-sm ${messageType === "success" ? "text-emerald-700" : "text-rose-700"}`}>{message}</div>
+            ) : null}
           </form>
         </div>
       </div>
@@ -240,7 +316,12 @@ export function VendorCatalogRequestsPage() {
                 <tr key={item._id} className="border-b border-slate-100">
                   <td className="py-3 font-medium text-slate-700">{item.requestId}</td>
                   <td className="py-3">{item.requestType}</td>
-                  <td className="py-3">{item.requestedName}</td>
+                  <td className="py-3">
+                    {item.requestedName}
+                    {item.status === "rejected" && item.reviewReason ? (
+                      <p className="mt-1 text-xs text-rose-700">Reason: {item.reviewReason}</p>
+                    ) : null}
+                  </td>
                   <td className="py-3">{item.status}</td>
                   <td className="py-3">{new Date(item.createdAt).toLocaleDateString()}</td>
                 </tr>

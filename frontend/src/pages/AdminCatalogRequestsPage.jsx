@@ -20,9 +20,23 @@ export function AdminCatalogRequestsPage() {
     }
   }
 
-  async function handleDecision(id, action, remarks = "") {
+  async function handleDecision(id, action) {
+    let reviewReason = "";
+    if (action === "reject") {
+      reviewReason = window.prompt("Enter rejection reason for the vendor:");
+      if (!reviewReason || !reviewReason.trim()) {
+        setMessage("Rejection reason is required to reject a request.");
+        return;
+      }
+    }
+
     try {
-      await reviewCatalogRequest(id, { action, remarks, status: action === "approve" ? "approved" : action === "reject" ? "rejected" : "under_review" });
+      await reviewCatalogRequest(id, {
+        action,
+        status: action === "approve" ? "approved" : action === "reject" ? "rejected" : "under_review",
+        remarks: reviewReason,
+        reviewReason,
+      });
       setMessage("Decision saved.");
       loadRequests();
     } catch (error) {
@@ -48,6 +62,7 @@ export function AdminCatalogRequestsPage() {
                 <th className="py-3">Type</th>
                 <th className="py-3">Requested</th>
                 <th className="py-3">Status</th>
+                <th className="py-3">Reason</th>
                 <th className="py-3">Actions</th>
               </tr>
             </thead>
@@ -59,10 +74,21 @@ export function AdminCatalogRequestsPage() {
                   <td className="py-3">{item.requestType}</td>
                   <td className="py-3">{item.requestedName}</td>
                   <td className="py-3">{item.status}</td>
+                  <td className="py-3 text-sm text-slate-600">
+                    {item.status === "rejected" ? item.reviewReason || item.remarks || "-" : "-"}
+                  </td>
                   <td className="py-3">
                     <div className="flex flex-wrap gap-2">
-                      <button onClick={() => handleDecision(item.requestId, "approve")} className="rounded-lg bg-emerald-600 px-3 py-2 text-white">Approve</button>
-                      <button onClick={() => handleDecision(item.requestId, "reject")} className="rounded-lg bg-rose-600 px-3 py-2 text-white">Reject</button>
+                      {item.status === "approved" ? (
+                        <button disabled className="rounded-lg bg-emerald-600 px-3 py-2 text-white opacity-80">Approved</button>
+                      ) : item.status === "rejected" ? (
+                        <button disabled className="rounded-lg bg-rose-600 px-3 py-2 text-white opacity-80">Rejected</button>
+                      ) : (
+                        <>
+                          <button onClick={() => handleDecision(item.requestId, "approve")} className="rounded-lg bg-emerald-600 px-3 py-2 text-white">Approve</button>
+                          <button onClick={() => handleDecision(item.requestId, "reject")} className="rounded-lg bg-rose-600 px-3 py-2 text-white">Reject</button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

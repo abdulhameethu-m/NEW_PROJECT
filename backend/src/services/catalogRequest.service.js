@@ -4,7 +4,7 @@ const { Subcategory } = require("../models/Subcategory");
 const { Attribute } = require("../models/Attribute");
 const { ProductModule } = require("../models/ProductModule");
 const { AppError } = require("../utils/AppError");
-const { generateSlug } = require("../utils/slug");
+const { generateSlug, generateUniqueSlug } = require("../utils/slug");
 const auditService = require("./audit.service");
 const notificationService = require("./notification.service");
 
@@ -213,10 +213,20 @@ async function createRequest({ vendorId, vendorUserId, requestType, requestedNam
   if (!vendorId) throw new AppError("Vendor is required", 400, "VALIDATION_ERROR");
   if (!requestType) throw new AppError("Request type is required", 400, "VALIDATION_ERROR");
   if (!requestedName) throw new AppError("Requested name is required", 400, "VALIDATION_ERROR");
+  if (requestType === "attribute") {
+    const options = Array.isArray(payload.options) ? payload.options.filter(Boolean) : [];
+    if (options.length === 0) {
+      throw new AppError("Attribute values are required for an attribute request.", 400, "VALIDATION_ERROR");
+    }
+    payload.options = options;
+  }
 
   const duplicates = await detectDuplicates({ requestType, requestedName, categoryId, subCategoryId, payload });
   if (duplicates.duplicate) {
-    throw new AppError("This request already exists.", 409, "DUPLICATE_REQUEST");
+    if (duplicates.pendingRequestMatch) {
+      throw new AppError("A similar catalog request is already pending.", 409, "DUPLICATE_REQUEST");
+    }
+    throw new AppError("A matching item already exists in the catalog.", 409, "DUPLICATE_REQUEST");
   }
 
   const request = await CatalogRequest.create({
@@ -263,21 +273,63 @@ async function reviewRequest(requestId, actor, payload = {}) {
     throw new AppError("Invalid review action", 400, "VALIDATION_ERROR");
   }
 
+  const rejectionReason = String(payload.reviewReason || payload.remarks || "").trim();
+  if (nextStatus === "rejected" && !rejectionReason) {
+    throw new AppError("Rejection reason is required", 400, "VALIDATION_ERROR");
+  }
+
+  const previousState = {
+    status: request.status,
+    reviewer: request.reviewer,
+    reviewDate: request.reviewDate,
+    remarks: request.remarks,
+    reviewReason: request.reviewReason,
+    reviewMetadata: request.reviewMetadata,
+  };
+
   request.status = nextStatus;
   request.reviewer = actor?._id || actor?.sub || null;
   request.reviewDate = new Date();
   request.remarks = payload.remarks || request.remarks || "";
-  request.reviewReason = payload.reviewReason || request.reviewReason || "";
+  request.reviewReason = rejectionReason || request.reviewReason || "";
   request.reviewMetadata = payload.reviewMetadata || request.reviewMetadata || {};
   await request.save();
 
   if (nextStatus === "approved") {
-    await createCatalogEntryFromRequest(request);
+    try {
+      await createCatalogEntryFromRequest(request);
+    } catch (error) {
+      Object.assign(request, previousState);
+      await request.save().catch(() => {});
+      throw error;
+    }
   }
+
   await auditService.log({ actor, action: `catalog_request.${nextStatus}`, entityType: "CatalogRequest", entityId: request._id, metadata: { requestId, status: nextStatus } }).catch(() => {});
 
   const recipientId = request.vendorUserId || request.vendorId;
-  await notificationService.createNotification({ userId: recipientId, role: "VENDOR", module: "CATALOG", subModule: "REQUESTS", type: nextStatus === "approved" ? "SUCCESS" : "WARNING", title: nextStatus === "approved" ? "Catalog request approved" : "Catalog request reviewed", message: nextStatus === "approved" ? `Your request for ${request.requestedName} was approved.` : `Your request for ${request.requestedName} was reviewed.`, referenceId: String(request._id), meta: { requestId: request.requestId, requestType: request.requestType, status: nextStatus } }).catch(() => {});
+  const notificationMessage = nextStatus === "approved"
+    ? `Your request for ${request.requestedName} was approved.`
+    : `Your request for ${request.requestedName} was rejected.`;
+
+  await notificationService.createNotification({
+    userId: recipientId,
+    role: "VENDOR",
+    module: "CATALOG",
+    subModule: "REQUESTS",
+    type: nextStatus === "approved" ? "SUCCESS" : "WARNING",
+    title: nextStatus === "approved" ? "Catalog request approved" : "Catalog request rejected",
+    message: nextStatus === "approved"
+      ? notificationMessage
+      : `${notificationMessage} Reason: ${request.reviewReason}`,
+    referenceId: String(request._id),
+    meta: {
+      requestId: request.requestId,
+      requestType: request.requestType,
+      status: nextStatus,
+      reviewReason: request.reviewReason,
+    },
+  }).catch(() => {});
 
   return request;
 }
@@ -332,9 +384,22 @@ async function createCatalogEntryFromRequest(request) {
 
   const existing = await ProductModule.findOne({ name: { $regex: `^${escapeRegex(requestDoc.requestedName)}$`, $options: "i" } }).lean();
   if (!existing) {
-    await ProductModule.create({ name: requestDoc.requestedName, key: payload.key || generateSlug(requestDoc.requestedName), fields: [], isActive: true, order: 0 });
+    const baseKey = payload.key ? generateSlug(payload.key) : generateSlug(requestDoc.requestedName);
+    const moduleKey = await buildUniqueProductModuleKey(baseKey || `module-${Date.now()}`);
+    await ProductModule.create({ name: requestDoc.requestedName, key: moduleKey, fields: [], isActive: true, order: 0 });
   }
   return { type: "product_module" };
+}
+
+async function buildUniqueProductModuleKey(baseKey) {
+  let key = String(baseKey || "").trim();
+  let attempt = 0;
+  while (await ProductModule.findOne({ key }).select("_id").lean()) {
+    key = generateUniqueSlug(String(baseKey || "module").trim() || `module-${Date.now()}`);
+    attempt += 1;
+    if (attempt > 10) break;
+  }
+  return key;
 }
 
 function escapeRegex(value = "") {
