@@ -2,6 +2,7 @@ import { logger } from "../services/logger/logger.js";
 import { memo, useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as subcategoryService from "../services/subcategoryService";
+import { resolveApiAssetUrl } from "../utils/resolveUrl";
 
 /**
  * CategoryNavigation Component
@@ -92,8 +93,9 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
 
   return (
     <>
+      {/* Desktop Category Navigation */}
       <nav
-        className="sticky top-16 z-30 border-b border-slate-200/40 bg-white/95 backdrop-blur-md will-change-none dark:border-slate-800/50 dark:bg-slate-950/95"
+        className="hidden lg:flex sticky top-16 z-30 border-b border-slate-200/40 bg-white/95 backdrop-blur-md will-change-none dark:border-slate-800/50 dark:bg-slate-950/95"
         style={{ height: "48px" }}
       >
         <div className="w-full px-2 lg:px-4 h-full flex items-center relative">
@@ -206,6 +208,62 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
           )}
         </div>
       </nav>
+
+      {/* Mobile Horizontal Category Scroller */}
+      <div className="block lg:hidden bg-white/95 dark:bg-slate-950/95 py-3.5 border-b border-slate-100 dark:border-white/5 overflow-hidden">
+        <div className="overflow-x-auto scrollbar-hide flex gap-4 px-4 scroll-smooth">
+          {categoryList.map((category) => {
+            const isSelected = selectedCategory?.id === category.id || selectedCategory?.slug === category.slug;
+            const imageUrl = category.logo || category.image ? resolveApiAssetUrl(category.logo || category.image) : "";
+            const initials = String(category.name || "C").slice(0, 1);
+            
+            return (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => handleCategorySelect(category)}
+                className="flex flex-col items-center gap-1.5 flex-shrink-0 group focus:outline-none"
+                style={{ width: "64px" }}
+              >
+                <div
+                  className={`h-12 w-12 rounded-full flex items-center justify-center overflow-hidden transition-all duration-200 border-2 ${
+                    isSelected
+                      ? "border-indigo-600 dark:border-indigo-500 scale-105 shadow-sm"
+                      : "border-slate-200/80 dark:border-slate-800/80 group-hover:border-slate-400"
+                  }`}
+                >
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={category.name}
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="h-full w-full flex items-center justify-center text-[10px] font-bold uppercase text-white"
+                      style={{
+                        background: `linear-gradient(135deg, ${category.color || "#6366f1"}, ${category.accentColor || "#a855f7"})`,
+                      }}
+                    >
+                      {initials}
+                    </div>
+                  )}
+                </div>
+                <span
+                  className={`text-[11px] font-semibold text-center truncate w-full leading-none tracking-tight ${
+                    isSelected
+                      ? "text-indigo-600 dark:text-indigo-400 font-bold"
+                      : "text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white"
+                  }`}
+                >
+                  {category.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <style>{`
         .scrollbar-hide {

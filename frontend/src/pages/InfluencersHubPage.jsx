@@ -1,6 +1,6 @@
-import { createElement, useEffect, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { confirmAction } from "../services/notificationService";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Bell,
   Bookmark,
@@ -17,6 +17,7 @@ import {
   Store,
   TrendingUp,
   UserPlus,
+  UserRound,
   Users,
   Video,
   X,
@@ -349,7 +350,7 @@ export function InfluencersHubPage() {
   }
 
   return (
-    <div className={`mx-auto grid min-h-[calc(100vh-170px)] max-w-[1600px] gap-5 ${showSuggestionsPanel ? "lg:grid-cols-[260px_minmax(0,720px)_350px]" : "lg:grid-cols-[260px_minmax(0,720px)] lg:justify-center"}`}>
+    <div className={`mx-auto grid min-h-[calc(100vh-170px)] max-w-[1600px] gap-5 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 ${showSuggestionsPanel ? "lg:grid-cols-[260px_minmax(0,720px)_350px]" : "lg:grid-cols-[260px_minmax(0,720px)] lg:justify-center"}`}>
       <aside className="sticky top-28 hidden h-[calc(100vh-140px)] rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:block">
         <div className="mb-5 px-2">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-rose-500">Social Commerce</p>
@@ -413,6 +414,7 @@ export function InfluencersHubPage() {
           </div>
         </aside>
       ) : null}
+      <MobileInfluencerBottomNav />
       {loginPrompt ? <LoginPromptModal onClose={() => setLoginPrompt(false)} /> : null}
       {commentReel ? (
         <HomeCommentsModal
@@ -429,10 +431,20 @@ export function InfluencersHubPage() {
 
 function MobileHubNav({ section, navigate }) {
   return (
-    <div className="mb-4 flex gap-2 overflow-x-auto lg:hidden">
-      {HUB_ITEMS.map(([key, label, Icon]) => (
-        <button key={key} onClick={() => navigate(key === "home" ? "/influencers" : `/influencers/${key}`)} className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold ${section === key || (!section && key === "home") ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "bg-white text-slate-600 dark:bg-slate-900 dark:text-slate-300"}`}>
-          {createElement(Icon, { className: "h-4 w-4" })}
+    <div
+      className="mb-3 flex gap-2 overflow-x-auto pb-0.5 lg:hidden"
+      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+    >
+      {HUB_ITEMS.map(([key, label]) => (
+        <button
+          key={key}
+          onClick={() => navigate(key === "home" ? "/influencers" : `/influencers/${key}`)}
+          className={`inline-flex shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition active:scale-95 ${
+            section === key || (!section && key === "home")
+              ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+              : "bg-slate-100/80 text-slate-600 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-slate-300"
+          }`}
+        >
           {label}
         </button>
       ))}
@@ -593,26 +605,65 @@ function HubContent({ section, loading, query, setQuery, creators, reels, produc
   return (
     <FeedShell title="Home" subtitle="Stories, creator posts, reels, product showcases, campaign promotions, and storefront updates.">
       <Stories creators={creators} />
-      {loading ? <div className="rounded-3xl bg-white p-8 text-sm font-bold text-slate-500 dark:bg-slate-900">Loading creator feed...</div> : null}
+      {loading ? <HubFeedSkeleton /> : null}
       <PostFeed reels={reels} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onProductOpen={onProductOpen} />
     </FeedShell>
   );
 }
 
 function FeedShell({ title, subtitle, children }) {
-  return <div className="space-y-5"><div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"><h1 className="text-2xl font-black text-slate-950 dark:text-white">{title}</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-300">{subtitle}</p></div>{children}</div>;
+  return (
+    <div className="space-y-3">
+      <div className="hidden rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:block">
+        <h1 className="text-2xl font-black text-slate-950 dark:text-white">{title}</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-300">{subtitle}</p>
+      </div>
+      {children}
+    </div>
+  );
 }
 
 function Stories({ creators = [] }) {
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex gap-4 overflow-x-auto">
-        {creators.slice(0, 12).map((creator) => (
-          <Link key={creator._id || creator.id || creator.storeSlug || creator.username} to={influencerHref(creator)} className="w-20 shrink-0 text-center">
-            <span className="mx-auto block h-16 w-16 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 p-0.5"><span className="block h-full w-full overflow-hidden rounded-full bg-white p-0.5 dark:bg-slate-950">{influencerAvatar(creator) ? <img src={influencerAvatar(creator)} alt="" className="h-full w-full rounded-full object-cover" /> : null}</span></span>
-            <span className="mt-2 block truncate text-xs font-bold text-slate-700 dark:text-slate-200">{creator.storeSlug || influencerName(creator)}</span>
-          </Link>
-        ))}
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div
+        className="flex gap-3.5 overflow-x-auto"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        {creators.length > 0
+          ? creators.slice(0, 20).map((creator) => (
+              <Link
+                key={creator._id || creator.id || creator.storeSlug || creator.username}
+                to={influencerHref(creator)}
+                className="flex shrink-0 flex-col items-center gap-1"
+              >
+                <span className="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-gradient-to-tr from-rose-500 via-amber-400 to-violet-500 p-[2.5px]">
+                  <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white p-[2px] dark:bg-slate-950">
+                    {influencerAvatar(creator) ? (
+                      <img
+                        src={influencerAvatar(creator)}
+                        alt={influencerName(creator)}
+                        className="h-full w-full rounded-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 dark:bg-slate-800">
+                        {influencerName(creator).charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <span className="w-[54px] truncate text-center text-[10px] font-semibold leading-tight text-slate-700 dark:text-slate-200">
+                  {creator.storeSlug || influencerName(creator)}
+                </span>
+              </Link>
+            ))
+          : Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex shrink-0 flex-col items-center gap-1">
+                <div className="h-[54px] w-[54px] animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+                <div className="h-2 w-10 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+              </div>
+            ))}
       </div>
     </section>
   );
@@ -622,7 +673,7 @@ function PostFeed({ reels = [], creators = [], products = [], followedIds, follo
   const mixed = reels.length ? reels : products.slice(0, 4).map((product) => ({ _id: product._id, products: [product], title: product.name, caption: "Creator product pick", contentType: "POST", metrics: {}, synthetic: true }));
   if (!mixed.length) return <div className="rounded-3xl bg-white p-8 text-center text-sm font-bold text-slate-500 dark:bg-slate-900">{empty}</div>;
   return (
-    <section className="space-y-5">
+    <section className="space-y-3">
       {mixed.map((post, index) => {
         const creator = post.influencerId && typeof post.influencerId === "object" ? post.influencerId : creators[index % Math.max(creators.length, 1)] || {};
         const id = post._id || `${index}`;
@@ -637,12 +688,33 @@ function CreatorHeader({ creator, followedIds = {}, followBusy = {}, onFollow })
   const creatorId = influencerId(creator);
   const profileHref = influencerHref(creator);
   return (
-    <div className="flex items-center justify-between gap-3 p-4">
-      <Link to={profileHref} className="flex min-w-0 items-center gap-3">
-        <span className="h-11 w-11 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">{influencerAvatar(creator) ? <img src={influencerAvatar(creator)} alt="" className="h-full w-full object-cover" /> : null}</span>
-        <span className="min-w-0"><span className="block truncate text-sm font-black text-slate-950 dark:text-white">{influencerName(creator)}</span><span className="text-xs text-slate-500">{creator.category || creator.categories?.[0] || "Creator commerce"}</span></span>
+    <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+      <Link to={profileHref} className="flex min-w-0 items-center gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+          {influencerAvatar(creator) ? (
+            <img src={influencerAvatar(creator)} alt="" className="h-full w-full object-cover" loading="lazy" />
+          ) : (
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              {influencerName(creator).charAt(0).toUpperCase()}
+            </span>
+          )}
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[13px] font-bold text-slate-950 dark:text-white">{influencerName(creator)}</span>
+          <span className="block text-[11px] text-slate-500 dark:text-slate-400">{creator.category || creator.categories?.[0] || "Creator"}</span>
+        </span>
       </Link>
-      <button onClick={() => onFollow(creator)} disabled={followBusy[creatorId]} className={`rounded-full px-4 py-2 text-xs font-black ${followedIds[creatorId] ? "border border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-200" : "bg-slate-950 text-white dark:bg-white dark:text-slate-950"}`}>{followBusy[creatorId] ? (followedIds[creatorId] ? "Unfollowing..." : "Following...") : followedIds[creatorId] ? "Following" : "Follow"}</button>
+      <button
+        onClick={() => onFollow(creator)}
+        disabled={followBusy[creatorId]}
+        className={`shrink-0 rounded-full px-3 py-1 text-[12px] font-bold transition active:scale-95 disabled:opacity-60 ${
+          followedIds[creatorId]
+            ? "border border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"
+            : "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+        }`}
+      >
+        {followBusy[creatorId] ? "…" : followedIds[creatorId] ? "Following" : "Follow"}
+      </button>
     </div>
   );
 }
@@ -650,13 +722,56 @@ function CreatorHeader({ creator, followedIds = {}, followBusy = {}, onFollow })
 function FeedActions({ post, profileHref, savedIds = {}, likedIds = {}, onLike, onComment, onShare, onVisitStore, onSave }) {
   const id = post._id;
   return (
-    <div className="flex flex-wrap items-center gap-4">
-      <button type="button" onClick={() => onLike?.(post)} className={`inline-flex items-center gap-2 text-sm font-bold ${likedIds[id] ? "text-rose-600" : "text-slate-700 dark:text-slate-200"}`}><Heart className={`h-5 w-5 ${likedIds[id] ? "fill-current" : ""}`} /> {compact(post.metrics?.likes || 0)}</button>
-      <button type="button" onClick={() => onComment?.(post)} className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200"><MessageCircle className="h-5 w-5" /> {compact(post.metrics?.comments || 0)}</button>
-      <button type="button" onClick={() => onShare?.(post)} className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200"><Share2 className="h-5 w-5" /> {compact(post.metrics?.shares || 0)}</button>
-      <button type="button" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400"><Eye className="h-5 w-5" /> {compact(post.metrics?.views || 0)}</button>
-      <button type="button" onClick={() => onVisitStore?.(post, profileHref)} className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200"><Store className="h-5 w-5" /> Visit Store</button>
-      <button onClick={() => onSave(id)} className="ml-auto text-slate-700 dark:text-slate-200" aria-label="Save content"><Bookmark className={`h-5 w-5 ${savedIds[id] ? "fill-current" : ""}`} /></button>
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => onLike?.(post)}
+          className={`flex flex-col items-center gap-0.5 transition active:scale-95 ${
+            likedIds[id] ? "text-rose-600" : "text-slate-500 dark:text-slate-400"
+          }`}
+          aria-label="Like"
+        >
+          <Heart className={`h-5 w-5 ${likedIds[id] ? "fill-current" : ""}`} />
+          <span className="text-[10px] font-semibold leading-none">{compact(post.metrics?.likes || 0)}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onComment?.(post)}
+          className="flex flex-col items-center gap-0.5 text-slate-500 transition active:scale-95 dark:text-slate-400"
+          aria-label="Comment"
+        >
+          <MessageCircle className="h-5 w-5" />
+          <span className="text-[10px] font-semibold leading-none">{compact(post.metrics?.comments || 0)}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onShare?.(post)}
+          className="flex flex-col items-center gap-0.5 text-slate-500 transition active:scale-95 dark:text-slate-400"
+          aria-label="Share"
+        >
+          <Share2 className="h-5 w-5" />
+          <span className="text-[10px] font-semibold leading-none">{compact(post.metrics?.shares || 0)}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onVisitStore?.(post, profileHref)}
+          className="flex flex-col items-center gap-0.5 text-slate-500 transition active:scale-95 dark:text-slate-400"
+          aria-label="Visit store"
+        >
+          <Store className="h-5 w-5" />
+          <span className="text-[10px] font-semibold leading-none">{compact(post.metrics?.views || 0)}</span>
+        </button>
+      </div>
+      <button
+        onClick={() => onSave(id)}
+        className={`transition active:scale-95 ${
+          savedIds[id] ? "text-slate-950 dark:text-white" : "text-slate-400 dark:text-slate-500"
+        }`}
+        aria-label="Save content"
+      >
+        <Bookmark className={`h-5 w-5 ${savedIds[id] ? "fill-current" : ""}`} />
+      </button>
     </div>
   );
 }
@@ -668,15 +783,39 @@ function CampaignBadge({ post }) {
 }
 
 function ContentBody({ post, creator, savedIds, likedIds, onLike, onComment, onShare, onVisitStore, onSave, onProductOpen }) {
+  const [captionExpanded, setCaptionExpanded] = useState(false);
   const profileHref = influencerHref(creator);
+  const caption = post.caption || post.title || "Creator commerce update";
+  const isLong = caption.length > 90;
   return (
-    <div className="space-y-3 p-4">
+    <div className="space-y-2 px-3 pb-3 pt-2">
       <FeedActions post={post} profileHref={profileHref} savedIds={savedIds} likedIds={likedIds} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onSave={onSave} />
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="min-w-0 flex-1 text-sm text-slate-700 dark:text-slate-200"><Link to={profileHref} className="font-bold">{creator.storeSlug || influencerName(creator)}</Link> {post.caption || post.title || "Creator commerce update"}</p>
-        <CampaignBadge post={post} />
+      <div>
+        <p className={`text-[13px] leading-snug text-slate-700 dark:text-slate-200 ${captionExpanded ? "" : "line-clamp-2"}`}>
+          <Link to={profileHref} className="font-bold">{creator.storeSlug || influencerName(creator)}</Link>
+          {" "}{caption}
+        </p>
+        {isLong && (
+          <button
+            type="button"
+            onClick={() => setCaptionExpanded((prev) => !prev)}
+            className="mt-0.5 text-[11px] font-semibold text-slate-400 hover:text-slate-600"
+          >
+            {captionExpanded ? "Show less" : "more"}
+          </button>
+        )}
       </div>
-      {post.products?.length ? <div className="flex gap-2 overflow-x-auto">{post.products.slice(0, 4).map((product) => <ProductChip key={product._id || product.id} reel={post} product={product} onOpen={onProductOpen} />)}</div> : null}
+      <CampaignBadge post={post} />
+      {post.products?.length ? (
+        <div
+          className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
+          {post.products.slice(0, 4).map((product) => (
+            <ProductChip key={product._id || product.id} reel={post} product={product} onOpen={onProductOpen} />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -684,7 +823,7 @@ function ContentBody({ post, creator, savedIds, likedIds, onLike, onComment, onS
 function PostCard({ post, creator, followedIds, followBusy, savedIds, likedIds, onFollow, onSave, onLike, onComment, onShare, onVisitStore, onProductOpen }) {
   const images = postImages(post);
   return (
-    <article className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
       <CreatorHeader creator={creator} followedIds={followedIds} followBusy={followBusy} onFollow={onFollow} />
       <ImageCarousel images={images} product={post.products?.[0]} />
       <ContentBody post={post} creator={creator} savedIds={savedIds} likedIds={likedIds} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onSave={onSave} onProductOpen={onProductOpen} />
@@ -693,10 +832,34 @@ function PostCard({ post, creator, followedIds, followBusy, savedIds, likedIds, 
 }
 
 function ReelCard({ post, creator, followedIds, followBusy, savedIds, likedIds, onFollow, onSave, onLike, onComment, onShare, onVisitStore, onProductOpen }) {
+  const videoRef = useRef(null);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) { video.play().catch(() => null); }
+        else { video.pause(); }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
   return (
-    <article className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
       <CreatorHeader creator={creator} followedIds={followedIds} followBusy={followBusy} onFollow={onFollow} />
-      <video src={resolveApiAssetUrl(post.videoUrl)} poster={resolveApiAssetUrl(post.thumbnailUrl)} className="max-h-[680px] w-full bg-black object-cover" controls playsInline preload="metadata" />
+      <video
+        ref={videoRef}
+        src={resolveApiAssetUrl(post.videoUrl)}
+        poster={resolveApiAssetUrl(post.thumbnailUrl)}
+        className="max-h-[420px] w-full bg-black object-cover"
+        controls
+        playsInline
+        muted
+        preload="metadata"
+        loop
+      />
       <ContentBody post={post} creator={creator} savedIds={savedIds} likedIds={likedIds} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onSave={onSave} onProductOpen={onProductOpen} />
     </article>
   );
@@ -706,15 +869,25 @@ function ImageCarousel({ images = [], product }) {
   const [active, setActive] = useState(0);
   const fallback = product ? productImage(product) : "";
   const list = images.length ? images : fallback ? [fallback] : [];
-  if (!list.length) return <div className="flex aspect-square items-center justify-center bg-slate-100 text-sm font-bold text-slate-400 dark:bg-slate-950">No image available</div>;
+  if (!list.length) return (
+    <div className="flex aspect-[4/3] items-center justify-center bg-slate-100 text-sm font-bold text-slate-400 dark:bg-slate-950">
+      No image
+    </div>
+  );
   const current = list[Math.min(active, list.length - 1)];
   return (
-    <div className="bg-slate-100 dark:bg-slate-950">
-      <img src={resolveApiAssetUrl(current)} alt="" className="max-h-[680px] w-full object-cover" />
+    <div className="relative bg-slate-100 dark:bg-slate-950">
+      <img src={resolveApiAssetUrl(current)} alt="" className="max-h-[420px] w-full object-cover" loading="lazy" />
       {list.length > 1 ? (
-        <div className="flex items-center justify-center gap-2 p-3">
+        <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
           {list.map((url, index) => (
-            <button key={`${url}-${index}`} type="button" onClick={() => setActive(index)} className={`h-2 rounded-full transition-all ${index === active ? "w-6 bg-slate-950 dark:bg-white" : "w-2 bg-slate-300 dark:bg-slate-700"}`} aria-label={`Show image ${index + 1}`} />
+            <button
+              key={`${url}-${index}`}
+              type="button"
+              onClick={() => setActive(index)}
+              className={`h-1.5 rounded-full transition-all ${index === active ? "w-5 bg-white shadow" : "w-1.5 bg-white/60"}`}
+              aria-label={`Show image ${index + 1}`}
+            />
           ))}
         </div>
       ) : null}
@@ -723,7 +896,19 @@ function ImageCarousel({ images = [], product }) {
 }
 
 function ProductChip({ reel, product, onOpen }) {
-  return <Link to={buildAffiliateProductPath(reel, product)} onClick={() => onOpen?.(reel, product)} className="flex min-w-[220px] items-center gap-3 rounded-2xl bg-slate-50 p-2 text-left dark:bg-slate-950"><img src={productImage(product)} alt="" className="h-12 w-12 rounded-xl object-cover" /><span className="min-w-0"><span className="block truncate text-sm font-black text-slate-950 dark:text-white">{product.name}</span><span className="text-xs font-bold text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span></span></Link>;
+  return (
+    <Link
+      to={buildAffiliateProductPath(reel, product)}
+      onClick={() => onOpen?.(reel, product)}
+      className="flex shrink-0 min-w-[150px] max-w-[200px] items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2 text-left transition hover:border-slate-200 hover:bg-white dark:border-slate-800 dark:bg-slate-950"
+    >
+      <img src={productImage(product)} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" loading="lazy" />
+      <span className="min-w-0">
+        <span className="block truncate text-[12px] font-bold text-slate-950 dark:text-white">{product.name}</span>
+        <span className="block text-[11px] font-semibold text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span>
+      </span>
+    </Link>
+  );
 }
 
 function CreatorGrid({ creators = [], followedIds, followBusy = {}, onFollow, empty = "No creators found." }) {
@@ -800,4 +985,73 @@ function NotificationList() {
 function FollowedStores({ stores = [] }) {
   if (!stores.length) return null;
   return <section className="mt-5 rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"><h2 className="font-black text-slate-950 dark:text-white">Followed Stores</h2><div className="mt-3 grid gap-3">{stores.map((store) => <Link key={store.storeSlug || store._id || store.id} to={`/vendor/${store.storeSlug}`} className="text-sm font-bold text-slate-700 dark:text-slate-200">{store.shopName || store.companyName || store.name || "Store"}</Link>)}</div></section>;
+}
+
+function HubFeedSkeleton() {
+  return (
+    <section className="space-y-3" aria-label="Loading feed">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center gap-2.5 px-3 py-2.5">
+            <div className="h-9 w-9 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-3 w-24 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+              <div className="h-2 w-16 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+            </div>
+            <div className="h-7 w-16 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+          </div>
+          <div className="aspect-[4/3] animate-pulse bg-slate-100 dark:bg-slate-800" />
+          <div className="space-y-2 px-3 pb-3 pt-2.5">
+            <div className="flex gap-5">
+              <div className="h-5 w-7 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+              <div className="h-5 w-7 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+              <div className="h-5 w-7 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+              <div className="h-5 w-7 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+            </div>
+            <div className="h-2.5 w-3/4 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+            <div className="h-2.5 w-1/2 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function MobileInfluencerBottomNav() {
+  const { pathname } = useLocation();
+  const isActive = (href) => href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const items = [
+    { label: "Home", icon: Home, href: "/" },
+    { label: "Shop", icon: Search, href: "/shop" },
+    { label: "Creators", icon: Users, href: "/influencers" },
+    { label: "Wishlist", icon: Heart, href: "/wishlist" },
+    { label: "Account", icon: UserRound, href: "/profile" },
+  ];
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-slate-200/80 bg-white/95 backdrop-blur-md lg:hidden dark:border-slate-800 dark:bg-slate-950/95"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      aria-label="Bottom navigation"
+    >
+      {items.map(({ label, icon: Icon, href }) => {
+        const active = isActive(href);
+        return (
+          <Link
+            key={href}
+            to={href}
+            className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors ${
+              active ? "text-slate-950 dark:text-white" : "text-slate-400 dark:text-slate-500"
+            }`}
+            aria-label={label}
+          >
+            <Icon
+              className="h-[22px] w-[22px]"
+              strokeWidth={active ? 2.25 : 1.5}
+            />
+            {label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
 }

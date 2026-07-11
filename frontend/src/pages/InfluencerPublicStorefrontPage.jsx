@@ -13,6 +13,7 @@ import {
   Flag,
   Grid2X2,
   Heart,
+  Home,
   Eye,
   LayoutGrid,
   ListFilter,
@@ -33,6 +34,7 @@ import {
   Truck,
   UserMinus,
   UserPlus,
+  UserRound,
   X,
 } from "lucide-react";
 import { useAuthStore } from "../context/authStore";
@@ -544,7 +546,7 @@ function Sidebar({ data, following, followBusy = false, onFollow, onShare, canEd
   }
 
   return (
-    <aside className="space-y-4 lg:sticky lg:top-24 lg:w-[290px] lg:shrink-0">
+    <aside className="hidden lg:block space-y-4 lg:sticky lg:top-24 lg:w-[290px] lg:shrink-0">
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto h-28 w-28 overflow-hidden rounded-full bg-slate-100 shadow-inner dark:bg-slate-800">
           {resolveApiAssetUrl(data.profile.avatarUrl) ? <img src={resolveApiAssetUrl(data.profile.avatarUrl)} alt={data.profile.name} className="h-full w-full object-cover" /> : null}
@@ -696,11 +698,27 @@ function Metric({ label, value }) {
 
 function Tabs({ username, active }) {
   return (
-    <nav className="overflow-x-auto rounded-lg border border-slate-200 bg-white px-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex min-w-max items-center justify-between gap-3">
+    <nav 
+      className="overflow-x-auto rounded-none lg:rounded-lg border-b lg:border border-slate-100 lg:border-slate-200 bg-white px-3 lg:px-5 shadow-none lg:shadow-sm dark:border-slate-850 dark:bg-slate-900"
+      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+    >
+      <div className="flex min-w-max items-center gap-1.5 lg:justify-between lg:gap-3">
         {TABS.map(([key, label]) => {
           const href = key === "storefront" ? `/influencer/${username}/storefront` : `/influencer/${username}/${key}`;
-          return <Link key={key} to={href} className={`border-b-2 px-5 py-4 text-sm font-black transition ${active === key ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-950 dark:hover:text-white"}`}>{label}</Link>;
+          const isSelected = active === key;
+          return (
+            <Link 
+              key={key} 
+              to={href} 
+              className={`whitespace-nowrap px-4 py-3 lg:py-4 text-[13px] lg:text-sm font-black transition border-b-2 ${
+                isSelected 
+                  ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" 
+                  : "border-transparent text-slate-500 hover:text-slate-950 dark:hover:text-white"
+              }`}
+            >
+              {label}
+            </Link>
+          );
         })}
       </div>
     </nav>
@@ -971,9 +989,49 @@ function LoginPromptModal({ onClose }) {
 }
 
 function PublicStoreNav({ data, search, setSearch }) {
+  const navigate = useNavigate();
+  const avatarUrl = resolveApiAssetUrl(data.profile.avatarUrl);
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
-      <div className="mx-auto flex max-w-[1440px] items-center gap-4 px-4 py-3">
+      {/* Mobile header */}
+      <div className="flex items-center gap-2 px-3 py-2.5 lg:hidden">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 transition active:scale-90"
+          aria-label="Go back"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <div className="flex flex-1 items-center gap-2.5 min-w-0">
+          <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+            {avatarUrl
+              ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+              : <span className="text-xs font-black text-slate-500">{(data.profile.name || "C").charAt(0).toUpperCase()}</span>
+            }
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-slate-950 dark:text-white leading-none">{data.profile.name}</p>
+            <p className="truncate text-[11px] font-semibold text-slate-500 leading-tight">@{data.profile.username}</p>
+          </div>
+        </div>
+        <Link
+          to={`/influencer/${data.profile.username}/reels`}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition"
+          aria-label="View Reels"
+        >
+          <Play className="h-5 w-5" />
+        </Link>
+        <Link
+          to="/influencers"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition"
+          aria-label="Explore Creators"
+        >
+          <TrendingUp className="h-5 w-5" />
+        </Link>
+      </div>
+
+      {/* Desktop header */}
+      <div className="mx-auto hidden max-w-[1440px] items-center gap-4 px-4 py-3 lg:flex">
         <Link to="/" className="flex shrink-0 items-center gap-2 text-xl font-black text-slate-950 dark:text-white">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white">U</span>
           <span className="hidden sm:inline">UchooseMe</span>
@@ -993,6 +1051,7 @@ function PublicStoreNav({ data, search, setSearch }) {
     </header>
   );
 }
+
 
 export function InfluencerPublicStorefrontPage() {
   const { username, slug, tab, collectionSlug } = useParams();
@@ -1121,50 +1180,137 @@ export function InfluencerPublicStorefrontPage() {
   return (
     <>
     <PublicStoreNav data={data} search={search} setSearch={setSearch} />
-    <main className="mx-auto max-w-[1440px] space-y-5 px-4 py-5">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(data.seo?.structuredData) }} />
-      {actionStatus ? <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200">{actionStatus}</div> : null}
-      <div className="flex flex-col gap-5 lg:flex-row">
-        <Sidebar data={data} following={following} followBusy={followBusy} onFollow={toggleFollow} onShare={handleShareProfile} canEdit={canEdit} />
-        <section className="min-w-0 flex-1 space-y-5">
-          <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center md:justify-between">
-            <Tabs username={data.profile.username} active={active} />
-            <button type="button" onClick={handleShareProfile} className="inline-flex items-center justify-center gap-2 rounded-md border border-indigo-200 px-4 py-2 text-sm font-black text-indigo-600 hover:bg-indigo-50 dark:border-indigo-800 dark:hover:bg-indigo-950/40"><Share2 className="h-4 w-4" /> Share Store</button>
+
+    {/* Mobile Creator Profile Strip */}
+    <div className="bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 px-4 py-3 lg:hidden">
+      <div className="flex items-center gap-3">
+        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800 ring-2 ring-indigo-100 dark:ring-indigo-900">
+          {resolveApiAssetUrl(data.profile.avatarUrl)
+            ? <img src={resolveApiAssetUrl(data.profile.avatarUrl)} alt={data.profile.name} className="h-full w-full object-cover" />
+            : <span className="flex h-full w-full items-center justify-center text-lg font-black text-slate-400">{(data.profile.name || "C").charAt(0).toUpperCase()}</span>
+          }
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <p className="truncate text-base font-black text-slate-950 dark:text-white">{data.profile.name}</p>
+            {data.badge || data.profile.verified ? <BadgeCheck className="h-4 w-4 shrink-0 fill-indigo-600 text-white" aria-label="Verified" /> : null}
           </div>
-          <button type="button" onClick={toggleFilters} aria-expanded={filtersOpen} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">Filters <ChevronDown className="h-4 w-4" /></button>
-          {filtersOpen ? (
-            <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex flex-wrap gap-2">
-                {TABS.map(([key, label]) => (
-                  <Link
-                    key={key}
-                    to={key === "storefront" ? `/influencer/${data.profile.username}/storefront` : `/influencer/${data.profile.username}/${key}`}
-                    onClick={() => trackPublicInfluencerEvent(data.profile.username, { eventType: "search", surface: "storefront-filters", metadata: { action: "select_filter_tab", tab: key } }).catch(() => null)}
-                    className={`rounded-full px-3 py-2 text-xs font-black ${active === key ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "border border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}
-                  >
-                    {label}
-                  </Link>
-                ))}
-              </div>
-              <p className="mt-3 text-xs font-semibold text-slate-500">Search is applied across creator products, collections, reels, and posts.</p>
+          <p className="text-[12px] font-semibold text-slate-500">@{data.profile.username}</p>
+          <div className="mt-1 flex items-center gap-3 text-[11px] font-bold text-slate-600 dark:text-slate-400">
+            <span><span className="font-black text-slate-950 dark:text-white">{compact(data.stats.followers)}</span> Followers</span>
+            <span><span className="font-black text-slate-950 dark:text-white">{compact(data.stats.ordersGenerated)}</span> Orders</span>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col gap-2">
+          {canEdit ? (
+            <Link to="/influencer/dashboard" className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white">Dashboard</Link>
+          ) : (
+            <button
+              onClick={toggleFollow}
+              disabled={followBusy}
+              className={`inline-flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-black transition active:scale-95 ${following ? "border border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-200" : "bg-indigo-600 text-white"}`}
+            >
+              {following ? <UserMinus className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
+              {followBusy ? "…" : following ? "Following" : "Follow"}
+            </button>
+          )}
+          <button onClick={handleShareProfile} className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 dark:border-slate-700 dark:text-slate-300">
+            <Share2 className="h-3.5 w-3.5" /> Share
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <main className="mx-auto max-w-[1440px] space-y-0 lg:space-y-5 px-0 lg:px-4 py-0 lg:py-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(data.seo?.structuredData) }} />
+      {actionStatus ? <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200 mx-4 lg:mx-0">{actionStatus}</div> : null}
+      <div className="flex flex-col gap-0 lg:gap-5 lg:flex-row">
+        <Sidebar data={data} following={following} followBusy={followBusy} onFollow={toggleFollow} onShare={handleShareProfile} canEdit={canEdit} />
+        <section className="min-w-0 flex-1 space-y-0 lg:space-y-5">
+          {/* Mobile: full-width sticky tabs bar */}
+          <div className="sticky top-[57px] z-20 bg-white dark:bg-slate-950 lg:static lg:z-auto lg:rounded-lg lg:border lg:border-slate-200 lg:bg-white lg:p-4 lg:shadow-sm lg:dark:border-slate-800 lg:dark:bg-slate-900">
+            <div className="flex items-center justify-between gap-2 lg:gap-3">
+              <Tabs username={data.profile.username} active={active} />
+              <button type="button" onClick={handleShareProfile} className="hidden shrink-0 items-center justify-center gap-2 rounded-md border border-indigo-200 px-4 py-2 text-sm font-black text-indigo-600 hover:bg-indigo-50 dark:border-indigo-800 dark:hover:bg-indigo-950/40 lg:inline-flex"><Share2 className="h-4 w-4" /> Share Store</button>
             </div>
-          ) : null}
-          {content}
+          </div>
+          <div className="px-3 py-2 lg:px-0 lg:py-0">
+            <button type="button" onClick={toggleFilters} aria-expanded={filtersOpen} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">Filters <ChevronDown className="h-4 w-4" /></button>
+            {filtersOpen ? (
+              <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex flex-wrap gap-2">
+                  {TABS.map(([key, label]) => (
+                    <Link
+                      key={key}
+                      to={key === "storefront" ? `/influencer/${data.profile.username}/storefront` : `/influencer/${data.profile.username}/${key}`}
+                      onClick={() => trackPublicInfluencerEvent(data.profile.username, { eventType: "search", surface: "storefront-filters", metadata: { action: "select_filter_tab", tab: key } }).catch(() => null)}
+                      className={`rounded-full px-3 py-2 text-xs font-black ${active === key ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "border border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs font-semibold text-slate-500">Search is applied across creator products, collections, reels, and posts.</p>
+              </div>
+            ) : null}
+          </div>
+          <div className="px-3 lg:px-0">
+            {content}
+          </div>
         </section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 lg:hidden">
-        {canEdit ? (
-          <Link to="/influencer/dashboard" className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-3 text-sm font-black text-white">Creator Dashboard</Link>
-        ) : (
-          <button onClick={toggleFollow} disabled={followBusy} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-3 text-sm font-black text-white">
-            {following ? <UserMinus className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-            {followBusy ? (following ? "Unfollowing..." : "Following...") : following ? "Following" : "Follow Creator"}
-          </button>
-        )}
-      </div>
+      {/* Mobile Bottom Navigation */}
+      <StorefrontBottomNav canEdit={canEdit} />
       {loginPrompt ? <LoginPromptModal onClose={() => setLoginPrompt(false)} /> : null}
     </main>
     </>
   );
 }
+
+function StorefrontBottomNav({ canEdit }) {
+  const { pathname } = useLocation();
+  const isActive = (href) => href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const navItems = [
+    { label: "Home", icon: Home, href: "/" },
+    { label: "Shop", icon: ShoppingBag, href: "/shop" },
+    { label: "Creators", icon: TrendingUp, href: "/influencers" },
+    { label: "Wishlist", icon: Heart, href: "/wishlist" },
+    { label: "Account", icon: UserRound, href: "/profile" },
+  ];
+  if (canEdit) {
+    return (
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95 lg:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <Link to="/influencer/dashboard" className="flex w-full items-center justify-center gap-2 py-3 text-sm font-black text-indigo-600">
+          <LayoutGrid className="h-5 w-5" /> Creator Dashboard
+        </Link>
+      </nav>
+    );
+  }
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95 lg:hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      aria-label="Bottom navigation"
+    >
+      {navItems.map(({ label, icon: Icon, href }) => {
+        const active = isActive(href);
+        return (
+          <Link
+            key={href}
+            to={href}
+            className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors ${active ? "text-indigo-600 dark:text-indigo-400" : "text-slate-500"}`}
+            aria-label={label}
+          >
+            <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.25 : 1.5} />
+            {label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+

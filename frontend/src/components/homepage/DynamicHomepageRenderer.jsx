@@ -144,7 +144,11 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
   const layout = resolveContainerLayout(container);
   const themeStyles = resolveContainerThemeStyles(layout.theme || container?.presentation?.containerTheme);
   const contentSized = isContentSizedContainer(container);
-  const widthStyles = resolveContainerDimensionStyle(layout, renderContext, { inline, contentSized });
+  const widthStyles = resolveContainerDimensionStyle(layout, renderContext, {
+    inline,
+    contentSized,
+    isBanner: container.containerType === "BANNER" || container.containerType === "SLIDER",
+  });
   const previewBare = container?.previewBare === true || bareContainers;
   const stripOuterLayout = bareOuterLayout && !previewBare;
 
@@ -275,11 +279,14 @@ function resolveContainerDimensionStyle(layout, renderContext, options = {}) {
   }
 
   if (layout.alignment === "left") {
-    styles.marginRight = "auto";
-  } else if (layout.alignment === "right") {
-    styles.marginLeft = "auto";
-  } else {
     styles.marginInline = "auto";
+  }
+
+  if (renderContext.device === "mobile" && options.isBanner) {
+    styles.width = "100%";
+    styles.aspectRatio = "2 / 1";
+    delete styles.height;
+    delete styles.minHeight;
   }
 
   return styles;
@@ -798,20 +805,20 @@ function BannerContainer({ container }) {
           style={{ background: `rgba(15, 23, 42, ${Number(config.overlayOpacity ?? 0.35)})` }}
         />
       ) : null}
-      <div className="absolute inset-0 z-10 flex items-center p-6 sm:p-8 lg:p-10">
+      <div className="absolute inset-0 z-10 flex items-center p-4 sm:p-8 lg:p-10">
         <div className={`max-w-2xl transition duration-300 ${resolveTextAlign(config.textPosition)} ${config.showCtaOnHover ? "opacity-0 translate-y-3 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto" : ""}`}>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/70">Marketplace campaign</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-4xl">
+          <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.28em] text-white/70">Campaign</p>
+          <h2 className="mt-1 sm:mt-3 text-lg sm:text-3xl font-bold tracking-tight text-white md:text-4xl">
             {heading}
           </h2>
-          {subheading ? <p className="mt-4 text-sm leading-7 text-white/85 sm:text-base">{subheading}</p> : null}
+          {subheading ? <p className="mt-1 sm:mt-4 text-xs sm:text-sm md:text-base leading-snug sm:leading-7 text-white/85 line-clamp-2 sm:line-clamp-none">{subheading}</p> : null}
           {ctaLabel && ctaUrl ? (
             <a
               href={ctaUrl}
-              className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:-translate-y-0.5"
+              className="mt-2.5 sm:mt-6 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs sm:px-5 sm:py-3 sm:text-sm font-semibold text-slate-900 transition hover:-translate-y-0.5"
             >
               {ctaLabel}
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
             </a>
           ) : null}
         </div>
@@ -1129,11 +1136,11 @@ function SliderContainer({ container }) {
     <div className="relative h-full w-full overflow-hidden">
       {imageUrl ? <img src={imageUrl} alt={currentSlide?.heading || container.title} className="block h-full w-full object-cover" /> : null}
       {imageUrl ? <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-950/35 to-transparent" /> : null}
-      <div className={`relative z-10 ${imageUrl ? "absolute inset-0" : ""} flex items-end p-6 sm:p-8 lg:p-10`}>
+      <div className={`relative z-10 ${imageUrl ? "absolute inset-0" : ""} flex items-end p-4 sm:p-8 lg:p-10`}>
         <div className="max-w-xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/70">Curated story</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-4xl">{currentSlide?.heading || container.title}</h2>
-          {currentSlide?.subheading ? <p className="mt-4 text-sm leading-7 text-white/85 sm:text-base">{currentSlide.subheading}</p> : null}
+          <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.28em] text-white/70">Curated story</p>
+          <h2 className="mt-1 sm:mt-3 text-lg sm:text-3xl font-bold tracking-tight text-white md:text-4xl">{currentSlide?.heading || container.title}</h2>
+          {currentSlide?.subheading ? <p className="mt-1 sm:mt-4 text-xs sm:text-sm md:text-base leading-snug sm:leading-7 text-white/85 line-clamp-2 sm:line-clamp-none">{currentSlide.subheading}</p> : null}
         </div>
       </div>
     </div>
@@ -1460,7 +1467,7 @@ function GridFamilyContainer({ container }) {
         </div>
       ) : null}
       {type === "VENDOR_SPOTLIGHT" ? <VendorSpotlightHero container={container} /> : null}
-      <div className={`mt-6 grid gap-4 ${gridClass}`}>
+      <div className={`mt-4 sm:mt-6 grid gap-2 sm:gap-4 ${gridClass}`}>
         {items.length ? items.map((product) => <TrackedProductCard key={product._id} containerId={container._id} product={product} cardStyle={container?.config?.cardStyle} compact={type === "DEALS_STRIP" || type === "LIST"} />) : <EmptyState />}
       </div>
     </div>
@@ -1894,7 +1901,7 @@ function resolveGridClass(type, config) {
     12: "lg:grid-cols-12",
   };
   // if the requested desktopColumns is outside 1..12, fall back to 4
-  return `sm:grid-cols-2 ${columnClassMap[desktopColumns] || "lg:grid-cols-4"}`;
+  return `grid-cols-2 sm:grid-cols-2 ${columnClassMap[desktopColumns] || "lg:grid-cols-4"}`;
 }
 
 function resolveMasonryColumns(config = {}) {
@@ -1971,7 +1978,7 @@ function resolveCategoryShowcaseGrid(config = {}) {
     5: "lg:grid-cols-5",
     6: "lg:grid-cols-6",
   };
-  return `sm:grid-cols-2 ${columnClassMap[columns] || "lg:grid-cols-4"}`;
+  return `grid-cols-2 sm:grid-cols-2 ${columnClassMap[columns] || "lg:grid-cols-4"}`;
 }
 
 function resolveTextAlign(position) {

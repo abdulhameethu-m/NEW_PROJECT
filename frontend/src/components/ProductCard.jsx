@@ -201,8 +201,8 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
 
   return (
     <Motion.article
-      whileHover={{ y: -8 }}
-      transition={{ type: "spring", stiffness: 280, damping: 24 }}
+    whileHover={{ y: -4 }}
+    transition={{ type: "spring", stiffness: 280, damping: 24 }}
       onClick={navigateToProduct}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -244,9 +244,9 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
 
         {/* Discount Badge */}
         {discountPercent > 0 && (
-          <div className="absolute top-3 left-3 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 px-2.5 py-1.5 shadow-lg">
-            <div className="text-xs font-bold text-white">{discountPercent}%</div>
-            <div className="text-[10px] font-semibold text-white">OFF</div>
+          <div className="absolute top-2 left-2 sm:top-3 sm:left-3 rounded-md sm:rounded-lg bg-gradient-to-br from-orange-500 to-red-500 px-1.5 py-1 sm:px-2.5 sm:py-1.5 shadow-lg">
+            <div className="text-[10px] sm:text-xs font-bold text-white">{discountPercent}%</div>
+            <div className="hidden sm:block text-[9px] sm:text-[10px] font-semibold text-white">OFF</div>
           </div>
         )}
 
@@ -278,17 +278,18 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         )}
 
         {/* Premium Vertical Action Stack - Top Right */}
-        <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 ease-out z-10">
+        {/* Always visible on mobile (touch), hover-only on desktop */}
+        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col gap-1.5 sm:gap-2 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0 transition-all duration-300 ease-out z-10">
           {/* Wishlist Button */}
           <button
             onClick={handleWishlist}
             disabled={isSubmitting}
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60"
+            className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60"
             title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
             aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
           >
             <Heart
-              size={20}
+              size={16}
               strokeWidth={1.5}
               className={`transition-all duration-300 ${
                 isInWishlist
@@ -302,24 +303,24 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
           <button
             onClick={handleAddToCart}
             disabled={isSubmitting || !productId || !inStock}
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             title={inStock ? `Add ${selectedVariant?.title || "item"} to cart` : "Out of stock"}
             aria-label={inStock ? `Add ${selectedVariant?.title || "item"} to cart` : "Out of stock"}
           >
-            <ShoppingCart size={20} strokeWidth={2} />
+            <ShoppingCart size={15} strokeWidth={2} />
           </button>
         </div>
       </div>
 
       {/* Product Info Section */}
-      <div className="flex flex-col flex-grow p-4 gap-2">
+      <div className="flex flex-col flex-grow p-2.5 sm:p-4 gap-1 sm:gap-2">
         {/* Category */}
         <p className={categoryTextClass}>{product.category || "Featured"}</p>
 
         {/* Product Name */}
-        <h3 className={titleTextClass}>{product.name}</h3>
+        <h3 className={`${titleTextClass} min-h-[2.5rem]`}>{product.name}</h3>
 
-        <div className={`text-xs font-semibold ${inStock ? stockClass : stockOutClass}`}>
+        <div className={`text-[10px] sm:text-xs font-semibold ${inStock ? stockClass : stockOutClass}`}>
           {inStock ? `${availableStock} in stock` : "Out of stock"}
         </div>
 
@@ -329,7 +330,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         {/* Rating */}
         {product?.ratings?.averageRating > 0 ? (
           <div className="flex items-center gap-1">
-            <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+            <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-amber-500 text-amber-500" />
             <span className={ratingTextClass}>
               {Number(product.ratings.averageRating).toFixed(1)}
             </span>
@@ -337,9 +338,9 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         ) : null}
 
         {/* Pricing */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className={priceCurrentClass}>
+        <div className="space-y-0.5">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+            <span className={`${priceCurrentClass} text-[13px] sm:text-sm`}>
               {formatCurrency(product.discountPrice || product.price)}
             </span>
             {product.discountPrice && (
