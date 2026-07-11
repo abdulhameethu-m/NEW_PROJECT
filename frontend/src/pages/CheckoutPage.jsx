@@ -10,6 +10,7 @@ import { PriceBreakdown } from "../components/commerce/PriceBreakdown";
 import { RecommendationSection } from "../components/RecommendationSection";
 import { FbtBundleSection } from "../components/FbtBundleSection";
 import { useAuthStore } from "../context/authStore";
+import useAuthCartStore from "../context/authCartStore";
 import { useCart } from "../hooks/useCart";
 import * as checkoutService from "../services/checkoutService";
 import * as paymentService from "../services/paymentService";
@@ -17,7 +18,7 @@ import * as pricingService from "../services/pricingService";
 import { trackAffiliateEvent } from "../services/influencerCommerceService";
 import { getCheckoutRecommendations, getFbtRecommendations } from "../services/recommendationService";
 import * as userService from "../services/userService";
-import { extractProductId, extractVariantId, getCartItemKey } from "../utils/cartState";
+import { emitCartChanged, extractProductId, extractVariantId, getCartItemKey } from "../utils/cartState";
 import { formatCurrency } from "../utils/formatCurrency";
 import {
   EMPTY_ADDRESS_FORM,
@@ -42,6 +43,12 @@ import { useBranding } from "../context/BrandingContext";
 const CHECKOUT_SUCCESS_STORAGE_KEY = "checkoutSuccessPayload";
 const RECOMMENDATION_CONTAINER_LIMIT = 20;
 
+function clearCheckoutCartState() {
+  const emptyCart = { items: [], totalAmount: 0, itemCount: 0, totalQuantity: 0 };
+  useAuthCartStore.getState().setCart(emptyCart);
+  emitCartChanged(emptyCart);
+}
+
 function normalizeError(err) {
   if (err?.code === "ECONNABORTED" || /timeout/i.test(String(err?.message || ""))) {
     return "Payment request timed out before Razorpay opened. Please try again.";
@@ -61,7 +68,7 @@ function hasValidShippingAddress(address) {
     String(address?.fullName || "").trim() &&
       String(address?.phone || "").trim() &&
       String(address?.line1 || "").trim() &&
-      String(address?.city || "").trim() &&
+      String(address?.district || address?.city || "").trim() &&
       String(address?.state || "").trim() &&
       String(address?.postalCode || "").trim() &&
       String(address?.country || "").trim()
@@ -73,7 +80,7 @@ function getAddressFormFromShippingAddress(address = {}) {
     name: String(address.fullName || "").trim(),
     phone: String(address.phone || "").trim(),
     addressLine: String(address.line1 || "").trim(),
-    city: String(address.city || "").trim(),
+    district: String(address.district || address.city || "").trim(),
     state: String(address.state || "").trim(),
     pincode: String(address.postalCode || "").trim(),
     country: String(address.country || "India").trim() || "India",
@@ -209,6 +216,9 @@ export function CheckoutPage() {
   const unlockedSteps = useMemo(() => ["address", "summary", "payment"], []);
   const orderItems = useMemo(() => getSummaryItems(summary), [summary]);
   const totalAmount = useMemo(() => summary?.total || summary?.totalAmount || 0, [summary]);
+  const codAdvance = useMemo(() => summary?.codAdvance || null, [summary]);
+  const hasCodAdvance = paymentMethod === "COD" && codAdvance?.enabled && Number(codAdvance?.advanceAmount || 0) > 0;
+  const payNowAmount = hasCodAdvance ? Number(codAdvance.advanceAmount || 0) : totalAmount;
   const checkoutProductIds = useMemo(
     () => (Array.isArray(cart?.items) ? cart.items : []).map((item) => item?.productId?._id || item?.productId).filter(Boolean).map(String),
     [cart?.items]
@@ -269,11 +279,12 @@ export function CheckoutPage() {
         charges: summary.charges,
         chargesTotal: summary.chargesTotal || 0,
         totalAmount: summary.total || 0,
+        codAdvance: paymentMethod === "COD" ? codAdvance : null,
       };
     }
 
     if (pricingConfig) {
-      return pricingService.calculatePriceBreakdown({
+      const breakdown = pricingService.calculatePriceBreakdown({
         subtotal: Number(summary?.subtotal || 0),
         discount: Math.max(
           Number(summary?.originalAmount || summary?.subtotal || 0) - Number(summary?.subtotal || 0),
@@ -282,10 +293,17 @@ export function CheckoutPage() {
         itemCount: getSummaryItems(summary).reduce((sum, item) => sum + Number(item?.quantity || 0), 0),
         pricingConfig,
       });
+      return {
+        ...breakdown,
+        codAdvance: paymentMethod === "COD" ? codAdvance : null,
+      };
     }
 
-    return buildPriceBreakdown(summary);
-  }, [summary, pricingConfig]);
+    return {
+      ...buildPriceBreakdown(summary),
+      codAdvance: paymentMethod === "COD" ? codAdvance : null,
+    };
+  }, [codAdvance, paymentMethod, summary, pricingConfig]);
 
   const persistPendingCheckoutState = useCallback(
     ({
@@ -719,7 +737,7 @@ export function CheckoutPage() {
         return;
       }
 
-      if (paymentMethod === "COD") {
+      if (paymentMethod === "COD" && !(codAdvance?.enabled && Number(codAdvance?.advanceAmount || 0) > 0)) {
         const response = await checkoutService.createOrder({
           shippingAddress,
           paymentMethod: "COD",
@@ -729,12 +747,13 @@ export function CheckoutPage() {
         const payment = response?.data?.payment || null;
         persistCheckoutSuccessPayload({ orders, payment });
         pendingCheckoutManager.clear();
+        clearCheckoutCartState();
         navigate("/checkout/success", { replace: true, state: { orders, payment } });
         return;
       }
 
       const [orderRes] = await Promise.all([
-        paymentService.createRazorpayOrder({
+        (paymentMethod === "COD" ? paymentService.createCodAdvanceOrder : paymentService.createRazorpayOrder)({
           cartId: "current",
           shippingAddress,
           trackingToken: trackingContext?.trackingToken,
@@ -786,7 +805,7 @@ export function CheckoutPage() {
         currency: checkoutCurrency,
         order_id: razorpayOrderId,
         name: branding?.companyName || "UChooseMe",
-        description: "Secure checkout",
+        description: paymentMethod === "COD" ? "COD advance payment" : "Secure checkout",
         prefill: {
           name: shippingAddress.fullName,
           email: checkoutEmail,
@@ -828,7 +847,7 @@ export function CheckoutPage() {
             state: {
               orders: [],
               payment: {
-                method: "ONLINE",
+                method: paymentMethod === "COD" ? "COD_ADVANCE" : "ONLINE",
                 status: "PROCESSING",
                 razorpayOrderId: response.razorpay_order_id,
                 razorpayPaymentId: response.razorpay_payment_id,
@@ -847,6 +866,7 @@ export function CheckoutPage() {
             };
             persistCheckoutSuccessPayload(successPayload);
             pendingCheckoutManager.clear();
+            clearCheckoutCartState();
             navigate("/checkout/success", {
               replace: true,
               state: successPayload,
@@ -1041,7 +1061,12 @@ export function CheckoutPage() {
                     address={selectedAddress}
                     selected
                     compact
-                    onEdit={() => setShowAddressSelector((current) => !current)}
+                    onEdit={() => {
+                      setAddressForm(getAddressFormFromSavedAddress(selectedAddress));
+                      setSelectedAddressId(String(selectedAddress._id));
+                      setShowAddressModal(true);
+                      setShowAddressSelector(false);
+                    }}
                   />
                 </div>
               ) : hasUsableAddress ? (
@@ -1049,7 +1074,7 @@ export function CheckoutPage() {
                   <div className="font-semibold text-slate-950 dark:text-white">{addressForm.name}</div>
                   <div className="mt-1">{addressForm.addressLine}</div>
                   <div className="mt-1">
-                    {addressForm.city}, {addressForm.state} {addressForm.pincode}
+                    {addressForm.district || addressForm.city}, {addressForm.state} {addressForm.pincode}
                   </div>
                   <div className="mt-1">{addressForm.phone}</div>
                 </div>
@@ -1069,6 +1094,11 @@ export function CheckoutPage() {
                         key={address._id}
                         address={address}
                         selected={String(address._id) === String(selectedAddressId)}
+                        onEdit={() => {
+                          setSelectedAddressId(String(address._id));
+                          setAddressForm(getAddressFormFromSavedAddress(address));
+                          setShowAddressModal(true);
+                        }}
                         onSelect={() => {
                           setSelectedAddressId(address._id);
                           setAddressForm(getAddressFormFromSavedAddress(address));
@@ -1210,10 +1240,26 @@ export function CheckoutPage() {
                   Cash on Delivery is unavailable for this address right now.
                 </div>
               ) : null}
+              {paymentMethod === "COD" && codAdvance?.enabled ? (
+                <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="font-semibold">COD Advance (Pay Now)</span>
+                    <span className="font-bold">{formatCurrency(codAdvance.advanceAmount || 0)}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-4">
+                    <span>Remaining Payable</span>
+                    <span className="font-semibold">{formatCurrency(codAdvance.remainingCODAmount || 0)}</span>
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-amber-800">
+                    {codAdvance.tooltip ||
+                      "You are paying only the advance amount now. The remaining amount must be paid to the delivery partner when the order is delivered."}
+                  </p>
+                </div>
+              ) : null}
 
               <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Order total
+                  {hasCodAdvance ? "Pay now" : "Order total"}
                 </div>
                 <div className="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
                   <span
@@ -1221,15 +1267,29 @@ export function CheckoutPage() {
                       amountPulse ? "translate-y-[-1px] scale-[1.03] text-[color:var(--commerce-accent)]" : ""
                     }`}
                   >
-                    {formatCurrency(totalAmount || 0)}
+                    {formatCurrency(payNowAmount || 0)}
                   </span>
                 </div>
+                {hasCodAdvance ? (
+                  <div className="mt-2 space-y-1 text-sm text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center justify-between gap-4">
+                      <span>Order total</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">{formatCurrency(totalAmount || 0)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span>Balance on delivery</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">{formatCurrency(codAdvance.remainingCODAmount || 0)}</span>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                   {!isAuthenticated
                     ? "Review complete. Sign in only when you are ready to place the order."
                     : paymentMethod === "ONLINE"
                       ? "You will be redirected to Razorpay next."
-                      : "Cash will be collected on delivery."}
+                      : codAdvance?.enabled
+                        ? "You will pay the COD advance now and the balance on delivery."
+                        : "Cash will be collected on delivery."}
                 </div>
 
                 <button
@@ -1243,10 +1303,14 @@ export function CheckoutPage() {
                     : !isAuthenticated
                       ? paymentMethod === "ONLINE"
                         ? "Login to Continue to Razorpay"
-                        : "Login to Place COD Order"
+                        : codAdvance?.enabled
+                          ? "Login to Pay COD Advance"
+                          : "Login to Place COD Order"
                       : paymentMethod === "ONLINE"
                         ? "Continue to Razorpay"
-                        : "Place COD Order"}
+                        : codAdvance?.enabled
+                          ? "Pay COD Advance"
+                          : "Place COD Order"}
                 </button>
 
                 {!isAuthenticated ? (

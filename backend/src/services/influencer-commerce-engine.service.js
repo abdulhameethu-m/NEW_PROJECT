@@ -6,6 +6,7 @@ const { InfluencerProfile, InfluencerSocialAccount } = require("../modules/influ
 const { CommissionRecord } = require("../modules/commission/models");
 const { Vendor } = require("../models/Vendor");
 const notificationService = require("./notification.service");
+const campaignSchedulingService = require("./campaign-scheduling.service");
 const {
   InfluencerScoreConfig,
   InfluencerTier,
@@ -26,7 +27,6 @@ const {
   CampaignPaymentRuleConfig,
   CampaignDynamicFieldConfig,
   CampaignValidationRuleConfig,
-  InfluencerRequirementField,
   InfluencerCampaignTemplate,
   InfluencerDiscoveryRule,
   InfluencerCampaignRule,
@@ -56,7 +56,6 @@ const ENTITY = {
   campaignPaymentRules: CampaignPaymentRuleConfig,
   campaignDynamicFields: CampaignDynamicFieldConfig,
   campaignValidationRules: CampaignValidationRuleConfig,
-  requirementFields: InfluencerRequirementField,
   campaignTemplates: InfluencerCampaignTemplate,
   discoveryRules: InfluencerDiscoveryRule,
   campaignRules: InfluencerCampaignRule,
@@ -210,11 +209,9 @@ const PAYMENT_MODEL_DEFAULTS = [
   {
     key: "fixed",
     label: "Fixed Payment",
-    requiresFixedFee: true,
+    requiresRateCardReward: true,
     fields: [
       { key: "services", label: "Services", fieldType: "json", required: true, displayOrder: 1 },
-      { key: "quantity", label: "Quantity", fieldType: "number", required: true, min: 1, defaultValue: 1, displayOrder: 2 },
-      { key: "total", label: "Total", fieldType: "currency", required: true, displayOrder: 3 },
     ],
     budgetComponents: ["fixedCost", "taxes", "platformFees"],
     displayOrder: 1,
@@ -305,11 +302,8 @@ const CAMPAIGN_PAYMENT_RULE_MATRIX = {
 
 const CAMPAIGN_DYNAMIC_FIELD_DEFAULTS = {
   fixed: [
-    ["fixedFee", "Fixed Amount", "currency", true, { min: 0 }],
     ["currency", "Currency", "select", true, { defaultValue: "INR", options: [{ label: "INR", value: "INR" }] }],
-    ["milestonePayment", "Milestone Payment", "boolean", false, { defaultValue: false }],
-    ["selectedServices", "Deliverables", "service_selector", false, {}],
-    ["paymentSchedule", "Payment Schedule", "textarea", false, {}],
+    ["selectedServices", "Deliverables", "service_selector", true, {}],
   ],
   commission: [
     ["commissionPercent", "Commission %", "percentage", true, { min: 0, max: 50, defaultValue: 10 }],
@@ -337,31 +331,6 @@ const CAMPAIGN_DYNAMIC_FIELD_DEFAULTS = {
     ["productOwnershipTransfer", "Product Ownership Transfer", "boolean", false, { defaultValue: true }],
   ],
 };
-
-const REQUIREMENT_FIELD_DEFAULTS = [
-  ["productRequired", "Product Required", "boolean", 1],
-  ["sampleRequired", "Sample Required", "boolean", 2],
-  ["productReturnRequired", "Product Return Required", "boolean", 3],
-  ["brandGuidelinesRequired", "Brand Guidelines Required", "boolean", 4],
-  ["creativeApprovalRequired", "Creative Approval Required", "boolean", 5],
-  ["contentApprovalRequired", "Content Approval Required", "boolean", 6],
-  ["minimumBudget", "Minimum Campaign Budget", "currency", 7],
-  ["minimumAttributionDays", "Minimum Attribution Window", "number", 8],
-  ["preferredCategories", "Preferred Categories", "multi_select", 9],
-  ["languages", "Languages", "multi_select", 10],
-  ["targetAudience", "Target Audience", "textarea", 11],
-  ["deliveryTime", "Delivery Time", "text", 12],
-  ["communicationPreferences", "Communication Preferences", "textarea", 13],
-  ["location", "Location", "location", 14],
-  ["shippingAddress", "Shipping Address", "address", 15],
-  ["notes", "Notes", "textarea", 16],
-].map(([key, label, fieldType, displayOrder]) => ({
-  key,
-  label,
-  fieldType,
-  displayOrder,
-  approval: { status: "active", version: 1 },
-}));
 
 const DYNAMIC_FORM_FIELD_DEFAULTS = PAYMENT_MODEL_DEFAULTS.flatMap((model) => (
   model.fields.map((field) => ({
@@ -831,7 +800,6 @@ class InfluencerCommerceEngineService {
       campaignPaymentRuleConfigCount,
       campaignDynamicFieldConfigCount,
       campaignValidationRuleConfigCount,
-      requirementFieldCount,
       campaignTemplateCount,
       discoveryRuleCount,
       campaignRuleCount,
@@ -848,7 +816,6 @@ class InfluencerCommerceEngineService {
       CampaignPaymentRuleConfig.countDocuments(),
       CampaignDynamicFieldConfig.countDocuments(),
       CampaignValidationRuleConfig.countDocuments(),
-      InfluencerRequirementField.countDocuments(),
       InfluencerCampaignTemplate.countDocuments(),
       InfluencerDiscoveryRule.countDocuments(),
       InfluencerCampaignRule.countDocuments(),
@@ -951,7 +918,6 @@ class InfluencerCommerceEngineService {
         if (validationRules.length) await CampaignValidationRuleConfig.insertMany(validationRules);
       }
     }
-    if (!requirementFieldCount) await InfluencerRequirementField.insertMany(REQUIREMENT_FIELD_DEFAULTS);
     if (!campaignTemplateCount) {
       await InfluencerCampaignTemplate.insertMany([
         {
@@ -1364,7 +1330,6 @@ class InfluencerCommerceEngineService {
       campaignPaymentRules,
       campaignDynamicFields,
       campaignValidationRules,
-      requirementFields,
       campaignTemplates,
       discoveryRules,
       campaignRules,
@@ -1381,7 +1346,6 @@ class InfluencerCommerceEngineService {
       CampaignPaymentRuleConfig.find({ ...configQuery, ...configStatusQuery }).sort({ createdAt: 1 }).lean(),
       CampaignDynamicFieldConfig.find(configQuery).sort(sort).lean(),
       CampaignValidationRuleConfig.find(configQuery).sort(sort).lean(),
-      InfluencerRequirementField.find(configQuery).sort(sort).lean(),
       InfluencerCampaignTemplate.find(configQuery).sort(sort).lean(),
       InfluencerDiscoveryRule.find(configQuery).sort(sort).lean(),
       InfluencerCampaignRule.find(configQuery).sort(sort).lean(),
@@ -1407,7 +1371,6 @@ class InfluencerCommerceEngineService {
         campaignValidationRules,
         attributionWindows,
       }),
-      requirementFields,
       campaignTemplates,
       discoveryRules,
       campaignRules,
@@ -1417,7 +1380,7 @@ class InfluencerCommerceEngineService {
 
   async overview() {
     await this.ensureDefaults();
-    const [scoreConfig, rankingRule, budgetRule, tiers, plans, subscriptionCount, budgetControls, commerceConfiguration] = await Promise.all([
+    const [scoreConfig, rankingRule, budgetRule, tiers, plans, subscriptionCount, budgetControls, commerceConfiguration, schedulingSettings] = await Promise.all([
       editableSingleton(InfluencerScoreConfig),
       editableSingleton(MarketplaceRankingRule),
       editableSingleton(BudgetProtectionRule),
@@ -1426,6 +1389,7 @@ class InfluencerCommerceEngineService {
       VendorSubscription.countDocuments({ status: { $in: ["trialing", "active"] } }),
       CampaignBudgetControl.find({}).sort({ updatedAt: -1 }).limit(20).lean(),
       this.commerceConfiguration({ includeInactive: true }),
+      campaignSchedulingService.getSettings(),
     ]);
     return {
       scoreConfig,
@@ -1435,6 +1399,7 @@ class InfluencerCommerceEngineService {
       plans,
       subscriptionCount,
       budgetControls,
+      schedulingSettings,
       ...commerceConfiguration,
     };
   }

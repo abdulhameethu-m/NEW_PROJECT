@@ -97,7 +97,7 @@ export function UserMenu() {
     return () => {
       alive = false;
     };
-  }, [user?.id, user?._id, user?.email, user?.role]);
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -137,8 +137,7 @@ export function UserMenu() {
     influencer: [
       { label: "Dashboard", path: "/influencer/dashboard", icon: "D" },
       { label: "Campaigns", path: "/influencer/campaigns", icon: "C" },
-      { label: "Upload reel", path: "/influencer/reels/upload", icon: "U" },
-      { label: "Reels", path: "/influencer/reels", icon: "R" },
+      { label: "Upload Videos", path: "/influencer/content", icon: "U" },
     ],
     vendor: [
       { label: "Dashboard", path: "/dashboard/vendor", icon: "D" },

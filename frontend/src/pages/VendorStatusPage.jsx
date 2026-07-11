@@ -6,7 +6,6 @@ import * as vendorService from "../services/vendorService";
 function StepIndicator({ stepNum, title, status, description }) {
   const isCompleted = status === "completed";
   const isActive = status === "active";
-  const isUpcoming = status === "upcoming";
 
   return (
     <div className="flex gap-4">

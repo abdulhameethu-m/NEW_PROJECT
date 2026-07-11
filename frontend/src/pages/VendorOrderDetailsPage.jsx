@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
 import { formatWeight, getWeightUnit, getWeightValue } from "../utils/weight";
+import { UnifiedPricingBreakdown } from "../components/commerce/UnifiedPricingBreakdown";
 import * as vendorDashboardService from "../services/vendorDashboardService";
 
 function normalizeError(err) {
@@ -112,6 +113,7 @@ export function VendorOrderDetailsPage() {
     discount: Number(order?.discountAmount || 0),
     total: Number(order?.totalAmount || 0),
   };
+  const unifiedPricingBreakdown = order?.unifiedPricingBreakdown || null;
 
   function validateTrackingFields() {
     if (trackingUrl.trim()) {
@@ -341,17 +343,23 @@ export function VendorOrderDetailsPage() {
             )}
           </div>
 
-          <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
-            <div className="mb-2 font-semibold text-slate-950 dark:text-white">Payment summary</div>
-            <div className="grid gap-1 text-slate-600 dark:text-slate-300">
-              <div className="flex items-center justify-between"><span>Subtotal</span><span>{formatCurrency(paymentSummary.subtotal)}</span></div>
-              <div className="flex items-center justify-between"><span>Shipping Fee</span><span>{formatCurrency(paymentSummary.shippingFee)}</span></div>
-              <div className="flex items-center justify-between"><span>Platform Fee</span><span>{formatCurrency(paymentSummary.platformFee)}</span></div>
-              <div className="flex items-center justify-between"><span>Tax</span><span>{formatCurrency(paymentSummary.tax)}</span></div>
-              <div className="flex items-center justify-between"><span>Discount</span><span>- {formatCurrency(paymentSummary.discount)}</span></div>
-              <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2 font-semibold text-slate-950 dark:border-slate-800 dark:text-white"><span>Total Amount</span><span>{formatCurrency(paymentSummary.total)}</span></div>
+          {unifiedPricingBreakdown ? (
+            <div className="mt-5">
+              <UnifiedPricingBreakdown breakdown={unifiedPricingBreakdown} title="Payment Summary" compact />
             </div>
-          </div>
+          ) : (
+            <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-950">
+              <div className="mb-2 font-semibold text-slate-950 dark:text-white">Payment summary</div>
+              <div className="grid gap-1 text-slate-600 dark:text-slate-300">
+                <div className="flex items-center justify-between"><span>Subtotal</span><span>{formatCurrency(paymentSummary.subtotal)}</span></div>
+                <div className="flex items-center justify-between"><span>Shipping Fee</span><span>{formatCurrency(paymentSummary.shippingFee)}</span></div>
+                <div className="flex items-center justify-between"><span>Platform Fee</span><span>{formatCurrency(paymentSummary.platformFee)}</span></div>
+                <div className="flex items-center justify-between"><span>Tax</span><span>{formatCurrency(paymentSummary.tax)}</span></div>
+                <div className="flex items-center justify-between"><span>Discount</span><span>- {formatCurrency(paymentSummary.discount)}</span></div>
+                <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2 font-semibold text-slate-950 dark:border-slate-800 dark:text-white"><span>Total Amount</span><span>{formatCurrency(paymentSummary.total)}</span></div>
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="grid gap-4">

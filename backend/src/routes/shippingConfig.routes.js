@@ -30,39 +30,27 @@ router.post(
       .notEmpty()
       .isIn(["LOCAL", "REGIONAL", "REMOTE"])
       .withMessage("Zone must be LOCAL, REGIONAL, or REMOTE"),
-    body("baseWeight")
+    body("district").optional().isString().trim(),
+    body("weightFrom")
       .notEmpty()
       .isFloat({ min: 0 })
-      .withMessage("Base weight must be a positive number"),
-    body("basePrice")
-      .notEmpty()
-      .isFloat({ min: 0 })
-      .withMessage("Base price must be a positive number"),
-    body("pricePerKg")
-      .notEmpty()
-      .isFloat({ min: 0 })
-      .withMessage("Price per kg must be a positive number"),
-    body("minWeight")
+      .withMessage("Weight from must be a positive number"),
+    body("weightTo")
       .notEmpty()
       .isFloat({ min: 0.001 })
-      .withMessage("Min weight must be at least 0.001"),
-    body("maxWeight")
+      .withMessage("Weight to must be at least 0.001"),
+    body("shippingCharge")
       .notEmpty()
-      .isFloat({ min: 0.001 })
-      .withMessage("Max weight must be at least 0.001"),
-    body("freeShippingThreshold")
-      .optional()
       .isFloat({ min: 0 })
-      .withMessage("Free shipping threshold must be positive"),
-    body("minOrderValue")
-      .optional()
-      .isFloat({ min: 0 })
-      .withMessage("Min order value must be positive"),
+      .withMessage("Shipping charge must be a positive number"),
+    body("status").optional().isIn(["active", "inactive"]).withMessage("Status must be active or inactive"),
+    body("description").optional().isString().trim(),
     body("settlementRecipient").optional().isIn(["ADMIN", "VENDOR"]).withMessage("Settlement recipient must be ADMIN or VENDOR"),
-    body("sortOrder")
+    body("priority")
       .optional()
       .isInt()
-      .withMessage("Sort order must be an integer"),
+      .withMessage("Priority must be an integer"),
+    body("isFallback").optional().isBoolean().withMessage("isFallback must be a boolean"),
   ]),
   shippingConfigController.createShippingRule
 );
@@ -123,6 +111,7 @@ router.post(
       .trim()
       .notEmpty()
       .withMessage("State is required"),
+    body("district").optional().isString().trim(),
     body("zone")
       .optional()
       .isIn(["LOCAL", "REGIONAL", "REMOTE"])
@@ -176,28 +165,23 @@ router.put(
       .optional()
       .isIn(["LOCAL", "REGIONAL", "REMOTE"])
       .withMessage("Zone must be LOCAL, REGIONAL, or REMOTE"),
-    body("baseWeight")
+    body("weightFrom")
       .optional()
       .isFloat({ min: 0 })
-      .withMessage("Base weight must be positive"),
-    body("basePrice")
-      .optional()
-      .isFloat({ min: 0 })
-      .withMessage("Base price must be positive"),
-    body("pricePerKg")
-      .optional()
-      .isFloat({ min: 0 })
-      .withMessage("Price per kg must be positive"),
-    body("minWeight")
+      .withMessage("Weight from must be positive"),
+    body("weightTo")
       .optional()
       .isFloat({ min: 0.001 })
-      .withMessage("Min weight must be at least 0.001"),
-    body("maxWeight")
+      .withMessage("Weight to must be at least 0.001"),
+    body("shippingCharge")
       .optional()
-      .isFloat({ min: 0.001 })
-      .withMessage("Max weight must be at least 0.001"),
+      .isFloat({ min: 0 })
+      .withMessage("Shipping charge must be positive"),
+    body("status").optional().isIn(["active", "inactive"]).withMessage("Status must be active or inactive"),
     body("isActive").optional().isBoolean().withMessage("isActive must be boolean"),
+    body("priority").optional().isInt().withMessage("Priority must be an integer"),
     body("settlementRecipient").optional().isIn(["ADMIN", "VENDOR"]).withMessage("Settlement recipient must be ADMIN or VENDOR"),
+    body("isFallback").optional().isBoolean().withMessage("isFallback must be a boolean"),
   ]),
   shippingConfigController.updateShippingRule
 );

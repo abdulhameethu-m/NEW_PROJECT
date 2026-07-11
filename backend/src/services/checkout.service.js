@@ -28,6 +28,7 @@ const { Vendor } = require("../models/Vendor");
 const commissionRuleService = require("./commission-rule.service");
 const productAnalyticsService = require("./product-analytics.service");
 const marketplaceSettlementService = require("./marketplace-settlement.service");
+const pricingBreakdownEngine = require("./pricing-breakdown-engine.service");
 
 const PREPARED_CHECKOUT_CACHE_TTL_MS = 2 * 60 * 1000;
 const preparedCheckoutCache = new Map();
@@ -105,7 +106,8 @@ function normalizeAddressForCache(address = {}) {
     phone: String(address.phone || "").trim(),
     line1: String(address.line1 || "").trim(),
     line2: String(address.line2 || "").trim(),
-    city: String(address.city || "").trim(),
+    district: String(address.district || address.city || "").trim(),
+    city: String(address.city || address.district || "").trim(),
     state: String(address.state || "").trim(),
     postalCode: String(address.postalCode || "").trim(),
     country: String(address.country || "").trim(),
@@ -275,7 +277,7 @@ async function resolveOrderAttribution({ userId, items = [], fallbackTrackingCon
     trackingContext = await trackingService.validateTrackingToken(attributedItem.attribution.trackingToken, userId);
   } else if (attributedItem?.attribution?.trackingSessionId && mongoose.isValidObjectId(attributedItem.attribution.trackingSessionId)) {
     const session = await TrackingSession.findById(attributedItem.attribution.trackingSessionId);
-    if (session && session.expiresAt >= new Date()) trackingContext = { session };
+    trackingContext = await trackingService.validateTrackingSession(session, userId);
   }
 
   if (!trackingContext?.session && fallbackTrackingContext?.session) {
@@ -317,6 +319,7 @@ async function resolveOrderAttribution({ userId, items = [], fallbackTrackingCon
     attribution: {
       influencerId: session.influencerId,
       campaignId: session.campaignId,
+      deliverableId: session.deliverableId || affiliateAttribution?.deliverableId || undefined,
       reelId: session.reelId,
       postId: session.postId,
       storefrontId: session.storefrontId,
@@ -620,10 +623,9 @@ class CheckoutService {
         variantTitle: variant?.title || item.variantTitle || "",
         variantAttributes: variant?.attributes || item.variantAttributes || {},
         attribution:
-          item.attribution ||
-          (trackingContext?.session && String(trackingContext.session.productId) === String(product._id)
+          trackingContext?.session && String(trackingContext.session.productId) === String(product._id)
             ? attributionFromTrackingSession({ session: trackingContext.session, trackingToken })
-            : undefined),
+            : undefined,
         weight: getProductWeightSnapshot(product, variant),
       };
       return {
@@ -677,6 +679,7 @@ class CheckoutService {
     }
 
     let eligibility = null;
+    let codAdvance = null;
     if (String(paymentMethod || "").toUpperCase() === "COD" && shippingAddress) {
       try {
         eligibility = await Promise.race([
@@ -700,6 +703,16 @@ class CheckoutService {
           reasons: ["COD_CHECK_TIMEOUT"],
         };
       }
+
+      if (eligibility?.codAvailable) {
+        codAdvance = await codService.resolveAdvanceQuote({
+          address: shippingAddress,
+          subtotal,
+          shippingFee: getChargeAmount(pricingBreakdown.charges || [], (charge) => charge?.key === "shipping_cost"),
+          orderTotal: pricingBreakdown.total,
+          shippingZone: shippingData?.zone || shippingData?.zoneName || "",
+        });
+      }
     }
 
     const summary = {
@@ -720,6 +733,7 @@ class CheckoutService {
             reasons: eligibility.reasons,
           }
         : undefined,
+      codAdvance: codAdvance || undefined,
     };
 
     setCachedPreparedCheckout(userId, { shippingAddress, paymentMethod, trackingToken }, summary);
@@ -779,6 +793,24 @@ class CheckoutService {
       (c) => c.key === "discount" || String(c.displayName || "").toLowerCase().includes("discount")
     );
     const shippingFee = roundMoney(shippingCharge?.amount || 0);
+    const codAdvance =
+      paymentMethod === "COD"
+        ? await codService.resolveAdvanceQuote({
+            address: shippingAddress,
+            subtotal: overallSubtotal,
+            shippingFee,
+            orderTotal: pricingBreakdown.total,
+            shippingZone: summary.shipping?.zone || summary.shipping?.zoneName || "",
+          })
+        : null;
+    if (paymentMethod === "COD" && codAdvance?.enabled && codAdvance.advanceAmount > 0) {
+      if (!paymentRecordId || paymentStatus !== "Paid") {
+        throw new AppError("COD advance payment is required before creating this order", 402, "COD_ADVANCE_REQUIRED", {
+          advanceAmount: codAdvance.advanceAmount,
+          remainingCODAmount: codAdvance.remainingCODAmount,
+        });
+      }
+    }
     const shippingShares = buildSellerShippingShares(flattenedItems, shippingFee);
     const orderPayloads = [];
 
@@ -824,6 +856,10 @@ class CheckoutService {
       );
       const sellerShippingFee = roundMoney(shippingShares.get(String(sellerData.sellerId)) || 0);
       const sellerWeight = overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / sellers.length;
+      const sellerAdvanceAmount =
+        paymentMethod === "COD" && codAdvance?.enabled
+          ? roundMoney(Number(codAdvance.advanceAmount || 0) * sellerWeight)
+          : 0;
       const sellerChargeShare = chargesBreakdown.length > 0 ? roundMoney(pricingBreakdown.chargesTotal * sellerWeight) : 0;
       const settlementChargeBreakdown = buildSellerSettlementCharges(chargesBreakdown, {
         sellerWeight,
@@ -906,8 +942,31 @@ class CheckoutService {
         status: "Placed",
         paymentStatus,
         paymentMethod,
-        settlementStatus: "NOT_APPLICABLE",
-        codAmount: 0,
+        paymentMode:
+          paymentMethod === "COD" && codAdvance?.enabled && sellerAdvanceAmount > 0
+            ? "COD_ADVANCE"
+            : paymentMethod,
+        settlementStatus: paymentMethod === "COD" ? "PENDING_COLLECTION" : "NOT_APPLICABLE",
+        codAmount:
+          paymentMethod === "COD"
+            ? roundMoney(Math.max(0, totalAmount - sellerAdvanceAmount))
+            : 0,
+        advanceAmount: sellerAdvanceAmount,
+        remainingCODAmount:
+          paymentMethod === "COD"
+            ? roundMoney(Math.max(0, totalAmount - sellerAdvanceAmount))
+            : 0,
+        advancePaymentStatus:
+          paymentMethod === "COD" && codAdvance?.enabled && sellerAdvanceAmount > 0
+            ? "PAID"
+            : "NOT_REQUIRED",
+        advanceCollected: paymentMethod === "COD" && codAdvance?.enabled && sellerAdvanceAmount > 0,
+        advanceTransactionId:
+          paymentMethod === "COD" && codAdvance?.enabled ? razorpayPaymentId || "" : "",
+        advanceRazorpayOrderId:
+          paymentMethod === "COD" && codAdvance?.enabled ? razorpayOrderId || "" : "",
+        advancePaidAt:
+          paymentMethod === "COD" && codAdvance?.enabled && sellerAdvanceAmount > 0 ? new Date() : undefined,
         shippingAddress,
         billingAddress: shippingAddress,
         paymentRecordId: paymentRecordId || undefined,
@@ -920,8 +979,43 @@ class CheckoutService {
         shippingStatus: "NOT_SHIPPED",
         pickupStatus: "NOT_REQUESTED",
         attribution,
-        timeline: [{ status: "Placed", note: "Order placed after verified online payment", timestamp: new Date() }],
+        timeline: [
+          {
+            status: "Placed",
+            note:
+              paymentMethod === "COD"
+                ? "COD order placed after verified advance payment"
+                : "Order placed after verified online payment",
+            timestamp: new Date(),
+          },
+        ],
         inventoryReservedAt: new Date(),
+        cod:
+          paymentMethod === "COD"
+            ? {
+                isEligible: true,
+                ineligibleReasons: [],
+                status: codAdvance?.enabled && sellerAdvanceAmount > 0 ? "confirmed" : "pending_cod",
+              }
+            : undefined,
+        codAdvance:
+          paymentMethod === "COD"
+            ? {
+                enabled: Boolean(codAdvance?.enabled),
+                advanceAmount: sellerAdvanceAmount,
+                remainingCODAmount: roundMoney(Math.max(0, totalAmount - sellerAdvanceAmount)),
+                ruleId: codAdvance?.ruleId || undefined,
+                ruleName: codAdvance?.ruleName || "",
+                source: codAdvance?.source || "",
+                basis: codAdvance?.basis || 0,
+                state: codAdvance?.state || "",
+                district: codAdvance?.district || "",
+                paymentRecordId: paymentRecordId || undefined,
+                razorpayOrderId: razorpayOrderId || "",
+                razorpayPaymentId: razorpayPaymentId || "",
+                paidAt: codAdvance?.enabled && sellerAdvanceAmount > 0 ? new Date() : undefined,
+              }
+            : undefined,
       };
 
       await marketplaceSettlementService.applyToOrderPayload(orderPayload);
@@ -1104,7 +1198,12 @@ class CheckoutService {
         );
       });
 
-      return { orders, payouts: [], payment, orderGroupId: resolvedGroupId };
+      return {
+        orders: orders.map((order) => pricingBreakdownEngine.attachToOrder(order)),
+        payouts: [],
+        payment,
+        orderGroupId: resolvedGroupId,
+      };
     } catch (error) {
       for (const payout of payouts) {
         await payoutRepo
@@ -1275,6 +1374,25 @@ class CheckoutService {
     const taxCharge = chargesBreakdown.find((c) => c.key === "tax");
     const discountCharge = chargesBreakdown.find((c) => c.key === "discount");
     const shippingFee = shippingCharge?.amount || 0;
+    const codAdvance =
+      paymentMethod === "COD"
+        ? await codService.resolveAdvanceQuote({
+            address: shippingAddress,
+            subtotal: overallSubtotal,
+            shippingFee,
+            orderTotal: pricingBreakdown.total,
+            shippingZone: pricingBreakdown.shipping?.zone || pricingBreakdown.shipping?.zoneName || "",
+          })
+        : null;
+
+    if (paymentMethod === "COD" && codAdvance?.enabled && codAdvance.advanceAmount > 0) {
+      if (!paymentRecordId || paymentStatus !== "Paid") {
+        throw new AppError("COD advance payment is required before creating this order", 402, "COD_ADVANCE_REQUIRED", {
+          advanceAmount: codAdvance.advanceAmount,
+          remainingCODAmount: codAdvance.remainingCODAmount,
+        });
+      }
+    }
     const shippingShares = buildSellerShippingShares(validatedWithProducts, shippingFee);
 
     for (const sellerData of bySeller.values()) {
@@ -1317,6 +1435,10 @@ class CheckoutService {
       const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
       const sellerShippingFee = shippingShares.get(String(sellerData.sellerId)) || 0;
       const sellerWeight = overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / bySeller.size;
+      const sellerAdvanceAmount =
+        paymentMethod === "COD" && codAdvance?.enabled
+          ? roundMoney(Number(codAdvance.advanceAmount || 0) * sellerWeight)
+          : 0;
       
       // Calculate this seller's share of charges proportionally
       const sellerChargeShare = chargesBreakdown.length > 0 
@@ -1400,8 +1522,31 @@ class CheckoutService {
         status: "Placed",
         paymentStatus: resolvedPaymentStatus,
         paymentMethod,
+        paymentMode:
+          paymentMethod === "COD" && codAdvance?.enabled && codAdvance.advanceAmount > 0
+            ? "COD_ADVANCE"
+            : paymentMethod,
         settlementStatus: paymentMethod === "COD" ? "PENDING_COLLECTION" : "NOT_APPLICABLE",
-        codAmount: paymentMethod === "COD" ? roundMoney(totalAmount) : 0,
+        codAmount:
+          paymentMethod === "COD"
+            ? roundMoney(Math.max(0, totalAmount - sellerAdvanceAmount))
+            : 0,
+        advanceAmount: sellerAdvanceAmount,
+        remainingCODAmount:
+          paymentMethod === "COD"
+            ? roundMoney(Math.max(0, totalAmount - sellerAdvanceAmount))
+            : 0,
+        advancePaymentStatus:
+          paymentMethod === "COD" && codAdvance?.enabled && sellerAdvanceAmount > 0
+            ? "PAID"
+            : "NOT_REQUIRED",
+        advanceCollected: paymentMethod === "COD" && codAdvance?.enabled && sellerAdvanceAmount > 0,
+        advanceTransactionId:
+          paymentMethod === "COD" && codAdvance?.enabled ? razorpayPaymentId || "" : "",
+        advanceRazorpayOrderId:
+          paymentMethod === "COD" && codAdvance?.enabled ? razorpayOrderId || "" : "",
+        advancePaidAt:
+          paymentMethod === "COD" && codAdvance?.enabled && sellerAdvanceAmount > 0 ? new Date() : undefined,
         shippingAddress,
         billingAddress: shippingAddress,
         paymentRecordId: paymentRecordId || undefined,
@@ -1420,9 +1565,27 @@ class CheckoutService {
           ? {
               isEligible: true,
               ineligibleReasons: [],
-              status: "pending_cod",
+              status: codAdvance?.enabled && sellerAdvanceAmount > 0 ? "confirmed" : "pending_cod",
             }
           : undefined,
+        codAdvance:
+          paymentMethod === "COD"
+            ? {
+                enabled: Boolean(codAdvance?.enabled),
+                advanceAmount: sellerAdvanceAmount,
+                remainingCODAmount: roundMoney(Math.max(0, totalAmount - sellerAdvanceAmount)),
+                ruleId: codAdvance?.ruleId || undefined,
+                ruleName: codAdvance?.ruleName || "",
+                source: codAdvance?.source || "",
+                basis: codAdvance?.basis || 0,
+                state: codAdvance?.state || "",
+                district: codAdvance?.district || "",
+                paymentRecordId: paymentRecordId || undefined,
+                razorpayOrderId: razorpayOrderId || "",
+                razorpayPaymentId: razorpayPaymentId || "",
+                paidAt: codAdvance?.enabled && sellerAdvanceAmount > 0 ? new Date() : undefined,
+              }
+            : undefined,
       };
 
       await marketplaceSettlementService.applyToOrderPayload(orderPayload);
@@ -1698,7 +1861,12 @@ class CheckoutService {
         }
       });
 
-      return { orders, payouts: [], payment, orderGroupId: resolvedGroupId };
+      return {
+        orders: orders.map((order) => pricingBreakdownEngine.attachToOrder(order)),
+        payouts: [],
+        payment,
+        orderGroupId: resolvedGroupId,
+      };
     } catch (error) {
       for (const payout of payouts) {
         await payoutRepo

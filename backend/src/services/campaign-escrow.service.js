@@ -7,7 +7,7 @@ const CampaignRefund = require("../models/CampaignRefund");
 const CampaignDeliverableFunding = require("../models/CampaignDeliverableFunding");
 const CampaignEscrowLedger = require("../models/CampaignEscrowLedger");
 const PlatformRevenueTransaction = require("../models/PlatformRevenueTransaction");
-const { Campaign } = require("../modules/campaign/model");
+const { Campaign, CampaignStatusHistory } = require("../modules/campaign/model");
 const { CampaignDeliverable, DeliverablePayout } = require("../modules/campaign/executionModel");
 const campaignExecutionService = require("../modules/campaign/executionService");
 const { InfluencerWallet, InfluencerLedger } = require("../modules/commission/models");
@@ -318,6 +318,37 @@ class CampaignEscrowService {
     });
     await CampaignDeliverableFunding.insertMany(allocationRows);
     }
+    const now = new Date();
+    await Campaign.updateOne(
+      { _id: campaign._id },
+      {
+        $set: {
+          state: "active",
+          startDate: campaign.startDate || now,
+          "fixedPaymentWorkflow.status": "funded",
+          "fixedPaymentWorkflow.contentEnabled": true,
+          "fixedPaymentWorkflow.fundedAt": now,
+          "fixedPaymentWorkflow.lastTransitionAt": now,
+          "scheduling.activatedAt": now,
+        },
+        $push: {
+          history: {
+            state: "active",
+            actorId: paymentOrder.vendorId,
+            note: "Escrow funded and campaign activated",
+            changedAt: now,
+          },
+        },
+      }
+    );
+    await CampaignStatusHistory.create({
+      campaignId: campaign._id,
+      oldStatus: campaign.state,
+      newStatus: "active",
+      changedBy: paymentOrder.vendorId,
+      changedByRole: "vendor",
+      reason: "Escrow funded and campaign activated",
+    }).catch(() => null);
     await CampaignEscrowLedger.findOneAndUpdate({
       idempotencyKey: `campaign-vendor-payment:${paymentOrder._id}`,
     }, {
@@ -1183,7 +1214,7 @@ class CampaignEscrowService {
     const refund = await CampaignRefund.findOneAndUpdate(
       { _id: refundId, status: "requested" },
       {
-        $set: { status: "approved", approvedBy, approvalReason, approvedAt: new Date() },
+        $set: { status: "approved", refundStatus: "refund_approved", approvedBy, approvalReason, approvedAt: new Date() },
         $push: {
           auditLog: {
             action: "refund_approved",

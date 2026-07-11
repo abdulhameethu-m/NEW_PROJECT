@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BackButton } from "../components/BackButton";
 import { FbtBundleSection } from "../components/FbtBundleSection";
@@ -43,7 +43,7 @@ export function CartPage() {
     };
 
     performFetch();
-  }, []); // Empty deps - only run once on mount
+  }, [isGuest, refreshCart, validateCart]);
 
   const items = useMemo(() => (Array.isArray(cart?.items) ? cart.items : []), [cart]);
   const total = Number(cart?.totalAmount || 0);

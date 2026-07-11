@@ -37,6 +37,7 @@ async function resolveStorefrontContext({ reelId, storefrontId, collectionId, po
     return {
       reel,
       campaignId: reel.campaignId?._id || reel.campaignId || undefined,
+      deliverableId: reel.deliverableId || undefined,
       influencerId: reel.influencerId,
       surface: "reel",
       assertProduct(productId) {
@@ -91,6 +92,8 @@ async function resolveStorefrontContext({ reelId, storefrontId, collectionId, po
       return {
         influencerId: campaignLink.influencerId,
         campaignId: campaignLink.campaignId,
+        deliverableId: campaignLink.deliverableId || undefined,
+        affiliateLink: campaignLink,
         surface: "affiliate_link",
         assertProduct(productId) {
           if (String(campaignLink.productId) !== String(productId)) {
@@ -125,6 +128,17 @@ class TrackingService {
     if (!product) throw new AppError("Product not found", 404, "NOT_FOUND");
     const context = await resolveStorefrontContext({ reelId, storefrontId, collectionId, postId, influencerId, trackingCode });
     context.assertProduct(productId);
+    if (context.campaignId) {
+      const guard = await commissionService.validateCampaignAttributionOpen(context.campaignId, { affiliateLink: context.affiliateLink || null });
+      if (!guard.open) {
+        return {
+          tracked: false,
+          counted: false,
+          reason: guard.reason || "CAMPAIGN_TRACKING_INACTIVE",
+          anonymousId: anonymousId || "",
+        };
+      }
+    }
 
     if (user?.role === "influencer") {
       const profile = await InfluencerProfile.findOne({ userId: user.sub }).select("_id").lean();
@@ -134,7 +148,10 @@ class TrackingService {
     }
 
     const attributionHours = await attributionHoursForCampaign(context.campaignId);
-    const expiresAt = nowPlusHours(attributionHours);
+    const attributionExpiry = nowPlusHours(attributionHours);
+    const expiresAt = context.affiliateLink?.expiresAt && new Date(context.affiliateLink.expiresAt).getTime() < attributionExpiry.getTime()
+      ? new Date(context.affiliateLink.expiresAt)
+      : attributionExpiry;
     const identity = buildIdentityQuery({
       userId: user?.sub || null,
       anonymousId: anonymousId || `anon_${crypto.randomBytes(8).toString("hex")}`,
@@ -150,6 +167,7 @@ class TrackingService {
       anon: identity.anonymousId,
       reelId: reelId || null,
       campaignId: context.campaignId || null,
+      deliverableId: context.deliverableId || null,
       influencerId: context.influencerId,
       productId,
       storefrontId: storefrontId || null,
@@ -162,6 +180,7 @@ class TrackingService {
       ...identity,
       reelId: reelId || undefined,
       campaignId: context.campaignId || undefined,
+      deliverableId: context.deliverableId || undefined,
       influencerId: context.influencerId,
       productId,
       storefrontId: storefrontId || undefined,
@@ -196,6 +215,7 @@ class TrackingService {
       trackingSessionId: session._id,
       reelId,
       campaignId: session.campaignId,
+      deliverableId: session.deliverableId,
       influencerId: session.influencerId,
       productId,
       counted,
@@ -232,8 +252,16 @@ class TrackingService {
     if (!token) return null;
     const payload = verifyTrackingToken(token);
     const session = await TrackingSession.findOne({ trackingTokenId: payload.ttid });
+    return this.validateTrackingSession(session, userId, payload);
+  }
+
+  async validateTrackingSession(session, userId = null, payload = null) {
     if (!session || session.expiresAt < new Date()) return null;
     if (userId && session.userId && String(session.userId) !== String(userId)) return null;
+    if (session.campaignId) {
+      const guard = await commissionService.validateCampaignAttributionOpen(session.campaignId, { session });
+      if (!guard.open) return null;
+    }
     if (session.reelId) {
       const reel = await Reel.findById(session.reelId).select("state visibility").lean();
       if (!reel || reel.visibility !== "published" || !["approved", "published"].includes(reel.state)) return null;

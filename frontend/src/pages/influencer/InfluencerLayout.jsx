@@ -4,7 +4,6 @@ import {
   BarChart3,
   Boxes,
   CheckCircle2,
-  Clapperboard,
   ClipboardList,
   LayoutDashboard,
   Link2,
@@ -53,26 +52,16 @@ const INFLUENCER_SECTIONS = [
     key: "growth",
     items: [
       { name: "My Promotion Products", path: "/influencer/affiliate-products", icon: PackagePlus },
-      { name: "Active Campaign Products", path: "/influencer/affiliate-products", matchSearch: "?tab=active_campaigns", icon: Megaphone },
-      { name: "Approved Products", path: "/influencer/affiliate-products", matchSearch: "?tab=approved", icon: Store },
-      { name: "Saved Products", path: "/influencer/affiliate-products", matchSearch: "?tab=saved", icon: Star },
       { name: "Generate Affiliate Links", path: "/influencer/affiliate-products", matchSearch: "?tab=links", icon: Link2 },
-      { name: "Product Analytics", path: "/influencer/affiliate-products", matchSearch: "?tab=analytics", icon: BarChart3 },
-      { name: "Campaign Performance", path: "/influencer/affiliate-products", matchSearch: "?tab=campaign_performance", icon: Wallet },
     ],
   },
   {
     section: "Videos & Content",
     key: "content",
     items: [
-      { name: "Upload Videos", path: "/influencer/content", icon: Upload },
-      { name: "Product Videos", path: "/influencer/content", matchSearch: "?tab=products", icon: Clapperboard },
-      { name: "Shorts/Reels", path: "/influencer/content", matchSearch: "?tab=reels", icon: Clapperboard },
-      { name: "Live Commerce", path: "/influencer/content", matchSearch: "?tab=live", icon: Megaphone },
+      { name: "Upload Content", path: "/influencer/content", icon: Upload },
       { name: "Media Library", path: "/influencer/content", matchSearch: "?tab=media", icon: Store },
       { name: "Scheduled Content", path: "/influencer/content", matchSearch: "?tab=scheduled", icon: Upload },
-      { name: "Content Analytics", path: "/influencer/content", matchSearch: "?tab=analytics", icon: BarChart3 },
-      { name: "Performance Reports", path: "/influencer/content", matchSearch: "?tab=reports", icon: BarChart3 },
     ],
   },
   {
@@ -137,15 +126,7 @@ const pageMeta = {
   },
   "/influencer/content": {
     title: "Content Center",
-    subtitle: "Upload videos, manage content library, and schedule publications.",
-  },
-  "/influencer/reels": {
-    title: "Reels",
-    subtitle: "View and manage your uploaded reels and shorts.",
-  },
-  "/influencer/reel-upload": {
-    title: "Upload Reel",
-    subtitle: "Create and upload new reels to your content portfolio.",
+    subtitle: "Upload posts or reels, manage content library, and schedule publications.",
   },
 };
 

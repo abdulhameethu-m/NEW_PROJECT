@@ -1,4 +1,5 @@
 import { formatCurrency } from "../../utils/formatCurrency";
+import { UnifiedPricingBreakdown } from "../commerce/UnifiedPricingBreakdown";
 
 function KeyValue({ label, value }) {
   return (
@@ -178,6 +179,10 @@ export function InvoicePreviewCard({ invoice, actionBar = null, printId = "invoi
               </div>
             </div>
           </SectionCard>
+
+          {invoice.unifiedPricingBreakdown ? (
+            <UnifiedPricingBreakdown breakdown={invoice.unifiedPricingBreakdown} title="Pricing Source" compact />
+          ) : null}
 
           <SectionCard title="Footer" description="Footer notes, remittance, and supporting payment details.">
             <div className="space-y-3 text-sm text-slate-700">

@@ -74,6 +74,19 @@ function dateRange(query = {}) {
   };
 }
 
+function campaignEndReached(campaign = {}, now = new Date()) {
+  const end = campaign.deadline || campaign.marketplace?.applicationDeadline || campaign.termsFrozen?.deadline || null;
+  if (!end) return false;
+  const parsed = new Date(end);
+  return !Number.isNaN(parsed.getTime()) && parsed.getTime() <= now.getTime();
+}
+
+function effectiveCampaignState(campaign = {}) {
+  const state = String(campaign.state || "");
+  if (state === "tracking_active" && campaignEndReached(campaign)) return "expired";
+  return state;
+}
+
 function withDate(match, range, field = "createdAt") {
   if (range?.mongo) match[field] = range.mongo;
   return match;
@@ -258,6 +271,7 @@ class AnalyticsAggregator {
     const commissionPaid = money(commissionByStatus.PAID?.amount || 0);
     const pendingCommission = money((commissionByStatus.PENDING?.amount || 0) + (recordsByState.HOLD?.commission || 0));
     const paymentModel = campaign.paymentType || campaign.paymentModelSnapshot?.paymentType || "commission";
+    const liveState = effectiveCampaignState(campaign);
     const escrowFunded = money(escrow?.amountFunded || escrow?.totalEscrowAmount || 0);
     const unreleased = money(escrow?.amountRemaining ?? Math.max(0, escrowFunded - released - refund));
     const productValue = money(campaign.paymentModelSnapshot?.productValue || campaign.pricing?.productCost || 0);
@@ -275,7 +289,7 @@ class AnalyticsAggregator {
       vendorId: campaign.vendorId,
       influencerId: campaign.influencerId,
       paymentModel,
-      state: campaign.state || "",
+      state: liveState,
       clicks,
       orders,
       attributedOrders: Math.max(Number(attributionCount || 0), Number(conversions.count || 0), orders),
@@ -295,9 +309,9 @@ class AnalyticsAggregator {
       released,
       unreleased,
       refund,
-      productsShipped: ["product_shipped", "content_in_progress", "content_submitted", "approved", "published", "tracking_active", "completed"].includes(campaign.state) ? campaign.productIds?.length || 0 : 0,
-      productsDelivered: ["completed", "published", "tracking_active"].includes(campaign.state) ? campaign.productIds?.length || 0 : 0,
-      productsPending: Math.max(0, (campaign.productIds?.length || 0) - (["completed", "published", "tracking_active"].includes(campaign.state) ? campaign.productIds?.length || 0 : 0)),
+      productsShipped: ["product_shipped", "content_in_progress", "content_submitted", "approved", "published", "tracking_active", "completed"].includes(liveState) ? campaign.productIds?.length || 0 : 0,
+      productsDelivered: ["completed", "published", "tracking_active"].includes(liveState) ? campaign.productIds?.length || 0 : 0,
+      productsPending: Math.max(0, (campaign.productIds?.length || 0) - (["completed", "published", "tracking_active"].includes(liveState) ? campaign.productIds?.length || 0 : 0)),
       productValue,
       deliverablesSubmitted: Number(submissionCount || 0),
       deliverablesApproved,

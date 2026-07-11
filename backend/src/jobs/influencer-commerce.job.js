@@ -9,6 +9,8 @@ const { Reel } = require("../modules/reel/model");
 const { TrackingSession } = require("../modules/tracking/model");
 const { Order } = require("../models/Order");
 const campaignFinanceService = require("../modules/campaignFinance/service");
+const campaignRefundService = require("../services/campaign-refund.service");
+const campaignExecutionService = require("../modules/campaign/executionService");
 
 let tasks = [];
 
@@ -60,6 +62,10 @@ async function initializeInfluencerCommerceJobs() {
     await trackingService.cleanupExpiredSessions();
   });
 
+  schedule(process.env.AFFILIATE_LINK_EXPIRY_SCHEDULE || "0 * * * *", "affiliate-link-expiry", async () => {
+    await commissionService.expireCampaignAffiliateLinks();
+  });
+
   schedule(process.env.INFLUENCER_METRICS_SCHEDULE || "30 2 * * *", "metrics-aggregation", async () => {
     await aggregateInfluencerMetrics();
   });
@@ -86,6 +92,16 @@ async function initializeInfluencerCommerceJobs() {
 
   schedule(process.env.ESCROW_RECONCILIATION_SCHEDULE || "50 1 * * *", "escrow-reconciliation", async () => {
     await analyticsAggregator.auditPipeline();
+  });
+
+  schedule(process.env.ESCROW_REFUND_SCAN_SCHEDULE || "45 1 * * *", "escrow-refund-scan", async () => {
+    await campaignRefundService.markExpiredCampaignsRefundEligible();
+  });
+
+  schedule(process.env.CAMPAIGN_SCHEDULING_SCAN_SCHEDULE || "0 * * * *", "campaign-scheduling-scan", async () => {
+    await campaignExecutionService.runScheduledMaintenance();
+    await campaignRefundService.markExpiredCampaignsRefundEligible();
+    await commissionService.expireCampaignAffiliateLinks();
   });
 
   schedule(process.env.INFLUENCER_SUBSCRIPTION_EXPIRY_SCHEDULE || "5 0 * * *", "subscription-expiry", async () => {

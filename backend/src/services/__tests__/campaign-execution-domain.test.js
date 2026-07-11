@@ -30,6 +30,23 @@ test("deriveDeliverables builds dynamic deliverables from selected services", ()
   assert.equal(deliverables[1].unitPrice, 1000);
 });
 
+test("campaign deliverables store independent affiliate windows and historical metrics", () => {
+  for (const path of [
+    "trackingStartDate",
+    "trackingEndDate",
+    "trackingStatus",
+    "affiliateStatus",
+    "primaryAffiliateLinkId",
+    "affiliateMetrics.clicks",
+    "affiliateMetrics.orders",
+    "affiliateMetrics.conversions",
+    "affiliateMetrics.revenue",
+    "affiliateMetrics.commissionGenerated",
+  ]) {
+    assert.ok(CampaignDeliverable.schema.path(path), `missing CampaignDeliverable.${path}`);
+  }
+});
+
 test("deriveDeliverables expands package quantity into required published deliverables", () => {
   const deliverables = deriveDeliverables({
     pricing: { currency: "INR" },

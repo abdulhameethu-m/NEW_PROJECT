@@ -38,7 +38,11 @@ function redact(value, depth = 0) {
   return String(value);
 }
 
-const redactFormat = winston.format((info) => redact(info));
+const redactFormat = winston.format((info) => {
+  const sanitized = redact(info);
+  Object.assign(info, sanitized);
+  return info;
+});
 
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || "info",

@@ -3,6 +3,7 @@ const { asyncHandler } = require("../../utils/asyncHandler");
 const { uploadMany } = require("../../utils/upload");
 const influencerService = require("./service");
 const commissionService = require("../commission/service");
+const reelService = require("../reel/service");
 const influencerRateCardService = require("../../services/influencer-rate-card.service");
 
 const checkEmail = asyncHandler(async (req, res) =>
@@ -86,11 +87,7 @@ const uploadCollectionMedia = asyncHandler(async (req, res) => {
   return ok(res, uploaded, "Collection media uploaded", 201);
 });
 const listAffiliateProducts = asyncHandler(async (req, res) => ok(res, await influencerService.listAffiliateProducts(req.user.sub, req.query), "Affiliate products loaded"));
-const recommendedAffiliateProducts = asyncHandler(async (req, res) => ok(res, await influencerService.listRecommendedAffiliateProducts(req.user.sub, req.query), "Recommended affiliate products loaded"));
-const savedAffiliateProducts = asyncHandler(async (req, res) => ok(res, await influencerService.listSavedAffiliateProducts(req.user.sub, req.query), "Saved affiliate products loaded"));
-const saveAffiliateProduct = asyncHandler(async (req, res) => ok(res, await influencerService.saveAffiliateProduct(req.user.sub, req.params.productId, req.body.saved !== false), "Affiliate product saved"));
 const generateAffiliateProductLinks = asyncHandler(async (req, res) => ok(res, await influencerService.generateAffiliateProductLinks(req.user.sub, req.body), "Affiliate product links generated", 201));
-const affiliateProductAnalytics = asyncHandler(async (req, res) => ok(res, await influencerService.getAffiliateProductAnalytics(req.user.sub, req.query), "Affiliate product analytics loaded"));
 const listCollections = asyncHandler(async (req, res) => ok(res, await influencerService.listCollections(req.user.sub, req.query), "Influencer collections loaded"));
 const getCollection = asyncHandler(async (req, res) => ok(res, await influencerService.getCollection(req.user.sub, req.params.id), "Influencer collection loaded"));
 const createCollection = asyncHandler(async (req, res) => ok(res, await influencerService.saveCollection(req.user.sub, req.body), "Influencer collection created", 201));
@@ -120,6 +117,17 @@ const dashboard = asyncHandler(async (req, res) =>
 const earningsDashboard = asyncHandler(async (req, res) =>
   ok(res, await commissionService.getInfluencerEarningsDashboard(req.user.sub, req.query), "Influencer earnings dashboard loaded")
 );
+const contentStatistics = asyncHandler(async (req, res) =>
+  ok(
+    res,
+    await reelService.getContentStatistics(req.user, req.params.contentId, {
+      ...req.query,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    }),
+    "Content statistics loaded"
+  )
+);
 const requestWithdrawal = asyncHandler(async (req, res) =>
   ok(
     res,
@@ -136,9 +144,6 @@ const commerceProfile = asyncHandler(async (req, res) =>
 );
 const saveServices = asyncHandler(async (req, res) =>
   ok(res, await influencerRateCardService.saveMyServices(req.user.sub, req.body), "Influencer services saved")
-);
-const saveRequirements = asyncHandler(async (req, res) =>
-  ok(res, await influencerRateCardService.saveMyRequirements(req.user.sub, req.body), "Influencer requirements saved")
 );
 
 module.exports = {
@@ -176,11 +181,7 @@ module.exports = {
   generateAffiliateLink,
   uploadCollectionMedia,
   listAffiliateProducts,
-  recommendedAffiliateProducts,
-  savedAffiliateProducts,
-  saveAffiliateProduct,
   generateAffiliateProductLinks,
-  affiliateProductAnalytics,
   listCollections,
   getCollection,
   createCollection,
@@ -196,8 +197,8 @@ module.exports = {
   moderate,
   dashboard,
   earningsDashboard,
+  contentStatistics,
   requestWithdrawal,
   commerceProfile,
   saveServices,
-  saveRequirements,
 };

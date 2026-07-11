@@ -101,28 +101,8 @@ export async function listAffiliateProducts(params = {}) {
   return data;
 }
 
-export async function listRecommendedAffiliateProducts(params = {}) {
-  const { data } = await api.get("/api/influencer/affiliate-products/recommended", { params });
-  return data;
-}
-
-export async function listSavedAffiliateProducts(params = {}) {
-  const { data } = await api.get("/api/influencer/affiliate-products/saved", { params });
-  return data;
-}
-
-export async function saveAffiliateProduct(productId, saved = true) {
-  const { data } = await api.patch(`/api/influencer/affiliate-products/${productId}/save`, { saved });
-  return data;
-}
-
 export async function generateAffiliateProductLinks(payload) {
   const { data } = await api.post("/api/influencer/affiliate-products/links", payload);
-  return data;
-}
-
-export async function getAffiliateProductAnalytics(params = {}) {
-  const { data } = await api.get("/api/influencer/affiliate-products/analytics", { params: compactParams(params) });
   return data;
 }
 
@@ -187,11 +167,6 @@ export async function getInfluencerCommerceProfile() {
 
 export async function saveInfluencerServices(payload = {}) {
   const { data } = await api.put("/api/influencer/services", payload);
-  return data;
-}
-
-export async function saveInfluencerRequirements(payload = {}) {
-  const { data } = await api.put("/api/influencer/requirements", payload);
   return data;
 }
 
@@ -293,6 +268,16 @@ export async function getVendorInfluencerSubscriptionPlans({ force = false } = {
     });
 
   return subscriptionPlansCache.promise;
+}
+
+export async function getVendorInfluencerEscrowRefunds(params = {}) {
+  const { data } = await api.get("/api/vendor/influencer-commerce/escrow-refunds", { params: compactParams(params) });
+  return data;
+}
+
+export async function getVendorInfluencerEscrowRefundDeliverables(campaignId) {
+  const { data } = await api.get(`/api/vendor/influencer-commerce/escrow-refunds/${campaignId}/deliverables`);
+  return data;
 }
 
 export async function activateVendorInfluencerSubscription(payload = {}) {
@@ -404,11 +389,6 @@ export async function getVendorPromotionProducts(params = {}) {
   return data;
 }
 
-export async function getVendorAffiliateProducts(params = {}) {
-  const { data } = await api.get("/api/vendor/influencer-commerce/affiliate-products", { params });
-  return data;
-}
-
 export async function getVendorContentApprovals(params = {}) {
   const { data } = await api.get("/api/vendor/influencer-commerce/content-approvals", { params });
   return data;
@@ -421,21 +401,6 @@ export async function reviewVendorInfluencerContent(reelId, payload = {}) {
 
 export async function getVendorInfluencerPerformance(params = {}) {
   const { data } = await api.get("/api/vendor/influencer-commerce/performance", { params });
-  return data;
-}
-
-export async function getVendorInfluencerAnalytics(params = {}) {
-  const { data } = await api.get("/api/vendor/influencer-commerce/analytics", { params });
-  return data;
-}
-
-export async function getVendorCreatorLeaderboard(params = {}) {
-  const { data } = await api.get("/api/vendor/influencer-commerce/leaderboard", { params });
-  return data;
-}
-
-export async function getVendorInfluencerReports(params = {}) {
-  const { data } = await api.get("/api/vendor/influencer-commerce/reports", { params });
   return data;
 }
 
@@ -600,16 +565,6 @@ export async function followReelCreator(id, payload = {}) {
   return data;
 }
 
-export async function getInfluencerReels() {
-  const { data } = await api.get("/api/reel/mine");
-  return data;
-}
-
-export async function getInfluencerReelsPage(params = {}) {
-  const { data } = await api.get("/api/reel/influencer", { params });
-  return data;
-}
-
 export async function listInfluencerContent(params = {}) {
   const { data } = await api.get("/api/reel/content", { params });
   return data;
@@ -625,23 +580,15 @@ export async function deleteInfluencerContent(id) {
   return data;
 }
 
-export async function getInfluencerContentAnalytics(params = {}) {
-  const { data } = await api.get("/api/reel/content/analytics", { params });
-  return data;
-}
-
 export async function getInfluencerMediaLibrary(params = {}) {
   const { data } = await api.get("/api/reel/content/media-library", { params });
   return data;
 }
 
-export async function listInfluencerLiveSessions(params = {}) {
-  const { data } = await api.get("/api/reel/content/live", { params });
-  return data;
-}
-
-export async function createInfluencerLiveSession(payload) {
-  const { data } = await api.post("/api/reel/content/live", payload);
+export async function getInfluencerContentStatistics(contentId, params = {}) {
+  const { data } = await api.get(`/api/influencer/content/${encodeURIComponent(contentId)}/statistics`, {
+    params: compactParams(params),
+  });
   return data;
 }
 

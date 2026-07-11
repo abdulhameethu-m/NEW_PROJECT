@@ -46,13 +46,16 @@ router.post(
   validate(
     Joi.object({
       campaignId: Joi.string().allow("").optional(),
+      deliverableId: Joi.string().allow("").optional(),
       productIds: Joi.array().items(Joi.string()).default([]),
       collectionIds: Joi.array().items(Joi.string()).default([]),
-      videoUrl: Joi.string().min(8).max(2000).required(),
+      videoUrl: Joi.string().allow("").min(0).max(2000).optional(),
       thumbnailUrl: Joi.string().allow("").max(2000).optional(),
       title: Joi.string().allow("").max(160).optional(),
       description: Joi.string().allow("").max(2000).optional(),
-      contentType: Joi.string().valid("product_video", "review", "tutorial", "unboxing", "lifestyle", "campaign", "affiliate", "brand_collaboration", "short", "reel", "live").default("reel"),
+      contentType: Joi.string().valid("POST", "REEL", "post", "reel", "product_video", "review", "tutorial", "unboxing", "lifestyle", "campaign", "affiliate", "brand_collaboration", "short", "live").default("REEL"),
+      imageUrls: Joi.array().items(Joi.string().trim().max(2000)).default([]),
+      mediaUrls: Joi.array().items(Joi.string().trim().max(2000)).default([]),
       category: Joi.string().allow("").optional(),
       tags: Joi.alternatives().try(Joi.array().items(Joi.string()), Joi.string().allow("")).optional(),
       language: Joi.string().allow("").optional(),
@@ -71,6 +74,8 @@ const contentQuery = Joi.object({
   search: Joi.string().allow("").optional(),
   state: Joi.string().valid("uploaded", "pending_review", "approved", "published", "rejected").optional(),
   contentType: Joi.string().allow("").optional(),
+  imageUrls: Joi.array().items(Joi.string().trim().max(2000)).optional(),
+  mediaUrls: Joi.array().items(Joi.string().trim().max(2000)).optional(),
   contentTypes: Joi.string().allow("").optional(),
   visibility: Joi.string().allow("").optional(),
   category: Joi.string().allow("").optional(),
@@ -92,6 +97,7 @@ const contentUpdateSchema = Joi.object({
   productIds: Joi.array().items(Joi.string()).optional(),
   collectionIds: Joi.array().items(Joi.string()).optional(),
   campaignId: Joi.string().allow("").optional(),
+  deliverableId: Joi.string().allow("").optional(),
   visibility: Joi.string().valid("draft", "scheduled", "published", "private", "unlisted", "archived").optional(),
   scheduledAt: Joi.date().iso().allow(null).optional(),
   seo: Joi.object().unknown(true).optional(),
@@ -138,27 +144,9 @@ router.get("/:id/product-click", (_req, res) => {
 router.post("/:id/product-click", authOptional, eventSecurity("product_click", { blockOnLimit: false }), validate(Joi.object({ productId: Joi.string().required(), anonymousId: Joi.string().allow("").max(120).optional(), source: Joi.string().allow("").max(80).optional(), attributionWindowDays: Joi.number().valid(7, 30, 60, 90).optional(), metadata: Joi.object().unknown(true).optional() })), controller.productClick);
 router.post("/:id/follow", authRequired, validate(Joi.object({ following: Joi.boolean().optional(), source: Joi.string().allow("").max(80).optional() })), controller.follow);
 router.get("/content", authRequired, requireRole("influencer"), validate(contentQuery, "query"), controller.contentList);
-router.get("/content/analytics", authRequired, requireRole("influencer"), validate(contentQuery, "query"), controller.contentAnalytics);
 router.get("/content/media-library", authRequired, requireRole("influencer"), validate(contentQuery, "query"), controller.mediaLibrary);
-router.get("/content/live", authRequired, requireRole("influencer"), validate(contentQuery, "query"), controller.liveSessions);
-router.post("/content/live", authRequired, requireRole("influencer"), validate(contentUpdateSchema), controller.createLiveSession);
 router.patch("/content/:id", authRequired, requireRole("influencer"), validate(contentUpdateSchema), controller.contentUpdate);
 router.delete("/content/:id", authRequired, requireRole("influencer"), controller.contentDelete);
-router.get("/mine", authRequired, requireRole("influencer"), controller.influencerList);
-router.get(
-  "/influencer",
-  authRequired,
-  requireRole("influencer"),
-  validate(
-    Joi.object({
-      page: Joi.number().integer().min(1).optional(),
-      limit: Joi.number().integer().min(1).max(50).optional(),
-      state: Joi.string().valid("uploaded", "pending_review", "approved", "published", "rejected").optional(),
-    }),
-    "query"
-  ),
-  controller.influencerPaginated
-);
 router.get("/admin/list", authRequired, requireRole("admin", "super_admin", "support_admin", "finance_admin"), controller.adminList);
 router.get("/:id/adjacent", authOptional, controller.adjacent);
 router.get("/:id", authOptional, controller.getById);

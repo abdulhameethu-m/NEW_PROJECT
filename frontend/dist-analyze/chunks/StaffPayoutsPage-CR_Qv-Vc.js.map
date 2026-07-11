@@ -1,0 +1,1 @@
+{"version":3,"file":"StaffPayoutsPage-CR_Qv-Vc.js","names":[],"sources":["../../src/pages/StaffPayoutsPage.jsx"],"sourcesContent":["import { AdminPayoutsPage } from \"./AdminPayoutsPage\";\r\n\r\nexport function StaffPayoutsPage() {\r\n  return <AdminPayoutsPage />;\r\n}\r\n"],"mappings":"+HAEA,SAAgB,GAAmB,CACjC,OAAO,EAAA,EAAA,KAAC,EAAD,EAAoB,CAAA"}

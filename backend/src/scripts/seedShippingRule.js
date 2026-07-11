@@ -2,31 +2,29 @@ const { logger } = require("../utils/logger");
 require("../config/env");
 
 const { connectDb } = require("../config/db");
-const ShippingConfig = require("../models/ShippingConfig");
+const ShippingWeightSlab = require("../models/ShippingWeightSlab");
 
 async function main() {
   await connectDb();
 
   const payload = {
     state: "Tamil Nadu",
+    district: "",
     zone: "LOCAL",
-    baseWeight: 1,
-    basePrice: 50,
-    pricePerKg: 20,
-    minWeight: 0.1,
-    maxWeight: 5,
-    freeShippingThreshold: 500,
-    minOrderValue: 0,
-    isActive: true,
-    notes: "Sample local shipping rule seeded from script",
-    sortOrder: 0,
+    weightFrom: 0.1,
+    weightTo: 5,
+    shippingCharge: 50,
+    status: "active",
+    description: "Sample local shipping slab seeded from script",
+    priority: 0,
   };
 
-  const existing = await ShippingConfig.findOne({
-    state: payload.state,
+  const existing = await ShippingWeightSlab.findOne({
+    stateKey: ShippingWeightSlab.normalizeToken(payload.state),
+    districtKey: "",
     zone: payload.zone,
-    minWeight: payload.minWeight,
-    maxWeight: payload.maxWeight,
+    weightFrom: payload.weightFrom,
+    weightTo: payload.weightTo,
   });
 
   if (existing) {
@@ -36,7 +34,7 @@ async function main() {
     process.exit(0);
   }
 
-  const created = await ShippingConfig.create(payload);
+  const created = await ShippingWeightSlab.create(payload);
   logger.info("Shipping rule created:", { value: created._id.toString() });
   process.exit(0);
 }

@@ -14,6 +14,7 @@ import {
 import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import { SellerCard, StoreRatingDisplay, VisitStoreButton } from "../components/seller/SellerNavigation";
+import { UnifiedPricingBreakdown } from "../components/commerce/UnifiedPricingBreakdown";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Failed to load order details.";
@@ -459,21 +460,25 @@ export function OrderDetailsPage() {
               </div>
             </section>
 
-            <section className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
-              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Payment Breakdown</h2>
-              <div className="print-kv-grid mt-4 grid gap-2 text-sm text-slate-600 dark:text-slate-300">
-                <div className="flex items-center justify-between"><span>Subtotal</span><span>{formatCurrency(order.pricing?.subtotal, { currency: order.pricing?.currency })}</span></div>
-                <div className="flex items-center justify-between"><span>Delivery fee</span><span>{formatCurrency(order.pricing?.deliveryFee, { currency: order.pricing?.currency })}</span></div>
-                <div className="flex items-center justify-between"><span>Platform fee</span><span>{formatCurrency(order.pricing?.platformFee, { currency: order.pricing?.currency })}</span></div>
-                <div className="flex items-center justify-between"><span>{order.payment?.method === "COD" ? "COD charges" : "Razorpay charges"}</span><span>{formatCurrency(order.pricing?.paymentFee, { currency: order.pricing?.currency })}</span></div>
-                <div className="flex items-center justify-between"><span>Taxes</span><span>{formatCurrency(order.pricing?.taxes, { currency: order.pricing?.currency })}</span></div>
-                <div className="flex items-center justify-between"><span>Discounts</span><span>-{formatCurrency(order.pricing?.discounts, { currency: order.pricing?.currency })}</span></div>
-                <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-3 font-semibold text-slate-950 dark:border-slate-800 dark:text-white">
-                  <span>Grand total</span>
-                  <span>{formatCurrency(order.pricing?.grandTotal, { currency: order.pricing?.currency })}</span>
+            {order.unifiedPricingBreakdown ? (
+              <UnifiedPricingBreakdown breakdown={order.unifiedPricingBreakdown} title="Payment Breakdown" compact />
+            ) : (
+              <section className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
+                <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Payment Breakdown</h2>
+                <div className="print-kv-grid mt-4 grid gap-2 text-sm text-slate-600 dark:text-slate-300">
+                  <div className="flex items-center justify-between"><span>Subtotal</span><span>{formatCurrency(order.pricing?.subtotal, { currency: order.pricing?.currency })}</span></div>
+                  <div className="flex items-center justify-between"><span>Delivery fee</span><span>{formatCurrency(order.pricing?.deliveryFee, { currency: order.pricing?.currency })}</span></div>
+                  <div className="flex items-center justify-between"><span>Platform fee</span><span>{formatCurrency(order.pricing?.platformFee, { currency: order.pricing?.currency })}</span></div>
+                  <div className="flex items-center justify-between"><span>{order.payment?.method === "COD" ? "COD charges" : "Razorpay charges"}</span><span>{formatCurrency(order.pricing?.paymentFee, { currency: order.pricing?.currency })}</span></div>
+                  <div className="flex items-center justify-between"><span>Taxes</span><span>{formatCurrency(order.pricing?.taxes, { currency: order.pricing?.currency })}</span></div>
+                  <div className="flex items-center justify-between"><span>Discounts</span><span>-{formatCurrency(order.pricing?.discounts, { currency: order.pricing?.currency })}</span></div>
+                  <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-3 font-semibold text-slate-950 dark:border-slate-800 dark:text-white">
+                    <span>Grand total</span>
+                    <span>{formatCurrency(order.pricing?.grandTotal, { currency: order.pricing?.currency })}</span>
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            )}
 
             <section className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
               <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Payment Details</h2>

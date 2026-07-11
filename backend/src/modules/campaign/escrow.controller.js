@@ -100,29 +100,6 @@ const checkRefundEligibility = asyncHandler(async (req, res) => {
 });
 
 /**
- * Request refund (vendor)
- */
-const requestRefund = asyncHandler(async (req, res) => {
-  const { campaignId } = req.params;
-  const { reason, description } = req.body;
-  const vendorId = req.vendor._id;
-
-  if (!reason) {
-    throw new ApiError(400, "Refund reason is required");
-  }
-
-  const result = await campaignRefundService.requestRefund(
-    campaignId,
-    vendorId,
-    reason,
-    description || "",
-    req.user.sub
-  );
-
-  return ok(res, result, "Refund request created");
-});
-
-/**
  * Get refund details (admin/vendor)
  */
 const getRefundDetails = asyncHandler(async (req, res) => {
@@ -240,6 +217,49 @@ const listReleaseQueue = asyncHandler(async (req, res) => {
   return ok(res, result, "Approved deliverables awaiting release loaded");
 });
 
+const listEscrowRefundDashboard = asyncHandler(async (req, res) => {
+  const result = await campaignRefundService.getAdminEscrowRefundDashboard({
+    status: req.query.status,
+    vendorId: req.query.vendorId,
+    limit: parseInt(req.query.limit) || 50,
+    skip: parseInt(req.query.skip) || 0,
+  });
+  return ok(res, result, "Escrow refund dashboard loaded");
+});
+
+const listEscrowRefundDeliverables = asyncHandler(async (req, res) => {
+  const result = await campaignRefundService.getAdminEscrowRefundDeliverables(req.params.campaignId);
+  return ok(res, result, "Deliverable refund details loaded");
+});
+
+const refundDeliverableEscrow = asyncHandler(async (req, res) => {
+  const result = await campaignRefundService.refundDeliverableEscrow(
+    req.params.campaignId,
+    req.params.deliverableId,
+    req.body,
+    req.user.sub
+  );
+  return ok(res, result, "Deliverable refund processed");
+});
+
+const createAdminRefund = asyncHandler(async (req, res) => {
+  const result = await campaignRefundService.createAdminRefund(
+    req.params.campaignId,
+    req.body,
+    req.user.sub
+  );
+  return ok(res, result, "Escrow refund request created", 201);
+});
+
+const approveAndProcessRefund = asyncHandler(async (req, res) => {
+  const result = await campaignRefundService.approveAndProcessRefund(
+    req.params.refundId,
+    req.body,
+    req.user.sub
+  );
+  return ok(res, result, "Refund approved and processed");
+});
+
 const listFeeConfigurations = asyncHandler(async (req, res) => {
   return ok(res, await campaignFeeService.listConfigurations(), "Campaign fee configurations loaded");
 });
@@ -276,15 +296,19 @@ module.exports = {
   getEscrowSummary,
   releasePayment,
   checkRefundEligibility,
-  requestRefund,
   getRefundDetails,
   calculateCost,
   listPaymentOrders,
 
   // Admin endpoints
   listRefundRequests,
+  listEscrowRefundDashboard,
+  listEscrowRefundDeliverables,
+  refundDeliverableEscrow,
   listReleaseQueue,
+  createAdminRefund,
   approveRefund,
+  approveAndProcessRefund,
   rejectRefund,
   processRefund,
   getRefundStats,

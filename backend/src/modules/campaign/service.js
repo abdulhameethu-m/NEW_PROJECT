@@ -7,6 +7,7 @@ const influencerRateCardService = require("../../services/influencer-rate-card.s
 const auditService = require("../../services/audit.service");
 const notificationService = require("../../services/notification.service");
 const commissionService = require("../commission/service");
+const schedulingService = require("../../services/campaign-scheduling.service");
 const { emitDomainEvent } = require("../events/event-bus");
 const { INFLUENCER_EVENTS } = require("../shared/constants");
 const { CommissionRecord } = require("../commission/models");
@@ -24,6 +25,14 @@ const WORKFLOW = Object.freeze({
   DRAFT: "draft",
   PROPOSED: "proposed",
   INVITATION_SENT: "invitation_sent",
+  INVITATION_PENDING: "invitation_pending",
+  INVITATION_EXPIRED: "invitation_expired",
+  CONTENT_CREATION: "content_creation",
+  UNDER_REVIEW: "under_review",
+  READY_FOR_PUBLISH: "ready_for_publish",
+  PUBLISH_SCHEDULED: "publish_scheduled",
+  LIVE: "live",
+  CONTENT_DEADLINE_MISSED: "content_deadline_missed",
   PENDING_REVIEW: "pending_review",
   ACCEPTED: "accepted",
   REJECTED: "rejected",
@@ -36,17 +45,143 @@ const WORKFLOW = Object.freeze({
 const INVITATION_OPEN_STATES = [WORKFLOW.PROPOSED, WORKFLOW.INVITATION_SENT, WORKFLOW.PENDING_REVIEW];
 const ACCEPTED_STATES = [
   WORKFLOW.ACCEPTED,
+  WORKFLOW.CONTENT_CREATION,
+  WORKFLOW.UNDER_REVIEW,
+  WORKFLOW.READY_FOR_PUBLISH,
+  WORKFLOW.PUBLISH_SCHEDULED,
+  WORKFLOW.LIVE,
   WORKFLOW.ACTIVE,
   "product_shipped",
   "content_in_progress",
   "content_submitted",
   "under_review",
   "revision_requested",
+  "partially_completed",
   "approved",
   "published",
   "tracking_active",
 ];
 const TERMINAL_STATES = [WORKFLOW.COMPLETED, WORKFLOW.CANCELLED, WORKFLOW.EXPIRED, WORKFLOW.REJECTED];
+
+const LIFECYCLE = Object.freeze({
+  DRAFT: "DRAFT",
+  INVITATION_PENDING: "INVITATION_PENDING",
+  INVITATION_EXPIRED: "INVITATION_EXPIRED",
+  CONTENT_CREATION: "CONTENT_CREATION",
+  UNDER_REVIEW: "UNDER_REVIEW",
+  READY_FOR_PUBLISH: "READY_FOR_PUBLISH",
+  PUBLISH_SCHEDULED: "PUBLISH_SCHEDULED",
+  LIVE: "LIVE",
+  CONTENT_DEADLINE_MISSED: "CONTENT_DEADLINE_MISSED",
+  COMPLETED: "COMPLETED",
+  REFUND_PENDING: "REFUND_PENDING",
+  REFUNDED: "REFUNDED",
+  CANCELLED: "CANCELLED",
+});
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + Number(days || 0));
+  return next;
+}
+
+function lifecycleDays(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.floor(number) : fallback;
+}
+
+function dateOnly(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function dateOnlyString(value) {
+  const date = dateOnly(value);
+  return date ? date.toISOString().slice(0, 10) : "";
+}
+
+function selectedDeliverablesFromPayload(payload = {}) {
+  const rows = [
+    ...(Array.isArray(payload.selectedServices) ? payload.selectedServices : []),
+    ...(Array.isArray(payload.paymentModel?.selectedServices) ? payload.paymentModel.selectedServices : []),
+    ...(Array.isArray(payload.paymentModel?.services) ? payload.paymentModel.services : []),
+  ];
+  const seen = new Set();
+  return rows.filter((row) => {
+    const key = [
+      row.selectionKey,
+      row.serviceId,
+      row.packageId,
+      row.serviceTypeKey,
+      row.serviceName,
+      row.packageName,
+    ].filter(Boolean).join(":");
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function validateDeliverableDueDates(payload, { contentStart, contentDeadline }) {
+  const start = dateOnly(contentStart);
+  const end = dateOnly(contentDeadline);
+  if (!start || !end) return;
+  const deliverables = selectedDeliverablesFromPayload(payload);
+  for (const deliverable of deliverables) {
+    const due = dateOnly(deliverable.dueDate);
+    const label = deliverable.packageName || deliverable.serviceName || deliverable.title || "Deliverable";
+    if (!due) {
+      throw new AppError("Deliverable due date is required", 400, "DELIVERABLE_DUE_DATE_REQUIRED", {
+        field: "selectedServices.dueDate",
+        deliverable: label,
+        allowedStart: dateOnlyString(start),
+        allowedEnd: dateOnlyString(end),
+      });
+    }
+    if (due < start || due > end) {
+      throw new AppError("Deliverable due date must be within the content creation period", 400, "DELIVERABLE_DUE_DATE_OUT_OF_RANGE", {
+        field: "selectedServices.dueDate",
+        deliverable: label,
+        dueDate: dateOnlyString(due),
+        allowedStart: dateOnlyString(start),
+        allowedEnd: dateOnlyString(end),
+      });
+    }
+  }
+}
+
+function campaignContentCreationEndDate(invitationDeadline, contentCreationDays) {
+  const invitationEnd = dateOnly(invitationDeadline);
+  if (!invitationEnd) return null;
+  const contentCreationStart = addDays(invitationEnd, 1);
+  return addDays(contentCreationStart, lifecycleDays(contentCreationDays, 1));
+}
+
+function validateCampaignEndDate(campaignEndDate, { invitationDeadline, contentCreationDays }) {
+  if (!campaignEndDate) return null;
+  const end = dateOnly(campaignEndDate);
+  const contentEnd = campaignContentCreationEndDate(invitationDeadline, contentCreationDays);
+  if (!end) {
+    throw new AppError("Invalid campaign end date", 400, "VALIDATION_ERROR", { field: "endDate" });
+  }
+  if (!contentEnd) return end;
+  if (end <= contentEnd) {
+    throw new AppError(
+      "Campaign end date must be after the content creation period",
+      400,
+      "CAMPAIGN_END_DATE_OUT_OF_RANGE",
+      {
+        field: "endDate",
+        campaignEndDate: dateOnlyString(end),
+        contentCreationEndDate: dateOnlyString(contentEnd),
+        earliestAllowedDate: dateOnlyString(addDays(contentEnd, 1)),
+      }
+    );
+  }
+  return end;
+}
 
 async function ensureVendorOwnsProducts(vendorId, productIds = []) {
   const products = await Promise.all(productIds.map((productId) => productRepo.findById(productId)));
@@ -64,12 +199,48 @@ function profileUserId(profile = {}) {
 }
 
 function campaignDeadline(campaign = {}) {
-  return campaign.marketplace?.applicationDeadline || campaign.deadline || null;
+  return campaign.marketplace?.applicationDeadline || null;
 }
 
-function ensureDeadlineOpen(campaign = {}) {
-  const deadline = campaignDeadline(campaign);
-  if (deadline && new Date(deadline).getTime() < Date.now()) {
+function endOfInvitationDay(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+async function ensureDeadlineOpen(campaign = {}, { actorId = null, actorRole = "influencer" } = {}) {
+  const deadline = campaign.invitationDeadline || campaignDeadline(campaign);
+  const expiresAt = endOfInvitationDay(deadline);
+  if (expiresAt && expiresAt.getTime() < Date.now()) {
+    await CampaignInvitation.updateMany(
+      { campaignId: campaign._id, status: { $in: [WORKFLOW.INVITATION_SENT, "viewed"] } },
+      { $set: { status: "expired", "metadata.expiredAt": new Date(), "metadata.expiredReason": "Invitation acceptance deadline passed" } }
+    );
+    await Campaign.updateOne(
+      { _id: campaign._id, state: { $in: INVITATION_OPEN_STATES } },
+      {
+        $set: {
+          state: WORKFLOW.EXPIRED,
+          currentLifecycleStatus: LIFECYCLE.INVITATION_EXPIRED,
+          "scheduling.expiredAt": new Date(),
+          "scheduling.affiliateEnabled": false,
+          "scheduling.trackingEnabled": false,
+          "scheduling.commissionEnabled": false,
+        },
+        $push: { history: pushHistory(WORKFLOW.EXPIRED, actorId, "Invitation acceptance deadline passed") },
+      }
+    );
+    await CampaignStatusHistory.create({
+      campaignId: campaign._id,
+      oldStatus: campaign.state || WORKFLOW.INVITATION_SENT,
+      newStatus: WORKFLOW.EXPIRED,
+      changedBy: actorId,
+      changedByRole: actorRole,
+      reason: "Invitation acceptance deadline passed",
+      metadata: { invitationDeadline: deadline },
+    }).catch(() => null);
     throw new AppError("Campaign invitation deadline has passed", 409, "CAMPAIGN_INVITATION_EXPIRED");
   }
 }
@@ -117,6 +288,7 @@ async function recordStatusChange({ campaign, oldStatus, newStatus, actorId, act
 
 async function createInvitationRecord({ campaign, influencerId, actorId }) {
   const now = new Date();
+  const deadline = campaign.invitationDeadline || campaign.marketplace?.applicationDeadline || null;
   const invitation = await CampaignInvitation.findOneAndUpdate(
     { campaignId: campaign._id, influencerId },
     {
@@ -128,7 +300,8 @@ async function createInvitationRecord({ campaign, influencerId, actorId }) {
       },
       $set: {
         status: WORKFLOW.INVITATION_SENT,
-        metadata: { title: campaign.title || "", paymentType: campaign.paymentType || "" },
+        deadline,
+        metadata: { title: campaign.title || "", paymentType: campaign.paymentType || "", acceptanceDeadline: deadline },
       },
     },
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
@@ -143,6 +316,36 @@ async function createInvitationRecord({ campaign, influencerId, actorId }) {
     metadata: { invitationId: invitation._id, influencerId },
   });
   return invitation;
+}
+
+async function ensureInfluencerCalendarOpen({ influencerId, windowStart, windowEnd, excludeCampaignId = null }) {
+  if (!influencerId || !windowStart || !windowEnd) return;
+  const query = {
+    influencerId,
+    currentLifecycleStatus: {
+      $in: [
+        LIFECYCLE.INVITATION_PENDING,
+        LIFECYCLE.CONTENT_CREATION,
+        LIFECYCLE.UNDER_REVIEW,
+        LIFECYCLE.READY_FOR_PUBLISH,
+        LIFECYCLE.PUBLISH_SCHEDULED,
+        LIFECYCLE.LIVE,
+      ],
+    },
+    $or: [
+      { invitationSentAt: { $lte: windowEnd }, invitationDeadline: { $gte: windowStart } },
+      { contentCreationStartDate: { $lte: windowEnd }, contentCreationDeadline: { $gte: windowStart } },
+      { campaignStartedAt: { $lte: windowEnd }, campaignEndDate: { $gte: windowStart } },
+    ],
+  };
+  if (excludeCampaignId) query._id = { $ne: excludeCampaignId };
+  const overlap = await Campaign.findOne(query).select("_id title currentLifecycleStatus invitationDeadline contentCreationDeadline campaignEndDate").lean();
+  if (overlap) {
+    throw new AppError("Influencer calendar is already reserved for an overlapping campaign lifecycle window", 409, "INFLUENCER_CALENDAR_CONFLICT", {
+      campaignId: overlap._id,
+      status: overlap.currentLifecycleStatus,
+    });
+  }
 }
 
 async function ensureAcceptedWorkflowArtifacts({ campaign, profile, userId }) {
@@ -312,10 +515,30 @@ function presentCampaign(campaign, profileId) {
     applicationDate: application?.submittedAt || null,
     expectedEarnings: Number(application?.expectedEarnings || campaign.fixedFee || 0),
     applicationDeadline: campaign.marketplace?.applicationDeadline || campaign.deadline || null,
-    deadline: campaign.deadline || campaign.marketplace?.applicationDeadline || null,
+    deadline: campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || null,
+    lifecycleStatus: campaign.currentLifecycleStatus || null,
+    currentLifecycleStatus: campaign.currentLifecycleStatus || null,
+    lifecycle: {
+      campaignCreatedAt: campaign.campaignCreatedAt || campaign.createdAt,
+      invitationSentAt: campaign.invitationSentAt || invitation?.invitedAt || null,
+      invitationDeadline: campaign.invitationDeadline || campaign.marketplace?.applicationDeadline || null,
+      acceptedAt: campaign.acceptedAt || invitation?.acceptedAt || acceptance?.acceptedAt || null,
+      contentCreationStartDate: campaign.contentCreationStartDate || null,
+      contentCreationDeadline: campaign.contentCreationDeadline || null,
+      publishScheduledAt: campaign.publishScheduledAt || null,
+      publishedAt: campaign.publishedAt || null,
+      campaignStartedAt: campaign.campaignStartedAt || null,
+      campaignEndDate: campaign.campaignEndDate || campaign.endDate || null,
+      campaignCompletedAt: campaign.campaignCompletedAt || null,
+      campaignDurationDays: campaign.campaignDurationDays || null,
+      affiliateEnabled: Boolean(campaign.scheduling?.affiliateEnabled),
+      trackingEnabled: Boolean(campaign.scheduling?.trackingEnabled),
+      commissionEnabled: Boolean(campaign.scheduling?.commissionEnabled),
+    },
+    startDate: campaign.startDate || null,
+    endDate: campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || null,
     availableSlots: Number(campaign.marketplace?.availableSlots || 0),
     requiredDeliverables: campaign.marketplace?.requiredDeliverables || [],
-    requirements: campaign.marketplace?.requirements || {},
     paymentType: campaign.paymentType,
     paymentModel,
     pricing,
@@ -323,7 +546,7 @@ function presentCampaign(campaign, profileId) {
     commissionWorkflow: campaign.commissionWorkflow || null,
     fixedPaymentWorkflow: campaign.fixedPaymentWorkflow || null,
     influencerRateSnapshot: campaign.influencerRateSnapshot || campaign.contractSnapshot?.influencerRateCard || {},
-    requirementsSnapshot: campaign.requirementsSnapshot || campaign.contractSnapshot?.requirements || {},
+    hasInvitation: Boolean(invitation),
     invitationStatus: invitation?.status || "",
     invitationDate: invitation?.invitedAt || campaign.createdAt,
     invitedAt: invitation?.invitedAt || campaign.createdAt,
@@ -332,12 +555,12 @@ function presentCampaign(campaign, profileId) {
     rejectionReason: invitation?.rejectionReason || "",
     timeline: {
       campaignStart: campaign.startDate || campaign.createdAt,
-      contentSubmissionDeadline: campaign.marketplace?.requirements?.contentSubmissionDeadline || campaign.deadline || null,
-      revisionDeadline: campaign.marketplace?.requirements?.revisionDeadline || null,
-      publishingDeadline: campaign.marketplace?.requirements?.publishingDeadline || null,
-      campaignEndDate: campaign.deadline || campaign.marketplace?.applicationDeadline || null,
-      attributionEndDate: campaign.deadline && campaign.attributionWindowDays
-        ? new Date(new Date(campaign.deadline).getTime() + Number(campaign.attributionWindowDays || 0) * 24 * 60 * 60 * 1000)
+      contentSubmissionDeadline: campaign.deadline || campaign.endDate || null,
+      revisionDeadline: null,
+      publishingDeadline: null,
+      campaignEndDate: campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || null,
+      attributionEndDate: (campaign.endDate || campaign.deadline) && campaign.attributionWindowDays
+        ? new Date(new Date(campaign.endDate || campaign.deadline).getTime() + Number(campaign.attributionWindowDays || 0) * 24 * 60 * 60 * 1000)
         : null,
     },
     saved: Boolean((campaign.marketplace?.savedBy || []).some((id) => String(id) === String(profileId))),
@@ -359,12 +582,14 @@ function presentCampaign(campaign, profileId) {
 
 function buildMarketplaceQuery(profileId, query = {}) {
   const tab = String(query.tab || "available").toLowerCase();
+  const acceptedCampaignIds = Array.isArray(query.acceptedCampaignIds) ? query.acceptedCampaignIds : [];
   const and = [];
   const scope = {
     $or: [
       { "marketplace.public": true },
       { influencerId: profileId },
       { "applications.influencerId": profileId },
+      ...(acceptedCampaignIds.length ? [{ _id: { $in: acceptedCampaignIds } }] : []),
     ],
   };
   and.push(scope);
@@ -382,7 +607,8 @@ function buildMarketplaceQuery(profileId, query = {}) {
     and.push({
       $or: [
         { influencerId: profileId, state: { $in: ACCEPTED_STATES } },
-        { state: { $in: [WORKFLOW.ACTIVE, ...ACCEPTED_STATES] }, applications: { $elemMatch: { influencerId: profileId, status: "approved" } } },
+        { state: { $in: [WORKFLOW.ACTIVE, ...ACCEPTED_STATES] }, applications: { $elemMatch: { influencerId: profileId, status: { $in: ["approved", WORKFLOW.ACCEPTED, WORKFLOW.ACTIVE] } } } },
+        ...(acceptedCampaignIds.length ? [{ _id: { $in: acceptedCampaignIds }, state: { $in: ACCEPTED_STATES } }] : []),
       ],
     });
   }
@@ -397,7 +623,11 @@ function buildMarketplaceQuery(profileId, query = {}) {
   if (tab === "completed") {
     and.push({
       state: "completed",
-      $or: [{ influencerId: profileId }, { "applications.influencerId": profileId }],
+      $or: [
+        { influencerId: profileId },
+        { "applications.influencerId": profileId },
+        ...(acceptedCampaignIds.length ? [{ _id: { $in: acceptedCampaignIds } }] : []),
+      ],
     });
   }
 
@@ -440,6 +670,31 @@ class CampaignService {
       influencerId: influencer._id,
       payload,
     });
+    const schedule = await schedulingService.normalizeCampaignSchedule(payload, pricing.paymentType);
+    const settings = await schedulingService.getSettings();
+    const createdAt = new Date();
+    const invitationDays = lifecycleDays(payload.invitationDays || payload.lifecycle?.invitationDays, settings.invitationAcceptanceDays);
+    const contentCreationDays = lifecycleDays(payload.contentCreationDays || payload.lifecycle?.contentCreationDays, settings.contentCreationDays);
+    const campaignDurationDays = lifecycleDays(payload.campaignDurationDays || payload.lifecycle?.campaignDurationDays || payload.durationDays, settings.defaultCampaignDurationDays);
+    const invitationDeadline = payload.marketplace?.applicationDeadline ? new Date(payload.marketplace.applicationDeadline) : addDays(createdAt, invitationDays);
+    const contentCreationStart = dateOnly(invitationDeadline) < dateOnly(createdAt) ? createdAt : invitationDeadline;
+    const plannedContentCreationDeadline = addDays(contentCreationStart, contentCreationDays);
+    if (payload.influencerId && !invitationDeadline) {
+      throw new AppError("Invitation acceptance date is required for invite-only campaigns", 400, "INVITATION_DEADLINE_REQUIRED", { field: "marketplace.applicationDeadline" });
+    }
+    validateDeliverableDueDates(payload, {
+      contentStart: contentCreationStart,
+      contentDeadline: plannedContentCreationDeadline,
+    });
+    validateCampaignEndDate(schedule.endDate || payload.endDate || payload.deadline, {
+      invitationDeadline,
+      contentCreationDays,
+    });
+    await ensureInfluencerCalendarOpen({
+      influencerId: influencer._id,
+      windowStart: createdAt,
+      windowEnd: invitationDeadline,
+    });
 
     const requiresFunding = ["fixed", "hybrid"].includes(pricing.paymentType);
     const initialState = WORKFLOW.INVITATION_SENT;
@@ -455,10 +710,9 @@ class CampaignService {
       language: payload.language || "en",
       marketplace: {
         public: Boolean(payload.marketplace?.public),
-        applicationDeadline: payload.marketplace?.applicationDeadline || payload.deadline,
+        applicationDeadline: invitationDeadline || undefined,
         availableSlots: payload.marketplace?.availableSlots || 1,
         requiredDeliverables: payload.marketplace?.requiredDeliverables || [],
-        requirements: payload.marketplace?.requirements || {},
         assets: payload.marketplace?.assets || [],
       },
       productIds: payload.productIds,
@@ -486,10 +740,28 @@ class CampaignService {
         : {}),
       attributionWindowDays: pricing.attributionDays,
       pricing: pricing.pricing,
+      startDate: undefined,
+      endDate: schedule.endDate || payload.deadline || undefined,
+      scheduling: {
+        ...(schedule.scheduling || {}),
+        autoPublishEnabled: Boolean(schedule.scheduling?.settingsSnapshot?.autoPublish),
+        affiliateEnabled: false,
+        trackingEnabled: false,
+        commissionEnabled: false,
+      },
+      campaignCreatedAt: createdAt,
+      invitationSentAt: createdAt,
+      invitationDeadline,
+      campaignDurationDays,
+      lifecycleConfig: {
+        invitationAcceptanceDays: invitationDays,
+        contentCreationDays,
+        campaignDurationDays,
+      },
+      currentLifecycleStatus: LIFECYCLE.INVITATION_PENDING,
       paymentModelSnapshot: pricing.paymentModel,
       influencerRateSnapshot: pricing.influencerSnapshot,
-      requirementsSnapshot: pricing.influencerSnapshot?.requirements || {},
-      deadline: payload.deadline,
+      deadline: schedule.endDate || payload.deadline,
       state: initialState,
       history: [pushHistory(initialState, userId, "Campaign invitation sent by vendor")],
     });
@@ -527,30 +799,48 @@ class CampaignService {
     if (!INVITATION_OPEN_STATES.includes(campaign.state)) {
       throw new AppError("Campaign cannot be accepted in the current state", 400, "INVALID_STATE");
     }
-    ensureDeadlineOpen(campaign);
+    const invitation = await CampaignInvitation.findOne({ campaignId: campaign._id, influencerId: profile._id }).lean();
+    if (invitation && ["expired", "cancelled", "rejected"].includes(String(invitation.status || ""))) {
+      throw new AppError("Campaign invitation is no longer available", 409, "CAMPAIGN_INVITATION_UNAVAILABLE");
+    }
+    await ensureDeadlineOpen(campaign, { actorId: userId, actorRole: "influencer" });
     const subscription = await influencerCommerceEngine.getVendorSubscription(campaign.vendorId);
     if (!subscription) {
       throw new AppError("Vendor subscription must be active before accepting this campaign", 403, "SUBSCRIPTION_REQUIRED");
     }
 
     const oldStatus = campaign.state;
-    const state = WORKFLOW.ACCEPTED;
+    const state = WORKFLOW.CONTENT_CREATION;
+    const acceptedAt = new Date();
+    const settings = await schedulingService.getSettings();
+    const contentCreationDays = lifecycleDays(
+      campaign.lifecycleConfig?.contentCreationDays,
+      settings.contentCreationDays
+    );
+    const contentCreationDeadline = addDays(acceptedAt, contentCreationDays);
     const updated = await Campaign.findByIdAndUpdate(
       campaignId,
       {
         $set: {
           state,
+          acceptedAt,
+          contentCreationStartDate: acceptedAt,
+          contentCreationDeadline,
+          currentLifecycleStatus: LIFECYCLE.CONTENT_CREATION,
+          "scheduling.affiliateEnabled": false,
+          "scheduling.trackingEnabled": false,
+          "scheduling.commissionEnabled": false,
           ...(["fixed", "hybrid"].includes(campaign.paymentType)
             ? {
                 "fixedPaymentWorkflow.status": "accepted_awaiting_funding",
                 "fixedPaymentWorkflow.contentEnabled": false,
-                "fixedPaymentWorkflow.acceptedAt": new Date(),
-                "fixedPaymentWorkflow.lastTransitionAt": new Date(),
+                "fixedPaymentWorkflow.acceptedAt": acceptedAt,
+                "fixedPaymentWorkflow.lastTransitionAt": acceptedAt,
               }
             : {}),
           ...(["commission", "hybrid"].includes(campaign.paymentType)
             ? {
-                "commissionWorkflow.contentEnabled": campaign.paymentType === "commission",
+                "commissionWorkflow.contentEnabled": true,
                 "commissionWorkflow.publishEnabled": false,
                 "commissionWorkflow.trackingActive": false,
               }
@@ -565,13 +855,12 @@ class CampaignService {
             pricing: campaign.pricing,
             paymentModelSnapshot: campaign.paymentModelSnapshot,
             influencerRateSnapshot: campaign.influencerRateSnapshot,
-            requirementsSnapshot: campaign.requirementsSnapshot,
-            frozenAt: new Date(),
+            frozenAt: acceptedAt,
           },
         },
         $push: {
           history: {
-            $each: [pushHistory(state, userId, "Influencer accepted the campaign invitation")],
+            $each: [pushHistory(state, userId, "Influencer accepted the campaign invitation; content creation period started")],
           },
         },
       },
@@ -587,13 +876,13 @@ class CampaignService {
           influencerId: profile._id,
           acceptedAt: new Date(),
         },
-        $set: { status: state, metadata: { subscriptionId: subscription._id, paymentType: updated.paymentType } },
+        $set: { status: WORKFLOW.ACCEPTED, metadata: { subscriptionId: subscription._id, paymentType: updated.paymentType, contentCreationDeadline } },
       },
       { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
     );
     await CampaignInvitation.findOneAndUpdate(
       { campaignId: updated._id, influencerId: profile._id },
-      { $set: { status: state, acceptedAt: new Date() } },
+      { $set: { status: WORKFLOW.ACCEPTED, acceptedAt: new Date(), "metadata.contentCreationDeadline": contentCreationDeadline } },
       { upsert: false }
     );
     await VendorInfluencerRelationship.findOneAndUpdate(
@@ -710,7 +999,10 @@ class CampaignService {
     const limit = toLimit(query.limit);
     const skip = (page - 1) * limit;
     const tab = String(query.tab || "available").toLowerCase();
-    const filter = buildMarketplaceQuery(profile._id, { ...query, tab });
+    const acceptedCampaignIds = ["accepted", "active", "completed"].includes(tab)
+      ? (await CampaignAcceptance.find({ influencerId: profile._id, status: { $in: [WORKFLOW.ACCEPTED, WORKFLOW.ACTIVE] } }).select("campaignId").lean()).map((row) => row.campaignId).filter(Boolean)
+      : [];
+    const filter = buildMarketplaceQuery(profile._id, { ...query, tab, acceptedCampaignIds });
 
     const [items, total] = await Promise.all([
       Campaign.find(filter)
@@ -890,3 +1182,7 @@ class CampaignService {
 }
 
 module.exports = new CampaignService();
+module.exports.__private__ = {
+  campaignContentCreationEndDate,
+  validateCampaignEndDate,
+};

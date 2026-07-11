@@ -286,8 +286,8 @@ class PaymentService {
       logger.error("Razorpay credential validation failed", {
         keyId: result.keyId,
         mode: result.mode,
-        message: error?.error?.description || error.message,
-        code: error?.error?.code || error.statusCode,
+        message: error?.error?.description || error?.message,
+        code: error?.error?.code || error?.statusCode || error?.code,
       });
       throw new AppError(
         "Razorpay credentials are invalid or do not belong to an accessible account",
@@ -628,6 +628,118 @@ class PaymentService {
     }
   }
 
+  async createCodAdvanceRazorpayOrder({ userId, cartId, shippingAddress, trackingToken }) {
+    try {
+      const gatewayConfig = await this.assertGatewayEnabled();
+      const summary = await checkoutService.prepare(userId, {
+        shippingAddress,
+        paymentMethod: "COD",
+        trackingToken,
+      });
+      const codAdvance = summary.codAdvance || {};
+      if (!summary.codAvailability?.codAvailable) {
+        throw new AppError("COD is not available for this order", 400, "COD_NOT_AVAILABLE", {
+          reasons: summary.codAvailability?.reasons || [],
+        });
+      }
+      if (!codAdvance.enabled || Number(codAdvance.advanceAmount || 0) <= 0) {
+        throw new AppError("COD advance is not required for this order", 409, "COD_ADVANCE_NOT_REQUIRED");
+      }
+
+      const amount = Math.round(Number(codAdvance.advanceAmount || 0) * 100);
+      const currency = summary.currency || "INR";
+      if (!Number.isInteger(amount) || amount <= 0) {
+        throw new AppError("COD advance amount must be greater than zero", 400, "INVALID_COD_ADVANCE_AMOUNT");
+      }
+
+      const receipt = buildReceipt(userId);
+      const credentials = readRazorpayCredentials();
+      const razorpay = this.getRazorpayClient();
+      const order = await withTimeout(
+        razorpay.orders.create({
+          amount,
+          currency,
+          receipt,
+          notes: {
+            userId: String(userId),
+            cartId: String(cartId || "current"),
+            purpose: "cod_advance",
+          },
+        }),
+        10000,
+        "Razorpay API timeout"
+      );
+
+      if (!order?.id || !String(order.id).startsWith("order_") || Number(order.amount) !== amount || order.currency !== currency) {
+        throw new AppError("Invalid Razorpay order token. Please retry COD advance payment.", 502, "RAZORPAY_ORDER_VALIDATION_FAILED");
+      }
+
+      const paymentSession = await PaymentSession.create({
+        userId,
+        razorpayOrderId: order.id,
+        paymentMethod: "ONLINE",
+        currency,
+        amount: roundMoney(codAdvance.advanceAmount),
+        status: "CREATED",
+        idempotencyKey: buildSessionIdempotencyKey(userId, summary, shippingAddress),
+        cartSnapshot: summary.sellers.flatMap((seller) => seller.items || []),
+        checkoutSnapshot: summary,
+        pricingBreakdown: {
+          subtotal: summary.subtotal,
+          charges: summary.charges,
+          chargesTotal: summary.chargesTotal,
+          total: summary.total,
+          paymentMethod: "COD",
+          itemCount: summary.itemCount || 0,
+          currency,
+          codAdvance,
+        },
+        shippingAddress,
+        expiresAt: new Date(Date.now() + Number(gatewayConfig.sessionTimeoutMinutes || 15) * 60 * 1000),
+        metadata: {
+          intent: "COD_ADVANCE",
+          trackingToken: trackingToken || "",
+          receipt,
+          cartId: String(cartId || "current"),
+          codAdvance,
+          remainingCODAmount: codAdvance.remainingCODAmount,
+        },
+      });
+
+      const paymentRecord = await this.ensurePaymentRecordForSession(paymentSession);
+      await emitDomainEvent("COD_ADVANCE_INITIATED", {
+        paymentRecordId: paymentRecord._id,
+        paymentSessionId: paymentSession._id,
+        razorpayOrderId: order.id,
+        advanceAmount: codAdvance.advanceAmount,
+        remainingCODAmount: codAdvance.remainingCODAmount,
+      }).catch(() => {});
+
+      return {
+        paymentSessionId: paymentSession._id,
+        razorpayOrderId: order.id,
+        orderId: order.id,
+        razorpay_order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        key: credentials.keyId,
+        key_id: credentials.keyId,
+        gatewayMode: credentials.mode,
+        expiresAt: paymentSession.expiresAt,
+        receipt,
+        summary,
+        codAdvance,
+      };
+    } catch (error) {
+      logger.error("COD advance payment creation failed", {
+        userId: String(userId),
+        message: error.message,
+        code: error?.code,
+      });
+      throw error;
+    }
+  }
+
   async claimPaymentForFulfillment(paymentId) {
     return await Payment.findOneAndUpdate(
       {
@@ -735,12 +847,13 @@ class PaymentService {
     }
 
     try {
+      const isCodAdvance = paymentSession.metadata?.intent === "COD_ADVANCE";
       const orderResult = await checkoutService.createOrderFromPreparedCheckout(
         userId,
         paymentSession.checkoutSnapshot,
         {
           shippingAddress: paymentSession.shippingAddress,
-          paymentMethod: "ONLINE",
+          paymentMethod: isCodAdvance ? "COD" : "ONLINE",
           paymentRecordId: payment._id,
           orderGroupId: payment.orderGroupId || paymentSession.orderGroupId || `grp_${payment._id}`,
           paymentStatus: "Paid",
@@ -814,6 +927,18 @@ class PaymentService {
         razorpayPaymentId: razorpayPaymentId || payment.razorpayPaymentId,
         orderGroupId: orderResult.orderGroupId,
       }).catch(() => {});
+
+      if (isCodAdvance) {
+        await emitDomainEvent("COD_ADVANCE_PAID", {
+          paymentRecordId: payment._id,
+          paymentSessionId: paymentSession._id,
+          razorpayOrderId: razorpayOrderId || payment.razorpayOrderId,
+          razorpayPaymentId: razorpayPaymentId || payment.razorpayPaymentId,
+          orderGroupId: orderResult.orderGroupId,
+          advanceAmount: paymentSession.metadata?.codAdvance?.advanceAmount || payment.amount,
+          remainingCODAmount: paymentSession.metadata?.codAdvance?.remainingCODAmount || 0,
+        }).catch(() => {});
+      }
 
       return {
         paymentId: razorpayPaymentId || payment.razorpayPaymentId,

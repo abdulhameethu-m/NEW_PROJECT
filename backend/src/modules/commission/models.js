@@ -30,6 +30,7 @@ const TRAFFIC_SOURCES = ["reels", "posts", "stories", "livestream", "storefront"
 const WITHDRAWAL_STATUSES = ["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING", "COMPLETED", "REJECTED", "CANCELLED", "FAILED"];
 const CAMPAIGN_COMMISSION_RULE_STATUSES = ["draft", "active", "paused", "closed", "archived"];
 const AFFILIATE_LINK_STATUSES = ["pending_content", "active", "paused", "expired", "disabled"];
+const AFFILIATE_LINK_TRACKING_STATUSES = ["active", "inactive", "expired"];
 const AFFILIATE_ATTRIBUTION_STATUSES = ["pending", "converted", "expired", "reversed"];
 const COMMISSION_EARNING_STATUSES = ["PENDING", "APPROVED", "CREDITED", "BLOCKED", "REVERSED", "CANCELLED"];
 
@@ -107,6 +108,7 @@ const commissionSnapshotSchema = new mongoose.Schema(
     orderNumber: { type: String, trim: true, index: true },
     influencerId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerProfile", required: true, index: true },
     campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", index: true },
+    deliverableId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignDeliverable", index: true },
     productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", index: true },
     categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Category", index: true },
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor", index: true },
@@ -425,6 +427,7 @@ campaignCommissionRuleSchema.index({ influencerId: 1, status: 1, createdAt: -1 }
 const affiliateLinkSchema = new mongoose.Schema(
   {
     campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
+    deliverableId: { ...objectIdField, ref: "CampaignDeliverable", index: true },
     vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
     influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
     productId: { ...objectIdField, ref: "Product", required: true, index: true },
@@ -432,21 +435,41 @@ const affiliateLinkSchema = new mongoose.Schema(
     trackingCode: { type: String, required: true, trim: true, unique: true, index: true },
     destinationUrl: { type: String, trim: true, default: "" },
     status: { type: String, enum: AFFILIATE_LINK_STATUSES, default: "pending_content", index: true },
+    trackingStatus: { type: String, enum: AFFILIATE_LINK_TRACKING_STATUSES, default: "inactive", index: true },
     activatedAt: { type: Date },
+    activatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     expiresAt: { type: Date, index: true },
+    expiredAt: { type: Date, index: true },
+    disabledByAdmin: { type: Boolean, default: false, index: true },
+    disabledReason: { type: String, trim: true, maxlength: 1000, default: "" },
+    disabledAt: { type: Date },
+    disabledBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     lastClickedAt: { type: Date },
+    lastClick: { type: Date },
+    lastOrder: { type: Date },
+    lastCommission: { type: Date },
+    totalClicks: { type: Number, min: 0, default: 0 },
+    uniqueClicks: { type: Number, min: 0, default: 0 },
+    totalOrders: { type: Number, min: 0, default: 0 },
+    totalRevenue: moneyField,
+    totalCommission: moneyField,
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true, collection: "affiliate_links" }
 );
 
-affiliateLinkSchema.index({ campaignId: 1, influencerId: 1, productId: 1 }, { unique: true });
+affiliateLinkSchema.index(
+  { campaignId: 1, deliverableId: 1, productId: 1 },
+  { unique: true, partialFilterExpression: { deliverableId: { $type: "objectId" } }, name: "deliverable_affiliate_link" }
+);
 affiliateLinkSchema.index({ campaignId: 1, status: 1 });
+affiliateLinkSchema.index({ trackingStatus: 1, expiresAt: 1 });
 
 const affiliateClickSchema = new mongoose.Schema(
   {
     affiliateLinkId: { ...objectIdField, ref: "AffiliateLink", index: true },
     campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
+    deliverableId: { ...objectIdField, ref: "CampaignDeliverable", index: true },
     vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
     influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
     productId: { ...objectIdField, ref: "Product", required: true, index: true },
@@ -475,6 +498,7 @@ const affiliateAttributionSchema = new mongoose.Schema(
     affiliateClickId: { ...objectIdField, ref: "CampaignAffiliateClick", index: true },
     affiliateLinkId: { ...objectIdField, ref: "AffiliateLink", index: true },
     campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
+    deliverableId: { ...objectIdField, ref: "CampaignDeliverable", index: true },
     vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
     influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
     productId: { ...objectIdField, ref: "Product", required: true, index: true },
@@ -506,6 +530,7 @@ const affiliateConversionSchema = new mongoose.Schema(
     affiliateClickId: { ...objectIdField, ref: "CampaignAffiliateClick", index: true },
     affiliateLinkId: { ...objectIdField, ref: "AffiliateLink", index: true },
     campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
+    deliverableId: { ...objectIdField, ref: "CampaignDeliverable", index: true },
     vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
     influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
     productId: { ...objectIdField, ref: "Product", index: true },
@@ -527,6 +552,7 @@ const commissionEarningSchema = new mongoose.Schema(
     orderId: { ...objectIdField, ref: "Order", required: true, unique: true, index: true },
     orderNumber: { type: String, trim: true, index: true, default: "" },
     campaignId: { ...objectIdField, ref: "Campaign", required: true, index: true },
+    deliverableId: { ...objectIdField, ref: "CampaignDeliverable", index: true },
     vendorId: { ...objectIdField, ref: "Vendor", required: true, index: true },
     influencerId: { ...objectIdField, ref: "InfluencerProfile", required: true, index: true },
     productId: { ...objectIdField, ref: "Product", index: true },
@@ -618,6 +644,11 @@ const commissionRecordSchema = new mongoose.Schema(
     campaignId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Campaign",
+      index: true,
+    },
+    deliverableId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CampaignDeliverable",
       index: true,
     },
     reelId: {

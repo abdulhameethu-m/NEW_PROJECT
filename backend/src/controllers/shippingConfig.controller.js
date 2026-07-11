@@ -12,25 +12,25 @@ const shippingZoneConfigService = require("../services/shipping-zone-config.serv
 /**
  * Create a new shipping rule
  * POST /admin/shipping-config
- * Body: {state, zone, baseWeight, basePrice, pricePerKg, minWeight, maxWeight, ...}
+ * Body: {state, district?, zone, weightFrom, weightTo, shippingCharge, priority?, status?, description?}
  */
 const createShippingRule = asyncHandler(async (req, res) => {
-  const { state, zone, baseWeight, basePrice, pricePerKg, minWeight, maxWeight, freeShippingThreshold, minOrderValue, settlementRecipient, notes, sortOrder } = req.body;
+  const { state, district, zone, weightFrom, weightTo, shippingCharge, priority, status, isActive, settlementRecipient, description, notes, isFallback } = req.body;
 
   const rule = await shippingConfigAdminService.createRule({
     state: state || "Tamil Nadu",
+    district,
     zone,
-    baseWeight,
-    basePrice,
-    pricePerKg,
-    minWeight,
-    maxWeight,
-    freeShippingThreshold,
-    minOrderValue,
+    weightFrom,
+    weightTo,
+    shippingCharge,
+    priority,
+    status,
+    isActive,
     settlementRecipient: settlementRecipient === "VENDOR" ? "VENDOR" : "ADMIN",
-    notes,
-    sortOrder: sortOrder || 0,
-  });
+    description: description || notes,
+    isFallback: Boolean(isFallback),
+  }, req.user?.sub);
 
   return ok(res, rule, "Shipping rule created successfully", 201);
 });
@@ -40,10 +40,11 @@ const createShippingRule = asyncHandler(async (req, res) => {
  * GET /admin/shipping-config?state=Tamil%20Nadu&zone=LOCAL&page=1&limit=50
  */
 const getAllShippingRules = asyncHandler(async (req, res) => {
-  const { state, zone, activeOnly, page = 1, limit = 50 } = req.query;
+  const { state, district, zone, activeOnly, page = 1, limit = 50 } = req.query;
 
   const result = await shippingConfigAdminService.getAllRules({
     state,
+    district,
     zone,
     activeOnly: activeOnly === "true",
     page: parseInt(page),
@@ -71,7 +72,11 @@ const updateShippingRule = asyncHandler(async (req, res) => {
   const { ruleId } = req.params;
   const updates = req.body;
 
-  const rule = await shippingConfigAdminService.updateRule(ruleId, updates);
+  if (updates.isFallback !== undefined) {
+    updates.isFallback = Boolean(updates.isFallback);
+  }
+
+  const rule = await shippingConfigAdminService.updateRule(ruleId, updates, req.user?.sub);
   return ok(res, rule, "Shipping rule updated successfully");
 });
 
@@ -81,7 +86,7 @@ const updateShippingRule = asyncHandler(async (req, res) => {
  */
 const deleteShippingRule = asyncHandler(async (req, res) => {
   const { ruleId } = req.params;
-  const rule = await shippingConfigAdminService.deleteRule(ruleId);
+  const rule = await shippingConfigAdminService.deleteRule(ruleId, req.user?.sub);
   return ok(res, rule, "Shipping rule deleted successfully");
 });
 
@@ -97,17 +102,17 @@ const bulkUpdateShippingRules = asyncHandler(async (req, res) => {
     throw new AppError("ruleIds array and updates object are required", 400);
   }
 
-  const result = await shippingConfigAdminService.bulkUpdateRules(ruleIds, updates);
+  const result = await shippingConfigAdminService.bulkUpdateRules(ruleIds, updates, req.user?.sub);
   return ok(res, result, "Bulk update completed");
 });
 
 /**
  * Test shipping calculation
  * POST /admin/shipping-config/calculate-preview
- * Body: {weight, state?, zone?}
+ * Body: {weight, state?, district?, zone?}
  */
 const calculateShippingPreview = asyncHandler(async (req, res) => {
-  const { weight, state, zone } = req.body;
+  const { weight, state, district, zone } = req.body;
 
   if (!weight || weight <= 0) {
     throw new AppError("Weight must be provided and greater than 0", 400);
@@ -116,6 +121,7 @@ const calculateShippingPreview = asyncHandler(async (req, res) => {
   const preview = await shippingConfigAdminService.calculatePreview({
     weight: parseFloat(weight),
     state: state || "Tamil Nadu",
+    district,
     zone,
   });
 
@@ -142,6 +148,12 @@ const getShippingOptions = asyncHandler(async (req, res) => {
     res,
     {
       zones: shippingZoneConfigService.ZONES,
+      districtsByState: Object.fromEntries(
+        zoneConfig.states.map((entry) => [
+          entry.state,
+          shippingZoneConfigService.getConfiguredDistrictsForStateFromMatrix(zoneConfig, entry.state),
+        ])
+      ),
       states: zoneConfig.states.map((entry) => entry.state),
       zoneDescriptions: {
         LOCAL: "Same city delivery",
@@ -172,7 +184,7 @@ const cloneShippingRule = asyncHandler(async (req, res) => {
   const { ruleId } = req.params;
   const { overrides } = req.body;
 
-  const newRule = await shippingConfigAdminService.cloneRule(ruleId, overrides || {});
+  const newRule = await shippingConfigAdminService.cloneRule(ruleId, overrides || {}, req.user?.sub);
   return ok(res, newRule, "Shipping rule cloned successfully", 201);
 });
 
@@ -206,6 +218,20 @@ const getConfigurationSummary = asyncHandler(async (req, res) => {
   );
 });
 
+const getPublicShippingStates = asyncHandler(async (req, res) => {
+  const states = await shippingZoneConfigService.getConfiguredStates();
+  return ok(res, { states }, "Shipping states retrieved successfully");
+});
+
+const getPublicShippingDistricts = asyncHandler(async (req, res) => {
+  const state = String(req.query.state || "").trim();
+  if (!state) {
+    throw new AppError("state query parameter is required", 400, "VALIDATION_ERROR");
+  }
+  const districts = await shippingZoneConfigService.getConfiguredDistrictsForState(state);
+  return ok(res, { state, districts }, "Shipping districts retrieved successfully");
+});
+
 module.exports = {
   createShippingRule,
   getAllShippingRules,
@@ -221,4 +247,6 @@ module.exports = {
   cloneShippingRule,
   validateShippingConfiguration,
   getConfigurationSummary,
+  getPublicShippingStates,
+  getPublicShippingDistricts,
 };

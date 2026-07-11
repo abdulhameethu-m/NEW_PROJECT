@@ -1,19 +1,42 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Clock3, FileUp, LinkIcon, RefreshCw, Send, Upload, Loader2, Share2 } from "lucide-react";
+import { ArrowLeft, AlertCircle, CheckCircle2, Clock3, FileUp, LinkIcon, RefreshCw, Send, Upload, Loader2, Share2, XCircle } from "lucide-react";
 import { getCampaignExecution, submitCampaignExecutionDeliverable, uploadInfluencerContentMedia } from "../../services/influencerCommerceService";
+import { CampaignLifecycleTimeline } from "../../components/campaign/CampaignLifecycleTimeline";
 import { formatCurrency } from "../../utils/formatCurrency";
 
-const CONTENT_TYPES = [
-  ["url", "URL"],
-  ["video", "Video"],
-  ["image", "Image"],
-  ["document", "Document"],
-  ["youtube", "YouTube"],
-  ["instagram", "Instagram"],
-  ["facebook", "Facebook"],
-  ["tiktok", "TikTok"],
-];
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+const EXECUTABLE_EXTENSIONS = new Set(["exe", "bat", "cmd", "sh", "msi", "js", "jar", "scr", "ps1", "com", "dll"]);
+const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "qt"]);
+const DOCUMENT_EXTENSIONS = new Set(["pdf", "doc", "docx"]);
+
+const DELIVERABLE_UPLOAD_RULES = {
+  post: {
+    badge: "POST REQUIRED",
+    message: "This campaign requires a POST only.",
+    helper: ["Instagram Feed Post", "Facebook Feed Post", "Image Upload"],
+    options: [
+      { value: "instagram_post", label: "Instagram Post", sourcePlatform: "instagram", mediaType: "instagram_post", uploadMethod: "url", placeholder: "Paste Instagram feed post URL" },
+      { value: "facebook_post", label: "Facebook Post", sourcePlatform: "facebook", mediaType: "facebook_post", uploadMethod: "url", placeholder: "Paste Facebook feed post URL" },
+      { value: "image_upload", label: "Image Upload", sourcePlatform: "upload", mediaType: "image", uploadMethod: "file", accept: "image/jpeg,image/png,image/webp,image/gif" },
+      { value: "carousel_images", label: "Carousel Images", sourcePlatform: "upload", mediaType: "carousel", uploadMethod: "file", accept: "image/jpeg,image/png,image/webp,image/gif", multiple: true },
+      { value: "document_proof", label: "Document (optional proof)", sourcePlatform: "upload", mediaType: "document", uploadMethod: "file", accept: "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+    ],
+  },
+  reel: {
+    badge: "REEL REQUIRED",
+    message: "This campaign requires a REEL only.",
+    helper: ["Instagram Reel", "TikTok", "YouTube Shorts", "Video Upload"],
+    options: [
+      { value: "instagram_reel", label: "Instagram Reel", sourcePlatform: "instagram", mediaType: "instagram_reel", uploadMethod: "url", placeholder: "Paste Instagram Reel URL" },
+      { value: "youtube_shorts", label: "YouTube Shorts", sourcePlatform: "youtube", mediaType: "youtube_shorts", uploadMethod: "url", placeholder: "Paste YouTube Shorts URL" },
+      { value: "tiktok_video", label: "TikTok", sourcePlatform: "tiktok", mediaType: "tiktok_video", uploadMethod: "url", placeholder: "Paste TikTok video URL" },
+      { value: "facebook_reel", label: "Facebook Reel", sourcePlatform: "facebook", mediaType: "facebook_reel", uploadMethod: "url", placeholder: "Paste Facebook Reel URL" },
+      { value: "video_upload", label: "Video Upload", sourcePlatform: "upload", mediaType: "video", uploadMethod: "file", accept: "video/mp4,video/webm,video/quicktime" },
+    ],
+  },
+};
 
 const REEL_CONTENT_TYPES = new Set([
   "product_video",
@@ -40,8 +63,99 @@ function statusLabel(value = "") {
   return String(value || "pending").replace(/_/g, " ");
 }
 
+function isMongoObjectId(value = "") {
+  return /^[a-f\d]{24}$/i.test(String(value || ""));
+}
+
+function reviewDecisionLabel(value = "") {
+  const decision = String(value || "").toLowerCase();
+  if (decision === "approve") return "Approved by vendor";
+  if (decision === "reject") return "Rejected by vendor";
+  if (decision === "revision_requested") return "Changes requested by vendor";
+  return "Waiting for vendor review";
+}
+
+function effectiveReviewDecision(deliverable = {}) {
+  const reviewDecision = deliverable.latestReview?.decision;
+  if (reviewDecision) return reviewDecision;
+  const approvalStatus = String(deliverable.approvalStatus || deliverable.status || "").toLowerCase();
+  if (approvalStatus === "approved" || approvalStatus === "completed") return "approve";
+  if (approvalStatus === "rejected") return "reject";
+  if (approvalStatus === "revision_requested") return "revision_requested";
+  return "";
+}
+
+function reviewTone(value = "") {
+  const decision = String(value || "").toLowerCase();
+  if (decision === "approve") return "emerald";
+  if (decision === "reject") return "rose";
+  if (decision === "revision_requested") return "amber";
+  return "slate";
+}
+
+function ReviewIcon({ decision = "", className = "h-5 w-5" }) {
+  const tone = reviewTone(decision);
+  if (tone === "emerald") return <CheckCircle2 className={`${className} text-emerald-500`} />;
+  if (tone === "rose") return <XCircle className={`${className} text-rose-500`} />;
+  if (tone === "amber") return <AlertCircle className={`${className} text-amber-500`} />;
+  return <Clock3 className={`${className} text-slate-400`} />;
+}
+
 function dateLabel(value) {
   return value ? new Date(value).toLocaleDateString() : "Not set";
+}
+
+function dateTimeLabel(value) {
+  return value ? new Date(value).toLocaleString() : "Not reviewed yet";
+}
+
+function normalizeDeliverableKind(deliverable = {}) {
+  const raw = String(deliverable.deliverableType || deliverable.type || deliverable.title || "").toLowerCase();
+  if (/(^|[_\s-])(reel|short|shorts|video|ugc)([_\s-]|$)/.test(raw) || raw.includes("reel")) return "reel";
+  return "post";
+}
+
+function extensionFromName(value = "") {
+  const clean = String(value || "").split("?")[0].split("#")[0];
+  const ext = clean.includes(".") ? clean.split(".").pop().toLowerCase() : "";
+  return ext;
+}
+
+function isAllowedUrlForOption(value = "", option = {}) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  let url;
+  try {
+    url = new URL(text);
+  } catch {
+    return false;
+  }
+  if (!["http:", "https:"].includes(url.protocol)) return false;
+  const host = url.hostname.replace(/^www\./, "").toLowerCase();
+  const path = url.pathname.toLowerCase();
+  if (option.value === "instagram_post") return host.endsWith("instagram.com") && path.includes("/p/");
+  if (option.value === "instagram_reel") return host.endsWith("instagram.com") && (path.includes("/reel/") || path.includes("/reels/"));
+  if (option.value === "facebook_post") return (host.endsWith("facebook.com") || host.endsWith("fb.com")) && !path.includes("/reel");
+  if (option.value === "facebook_reel") return (host.endsWith("facebook.com") || host.endsWith("fb.watch")) && (path.includes("/reel") || path.includes("/watch") || host.endsWith("fb.watch"));
+  if (option.value === "youtube_shorts") return (host.endsWith("youtube.com") && path.includes("/shorts/")) || host.endsWith("youtu.be");
+  if (option.value === "tiktok_video") return host.endsWith("tiktok.com") && path.includes("/video/");
+  return true;
+}
+
+function validateFilesForOption(files = [], option = {}) {
+  if (!files.length) return "Choose a file before uploading.";
+  for (const file of files) {
+    const ext = extensionFromName(file.name);
+    if (EXECUTABLE_EXTENSIONS.has(ext)) return "Executable files are not allowed.";
+    if (file.size > MAX_UPLOAD_BYTES) return "Uploaded file is too large.";
+    if (option.mediaType === "video" && (!file.type.startsWith("video/") || !VIDEO_EXTENSIONS.has(ext))) return "Only MP4, WebM, or MOV video files are accepted for REEL uploads.";
+    if (["image", "carousel"].includes(option.mediaType) && (!file.type.startsWith("image/") || !IMAGE_EXTENSIONS.has(ext))) return "Only JPEG, PNG, WebP, or GIF images are accepted for POST uploads.";
+    if (option.mediaType === "document" && (!["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type) || !DOCUMENT_EXTENSIONS.has(ext))) {
+      return "Only PDF, DOC, or DOCX documents are accepted as proof.";
+    }
+  }
+  if (!option.multiple && files.length > 1) return "Only one file is allowed for this upload type.";
+  return "";
 }
 
 function ProgressBar({ value = 0 }) {
@@ -52,17 +166,184 @@ function ProgressBar({ value = 0 }) {
   );
 }
 
+function VendorApprovalModule({ deliverables = [] }) {
+  const reviewed = deliverables.filter((row) => effectiveReviewDecision(row));
+  const approved = deliverables.filter((row) => effectiveReviewDecision(row) === "approve");
+  const rejected = deliverables.filter((row) => effectiveReviewDecision(row) === "reject");
+  const changes = deliverables.filter((row) => effectiveReviewDecision(row) === "revision_requested");
+  const pending = deliverables.length - reviewed.length;
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Vendor approval status</p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">Check whether the vendor approved your content</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            This module updates from the vendor review flow, including approval, rejection, revision request, and comments.
+          </p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          {reviewed.length} / {deliverables.length} reviewed
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-4">
+        <ApprovalMetric label="Approved" value={approved.length} tone="emerald" />
+        <ApprovalMetric label="Changes" value={changes.length} tone="amber" />
+        <ApprovalMetric label="Rejected" value={rejected.length} tone="rose" />
+        <ApprovalMetric label="Waiting" value={pending} tone="slate" />
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {deliverables.map((deliverable) => {
+          const review = deliverable.latestReview;
+          const decision = effectiveReviewDecision(deliverable);
+          const tone = reviewTone(decision);
+          const toneClasses = {
+            emerald: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200",
+            rose: "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200",
+            amber: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200",
+            slate: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200",
+          }[tone];
+
+          return (
+            <div key={deliverable.id} className={`rounded-xl border p-4 ${toneClasses}`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <ReviewIcon decision={decision} />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-950 dark:text-white">{deliverable.title}</p>
+                    <p className="mt-1 text-sm capitalize">{reviewDecisionLabel(decision)}</p>
+                  </div>
+                </div>
+                <span className="text-xs font-semibold">{dateTimeLabel(review?.reviewedAt)}</span>
+              </div>
+              {review?.comments ? (
+                <p className="mt-3 rounded-lg bg-white/70 px-3 py-2 text-sm text-slate-700 dark:bg-slate-950/40 dark:text-slate-200">
+                  Vendor note: {review.comments}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ApprovalMetric({ label, value, tone }) {
+  const classes = {
+    emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200",
+    amber: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-200",
+    rose: "bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-200",
+    slate: "bg-slate-50 text-slate-700 dark:bg-slate-950/60 dark:text-slate-200",
+  }[tone];
+
+  return (
+    <div className={`rounded-xl p-3 ${classes}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide opacity-80">{label}</p>
+      <p className="mt-1 text-2xl font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function RefundedDeliverablesNotice({ deliverables = [] }) {
+  const refunded = deliverables.filter((row) => row.refundLock?.locked);
+  if (!refunded.length) return null;
+  const totalRefunded = refunded.reduce((sum, row) => sum + Number(row.refundLock?.refundedAmount || row.funding?.refundedAmount || 0), 0);
+
+  return (
+    <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950 shadow-sm dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="mt-1 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">Refunded deliverables</p>
+            <h2 className="mt-1 text-xl font-semibold">Some deliverables are no longer available for content creation</h2>
+            <p className="mt-1 text-sm">
+              You can publish only the deliverables completed within their due date. Refunded deliverables are locked because the amount was returned to the vendor.
+            </p>
+          </div>
+        </div>
+        <div className="rounded-xl bg-white/70 px-4 py-3 text-sm dark:bg-slate-950/40">
+          <p className="text-xs opacity-75">Total refunded</p>
+          <p className="text-lg font-semibold">{formatCurrency(totalRefunded)}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {refunded.map((deliverable) => (
+          <div key={deliverable.id} className="rounded-xl border border-amber-200 bg-white/70 p-3 dark:border-amber-900/40 dark:bg-slate-950/40">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold text-slate-950 dark:text-white">{deliverable.title}</p>
+                <p className="mt-1 text-sm">
+                  Due {dateLabel(deliverable.expectedCompletionDate)} · Refunded {formatCurrency(deliverable.refundLock?.refundedAmount || deliverable.funding?.refundedAmount || 0)}
+                </p>
+              </div>
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-100">
+                Content locked
+              </span>
+            </div>
+            <p className="mt-2 text-sm">
+              You can't create a reel or post for this deliverable because the deliverable due date passed and its escrow amount was refunded to the vendor.
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, campaignData }) {
-  const [form, setForm] = useState({ contentUrl: "", contentType: "url", notes: "" });
+  const deliverableKind = normalizeDeliverableKind(deliverable);
+  const uploadRule = DELIVERABLE_UPLOAD_RULES[deliverableKind] || DELIVERABLE_UPLOAD_RULES.post;
+  const [form, setForm] = useState({
+    contentUrl: "",
+    mediaUrls: [],
+    contentType: deliverableKind,
+    uploadOption: uploadRule.options[0].value,
+    sourcePlatform: uploadRule.options[0].sourcePlatform,
+    mediaType: uploadRule.options[0].mediaType,
+    uploadMethod: uploadRule.options[0].uploadMethod,
+    fileMetadata: [],
+    notes: "",
+  });
+  const [validationError, setValidationError] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const refundLock = deliverable.refundLock || {};
+  const isRefundedLocked = Boolean(refundLock.locked);
+  const isUploadLocked = Boolean(deliverable.uploadLocked);
+  const isPublishLocked = Boolean(deliverable.publishLocked);
   const closed = ["completed", "approved", "cancelled"].includes(deliverable.status);
   const latest = deliverable.submissions?.[0] || null;
   const isApproved = ["approved", "completed"].includes(deliverable.status);
+  const selectedOption = uploadRule.options.find((option) => option.value === form.uploadOption) || uploadRule.options[0];
+  const requiresUrl = selectedOption.uploadMethod === "url";
+  const hasValidUrl = !requiresUrl || isAllowedUrlForOption(form.contentUrl, selectedOption);
+  const canSubmit = Boolean(form.contentUrl.trim()) && hasValidUrl && !validationError && !isUploading;
+
+  function resetForm(option = uploadRule.options[0]) {
+    setValidationError("");
+    setForm({
+      contentUrl: "",
+      mediaUrls: [],
+      contentType: deliverableKind,
+      uploadOption: option.value,
+      sourcePlatform: option.sourcePlatform,
+      mediaType: option.mediaType,
+      uploadMethod: option.uploadMethod,
+      fileMetadata: [],
+      notes: "",
+    });
+  }
 
   function handlePublish() {
     const publishData = {
       campaignId: campaignId,
+      deliverableId: deliverable.id,
       videoUrl: latest?.contentUrl || "",
       title: deliverable.title || "",
       description: `Deliverable for ${campaignData?.campaign?.title || "campaign"}`,
@@ -72,20 +353,40 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
     navigate("/influencer/content?tab=upload", { state: publishData });
   }
 
-  async function handleFileUpload(file) {
-    if (!file) return;
+  async function handleFileUpload(filesValue) {
+    const files = Array.from(filesValue || []).filter(Boolean);
+    const fileError = validateFilesForOption(files, selectedOption);
+    if (fileError) {
+      setValidationError(fileError);
+      return;
+    }
+    setValidationError("");
     setIsUploading(true);
     try {
       const formData = new FormData();
-      const isVideo = file.type.startsWith("video/");
-      formData.append(isVideo ? "video" : "thumbnail", file);
+      files.forEach((file) => {
+        if (selectedOption.mediaType === "video") formData.append("video", file);
+        else if (selectedOption.mediaType === "document") formData.append("document", file);
+        else formData.append("thumbnail", file);
+      });
       const response = await uploadInfluencerContentMedia(formData);
-      const uploadedUrl = response?.data?.[isVideo ? "videoUrl" : "thumbnailUrl"];
+      const uploadedUrls = [...new Set([
+        response?.data?.videoUrl,
+        response?.data?.documentUrl,
+        response?.data?.thumbnailUrl,
+        ...(Array.isArray(response?.data?.imageUrls) ? response.data.imageUrls : []),
+      ].filter(Boolean))];
+      const uploadedUrl = uploadedUrls[0];
       if (uploadedUrl) {
         setForm((current) => ({
           ...current,
           contentUrl: uploadedUrl,
-          contentType: isVideo ? "reel" : current.contentType,
+          mediaUrls: uploadedUrls,
+          contentType: deliverableKind,
+          sourcePlatform: selectedOption.sourcePlatform,
+          mediaType: selectedOption.mediaType,
+          uploadMethod: selectedOption.uploadMethod,
+          fileMetadata: files.map((file) => ({ name: file.name, mimeType: file.type, size: file.size })),
         }));
       }
     } catch {
@@ -118,7 +419,7 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      handleFileUpload(files[0]);
+      handleFileUpload(files);
     }
   }
 
@@ -150,9 +451,66 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
         </div>
         <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950/60">
           <p className="text-xs text-slate-500 dark:text-slate-400">Payment</p>
-          <p className="mt-1 font-semibold capitalize text-slate-950 dark:text-white">{statusLabel(deliverable.paymentEligibility)}</p>
+          <p className="mt-1 font-semibold capitalize text-slate-950 dark:text-white">
+            {isRefundedLocked ? "Refunded to vendor" : statusLabel(deliverable.paymentEligibility)}
+          </p>
         </div>
       </div>
+
+      {deliverable.publishedAt || deliverable.affiliateStatus === "active" ? (
+        <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-800">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">Affiliate Tracking</p>
+              <p className="mt-1 text-sm font-semibold capitalize text-slate-950 dark:text-white">{statusLabel(deliverable.trackingStatus || "inactive")}</p>
+            </div>
+            {deliverable.affiliateLink ? (
+              <a href={deliverable.affiliateLink} target="_blank" rel="noreferrer" className="inline-flex max-w-full items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-300">
+                <LinkIcon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{deliverable.affiliateTrackingCode || "Open affiliate link"}</span>
+              </a>
+            ) : null}
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Info label="Published" value={dateTimeLabel(deliverable.publishedAt)} />
+            <Info label="Tracking Start" value={dateTimeLabel(deliverable.trackingStartDate)} />
+            <Info label="Tracking End" value={dateTimeLabel(deliverable.trackingEndDate)} />
+            <Info label="Clicks" value={String(deliverable.affiliateMetrics?.clicks || 0)} />
+            <Info label="Orders" value={String(deliverable.affiliateMetrics?.orders || 0)} />
+            <Info label="Revenue" value={formatCurrency(deliverable.affiliateMetrics?.revenue || 0)} />
+            <Info label="Commission" value={formatCurrency(deliverable.affiliateMetrics?.commission || 0)} />
+            <Info label="Conversion / CTR" value={`${deliverable.affiliateMetrics?.conversionRate || 0}% / ${deliverable.affiliateMetrics?.ctr || 0}%`} />
+          </div>
+        </div>
+      ) : null}
+
+      {isRefundedLocked ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+          <div className="flex flex-wrap items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">Content creation is locked for this deliverable</p>
+              <p className="mt-1 text-sm">
+                {refundLock.message || "You can't create content for this deliverable because the amount was refunded to the vendor."}
+              </p>
+              <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+                <div className="rounded-xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
+                  <p className="text-xs opacity-75">Refunded Amount</p>
+                  <p className="font-semibold">{formatCurrency(refundLock.refundedAmount || deliverable.funding?.refundedAmount || 0)}</p>
+                </div>
+                <div className="rounded-xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
+                  <p className="text-xs opacity-75">Due Date</p>
+                  <p className="font-semibold">{dateLabel(deliverable.expectedCompletionDate)}</p>
+                </div>
+                <div className="rounded-xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
+                  <p className="text-xs opacity-75">Status</p>
+                  <p className="font-semibold capitalize">{statusLabel(refundLock.status || "refunded")}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {latest ? (
         <div className="mt-4 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
@@ -165,77 +523,124 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
         </div>
       ) : null}
 
-      {!closed ? (
+      {isUploadLocked && !latest ? (
+        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+          <p className="font-semibold">Deliverable Deadline Expired</p>
+          <p className="mt-1 text-sm">This deliverable can no longer be uploaded.</p>
+        </div>
+      ) : null}
+
+      {!isRefundedLocked && !isUploadLocked && !closed ? (
         <div className="mt-4 grid gap-3">
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 text-sm text-indigo-950 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-100">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">Deliverable Type</p>
+                <p className="mt-1 text-lg font-semibold uppercase">{deliverableKind}</p>
+              </div>
+              <span className="rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white">{uploadRule.badge}</span>
+            </div>
+            <p className="mt-3 font-semibold">{uploadRule.message}</p>
+            <ul className="mt-2 flex flex-wrap gap-2 text-xs">
+              {uploadRule.helper.map((item) => (
+                <li key={item} className="rounded-full bg-white px-3 py-1 text-indigo-700 shadow-sm dark:bg-slate-900 dark:text-indigo-200">{item}</li>
+              ))}
+            </ul>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
             <select
-              value={form.contentType}
-              onChange={(event) => setForm((current) => ({ ...current, contentType: event.target.value }))}
+              value={form.uploadOption}
+              onChange={(event) => {
+                const next = uploadRule.options.find((option) => option.value === event.target.value) || uploadRule.options[0];
+                resetForm(next);
+              }}
               className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             >
-              {CONTENT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              {uploadRule.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
             <input
               value={form.contentUrl}
-              onChange={(event) => setForm((current) => ({ ...current, contentUrl: event.target.value }))}
-              placeholder="Paste content URL or drag & drop media below"
+              disabled={!requiresUrl}
+              onChange={(event) => {
+                setValidationError("");
+                setForm((current) => ({ ...current, contentUrl: event.target.value.trimStart() }));
+              }}
+              onBlur={() => {
+                if (requiresUrl && form.contentUrl && !isAllowedUrlForOption(form.contentUrl, selectedOption)) {
+                  setValidationError(`${selectedOption.label} URL is not valid for this ${deliverableKind.toUpperCase()} deliverable.`);
+                }
+              }}
+              placeholder={requiresUrl ? selectedOption.placeholder : "Upload media below to generate a secure media URL"}
               className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             />
           </div>
 
-          <div
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            className={`relative rounded-2xl border-2 border-dashed px-4 py-8 text-center transition ${
-              isDragging ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20" : "border-slate-300 dark:border-slate-600"
-            }`}
-          >
-            <div className="pointer-events-none">
-              <Upload className="mx-auto h-8 w-8 text-slate-400" />
-              <p className="mt-2 text-sm font-medium text-slate-800 dark:text-slate-100">Drag & drop your post or reel here</p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">or use the button below to browse files</p>
-            </div>
-            <input
-              type="file"
-              accept="image/*,video/*"
-              disabled={isUploading}
-              onChange={(e) => {
-                if (e.target.files?.[0]) {
-                  handleFileUpload(e.target.files[0]);
-                }
-                e.target.value = "";
-              }}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-            />
-          </div>
+          {selectedOption.uploadMethod === "file" ? (
+            <>
+              <div
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                className={`relative rounded-2xl border-2 border-dashed px-4 py-8 text-center transition ${
+                  isDragging ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20" : "border-slate-300 dark:border-slate-600"
+                }`}
+              >
+                <div className="pointer-events-none">
+                  <Upload className="mx-auto h-8 w-8 text-slate-400" />
+                  <p className="mt-2 text-sm font-medium text-slate-800 dark:text-slate-100">Drag & drop {selectedOption.label.toLowerCase()} here</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{uploadRule.message}</p>
+                </div>
+                <input
+                  type="file"
+                  accept={selectedOption.accept}
+                  multiple={Boolean(selectedOption.multiple)}
+                  disabled={isUploading}
+                  onChange={(e) => {
+                    if (e.target.files?.length) {
+                      handleFileUpload(e.target.files);
+                    }
+                    e.target.value = "";
+                  }}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+              </div>
 
-          <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
-            {isUploading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4" />
-                Choose File
-              </>
-            )}
-            <input
-              type="file"
-              accept="image/*,video/*"
-              disabled={isUploading}
-              className="sr-only"
-              onChange={(e) => {
-                if (e.target.files?.[0]) {
-                  handleFileUpload(e.target.files[0]);
-                }
-                e.target.value = "";
-              }}
-            />
-          </label>
+              <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Choose File
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept={selectedOption.accept}
+                  multiple={Boolean(selectedOption.multiple)}
+                  disabled={isUploading}
+                  className="sr-only"
+                  onChange={(e) => {
+                    if (e.target.files?.length) {
+                      handleFileUpload(e.target.files);
+                    }
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </>
+          ) : null}
+
+          {validationError ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">
+              {validationError || uploadRule.message}
+            </div>
+          ) : null}
 
           <textarea
             value={form.notes}
@@ -245,26 +650,27 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
           />
           <button
             type="button"
-            disabled={busy || !form.contentUrl.trim()}
-            onClick={() => onSubmit(campaignId, deliverable.id, form).then(() => setForm({ contentUrl: "", contentType: "url", notes: "" }))}
+            disabled={busy || !canSubmit}
+            onClick={() => onSubmit(campaignId, deliverable.id, form).then(() => resetForm(selectedOption))}
             className="inline-flex h-11 w-fit items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-slate-950"
           >
             <Send className="h-4 w-4" />
             Upload Content
           </button>
         </div>
-      ) : isApproved ? (
+      ) : !isRefundedLocked && isApproved ? (
         <div className="mt-4 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={handlePublish}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-600"
+            disabled={isPublishLocked}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-500 dark:hover:bg-emerald-600"
           >
             <Share2 className="h-4 w-4" />
-            Publish Content
+            {isPublishLocked ? "Publishing Scheduled" : "Publish Content"}
           </button>
           <p className="flex items-center text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-            Content approved! Ready to publish.
+            {isPublishLocked ? `Available on ${dateTimeLabel(deliverable.publishAvailableAt)}` : "Content approved! Ready to publish."}
           </p>
         </div>
       ) : null}
@@ -275,6 +681,7 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
 export default function CampaignExecutionPage() {
   const navigate = useNavigate();
   const { campaignId } = useParams();
+  const validCampaignId = isMongoObjectId(campaignId);
   const [execution, setExecution] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -282,6 +689,12 @@ export default function CampaignExecutionPage() {
   const [message, setMessage] = useState("");
 
   const load = useCallback(async () => {
+    if (!validCampaignId) {
+      setLoading(false);
+      setExecution(null);
+      setError("Invalid campaign link. Please open the campaign from Accepted Campaigns.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -292,7 +705,7 @@ export default function CampaignExecutionPage() {
     } finally {
       setLoading(false);
     }
-  }, [campaignId]);
+  }, [campaignId, validCampaignId]);
 
   useEffect(() => {
     load();
@@ -317,9 +730,23 @@ export default function CampaignExecutionPage() {
 
   if (loading) return <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">Loading campaign execution...</div>;
 
+  if (!validCampaignId) {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-4 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100">
+        <h1 className="text-lg font-semibold">Invalid campaign link</h1>
+        <p className="text-sm">This page needs a real campaign ID. Open it from Accepted Campaigns instead of using the route placeholder.</p>
+        <Link to="/influencer/campaigns?tab=accepted" className="inline-flex w-fit items-center gap-2 rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600">
+          <ArrowLeft className="h-4 w-4" />
+          Go to Accepted Campaigns
+        </Link>
+      </div>
+    );
+  }
+
   const campaign = execution?.campaign || {};
   const progress = execution?.progress || {};
   const payout = execution?.payout || {};
+  const affiliatePerformance = execution?.affiliatePerformance || {};
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5">
@@ -366,7 +793,26 @@ export default function CampaignExecutionPage() {
           <Info label="Approved Value" value={formatCurrency(payout.approvedDeliverableValue || 0)} />
           <Info label="Eligible Payout" value={formatCurrency(payout.eligiblePayout || 0)} />
         </div>
+        <div className="mt-4">
+          <CampaignLifecycleTimeline campaign={campaign} />
+        </div>
       </section>
+
+      <section className="border-y border-slate-200 py-4 dark:border-slate-800">
+        <h2 className="text-base font-semibold text-slate-950 dark:text-white">Campaign Affiliate Performance</h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <Info label="Clicks" value={String(affiliatePerformance.clicks || 0)} />
+          <Info label="Orders" value={String(affiliatePerformance.orders || 0)} />
+          <Info label="Revenue" value={formatCurrency(affiliatePerformance.revenue || 0)} />
+          <Info label="Commission" value={formatCurrency(affiliatePerformance.commission || 0)} />
+          <Info label="Conversions" value={String(affiliatePerformance.conversions || 0)} />
+          <Info label="Published" value={String(affiliatePerformance.publishedDeliverables || 0)} />
+          <Info label="Pending" value={String(affiliatePerformance.pendingDeliverables || 0)} />
+        </div>
+      </section>
+
+      <VendorApprovalModule deliverables={execution?.deliverables || []} />
+      <RefundedDeliverablesNotice deliverables={execution?.deliverables || []} />
 
       <section className="grid gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">

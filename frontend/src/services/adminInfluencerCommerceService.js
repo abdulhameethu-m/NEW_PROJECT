@@ -32,13 +32,18 @@ export async function getAdminInfluencerVendorMatching(params = {}) {
   return data;
 }
 
-export async function recommendAdminInfluencerVendorMatch(payload = {}) {
-  const { data } = await api.post(`${base}/matching/recommend`, payload);
+export async function listAdminAffiliateLinks(params = {}) {
+  const { data } = await api.get(`${base}/affiliate-links`, { params });
   return data;
 }
 
-export async function listAdminAffiliateLinks(params = {}) {
-  const { data } = await api.get(`${base}/affiliate-links`, { params });
+export async function getAdminAffiliateLinkDetails(linkId) {
+  const { data } = await api.get(`${base}/affiliate-links/${linkId}`);
+  return data;
+}
+
+export async function updateAdminAffiliateLinkStatus(linkId, payload = {}) {
+  const { data } = await api.patch(`${base}/affiliate-links/${linkId}/status`, payload);
   return data;
 }
 

@@ -14,6 +14,11 @@ const reelSchema = new mongoose.Schema(
       ref: "Campaign",
       index: true,
     },
+    deliverableId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CampaignDeliverable",
+      index: true,
+    },
     productIds: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
       default: [],
@@ -28,10 +33,12 @@ const reelSchema = new mongoose.Schema(
     thumbnailUrl: { type: String, trim: true, default: "" },
     contentType: {
       type: String,
-      enum: ["product_video", "review", "tutorial", "unboxing", "lifestyle", "campaign", "affiliate", "brand_collaboration", "short", "reel", "live"],
+      enum: ["POST", "REEL", "post", "reel", "product_video", "review", "tutorial", "unboxing", "lifestyle", "campaign", "affiliate", "brand_collaboration", "short", "live"],
       default: "reel",
       index: true,
     },
+    imageUrls: { type: [String], default: [] },
+    mediaUrls: { type: [String], default: [] },
     category: { type: String, trim: true, default: "", index: true },
     tags: { type: [String], default: [] },
     language: { type: String, trim: true, default: "en" },
@@ -100,6 +107,62 @@ reelSchema.index({ influencerId: 1, createdAt: -1 });
 reelSchema.index({ influencerId: 1, contentType: 1, createdAt: -1 });
 reelSchema.index({ influencerId: 1, visibility: 1, scheduledAt: 1 });
 
+const analyticsNumber = { type: Number, min: 0, default: 0 };
+
+const contentAnalyticsSchema = new mongoose.Schema(
+  {
+    contentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Reel",
+      required: true,
+      unique: true,
+      index: true,
+    },
+    campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", index: true },
+    vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor", index: true },
+    influencerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InfluencerProfile",
+      required: true,
+      index: true,
+    },
+    paymentModel: {
+      type: String,
+      enum: ["fixed", "commission", "hybrid", "free_product", "unknown"],
+      default: "unknown",
+      index: true,
+    },
+    views: analyticsNumber,
+    reach: analyticsNumber,
+    impressions: analyticsNumber,
+    likes: analyticsNumber,
+    comments: analyticsNumber,
+    shares: analyticsNumber,
+    orders: analyticsNumber,
+    revenue: analyticsNumber,
+    commission: analyticsNumber,
+    fixedReward: analyticsNumber,
+    hybridReward: analyticsNumber,
+    followersBefore: analyticsNumber,
+    followersAfter: analyticsNumber,
+    followersGrowth: analyticsNumber,
+    affiliateClicks: analyticsNumber,
+    conversion: analyticsNumber,
+    walletCredit: analyticsNumber,
+    escrowReleased: analyticsNumber,
+    snapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
+    lastUpdated: { type: Date, default: Date.now, index: true },
+  },
+  {
+    timestamps: true,
+    collection: "content_analytics",
+  }
+);
+
+contentAnalyticsSchema.index({ influencerId: 1, lastUpdated: -1 });
+contentAnalyticsSchema.index({ campaignId: 1, influencerId: 1 });
+
 module.exports = {
   Reel: mongoose.models.Reel || mongoose.model("Reel", reelSchema),
+  ContentAnalytics: mongoose.models.ContentAnalytics || mongoose.model("ContentAnalytics", contentAnalyticsSchema),
 };

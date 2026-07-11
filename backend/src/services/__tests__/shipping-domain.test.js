@@ -1,9 +1,10 @@
 const { logger } = require("../../utils/logger");
 const assert = require("node:assert/strict");
 
-const ShippingConfig = require("../../models/ShippingConfig");
+const ShippingWeightSlab = require("../../models/ShippingWeightSlab");
 const { calculateCartWeight } = require("../../utils/cartWeightCalculator");
 const { resolveZoneFromMatrix } = require("../shipping-zone-config.service");
+const shippingPricingService = require("../shipping-pricing.service");
 
 function runTest(name, fn) {
   try {
@@ -24,7 +25,7 @@ runTest("cart weight uses structured product weight and quantity", () => {
   assert.equal(total, 2);
 });
 
-runTest("zone matrix resolves by city before defaulting", () => {
+runTest("zone matrix resolves by district before defaulting", () => {
   const result = resolveZoneFromMatrix(
     {
       states: [
@@ -41,41 +42,38 @@ runTest("zone matrix resolves by city before defaulting", () => {
     },
     {
       state: "Tamil Nadu",
-      city: "Chennai",
+      district: "Nilgiris",
       postalCode: "600001",
     }
   );
 
-  assert.equal(result.zone, "LOCAL");
-  assert.equal(result.matchedOn, "city");
+  assert.equal(result.zone, "REMOTE");
+  assert.equal(result.matchedOn, "district");
 });
 
-runTest("shipping rule applies base price up to base weight", () => {
-  const rule = new ShippingConfig({
+runTest("shipping slab matches weights inside configured range", () => {
+  const rule = new ShippingWeightSlab({
     state: "Tamil Nadu",
     zone: "LOCAL",
-    baseWeight: 1,
-    basePrice: 50,
-    pricePerKg: 20,
-    minWeight: 0.1,
-    maxWeight: 5,
+    weightFrom: 0.1,
+    weightTo: 5,
+    shippingCharge: 50,
   });
 
-  assert.equal(rule.calculateCost(0.5), 50);
+  assert.equal(rule.matchesWeight(0.5), true);
+  assert.equal(rule.matchesWeight(5.1), false);
 });
 
-runTest("shipping rule applies per-kg pricing above base weight", () => {
-  const rule = new ShippingConfig({
+runTest("shipping slab stores fixed charge without per-kg formula", () => {
+  const rule = new ShippingWeightSlab({
     state: "Tamil Nadu",
     zone: "LOCAL",
-    baseWeight: 1,
-    basePrice: 50,
-    pricePerKg: 20,
-    minWeight: 0.1,
-    maxWeight: 5,
+    weightFrom: 0.1,
+    weightTo: 5,
+    shippingCharge: 90,
   });
 
-  assert.equal(rule.calculateCost(3), 90);
+  assert.equal(rule.shippingCharge, 90);
 });
 
 runTest("cart weight preserves gram precision in kg values", () => {
@@ -85,6 +83,26 @@ runTest("cart weight preserves gram precision in kg values", () => {
   ]);
 
   assert.equal(total, 0.35);
+});
+
+runTest("dynamic weight expansion repeats the last configured shipping price per started kg", () => {
+  const expansion = shippingPricingService.buildDynamicExpansion({
+    slab: { weightTo: 1, shippingCharge: 50 },
+    weight: 2.5,
+  });
+
+  assert.equal(expansion.additionalWeightBlocks, 2);
+  assert.equal(expansion.finalCost, 150);
+});
+
+runTest("dynamic weight expansion uses the final configured slab price", () => {
+  const expansion = shippingPricingService.buildDynamicExpansion({
+    slab: { weightTo: 3, shippingCharge: 20 },
+    weight: 8,
+  });
+
+  assert.equal(expansion.additionalWeightBlocks, 5);
+  assert.equal(expansion.finalCost, 120);
 });
 
 logger.info("script_output", { value: "All shipping domain checks passed." });

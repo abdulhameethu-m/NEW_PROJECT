@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import * as authService from "../services/authService";
 import { validateAuthForm } from "../utils/authValidation";
 import { BrandLogo } from "../components/BrandLogo";
-import { useBranding } from "../context/BrandingContext";
 
 function normalizeError(err) {
   return (
@@ -25,9 +24,6 @@ function maskPhone(phone) {
 }
 
 export function ForgotUsernamePage() {
-  const { branding } = useBranding();
-  const nav = useNavigate();
-
   const [step, setStep] = useState("search"); // "search" | "found"
   const [identifier, setIdentifier] = useState("");
   const [foundUser, setFoundUser] = useState(null);

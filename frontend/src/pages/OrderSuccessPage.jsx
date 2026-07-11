@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
+import useAuthCartStore from "../context/authCartStore";
 import * as paymentService from "../services/paymentService";
 import * as userService from "../services/userService";
+import { emitCartChanged } from "../utils/cartState";
 import { formatCurrency } from "../utils/formatCurrency";
+import { UnifiedPricingBreakdown } from "../components/commerce/UnifiedPricingBreakdown";
 
 const CHECKOUT_SUCCESS_STORAGE_KEY = "checkoutSuccessPayload";
 
@@ -30,6 +33,12 @@ function loadPersistedCheckoutSuccessPayload() {
     window.sessionStorage.removeItem(CHECKOUT_SUCCESS_STORAGE_KEY);
     return null;
   }
+}
+
+function clearCheckoutCartState() {
+  const emptyCart = { items: [], totalAmount: 0, itemCount: 0, totalQuantity: 0 };
+  useAuthCartStore.getState().setCart(emptyCart);
+  emitCartChanged(emptyCart);
 }
 
 function getCurrency(order) {
@@ -87,6 +96,21 @@ function getOrderDiscount(order) {
   );
 }
 
+function getOrderAdvanceAmount(order) {
+  return Number(order?.advanceAmount ?? order?.codAdvance?.advanceAmount ?? 0);
+}
+
+function getOrderRemainingCodAmount(order) {
+  const advanceAmount = getOrderAdvanceAmount(order);
+  if (order?.remainingCODAmount !== undefined && order?.remainingCODAmount !== null) {
+    return Number(order.remainingCODAmount || 0);
+  }
+  if (order?.codAdvance?.remainingCODAmount !== undefined && order?.codAdvance?.remainingCODAmount !== null) {
+    return Number(order.codAdvance.remainingCODAmount || 0);
+  }
+  return Math.max(0, Number(order?.totalAmount || 0) - advanceAmount);
+}
+
 export function OrderSuccessPage() {
   const location = useLocation();
   const baseState = location.state || loadPersistedCheckoutSuccessPayload() || {};
@@ -95,7 +119,10 @@ export function OrderSuccessPage() {
   const payment = state.payment || null;
   const processing = Boolean(state.processing);
   const isCod = (orders[0]?.paymentMethod || payment?.method || "ONLINE") === "COD";
-  const codPayable = orders.reduce((sum, order) => sum + Number(order?.totalAmount || 0), 0);
+  const codAdvancePaid = orders.reduce((sum, order) => sum + getOrderAdvanceAmount(order), 0);
+  const hasCodAdvance = isCod && codAdvancePaid > 0;
+  const codPayable = orders.reduce((sum, order) => sum + getOrderRemainingCodAmount(order), 0);
+  const orderGrandTotal = orders.reduce((sum, order) => sum + Number(order?.totalAmount || 0), 0);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState("");
 
   useEffect(() => {
@@ -115,6 +142,7 @@ export function OrderSuccessPage() {
               payment: verified?.payment || null,
             };
             persistCheckoutSuccessPayload(nextState);
+            clearCheckoutCartState();
             if (active) setState(nextState);
             return;
           } catch {
@@ -133,6 +161,7 @@ export function OrderSuccessPage() {
               payment: payment || null,
             };
             persistCheckoutSuccessPayload(nextState);
+            clearCheckoutCartState();
             if (active) setState(nextState);
             return;
           }
@@ -171,7 +200,9 @@ export function OrderSuccessPage() {
           {processing
             ? "Payment was successful. We are finishing verification and loading your order summary now."
             : isCod
-            ? `Please keep ${formatCurrency(codPayable)} ready for delivery. You can track every vendor shipment from your orders page.`
+            ? hasCodAdvance
+              ? `Advance payment of ${formatCurrency(codAdvancePaid)} is recorded. Please keep ${formatCurrency(codPayable)} ready for delivery.`
+              : `Please keep ${formatCurrency(codPayable)} ready for delivery. You can track every vendor shipment from your orders page.`
             : "Payment status and order routing have been recorded. You can track every vendor shipment from your orders page."}
         </p>
       </section>
@@ -179,8 +210,15 @@ export function OrderSuccessPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard label="Orders created" value={String(orders.length)} />
         <StatCard label="Payment method" value={orders[0]?.paymentMethod || payment?.method || "ONLINE"} />
-        <StatCard label={isCod ? "Payable on delivery" : "Payment status"} value={isCod ? formatCurrency(codPayable) : (orders[0]?.paymentStatus || payment?.status || "Pending")} />
+        <StatCard label={isCod ? (hasCodAdvance ? "Advance paid" : "Payable on delivery") : "Payment status"} value={isCod ? formatCurrency(hasCodAdvance ? codAdvancePaid : codPayable) : (orders[0]?.paymentStatus || payment?.status || "Pending")} />
       </section>
+
+      {hasCodAdvance ? (
+        <section className="grid gap-4 md:grid-cols-2">
+          <StatCard label="Balance on delivery" value={formatCurrency(codPayable)} />
+          <StatCard label="Order total" value={formatCurrency(orderGrandTotal)} />
+        </section>
+      ) : null}
 
       {processing && !orders.length ? (
         <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm text-sm text-slate-600">
@@ -190,7 +228,9 @@ export function OrderSuccessPage() {
 
       {isCod ? (
         <section className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-          Cash on Delivery instructions: collectable amount is {formatCurrency(codPayable)}. Our delivery or operations team may contact you before dispatch to confirm the order.
+          {hasCodAdvance
+            ? `COD advance instructions: advance paid is ${formatCurrency(codAdvancePaid)}. Balance collectable on delivery is ${formatCurrency(codPayable)}.`
+            : `Cash on Delivery instructions: collectable amount is ${formatCurrency(codPayable)}. Our delivery or operations team may contact you before dispatch to confirm the order.`}
         </section>
       ) : null}
 
@@ -271,38 +311,53 @@ export function OrderSuccessPage() {
               </div>
             )}
 
-            {/* Price Breakdown */}
-            <div className="border-t border-slate-200 pt-5">
-              <h3 className="font-semibold text-slate-950">Price breakdown</h3>
-              <div className="mt-3 space-y-2 text-sm">
-                <div className="flex justify-between text-slate-600">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(getOrderSubtotal(order), { currency: getCurrency(order) })}</span>
-                </div>
-                {getOrderTax(order) > 0 && (
+            {order.unifiedPricingBreakdown ? (
+              <UnifiedPricingBreakdown breakdown={order.unifiedPricingBreakdown} title="Price Breakdown" compact />
+            ) : (
+              <div className="border-t border-slate-200 pt-5">
+                <h3 className="font-semibold text-slate-950">Price breakdown</h3>
+                <div className="mt-3 space-y-2 text-sm">
                   <div className="flex justify-between text-slate-600">
-                    <span>Tax</span>
-                    <span>{formatCurrency(getOrderTax(order), { currency: getCurrency(order) })}</span>
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(getOrderSubtotal(order), { currency: getCurrency(order) })}</span>
                   </div>
-                )}
-                {getOrderShipping(order) > 0 && (
-                  <div className="flex justify-between text-slate-600">
-                    <span>Shipping</span>
-                    <span>{formatCurrency(getOrderShipping(order), { currency: getCurrency(order) })}</span>
+                  {getOrderTax(order) > 0 && (
+                    <div className="flex justify-between text-slate-600">
+                      <span>Tax</span>
+                      <span>{formatCurrency(getOrderTax(order), { currency: getCurrency(order) })}</span>
+                    </div>
+                  )}
+                  {getOrderShipping(order) > 0 && (
+                    <div className="flex justify-between text-slate-600">
+                      <span>Shipping</span>
+                      <span>{formatCurrency(getOrderShipping(order), { currency: getCurrency(order) })}</span>
+                    </div>
+                  )}
+                  {getOrderDiscount(order) > 0 && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>Discount</span>
+                      <span>-{formatCurrency(getOrderDiscount(order), { currency: getCurrency(order) })}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-slate-200 pt-2 flex justify-between font-semibold text-slate-950">
+                    <span>Total</span>
+                    <span>{formatCurrency(order.totalAmount || 0, { currency: getCurrency(order) })}</span>
                   </div>
-                )}
-                {getOrderDiscount(order) > 0 && (
-                  <div className="flex justify-between text-emerald-600">
-                    <span>Discount</span>
-                    <span>-{formatCurrency(getOrderDiscount(order), { currency: getCurrency(order) })}</span>
-                  </div>
-                )}
-                <div className="border-t border-slate-200 pt-2 flex justify-between font-semibold text-slate-950">
-                  <span>Total</span>
-                  <span>{formatCurrency(order.totalAmount || 0, { currency: getCurrency(order) })}</span>
+                  {getOrderAdvanceAmount(order) > 0 ? (
+                    <div className="rounded-xl bg-amber-50 px-3 py-3 text-amber-900">
+                      <div className="flex justify-between font-semibold">
+                        <span>COD Advance Paid</span>
+                        <span>{formatCurrency(getOrderAdvanceAmount(order), { currency: getCurrency(order) })}</span>
+                      </div>
+                      <div className="mt-2 flex justify-between">
+                        <span>Balance on Delivery</span>
+                        <span>{formatCurrency(getOrderRemainingCodAmount(order), { currency: getCurrency(order) })}</span>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Quick Actions */}
             <div className="border-t border-slate-200 pt-5 flex flex-wrap gap-2">

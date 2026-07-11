@@ -39,6 +39,10 @@ export function CancelOrderModal({
 
   const deductionRows = preview?.preview?.breakdown?.deductions || [];
   const amountCurrency = preview?.order?.currency || preview?.preview?.currency || "INR";
+  const advancePaid = Number(preview?.preview?.breakdown?.advancePaid || 0);
+  const orderTotal = Number(preview?.preview?.breakdown?.orderTotal || 0);
+  const isCodAdvance = preview?.preview?.paymentMethod === "COD" && advancePaid > 0;
+  const balanceOnDelivery = Math.max(0, orderTotal - advancePaid);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
@@ -47,7 +51,9 @@ export function CancelOrderModal({
           <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-200">Cancellation Preview</div>
           <h2 className="mt-2 text-2xl font-semibold">Review refund before cancelling</h2>
           <p className="mt-2 text-sm text-slate-200">
-            We will calculate deductions and refund amount using the live marketplace policy. The finance team will process the refund after cancellation.
+            {isCodAdvance
+              ? "We will calculate the refund from the COD advance already paid. The unpaid delivery balance will be cancelled with the order."
+              : "We will calculate deductions and refund amount using the live marketplace policy. The finance team will process the refund after cancellation."}
           </p>
         </div>
 
@@ -82,6 +88,9 @@ export function CancelOrderModal({
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
               <div className="font-semibold text-slate-950">Policy behavior</div>
               <div className="mt-2">Refund processing: Finance team will choose the refund method after cancellation</div>
+              {isCodAdvance ? (
+                <div className="mt-1">COD advance: Refund applies only to the paid advance amount</div>
+              ) : null}
               <div className="mt-1">Approval: {preview?.preview?.approvalRequired ? "Manual review required" : "Auto approved"}</div>
               <div className="mt-1">Stage: {preview?.preview?.stage || "Not loaded yet"}</div>
             </div>
@@ -99,11 +108,24 @@ export function CancelOrderModal({
 
             {preview ? (
               <div className="space-y-3">
-                <TextRow label="Order amount" value={formatCurrency(preview.preview.grossAmount || 0, { currency: amountCurrency })} />
+                {isCodAdvance ? (
+                  <>
+                    <TextRow label="Order total" value={formatCurrency(orderTotal || 0, { currency: amountCurrency })} />
+                    <TextRow label="COD advance paid" value={formatCurrency(advancePaid || 0, { currency: amountCurrency })} />
+                    <TextRow label="Balance on delivery" value={formatCurrency(balanceOnDelivery || 0, { currency: amountCurrency })} />
+                  </>
+                ) : (
+                  <TextRow label="Order amount" value={formatCurrency(preview.preview.grossAmount || 0, { currency: amountCurrency })} />
+                )}
                 <TextRow label="Shipping" value={formatCurrency(preview.preview.breakdown?.shipping || 0, { currency: amountCurrency })} />
                 <TextRow label="Taxes" value={formatCurrency(preview.preview.breakdown?.taxes || 0, { currency: amountCurrency })} />
                 <TextRow label="Platform fee" value={formatCurrency(preview.preview.breakdown?.platformFee || 0, { currency: amountCurrency })} />
                 <TextRow label="Gateway fee" value={formatCurrency(preview.preview.breakdown?.gatewayFee || 0, { currency: amountCurrency })} />
+                {isCodAdvance ? (
+                  <div className="rounded-2xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                    Deductions below are applied against the COD advance paid, not the full order total.
+                  </div>
+                ) : null}
                 {deductionRows.map((item) => (
                   <TextRow
                     key={`${item.type}-${item.label}`}

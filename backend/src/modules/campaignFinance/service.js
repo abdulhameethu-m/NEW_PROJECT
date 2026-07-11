@@ -21,6 +21,10 @@ const PAYMENT_MODELS = new Set(["fixed", "commission", "hybrid", "free_product"]
 const roundMoney = (value) => Math.round(Number(value || 0) * 100) / 100;
 const money = (value) => Math.max(0, roundMoney(value));
 
+function isDuplicateKeyError(error) {
+  return error?.code === 11000 || error?.name === "MongoServerError" && error?.code === 11000;
+}
+
 function normalizePaymentModel(value) {
   const model = String(value || "").toLowerCase();
   return PAYMENT_MODELS.has(model) ? model : "commission";
@@ -189,22 +193,34 @@ class CampaignFinanceService {
       commissionRevenue: money(realizedOrders.reduce((sum, order) => sum + Number(order.platformCommissionAmount || 0), 0)),
     });
 
-    await CampaignFinanceSummary.findOneAndUpdate(
-      { campaignId: campaign._id },
-      { $set: { campaignId: campaign._id, vendorId: campaign.vendorId, influencerId: campaign.influencerId, campaignName: campaign.title || "Campaign", paymentModel: normalizePaymentModel(campaign.paymentType), campaignState: campaign.state || "", currency: campaign.pricing?.currency || "INR", metrics, sourceUpdatedAt: campaign.updatedAt, reconciledAt: new Date() } },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
+    const summaryUpdate = { $set: { campaignId: campaign._id, vendorId: campaign.vendorId, influencerId: campaign.influencerId, campaignName: campaign.title || "Campaign", paymentModel: normalizePaymentModel(campaign.paymentType), campaignState: campaign.state || "", currency: campaign.pricing?.currency || "INR", metrics, sourceUpdatedAt: campaign.updatedAt, reconciledAt: new Date() } };
+    try {
+      await CampaignFinanceSummary.findOneAndUpdate(
+        { campaignId: campaign._id },
+        summaryUpdate,
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) throw error;
+      await CampaignFinanceSummary.updateOne({ campaignId: campaign._id }, summaryUpdate);
+    }
 
     if (orders.length) {
-      await CampaignFinanceOrder.bulkWrite(
-        orders.map((order) => ({
-          updateOne: {
-            filter: { campaignId: campaign._id, orderId: order._id },
-            update: { $set: buildOrderRow(order, campaign, earningsByOrder.get(String(order._id))) },
-            upsert: true,
-          },
-        }))
-      );
+      const orderWrites = orders.map((order) => ({
+        updateOne: {
+          filter: { campaignId: campaign._id, orderId: order._id },
+          update: { $set: buildOrderRow(order, campaign, earningsByOrder.get(String(order._id))) },
+          upsert: true,
+        },
+      }));
+      try {
+        await CampaignFinanceOrder.bulkWrite(orderWrites, { ordered: false });
+      } catch (error) {
+        if (!isDuplicateKeyError(error)) throw error;
+        await CampaignFinanceOrder.bulkWrite(orderWrites.map((write) => ({
+          updateOne: { ...write.updateOne, upsert: false },
+        })), { ordered: false });
+      }
     }
     await CampaignFinanceOrder.deleteMany({ campaignId: campaign._id, ...(orders.length ? { orderId: { $nin: orders.map((order) => order._id) } } : {}) });
     return { campaignId: String(campaign._id), metrics };
@@ -237,17 +253,27 @@ class CampaignFinanceService {
     summaries.forEach((summary) => {
       add(groups.vendor, String(summary.vendorId), summary.paymentModel, summary.metrics);
       add(groups.influencer, summary.influencerId ? String(summary.influencerId) : "", summary.paymentModel, summary.metrics);
-      add(groups.admin, "global", summary.paymentModel, summary.metrics);
+      const row = groups.admin.get("global:all") || { scopeId: "global", paymentModel: "all", metrics: emptyMetrics() };
+      addMetrics(row.metrics, summary.metrics);
+      groups.admin.set("global:all", row);
     });
     const write = async (Model, rows, key) => {
       if (!rows.size) return;
-      await Model.bulkWrite([...rows.values()].map((row) => ({
+      const writes = [...rows.values()].map((row) => ({
         updateOne: {
           filter: key === "scopeId" ? { scopeId: row.scopeId, paymentModel: row.paymentModel } : { scopeKey: row.scopeId, paymentModel: row.paymentModel },
           update: { $set: { ...(key === "scopeId" ? { scopeId: row.scopeId } : { scopeKey: row.scopeId }), paymentModel: row.paymentModel, metrics: finalizeMetrics(row.metrics), reconciledAt: new Date() } },
           upsert: true,
         },
-      })));
+      }));
+      try {
+        await Model.bulkWrite(writes, { ordered: false });
+      } catch (error) {
+        if (!isDuplicateKeyError(error)) throw error;
+        await Model.bulkWrite(writes.map((writeOperation) => ({
+          updateOne: { ...writeOperation.updateOne, upsert: false },
+        })), { ordered: false });
+      }
     };
     await Promise.all([
       write(CampaignFinanceVendorMetric, groups.vendor, "scopeId"),
@@ -261,6 +287,22 @@ class CampaignFinanceService {
     if (count) return;
     const campaigns = await Campaign.find(filter).select("_id").lean();
     for (const campaign of campaigns) await this.syncCampaign(campaign._id);
+    await this.refreshMetricReadModels();
+  }
+
+  async refreshScope({ scope, scopeId = null, query = {} }) {
+    const campaignFilter = {};
+    if (scope === "vendor") campaignFilter.vendorId = scopeId;
+    if (scope === "influencer") campaignFilter.influencerId = scopeId;
+    if (query.campaignId) campaignFilter._id = query.campaignId;
+
+    const campaigns = await Campaign.find(campaignFilter).select("_id").lean();
+    if (!campaigns.length) return;
+
+    const concurrency = Math.min(Math.max(Number(process.env.CAMPAIGN_FINANCE_SYNC_CONCURRENCY) || 5, 1), 20);
+    for (let index = 0; index < campaigns.length; index += concurrency) {
+      await Promise.all(campaigns.slice(index, index + concurrency).map((campaign) => this.syncCampaign(campaign._id)));
+    }
     await this.refreshMetricReadModels();
   }
 
@@ -294,6 +336,7 @@ class CampaignFinanceService {
 
   async getVendorDashboard(userId, query) {
     const vendor = await walletService.getVendorContext(userId);
+    await this.refreshScope({ scope: "vendor", scopeId: vendor._id, query });
     const data = await this.getDashboard({ scope: "vendor", scopeId: vendor._id, query });
     return { ...data, scope: { vendorId: String(vendor._id) } };
   }
@@ -301,6 +344,7 @@ class CampaignFinanceService {
   async getInfluencerDashboard(userId, query) {
     const profile = await InfluencerProfile.findOne({ userId }).select("_id").lean();
     if (!profile) throw new AppError("Influencer profile not found", 404, "INFLUENCER_NOT_FOUND");
+    await this.refreshScope({ scope: "influencer", scopeId: profile._id, query });
     const data = await this.getDashboard({ scope: "influencer", scopeId: profile._id, query });
     return { ...data, scope: { influencerId: String(profile._id) } };
   }

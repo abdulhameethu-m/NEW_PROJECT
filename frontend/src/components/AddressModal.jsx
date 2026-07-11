@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { LocationPickerMap } from "./LocationPickerMap";
 import { getCurrentLocationAddress, reverseGeocodeCoordinates } from "../services/locationService";
+import { getShippingDistricts, getShippingStates } from "../services/shippingLocationService";
 import { EMPTY_ADDRESS_FORM, getAddressPayloadFromForm, validateAddressForm } from "../utils/checkout";
 
 function buildMapCoordinates(initialForm) {
@@ -26,6 +27,8 @@ export function AddressModal({
   const [locationLoading, setLocationLoading] = useState(false);
   const [mapLoading, setMapLoading] = useState(false);
   const [mapCoords, setMapCoords] = useState(buildMapCoordinates(initialValues));
+  const [stateOptions, setStateOptions] = useState([]);
+  const [districtOptions, setDistrictOptions] = useState([]);
 
   useEffect(() => {
     if (!open) return;
@@ -33,6 +36,39 @@ export function AddressModal({
     setErrors({});
     setMapCoords(buildMapCoordinates(initialValues));
   }, [initialValues, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    getShippingStates()
+      .then((states) => {
+        if (!cancelled) setStateOptions(states);
+      })
+      .catch(() => {
+        if (!cancelled) setStateOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !form.state) {
+      setDistrictOptions([]);
+      return;
+    }
+    let cancelled = false;
+    getShippingDistricts(form.state)
+      .then((districts) => {
+        if (!cancelled) setDistrictOptions(districts);
+      })
+      .catch(() => {
+        if (!cancelled) setDistrictOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.state, open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -56,7 +92,7 @@ export function AddressModal({
   if (!open) return null;
 
   function handleFieldChange(key, value) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => ({ ...current, [key]: value, ...(key === "state" ? { district: "" } : {}) }));
     setErrors((current) => ({ ...current, [key]: "" }));
   }
 
@@ -76,7 +112,7 @@ export function AddressModal({
     return {
       address: {
         addressLine: [byType("street_number"), byType("route"), byType("sublocality_level_1")].filter(Boolean).join(", "),
-        city: byType("locality") || byType("administrative_area_level_2"),
+        district: byType("administrative_area_level_2") || byType("locality"),
         state: byType("administrative_area_level_1"),
         pincode: byType("postal_code"),
         country: byType("country") || "India",
@@ -90,7 +126,7 @@ export function AddressModal({
     setForm((current) => ({
       ...current,
       addressLine: location?.address?.addressLine || current.addressLine,
-      city: location?.address?.city || current.city,
+      district: location?.address?.district || location?.address?.city || current.district,
       state: location?.address?.state || current.state,
       pincode: location?.address?.pincode || current.pincode,
       country: location?.address?.country || current.country || "India",
@@ -132,6 +168,69 @@ export function AddressModal({
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
     await onSubmit?.(getAddressPayloadFromForm(form), form);
+  }
+
+  function renderField(key, label) {
+    if (key === "state") {
+      return (
+        <label key={key}>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
+          <select
+            value={form.state ?? ""}
+            onChange={(event) => handleFieldChange("state", event.target.value)}
+            className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[color:var(--commerce-accent)] dark:bg-slate-950 dark:text-white ${
+              errors.state ? "border-rose-300" : "border-slate-200 dark:border-slate-800"
+            }`}
+          >
+            <option value="">Select state</option>
+            {(stateOptions.length ? stateOptions : [form.state].filter(Boolean)).map((state) => (
+              <option key={state} value={state}>
+                {state}
+              </option>
+            ))}
+          </select>
+          {errors.state ? <div className="mt-1 text-xs text-rose-600">{errors.state}</div> : null}
+        </label>
+      );
+    }
+
+    if (key === "district") {
+      return (
+        <label key={key}>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
+          <select
+            value={form.district ?? ""}
+            onChange={(event) => handleFieldChange("district", event.target.value)}
+            disabled={!form.state}
+            className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[color:var(--commerce-accent)] disabled:bg-slate-50 dark:bg-slate-950 dark:text-white ${
+              errors.district ? "border-rose-300" : "border-slate-200 dark:border-slate-800"
+            }`}
+          >
+            <option value="">{form.state ? "Select district" : "Select state first"}</option>
+            {(districtOptions.length ? districtOptions : [form.district].filter(Boolean)).map((district) => (
+              <option key={district} value={district}>
+                {district}
+              </option>
+            ))}
+          </select>
+          {errors.district ? <div className="mt-1 text-xs text-rose-600">{errors.district}</div> : null}
+        </label>
+      );
+    }
+
+    return (
+      <label key={key} className={key === "addressLine" ? "sm:col-span-2" : ""}>
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
+        <input
+          value={form[key] ?? ""}
+          onChange={(event) => handleFieldChange(key, event.target.value)}
+          className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[color:var(--commerce-accent)] dark:bg-slate-950 dark:text-white ${
+            errors[key] ? "border-rose-300" : "border-slate-200 dark:border-slate-800"
+          }`}
+        />
+        {errors[key] ? <div className="mt-1 text-xs text-rose-600">{errors[key]}</div> : null}
+      </label>
+    );
   }
 
   return (
@@ -184,25 +283,11 @@ export function AddressModal({
               ["name", "Name"],
               ["phone", "Phone"],
               ["addressLine", "Address"],
-              ["city", "City"],
               ["state", "State"],
+              ["district", "District"],
               ["pincode", "Pincode"],
               ["country", "Country"],
-            ].map(([key, label]) => (
-              <label key={key} className={key === "addressLine" ? "sm:col-span-2" : ""}>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {label}
-                </div>
-                <input
-                  value={form[key] ?? ""}
-                  onChange={(event) => handleFieldChange(key, event.target.value)}
-                  className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[color:var(--commerce-accent)] dark:bg-slate-950 dark:text-white ${
-                    errors[key] ? "border-rose-300" : "border-slate-200 dark:border-slate-800"
-                  }`}
-                />
-                {errors[key] ? <div className="mt-1 text-xs text-rose-600">{errors[key]}</div> : null}
-              </label>
-            ))}
+            ].map(([key, label]) => renderField(key, label))}
           </div>
 
           <div className="mt-5 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">

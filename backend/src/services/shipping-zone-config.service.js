@@ -1,5 +1,7 @@
 const PlatformConfig = require("../models/PlatformConfig");
 const { AppError } = require("../utils/AppError");
+const auditService = require("./audit.service");
+const notificationService = require("./notification.service");
 
 const SHIPPING_ZONE_CONFIG_KEY = "shipping_zone_matrix";
 const CACHE_TTL_MS = 60 * 1000;
@@ -136,6 +138,32 @@ function resolveZoneFromMatrix(zoneConfig, address = {}) {
   };
 }
 
+function getConfiguredStatesFromMatrix(zoneConfig = {}) {
+  return Array.from(
+    new Set(
+      (Array.isArray(zoneConfig.states) ? zoneConfig.states : [])
+        .map((entry) => String(entry.state || "").trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function getConfiguredDistrictsForStateFromMatrix(zoneConfig = {}, state) {
+  const stateConfig = getMatchingState(zoneConfig, state);
+  if (!stateConfig) return [];
+
+  const districts = [];
+  for (const zone of ZONES) {
+    const zoneEntry = stateConfig.zones?.[zone];
+    if (!zoneEntry) continue;
+    districts.push(...(Array.isArray(zoneEntry.districts) ? zoneEntry.districts : []));
+  }
+
+  return Array.from(new Set(districts.map((value) => String(value || "").trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b)
+  );
+}
+
 async function ensureZoneConfig() {
   const now = Date.now();
   if (cachedZoneConfig && now - cachedAt < CACHE_TTL_MS) {
@@ -164,6 +192,14 @@ async function getZoneConfig() {
   return ensureZoneConfig();
 }
 
+async function getConfiguredStates() {
+  return getConfiguredStatesFromMatrix(await ensureZoneConfig());
+}
+
+async function getConfiguredDistrictsForState(state) {
+  return getConfiguredDistrictsForStateFromMatrix(await ensureZoneConfig(), state);
+}
+
 async function updateZoneConfig(payload, updatedBy) {
   const normalized = normalizeZoneConfigPayload(payload);
   const update = {
@@ -183,6 +219,29 @@ async function updateZoneConfig(payload, updatedBy) {
   );
 
   clearZoneConfigCache();
+  await auditService
+    .log({
+      actor: { _id: updatedBy, role: "admin" },
+      action: "shipping.zone_matrix.updated",
+      entityType: "PlatformConfig",
+      entityId: SHIPPING_ZONE_CONFIG_KEY,
+      metadata: normalized,
+    })
+    .catch(() => {});
+  await notificationService
+    .notifyOperations(
+      {
+        module: "SHIPPING",
+        subModule: "SHIPPING_CONFIGURATION",
+        type: "CONFIGURATION",
+        title: "Shipping zone matrix updated",
+        message: "State, district, and zone mapping was updated.",
+        referenceId: SHIPPING_ZONE_CONFIG_KEY,
+        meta: normalized,
+      },
+      "settings.update"
+    )
+    .catch(() => {});
   return getZoneConfig();
 }
 
@@ -201,6 +260,10 @@ module.exports = {
   ZONES,
   buildDefaultZoneConfig,
   clearZoneConfigCache,
+  getConfiguredDistrictsForState,
+  getConfiguredDistrictsForStateFromMatrix,
+  getConfiguredStates,
+  getConfiguredStatesFromMatrix,
   getZoneConfig,
   normalizeZoneConfigPayload,
   resolveZone,

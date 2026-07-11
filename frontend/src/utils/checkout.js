@@ -2,7 +2,7 @@ export const EMPTY_ADDRESS_FORM = {
   name: "",
   phone: "",
   addressLine: "",
-  city: "",
+  district: "",
   state: "",
   pincode: "",
   country: "India",
@@ -16,7 +16,7 @@ export function getAddressFormFromSavedAddress(address) {
     name: address?.name || "",
     phone: address?.phone || "",
     addressLine: address?.addressLine || "",
-    city: address?.city || "",
+    district: address?.district || address?.city || "",
     state: address?.state || "",
     pincode: address?.pincode || "",
     country: address?.country || "India",
@@ -34,7 +34,8 @@ export function getShippingAddressFromSavedAddress(address) {
     phone: String(address?.phone || "").trim(),
     line1: String(address?.addressLine || "").trim(),
     line2: "",
-    city: String(address?.city || "").trim(),
+    district: String(address?.district || address?.city || "").trim(),
+    city: String(address?.district || address?.city || "").trim(),
     state: String(address?.state || "").trim(),
     postalCode: String(address?.pincode || "").trim(),
     country: String(address?.country || "India").trim() || "India",
@@ -46,7 +47,8 @@ export function getAddressPayloadFromForm(form) {
     name: String(form?.name || "").trim(),
     phone: String(form?.phone || "").trim(),
     addressLine: String(form?.addressLine || "").trim(),
-    city: String(form?.city || "").trim(),
+    district: String(form?.district || form?.city || "").trim(),
+    city: String(form?.district || form?.city || "").trim(),
     state: String(form?.state || "").trim(),
     pincode: String(form?.pincode || "").trim(),
     country: String(form?.country || "India").trim() || "India",
@@ -63,6 +65,7 @@ export function getShippingAddressFromForm(form) {
     phone: payload.phone,
     line1: payload.addressLine,
     line2: "",
+    district: payload.district,
     city: payload.city,
     state: payload.state,
     postalCode: payload.pincode,
@@ -77,7 +80,7 @@ export function validateAddressForm(form) {
   if (payload.name.length < 2) errors.name = "Enter the recipient name.";
   if (!/^[0-9]{10}$/.test(payload.phone)) errors.phone = "Enter a valid 10-digit phone number.";
   if (payload.addressLine.length < 5) errors.addressLine = "Enter a complete address.";
-  if (payload.city.length < 2) errors.city = "Enter the city.";
+  if (payload.district.length < 2) errors.district = "Select the district.";
   if (payload.state.length < 2) errors.state = "Enter the state.";
   if (!/^[0-9]{6}$/.test(payload.pincode)) errors.pincode = "Enter a valid 6-digit pincode.";
   if (payload.country.length < 2) errors.country = "Enter the country.";

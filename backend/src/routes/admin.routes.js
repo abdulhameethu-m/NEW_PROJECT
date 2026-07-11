@@ -43,6 +43,10 @@ const {
   payoutRejectionSchema,
   accountRejectionSchema,
 } = require("../utils/validators/payout.validation");
+const {
+  codAdvanceRuleSchema,
+  codAdvanceRuleUpdateSchema,
+} = require("../utils/validators/payment.validation");
 const roleController = require("../modules/staff/controllers/role.controller");
 const { roleSchema } = require("../modules/staff/validators");
 const adminPayoutController = require("../controllers/adminPayout.controller");
@@ -308,6 +312,28 @@ router.get(
   "/cod/analytics",
   requireWorkspacePermission("analytics.read", { legacyPermission: "dashboard:read" }),
   codController.getAnalytics
+);
+router.get(
+  "/finance/cod-advance/rules",
+  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
+  codController.listAdvanceRules
+);
+router.post(
+  "/finance/cod-advance/rules",
+  requireWorkspacePermission("settings.create", { legacyPermission: "settings:update" }),
+  validate(codAdvanceRuleSchema),
+  codController.createAdvanceRule
+);
+router.patch(
+  "/finance/cod-advance/rules/:id",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  validate(codAdvanceRuleUpdateSchema),
+  codController.updateAdvanceRule
+);
+router.delete(
+  "/finance/cod-advance/rules/:id",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  codController.deleteAdvanceRule
 );
 router.put(
   "/pricing/:id",

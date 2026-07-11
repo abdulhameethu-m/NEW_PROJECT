@@ -11,6 +11,7 @@ const {
   generateInvoiceNumber,
   generateInvoicePdf,
 } = require("./order-document.service");
+const pricingBreakdownEngine = require("./pricing-breakdown-engine.service");
 
 function trimOrEmpty(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -237,6 +238,7 @@ class InvoiceService {
         ),
       },
       versions: metadata.versions || [],
+      unifiedPricingBreakdown: pricingBreakdownEngine.buildFromOrder(order),
     };
 
     invoiceView.support = {

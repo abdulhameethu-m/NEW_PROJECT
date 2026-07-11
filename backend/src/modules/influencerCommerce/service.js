@@ -9,12 +9,15 @@ const notificationService = require("../../services/notification.service");
 const paymentService = require("../../services/payment.service");
 const influencerCommerceEngine = require("../../services/influencer-commerce-engine.service");
 const influencerRateCardService = require("../../services/influencer-rate-card.service");
+const campaignRefundService = require("../../services/campaign-refund.service");
+const campaignSchedulingService = require("../../services/campaign-scheduling.service");
 const analyticsAggregator = require("../analytics/service");
 const { AppError } = require("../../utils/AppError");
-const { Campaign, CampaignStatusHistory } = require("../campaign/model");
-const { CampaignAffiliateClick, CommissionRecord } = require("../commission/models");
+const { Campaign, CampaignStatusHistory, CampaignInvitation, CampaignAcceptance } = require("../campaign/model");
+const { CampaignAffiliateClick, CampaignAffiliateAttribution, AffiliateLink, CommissionRecord } = require("../commission/models");
 const { InfluencerProfile, InfluencerSocialAccount, InfluencerProductAssignment } = require("../influencer/model");
 const { Reel } = require("../reel/model");
+const { TrackingSession } = require("../tracking/model");
 const { Product } = require("../../models/Product");
 const { Order } = require("../../models/Order");
 const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
@@ -88,6 +91,22 @@ function addDays(date, days) {
   return next;
 }
 
+const SUBSCRIPTION_ACTIVE_CAMPAIGN_STATES = [
+  "draft",
+  "proposed",
+  "invitation_sent",
+  "accepted",
+  "active",
+  "product_shipped",
+  "content_in_progress",
+  "content_submitted",
+  "under_review",
+  "revision_requested",
+  "partially_completed",
+  "published",
+  "tracking_active",
+];
+
 function parseRange(query = {}) {
   const now = new Date();
   let end = query.endDate ? new Date(query.endDate) : now;
@@ -115,6 +134,73 @@ function buildBuckets(start, end) {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return buckets;
+}
+
+function campaignEndReached(deadline, now = new Date()) {
+  if (!deadline) return false;
+  const end = new Date(deadline);
+  return !Number.isNaN(end.getTime()) && end.getTime() <= now.getTime();
+}
+
+async function deactivateExpiredTrackingCampaigns(vendorId, actorId = null) {
+  if (!vendorId) return [];
+  const now = new Date();
+  const expiredCampaigns = await Campaign.find({
+    vendorId,
+    state: "tracking_active",
+    deadline: { $ne: null, $lte: now },
+  }).select("_id state").lean();
+  if (!expiredCampaigns.length) return [];
+
+  const campaignIds = expiredCampaigns.map((campaign) => campaign._id);
+  await Campaign.updateMany(
+    { _id: { $in: campaignIds }, vendorId, state: "tracking_active" },
+    {
+      $set: {
+        state: "expired",
+        "commissionWorkflow.trackingActive": false,
+        "commissionWorkflow.closedAt": now,
+        "commissionWorkflow.closedReason": "Campaign end date reached; tracking deactivated",
+      },
+      $push: {
+        history: {
+          state: "expired",
+          actorId: actorId || null,
+          note: "Campaign end date reached; tracking deactivated",
+          changedAt: now,
+        },
+      },
+    }
+  );
+  await CampaignStatusHistory.insertMany(
+    expiredCampaigns.map((campaign) => ({
+      campaignId: campaign._id,
+      oldStatus: campaign.state || "tracking_active",
+      newStatus: "expired",
+      changedBy: actorId || undefined,
+      changedByRole: "system",
+      reason: "Campaign end date reached; tracking deactivated",
+      metadata: { source: "vendor_campaign_list_expiry_guard" },
+    })),
+    { ordered: false }
+  ).catch(() => {});
+  await CampaignEscrowWallet.updateMany(
+    { campaignId: { $in: campaignIds }, vendorId },
+    { $set: { campaignStatus: "expired" } }
+  ).catch(() => {});
+  await AffiliateLink.updateMany(
+    { campaignId: { $in: campaignIds }, status: { $in: ["pending_content", "active", "paused"] } },
+    { $set: { status: "expired", expiresAt: now } }
+  ).catch(() => {});
+  await CampaignAffiliateAttribution.updateMany(
+    { campaignId: { $in: campaignIds }, status: "pending" },
+    { $set: { status: "expired", expiresAt: now, "metadata.closedReason": "Campaign end date reached; tracking deactivated" } }
+  ).catch(() => {});
+  await TrackingSession.updateMany(
+    { campaignId: { $in: campaignIds }, expiresAt: { $gt: now } },
+    { $set: { expiresAt: now } }
+  ).catch(() => {});
+  return campaignIds;
 }
 
 function money(value) {
@@ -504,23 +590,50 @@ class InfluencerCommerceVendorService {
 
   async subscriptionPlans(userId) {
     const vendor = await this.getVendor(userId);
-    const [subscription, plans, activeCampaigns, visitedInfluencers, payments] = await Promise.all([
+    const [subscription, plans, activeCampaigns, relationshipInfluencers, invitedInfluencers, acceptedInfluencers, campaignInfluencers, payments] = await Promise.all([
       influencerCommerceEngine.getVendorSubscription(vendor._id),
       VendorSubscriptionPlan.find({ "approval.status": "active" }).sort({ displayOrder: 1, monthlyPrice: 1 }).lean(),
-      Campaign.countDocuments({ vendorId: vendor._id, state: { $in: ["draft", "proposed", "accepted", "active"] } }),
-      VendorInfluencerRelationship.countDocuments({ vendorId: vendor._id, visited: true }),
+      Campaign.countDocuments({ vendorId: vendor._id, state: { $in: SUBSCRIPTION_ACTIVE_CAMPAIGN_STATES } }),
+      VendorInfluencerRelationship.find({
+        vendorId: vendor._id,
+        $or: [
+          { visited: true },
+          { saved: true },
+          { status: { $in: ["viewed", "saved", "invited", "approved", "active"] } },
+        ],
+      }).select("influencerId").lean(),
+      CampaignInvitation.find({
+        vendorId: vendor._id,
+        status: { $in: ["invitation_sent", "proposed", "pending_review", "accepted"] },
+      }).select("influencerId").lean(),
+      CampaignAcceptance.find({
+        vendorId: vendor._id,
+        status: { $in: ["accepted", "active"] },
+      }).select("influencerId").lean(),
+      Campaign.find({
+        vendorId: vendor._id,
+        influencerId: { $ne: null },
+        state: { $in: SUBSCRIPTION_ACTIVE_CAMPAIGN_STATES },
+      }).select("influencerId").lean(),
       SubscriptionPayment.find({ vendorId: vendor._id }).sort({ createdAt: -1 }).limit(20).lean(),
     ]);
     const plan = subscription?.planId || null;
     const visibilityLimit = subscription ? Number(subscription.visibilityLimit ?? plan?.influencerVisibilityLimit ?? 0) : 0;
     const campaignLimit = subscription ? Number(subscription.campaignLimit ?? plan?.campaignLimit ?? 0) : 0;
+    const visibleInfluencerIds = new Set([
+      ...relationshipInfluencers.map((row) => row.influencerId),
+      ...invitedInfluencers.map((row) => row.influencerId),
+      ...acceptedInfluencers.map((row) => row.influencerId),
+      ...campaignInfluencers.map((row) => row.influencerId),
+    ].filter(Boolean).map(String));
+    const visibleInfluencerCount = visibleInfluencerIds.size;
     return {
       currentSubscription: subscription,
       subscriptionStatus: subscription?.status || "not_subscribed",
       usage: {
         activeCampaigns: subscription ? activeCampaigns : 0,
         campaignLimit,
-        influencersVisible: visibilityLimit < 0 ? visitedInfluencers : Math.min(visibilityLimit, visitedInfluencers),
+        influencersVisible: subscription ? (visibilityLimit < 0 ? visibleInfluencerCount : Math.min(visibilityLimit, visibleInfluencerCount)) : 0,
         visibilityLimit,
       },
       plans,
@@ -533,6 +646,20 @@ class InfluencerCommerceVendorService {
         createdAt: payment.createdAt,
       })),
     };
+  }
+
+  async escrowRefunds(userId, query = {}) {
+    const vendor = await this.getVendor(userId);
+    return campaignRefundService.getVendorEscrowRefundDashboard(vendor._id, {
+      status: query.status,
+      limit: parseInt(query.limit) || 50,
+      skip: parseInt(query.skip) || 0,
+    });
+  }
+
+  async escrowRefundDeliverables(userId, campaignId) {
+    const vendor = await this.getVendor(userId);
+    return campaignRefundService.getVendorEscrowRefundDeliverables(vendor._id, campaignId);
   }
 
   async activateSubscription({ userId, vendor, plan, billingCycle = "monthly", paymentReference = "", paymentId = null, metadata = {}, autoRenew = false }) {
@@ -924,7 +1051,7 @@ class InfluencerCommerceVendorService {
       products,
     });
     const fixedBudget = Number(pricing.pricing?.fixedCost || payload.fixedFee || 0);
-    const fundingSummary = ["fixed", "hybrid"].includes(pricing.paymentModel?.key || payload.paymentType)
+    const fundingSummary = ["fixed", "hybrid"].includes(pricing.paymentType || pricing.paymentModel?.paymentType || payload.paymentType)
       ? fixedBudget > 0
         ? await require("../../services/campaign-fee.service").calculateFundingSummary(
           fixedBudget,
@@ -1173,7 +1300,6 @@ class InfluencerCommerceVendorService {
           lastVisitedAt: relationshipMap.get(String(profile._id))?.lastVisitedAt,
           services: creatorCard.services || [],
           rateCard: creatorCard.rateCard || [],
-          requirements: creatorCard.requirements || null,
           startingRate: creatorCard.startingRate || 0,
         };
       });
@@ -1405,6 +1531,7 @@ class InfluencerCommerceVendorService {
         payload,
         products,
       });
+      const schedule = await campaignSchedulingService.normalizeCampaignSchedule(payload, pricing.paymentType);
       campaign = await Campaign.create({
         vendorId: vendor._id,
         title: payload.title || "",
@@ -1416,10 +1543,9 @@ class InfluencerCommerceVendorService {
         language: payload.language || "en",
         marketplace: {
           public: payload.marketplace?.public !== false,
-          applicationDeadline: payload.marketplace?.applicationDeadline || payload.deadline,
+          applicationDeadline: payload.marketplace?.applicationDeadline || undefined,
           availableSlots: payload.marketplace?.availableSlots || 1,
           requiredDeliverables: payload.marketplace?.requiredDeliverables || [],
-          requirements: payload.marketplace?.requirements || {},
           assets: payload.marketplace?.assets || [],
         },
         productIds,
@@ -1428,10 +1554,15 @@ class InfluencerCommerceVendorService {
         paymentType: pricing.paymentType,
         attributionWindowDays: pricing.attributionDays,
         pricing: pricing.pricing,
+        startDate: schedule.startDate || undefined,
+        endDate: schedule.endDate || payload.deadline || undefined,
+        scheduling: {
+          ...(schedule.scheduling || {}),
+          autoPublishEnabled: Boolean(schedule.scheduling?.settingsSnapshot?.autoPublish),
+        },
         paymentModelSnapshot: pricing.paymentModel,
         influencerRateSnapshot: pricing.influencerSnapshot,
-        requirementsSnapshot: pricing.influencerSnapshot?.requirements || {},
-        deadline: payload.deadline,
+        deadline: schedule.endDate || payload.deadline,
         state: "draft",
         history: [{ state: "draft", actorId: userId, note: "Marketplace campaign created by vendor", changedAt: new Date() }],
       });
@@ -1444,6 +1575,7 @@ class InfluencerCommerceVendorService {
 
   async campaigns(userId, query = {}) {
     const vendor = await this.getVendor(userId);
+    await deactivateExpiredTrackingCampaigns(vendor._id, userId);
     const filter = { vendorId: vendor._id };
     applyPaymentModelFilter(filter, query);
     if (query.campaignId && objectId(query.campaignId)) filter._id = objectId(query.campaignId);
@@ -1516,6 +1648,8 @@ class InfluencerCommerceVendorService {
           ...campaign,
           paymentModel,
           attributionRule,
+          endDate: campaign.deadline || campaign.marketplace?.applicationDeadline || null,
+          trackingActive: campaign.state === "tracking_active" && !campaignEndReached(campaign.deadline),
           // Keep the management table aligned with Razorpay: only a fixed
           // reward is escrow-funded for hybrid campaigns; commission is earned
           // later from attributed orders and its cap remains separate.
@@ -1567,8 +1701,22 @@ class InfluencerCommerceVendorService {
     application.reviewedAt = new Date();
     campaign.history.push({ state: decision, actorId: userId, note: payload.note || `Application ${decision}`, changedAt: new Date() });
     if (decision === "approved") {
+      const approvedAt = new Date();
       if (!campaign.influencerId) campaign.influencerId = influencerObjectId;
-      if (campaign.state === "draft") campaign.state = "active";
+      if (["fixed", "hybrid"].includes(campaign.paymentType)) {
+        campaign.state = "accepted";
+        campaign.fixedPaymentWorkflow = {
+          ...(campaign.fixedPaymentWorkflow || {}),
+          status: "accepted_awaiting_funding",
+          contentEnabled: false,
+          acceptedAt: approvedAt,
+          lastTransitionAt: approvedAt,
+        };
+      } else if (campaign.state === "draft") {
+        campaign.state = "active";
+        if (!campaign.startDate) campaign.startDate = approvedAt;
+        campaign.scheduling = { ...(campaign.scheduling || {}), activatedAt: approvedAt };
+      }
     }
     await campaign.save();
     if (decision === "approved") {
@@ -1607,13 +1755,17 @@ class InfluencerCommerceVendorService {
 
   async updateCampaignStatus(userId, campaignId, payload = {}) {
     const vendor = await this.getVendor(userId);
+    await deactivateExpiredTrackingCampaigns(vendor._id, userId);
     const action = String(payload.action || "").toLowerCase();
     const state = action === "pause" ? "paused" : action === "close" ? "completed" : action === "activate" ? "active" : payload.state;
     if (!CAMPAIGN_STATES.includes(state)) {
       throw new AppError("Invalid campaign state", 400, "INVALID_STATE");
     }
-    const current = await Campaign.findOne({ _id: campaignId, vendorId: vendor._id }).select("state paymentType").lean();
+    const current = await Campaign.findOne({ _id: campaignId, vendorId: vendor._id }).select("state paymentType deadline").lean();
     if (!current) throw new AppError("Campaign not found", 404, "NOT_FOUND");
+    if (campaignEndReached(current.deadline) && ["tracking_active", "expired"].includes(String(current.state || "")) && ["active", "paused", "tracking_active"].includes(state)) {
+      throw new AppError("Campaign end date has passed. Tracking is inactive for this campaign.", 409, "CAMPAIGN_TRACKING_EXPIRED");
+    }
     if (state === "active" && ["fixed", "hybrid"].includes(current.paymentType)) {
       if (["proposed", "invitation_sent", "pending_review"].includes(current.state)) {
         throw new AppError("The influencer must accept this fixed-payment campaign before activation", 409, "CAMPAIGN_ACCEPTANCE_REQUIRED");
@@ -1834,10 +1986,6 @@ class InfluencerCommerceVendorService {
       }),
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
-  }
-
-  async affiliateProducts(userId, query = {}) {
-    return this.products(userId, { ...query, promotedOnly: true });
   }
 
   async contentApprovals(userId, query = {}) {
@@ -2100,128 +2248,6 @@ class InfluencerCommerceVendorService {
     };
   }
 
-  async analytics(userId, query = {}) {
-    const vendor = await this.getVendor(userId);
-    const [commission, campaigns, products, performance] = await Promise.all([
-      this.aggregateVendorCommissions(vendor._id, query),
-      this.campaigns(userId, { ...query, limit: 100 }),
-      this.products(userId, { ...query, limit: 10 }),
-      this.performance(userId, { ...query, limit: 10 }),
-    ]);
-    const campaignIds = campaigns.items.map((item) => item._id).filter(Boolean);
-    const { start, end } = parseRange(query);
-    const trackingMatch = { campaignId: { $in: campaignIds }, createdAt: { $gte: start, $lte: end } };
-    if (query.productId && objectId(query.productId)) trackingMatch.productId = objectId(query.productId);
-    if (query.influencerId && objectId(query.influencerId)) trackingMatch.influencerId = objectId(query.influencerId);
-    const [clicks, clickTrend, campaignClicks, surfaceRows] = await Promise.all([
-      CampaignAffiliateClick.countDocuments(trackingMatch),
-      CampaignAffiliateClick.aggregate([
-        { $match: trackingMatch },
-        {
-          $group: {
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-            clicks: { $sum: 1 },
-          },
-        },
-      ]),
-      CampaignAffiliateClick.aggregate([
-        { $match: trackingMatch },
-        { $group: { _id: "$campaignId", clicks: { $sum: 1 } } },
-      ]),
-      CampaignAffiliateClick.aggregate([
-        { $match: trackingMatch },
-        { $group: { _id: "$surface", clicks: { $sum: 1 } } },
-        { $sort: { clicks: -1 } },
-      ]),
-    ]);
-    const clickBucketMap = new Map(buildBuckets(start, end).map((bucket) => [bucket.date, { date: bucket.date, clicks: 0 }]));
-    clickTrend.forEach((row) => {
-      const bucket = clickBucketMap.get(row._id);
-      if (bucket) bucket.clicks = Number(row.clicks || 0);
-    });
-    const campaignClickMap = new Map(campaignClicks.map((row) => [String(row._id), Number(row.clicks || 0)]));
-    const totalRevenue = money(commission.summary.revenue);
-    const commissionPaid = money(commission.summary.paid);
-    const campaignSpend = money((commission.summary.commission || 0) + campaigns.items.reduce((sum, item) => sum + Number(item.fixedFee || item.budget || 0), 0));
-    const unified = await analyticsAggregator.getVendorAnalytics(userId, query).catch(() => null);
-    const unifiedMetrics = unified?.metrics || {};
-    const unifiedClicks = (unified?.campaigns || []).reduce((sum, row) => sum + Number(row.clicks || 0), 0);
-    const unifiedOrders = Number(unifiedMetrics.orders || 0) || (unified?.campaigns || []).reduce((sum, row) => sum + Number(row.orders || 0), 0);
-    const kpiRevenue = money(unifiedMetrics.campaignRevenue || totalRevenue);
-    const kpiSpend = money(unifiedMetrics.totalCampaignSpend || campaignSpend);
-    const kpiClicks = Number(unifiedClicks || clicks);
-    const kpiOrders = Number(unifiedOrders || commission.summary.orders || 0);
-    const kpiCommissionPaid = money(unifiedMetrics.commissionPaid || commissionPaid);
-    return {
-      kpis: {
-        campaignRevenue: kpiRevenue,
-        campaignSpend: kpiSpend,
-        roi: kpiSpend ? money(((kpiRevenue - kpiSpend) / kpiSpend) * 100) : 0,
-        commissionPaid: kpiCommissionPaid,
-        conversions: kpiOrders,
-        orders: kpiOrders,
-        clicks: kpiClicks,
-        conversionRate: kpiClicks ? money((kpiOrders / kpiClicks) * 100) : 0,
-        averageOrderValue: kpiOrders ? money(kpiRevenue / kpiOrders) : 0,
-      },
-      unified,
-      charts: {
-        revenueTrend: commission.trend,
-        commissionTrend: commission.trend.map((row) => ({ date: row.date, commission: row.commission })),
-        clickTrend: [...clickBucketMap.values()],
-        creatorPerformance: performance.items,
-        productPerformance: products.items,
-        conversionFunnel: [
-          { label: "Clicks", value: clicks },
-          { label: "Orders", value: Number(commission.summary.orders || 0) },
-          { label: "Paid Commission", value: commissionPaid },
-        ],
-        trafficSources: surfaceRows.map((row) => ({ source: row._id || "unknown", clicks: Number(row.clicks || 0) })),
-        campaignComparison: campaigns.items.map((campaign) => ({
-          id: campaign._id,
-          title: campaign.title,
-          state: campaign.state,
-          revenue: Number(campaign.revenue || campaign.analytics?.revenue || 0),
-          orders: Number(campaign.orders || campaign.analytics?.orders || 0),
-          commission: Number(campaign.commission || 0),
-          clicks: campaignClickMap.get(String(campaign._id)) || Number(campaign.analytics?.clicks || 0),
-          conversionRate: (campaignClickMap.get(String(campaign._id)) || 0) ? money((Number(campaign.orders || 0) / campaignClickMap.get(String(campaign._id))) * 100) : 0,
-        })),
-      },
-    };
-  }
-
-  async leaderboard(userId, query = {}) {
-    const performance = await this.performance(userId, query);
-    return {
-      items: performance.items.map((row) => ({ ...row, creator: row.name })),
-      summary: performance.summary,
-      pagination: performance.pagination,
-    };
-  }
-
-  async reports(userId, query = {}) {
-    const [dashboard, performance, content] = await Promise.all([
-      this.dashboard(userId, query),
-      this.performance(userId, query),
-      this.contentApprovals(userId, { limit: 10 }),
-    ]);
-    return {
-      reports: [
-        { id: "campaigns", name: "Campaign Reports", rows: dashboard.campaigns?.length || 0, exportFormats: ["csv", "excel", "pdf"] },
-        { id: "influencers", name: "Influencer Reports", rows: performance.items.length, exportFormats: ["csv", "excel", "pdf"] },
-        { id: "revenue", name: "Revenue Reports", rows: dashboard.charts.campaignRevenueTrend.length, exportFormats: ["csv", "excel", "pdf"] },
-        { id: "commissions", name: "Commission Reports", rows: performance.items.length, exportFormats: ["csv", "excel", "pdf"] },
-        { id: "content", name: "Content Reports", rows: content.pagination.total, exportFormats: ["csv", "excel", "pdf"] },
-        { id: "conversions", name: "Conversion Reports", rows: dashboard.widgets.campaignConversions, exportFormats: ["csv", "excel", "pdf"] },
-      ],
-      schedules: [
-        { frequency: "daily", enabled: false },
-        { frequency: "weekly", enabled: false },
-        { frequency: "monthly", enabled: false },
-      ],
-    };
-  }
 }
 
 module.exports = new InfluencerCommerceVendorService();

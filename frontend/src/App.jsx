@@ -75,8 +75,6 @@ const InfluencerAffiliateLinksPage = lazyDefault(() => import("./pages/influence
 const InfluencerCampaignsPage = lazyDefault(() => import("./pages/influencer/campaigns.jsx"));
 const InfluencerCampaignExecutionPage = lazyDefault(() => import("./pages/influencer/campaignExecution.jsx"));
 const InfluencerContentCenterPage = lazyDefault(() => import("./pages/influencer/contentCenter.jsx"));
-const InfluencerReelUploadPage = lazyDefault(() => import("./pages/influencer/reelUpload.jsx"));
-const InfluencerReelsPage = lazyDefault(() => import("./pages/influencer/reels.jsx"));
 const VendorOverviewPage = lazyNamed(() => import("./pages/VendorOverviewPage"), "VendorOverviewPage");
 const VendorProductsPage = lazyNamed(() => import("./pages/VendorProductsPage"), "VendorProductsPage");
 const ProductFormPage = lazyNamed(() => import("./pages/ProductFormPage"), "ProductFormPage");
@@ -105,6 +103,7 @@ const VendorOffersPage = lazyNamed(() => import("./pages/VendorOffersPage"), "Ve
 const VendorInfluencerPage = lazyNamed(() => import("./pages/VendorInfluencerPage"), "VendorInfluencerPage");
 const VendorSupportPage = lazyNamed(() => import("./pages/VendorSupportPage"), "VendorSupportPage");
 const VendorSettingsPage = lazyNamed(() => import("./pages/VendorSettingsPage"), "VendorSettingsPage");
+const VendorCatalogRequestsPage = lazyNamed(() => import("./pages/VendorCatalogRequestsPage"), "VendorCatalogRequestsPage");
 const AdminDashboardPage = lazyNamed(() => import("./pages/AdminDashboardPage"), "AdminDashboardPage");
 const AdminVendorDetailsPage = lazyNamed(() => import("./pages/AdminVendorDetailsPage"), "AdminVendorDetailsPage");
 const AdminUsersPage = lazyNamed(() => import("./pages/AdminUsersPage"), "AdminUsersPage");
@@ -130,7 +129,9 @@ const AdminRefundsPage = lazyNamed(() => import("./pages/AdminRefundsPage"), "Ad
 const AdminRefundDetailsPage = lazyNamed(() => import("./pages/AdminRefundDetailsPage"), "AdminRefundDetailsPage");
 const AdminPayoutsPage = lazyNamed(() => import("./pages/AdminPayoutsPage"), "AdminPayoutsPage");
 const AdminCancellationPoliciesPage = lazyNamed(() => import("./pages/AdminCancellationPoliciesPage"), "AdminCancellationPoliciesPage");
+const AdminCodAdvancePage = lazyNamed(() => import("./pages/AdminCodAdvancePage"), "AdminCodAdvancePage");
 const AdminFinancePayoutManagementPage = lazyNamed(() => import("./pages/AdminFinancePayoutManagementPage"), "AdminFinancePayoutManagementPage");
+const AdminEscrowRefundsPage = lazyNamed(() => import("./pages/AdminEscrowRefundsPage"), "AdminEscrowRefundsPage");
 const AdminInvoicesPage = lazyNamed(() => import("./pages/AdminInvoicesPage"), "AdminInvoicesPage");
 const AdminInvoiceSettingsPage = lazyNamed(() => import("./pages/AdminInvoiceSettingsPage"), "AdminInvoiceSettingsPage");
 const AdminVendorFinancePage = lazyNamed(() => import("./pages/AdminVendorFinancePage"), "AdminVendorFinancePage");
@@ -145,6 +146,7 @@ const AdminRevenuePage = lazyNamed(() => import("./pages/AdminRevenuePage"), "Ad
 const AuditLogsPage = lazyNamed(() => import("./pages/AuditLogsPage"), "AuditLogsPage");
 const AdminSettingsPage = lazyNamed(() => import("./pages/AdminSettingsPage"), "AdminSettingsPage");
 const AdminCompanyBrandingPage = lazyNamed(() => import("./pages/AdminCompanyBrandingPage"), "AdminCompanyBrandingPage");
+const AdminCatalogRequestsPage = lazyNamed(() => import("./pages/AdminCatalogRequestsPage"), "AdminCatalogRequestsPage");
 const AdminPricingPage = lazyNamed(() => import("./pages/AdminPricingPage"), "AdminPricingPage");
 const AdminCommissionManagementPage = lazyNamed(() => import("./pages/AdminCommissionManagementPage"), "AdminCommissionManagementPage");
 const AdminPricingCategoriesPage = lazyNamed(() => import("./pages/AdminPricingCategoriesPage"), "AdminPricingCategoriesPage");
@@ -262,8 +264,6 @@ export default function App() {
               <Route path="/influencer/campaigns" element={<InfluencerCampaignsPage />} />
               <Route path="/influencer/campaigns/:campaignId/content" element={<InfluencerCampaignExecutionPage />} />
               <Route path="/influencer/content" element={<InfluencerContentCenterPage />} />
-              <Route path="/influencer/reels/upload" element={<InfluencerReelUploadPage />} />
-              <Route path="/influencer/reels" element={<InfluencerReelsPage />} />
             </Route>
           </Route>
 
@@ -299,6 +299,7 @@ export default function App() {
               <Route path="delivery/:id/edit" element={<VendorModuleRoute moduleKey="delivery"><VendorOrderDetailsPage /></VendorModuleRoute>} />
               <Route path="pickups" element={<VendorModuleRoute moduleKey="delivery"><VendorPickupQueuePage /></VendorModuleRoute>} />
               <Route path="notifications" element={<VendorNotificationsPage />} />
+              <Route path="catalog-requests" element={<VendorCatalogRequestsPage />} />
               <Route path="reviews" element={<VendorModuleRoute moduleKey="reviews"><VendorReviewsPage /></VendorModuleRoute>} />
               <Route path="returns" element={<VendorModuleRoute moduleKey="returns"><VendorReturnsPage /></VendorModuleRoute>} />
               <Route path="offers" element={<VendorOffersPage />} />
@@ -306,13 +307,8 @@ export default function App() {
               <Route path="influencer-commerce/discover" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/relationships" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/campaigns" element={<VendorInfluencerPage />} />
-              <Route path="influencer-commerce/products" element={<VendorInfluencerPage />} />
-              <Route path="influencer-commerce/affiliate" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/content" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/performance" element={<VendorInfluencerPage />} />
-              <Route path="influencer-commerce/analytics" element={<VendorInfluencerPage />} />
-              <Route path="influencer-commerce/leaderboard" element={<VendorInfluencerPage />} />
-              <Route path="influencer-commerce/reports" element={<VendorInfluencerPage />} />
               <Route path="influencer-commerce/*" element={<VendorInfluencerPage />} />
               <Route path="support" element={<VendorSupportPage />} />
               <Route path="settings" element={<VendorSettingsPage />} />
@@ -333,6 +329,7 @@ export default function App() {
               <Route path="inventory/:productId" element={<AdminInventoryDetailsPage />} />
               <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="subcategories" element={<AdminSubcategoriesPage />} />
+              <Route path="catalog-requests" element={<AdminCatalogRequestsPage />} />
               <Route path="attributes" element={<AdminAttributesPage />} />
               <Route path="product-modules" element={<AdminProductModulesPage />} />
               <Route path="homepage-containers" element={<AdminHomepageContainersPage />} />
@@ -350,7 +347,9 @@ export default function App() {
               <Route path="refunds/:id" element={<AdminRefundDetailsPage />} />
               <Route path="payouts" element={<AdminPayoutsPage />} />
               <Route path="finance/cancellation-policies" element={<AdminCancellationPoliciesPage />} />
+              <Route path="finance/cod-advance" element={<AdminCodAdvancePage />} />
               <Route path="finance/payouts" element={<AdminFinancePayoutManagementPage />} />
+              <Route path="finance/escrow-refunds" element={<AdminEscrowRefundsPage />} />
               <Route path="finance/invoices" element={<AdminInvoicesPage />} />
               <Route path="finance/invoices/settings" element={<AdminInvoiceSettingsPage />} />
               <Route path="vendors/:id/finance" element={<AdminVendorFinancePage />} />

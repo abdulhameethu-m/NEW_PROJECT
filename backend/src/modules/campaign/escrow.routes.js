@@ -7,7 +7,7 @@ const escrowController = require("./escrow.controller");
 
 const router = express.Router();
 const vendorAuth = [authRequired, requireRole("vendor"), requireApprovedVendor];
-const adminAuth = [authRequired, requireRole("admin")];
+const adminAuth = [authRequired, requireRole("admin", "super_admin", "finance_admin")];
 const feeConfigurationSchema = Joi.object({
   feeName: Joi.string().trim().max(120).required(),
   feeCode: Joi.string().valid("platform_fee", "gateway_fee", "gst", "refund_processing_fee", "partial_refund_fee").required(),
@@ -106,30 +106,6 @@ router.get(
 );
 
 /**
- * POST /api/campaigns/escrow/request-refund/:campaignId
- * Request refund for campaign
- */
-router.post(
-  "/request-refund/:campaignId",
-  vendorAuth,
-  validate(
-    Joi.object({
-      reason: Joi.string()
-        .valid(
-          "campaign_cancelled_before_acceptance",
-          "campaign_cancelled_no_deliverables",
-          "partial_completion_cancelled",
-          "vendor_request",
-          "other"
-        )
-        .required(),
-      description: Joi.string().max(1000).allow(""),
-    })
-  ),
-  escrowController.requestRefund
-);
-
-/**
  * GET /api/campaigns/escrow/refund/:refundId
  * Get refund details
  */
@@ -183,6 +159,95 @@ router.get(
 );
 
 /**
+ * GET /api/campaigns/escrow/admin/escrow-refunds
+ * Admin finance dashboard for fixed/hybrid escrow refund eligibility and processing
+ */
+router.get(
+  "/admin/escrow-refunds",
+  adminAuth,
+  escrowController.listEscrowRefundDashboard
+);
+
+/**
+ * GET /api/campaigns/escrow/admin/escrow-refunds/:campaignId/deliverables
+ * Admin finance deliverable-level refund breakdown for one campaign.
+ */
+router.get(
+  "/admin/escrow-refunds/:campaignId/deliverables",
+  adminAuth,
+  validate(Joi.object({ campaignId: Joi.string().required() }), "params"),
+  escrowController.listEscrowRefundDeliverables
+);
+
+/**
+ * POST /api/campaigns/escrow/admin/escrow-refunds/:campaignId/deliverables/:deliverableId/refund
+ * Refund one overdue, unreleased deliverable allocation back to the vendor.
+ */
+router.post(
+  "/admin/escrow-refunds/:campaignId/deliverables/:deliverableId/refund",
+  adminAuth,
+  validate(
+    Joi.object({
+      campaignId: Joi.string().required(),
+      deliverableId: Joi.string().required(),
+    }),
+    "params"
+  ),
+  validate(
+    Joi.object({
+      refundAmount: Joi.number().positive(),
+      reason: Joi.string()
+        .valid(
+          "submission_deadline_expired",
+          "campaign_expired_no_upload",
+          "influencer_no_show",
+          "admin_decision",
+          "pending_sla_breached",
+          "other"
+        )
+        .default("submission_deadline_expired"),
+      notes: Joi.string().max(1000).allow(""),
+    })
+  ),
+  escrowController.refundDeliverableEscrow
+);
+
+/**
+ * POST /api/campaigns/escrow/admin/refund/:campaignId
+ * Create an admin-only refund request for unreleased fixed/hybrid escrow
+ */
+router.post(
+  "/admin/refund/:campaignId",
+  adminAuth,
+  validate(Joi.object({ campaignId: Joi.string().required() }), "params"),
+  validate(
+    Joi.object({
+      refundAmount: Joi.number().positive(),
+      reason: Joi.string()
+        .valid(
+          "campaign_expired",
+          "influencer_no_show",
+          "rejected_deliverables",
+          "vendor_cancelled",
+          "mutual_cancellation",
+          "admin_decision",
+          "submission_deadline_expired",
+          "campaign_expired_no_upload",
+          "influencer_rejected",
+          "influencer_inactive",
+          "admin_terminated",
+          "pending_sla_breached",
+          "other"
+        )
+        .required(),
+      notes: Joi.string().max(1000).allow(""),
+      description: Joi.string().max(1000).allow(""),
+    })
+  ),
+  escrowController.createAdminRefund
+);
+
+/**
  * POST /api/admin/campaigns/escrow/approve-refund/:refundId
  * Approve refund request
  */
@@ -195,6 +260,23 @@ router.post(
     })
   ),
   escrowController.approveRefund
+);
+
+/**
+ * POST /api/campaigns/escrow/admin/approve-and-process-refund/:refundId
+ * Approve and send a fixed/hybrid escrow refund to the original payment method
+ */
+router.post(
+  "/admin/approve-and-process-refund/:refundId",
+  adminAuth,
+  validate(Joi.object({ refundId: Joi.string().required() }), "params"),
+  validate(
+    Joi.object({
+      approvalReason: Joi.string().max(1000).allow(""),
+      notes: Joi.string().max(1000).allow(""),
+    })
+  ),
+  escrowController.approveAndProcessRefund
 );
 
 /**

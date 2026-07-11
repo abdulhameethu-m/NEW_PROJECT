@@ -556,9 +556,16 @@ class PricingService {
           zone: shippingResult.zone,
           ruleApplied: shippingResult.ruleApplied,
           fallbackApplied: shippingResult.fallbackApplied,
+          dynamicExpansionApplied: shippingResult.dynamicExpansionApplied,
+          calculationMethod: shippingResult.calculationMethod,
           matchType: shippingResult.matchType || "unknown",
           matchedOn: shippingResult.matchedOn || "unknown",
           state: shippingResult.state || options.state || "Tamil Nadu",
+          district: shippingResult.district || shippingAddress?.district || shippingAddress?.city || "",
+          matchedRule: shippingResult.matchedRule || shippingResult.rule || null,
+          configuredWeightRule: shippingResult.configuredWeightRule || shippingResult.slab || null,
+          calculatedWeight: shippingResult.weight,
+          slab: shippingResult.slab || null,
           costBreakdown: shippingResult.costBreakdown || null,
         },
       });
@@ -640,9 +647,16 @@ class PricingService {
           zone: shippingResult.zone,
           ruleApplied: shippingResult.ruleApplied,
           fallbackApplied: shippingResult.fallbackApplied,
+          dynamicExpansionApplied: shippingResult.dynamicExpansionApplied,
+          calculationMethod: shippingResult.calculationMethod,
           matchType: shippingResult.matchType || "unknown",
           matchedOn: shippingResult.matchedOn || "unknown",
           state: shippingResult.state || options.state || "Tamil Nadu",
+          district: shippingResult.district || shippingAddress?.district || shippingAddress?.city || "",
+          matchedRule: shippingResult.matchedRule || shippingResult.rule || null,
+          configuredWeightRule: shippingResult.configuredWeightRule || shippingResult.slab || null,
+          calculatedWeight: shippingResult.weight,
+          slab: shippingResult.slab || null,
           costBreakdown: shippingResult.costBreakdown || null,
         },
       });
@@ -656,6 +670,8 @@ class PricingService {
         zone: shippingResult.zone,
         cost: shippingResult.cost,
         ruleApplied: shippingResult.ruleApplied,
+        dynamicExpansionApplied: shippingResult.dynamicExpansionApplied,
+        calculationMethod: shippingResult.calculationMethod,
       };
 
       return breakdown;

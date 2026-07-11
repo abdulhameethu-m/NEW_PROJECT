@@ -1,35 +1,24 @@
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  BarChart3,
   Copy,
   ExternalLink,
-  Heart,
   Link as LinkIcon,
   Package,
   Search,
-  CheckCircle2,
-  Megaphone,
 } from "lucide-react";
 import {
   generateAffiliateProductLinks,
-  getAffiliateProductAnalytics,
   listAffiliateProducts,
-  listSavedAffiliateProducts,
-  saveAffiliateProduct,
 } from "../../services/influencerCommerceService";
 import { formatCurrency } from "../../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../../utils/resolveUrl";
 
 const TABS = [
   ["promotion", "My Promotion Products", Package],
-  ["active_campaigns", "Active Campaign Products", Megaphone],
-  ["approved", "Approved Products", CheckCircle2],
-  ["saved", "Saved Products", Heart],
   ["links", "Generate Affiliate Links", LinkIcon],
-  ["analytics", "Product Analytics", BarChart3],
-  ["campaign_performance", "Campaign Performance", Megaphone],
 ];
+const TAB_IDS = new Set(TABS.map(([id]) => id));
 
 function Card({ title, icon: Icon = Package, action, children }) {
   return (
@@ -46,7 +35,7 @@ function Card({ title, icon: Icon = Package, action, children }) {
   );
 }
 
-function ProductCard({ product, onSave, onLink, onSelect }) {
+function ProductCard({ product, onLink, onSelect }) {
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="h-44 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
@@ -55,9 +44,6 @@ function ProductCard({ product, onSave, onLink, onSelect }) {
       <div className="mt-3">
         <div className="flex items-start justify-between gap-2">
           <h3 className="line-clamp-2 text-sm font-semibold text-slate-950 dark:text-white">{product.name}</h3>
-          <button onClick={() => onSave(product)} className={`rounded-lg p-1.5 ${product.saved ? "text-rose-500" : "text-slate-400 hover:text-rose-500"}`} aria-label="Save product">
-            <Heart className={`h-4 w-4 ${product.saved ? "fill-current" : ""}`} />
-          </button>
         </div>
         <p className="mt-1 text-xs text-slate-500">{product.vendor || product.brand || "Vendor"} - {product.category}</p>
         <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-semibold">
@@ -82,10 +68,9 @@ function ProductCard({ product, onSave, onLink, onSelect }) {
 
 export default function InfluencerAffiliateProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, setTab] = useState(searchParams.get("tab") || "promotion");
+  const [tab, setTab] = useState(TAB_IDS.has(searchParams.get("tab")) ? searchParams.get("tab") : "promotion");
   const [filters, setFilters] = useState({ search: "", category: "", availability: "all", sort: "best_selling", page: 1, limit: 12 });
   const [products, setProducts] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
   const [selected, setSelected] = useState(null);
   const [links, setLinks] = useState([]);
   const [utm, setUtm] = useState({ utmSource: "influencer", utmMedium: "social", utmCampaign: "", utmContent: "", utmTerm: "" });
@@ -97,13 +82,7 @@ export default function InfluencerAffiliateProductsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      if (tab === "analytics") {
-        const response = await getAffiliateProductAnalytics({});
-        setAnalytics(response?.data || null);
-      } else if (tab === "saved") {
-        const response = await listSavedAffiliateProducts(query);
-        setProducts(response?.data?.items || []);
-      } else if (tab !== "links") {
+      if (tab !== "links") {
         const response = await listAffiliateProducts(query);
         setProducts(response?.data?.items || []);
       }
@@ -114,13 +93,9 @@ export default function InfluencerAffiliateProductsPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    setTab(searchParams.get("tab") || "promotion");
+    const nextTab = searchParams.get("tab") || "promotion";
+    setTab(TAB_IDS.has(nextTab) ? nextTab : "promotion");
   }, [searchParams]);
-
-  async function toggleSave(product) {
-    await saveAffiliateProduct(product.id, !product.saved);
-    setProducts((rows) => rows.map((row) => row.id === product.id ? { ...row, saved: !product.saved } : row));
-  }
 
   async function generate(product = selected) {
     if (!product) return;
@@ -131,18 +106,17 @@ export default function InfluencerAffiliateProductsPage() {
     setMessage("Affiliate link generated.");
   }
 
-  const totals = analytics?.totals || {};
-
   function selectTab(nextTab) {
-    setTab(nextTab);
-    setSearchParams(nextTab === "promotion" ? {} : { tab: nextTab });
+    const safeTab = TAB_IDS.has(nextTab) ? nextTab : "promotion";
+    setTab(safeTab);
+    setSearchParams(safeTab === "promotion" ? {} : { tab: safeTab });
   }
 
   return (
     <div className="mx-auto flex max-w-[1500px] flex-col gap-5">
       {message ? <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">{message}</div> : null}
 
-      {tab !== "links" && tab !== "analytics" ? (
+      {tab !== "links" ? (
         <Card title="Filters" icon={Search}>
           <div className="grid gap-3 md:grid-cols-4">
             <input value={filters.search} onChange={(e) => setFilters((c) => ({ ...c, search: e.target.value, page: 1 }))} placeholder="Search product, SKU, category" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
@@ -153,41 +127,7 @@ export default function InfluencerAffiliateProductsPage() {
         </Card>
       ) : null}
 
-      {tab === "campaign_performance" ? (
-        <Card title="Campaign Performance" icon={Megaphone}>
-          <div className="grid gap-3 md:grid-cols-4">
-            {[...new Map(products.map((product) => [product.campaignId || product.campaignName || product.id, product])).values()].map((product) => (
-              <div key={product.campaignId || product.id} className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
-                <p className="text-sm font-semibold text-slate-950 dark:text-white">{product.campaignName || "Approved promotion"}</p>
-                <p className="mt-1 text-xs capitalize text-slate-500">{product.campaignStatus || product.promotionStatus || "approved"}</p>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <span>Product</span><b className="text-right">{product.name}</b>
-                  <span>Commission</span><b className="text-right">{product.commissionRate}%</b>
-                </div>
-              </div>
-            ))}
-            {!products.length ? <p className="text-sm text-slate-500">Campaign performance appears after approved products are assigned.</p> : null}
-          </div>
-        </Card>
-      ) : tab === "analytics" ? (
-        <Card title="Product Analytics" icon={BarChart3}>
-          <div className="grid gap-3 md:grid-cols-5">
-            {[
-              ["Clicks", totals.clicks || 0],
-              ["Orders", totals.orders || 0],
-              ["Revenue", formatCurrency(totals.revenue || 0)],
-              ["Commission", formatCurrency(totals.commission || 0)],
-              ["EPC", formatCurrency(totals.epc || 0)],
-            ].map(([label, value]) => <div key={label} className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">{value}</p></div>)}
-          </div>
-          <div className="mt-5 overflow-x-auto">
-            <table className="min-w-[720px] w-full text-left text-sm">
-              <thead className="text-xs uppercase text-slate-500"><tr>{["Product", "Category", "Orders", "Revenue", "Commission", "Conversion", "EPC"].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr></thead>
-              <tbody>{(analytics?.productPerformance || []).map((row) => <tr key={row.productId} className="border-t border-slate-100 dark:border-slate-800"><td className="px-3 py-3 font-semibold dark:text-white">{row.name}</td><td className="px-3 py-3">{row.category}</td><td className="px-3 py-3">{row.orders}</td><td className="px-3 py-3">{formatCurrency(row.revenue)}</td><td className="px-3 py-3">{formatCurrency(row.commission)}</td><td className="px-3 py-3">{row.conversionRate}%</td><td className="px-3 py-3">{formatCurrency(row.epc)}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </Card>
-      ) : tab === "links" ? (
+      {tab === "links" ? (
         <Card title="Generate Affiliate Link" icon={LinkIcon}>
           <div className="grid gap-4 md:grid-cols-2">
             {["utmSource", "utmMedium", "utmCampaign", "utmContent", "utmTerm"].map((key) => <label key={key} className="text-sm font-semibold dark:text-white">{key}<input value={utm[key]} onChange={(e) => setUtm((c) => ({ ...c, [key]: e.target.value }))} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-950 dark:text-white" /></label>)}
@@ -199,7 +139,7 @@ export default function InfluencerAffiliateProductsPage() {
         </Card>
       ) : (
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {loading ? <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 dark:text-white">Loading products...</div> : products.map((product) => <ProductCard key={product.id} product={product} onSave={toggleSave} onLink={generate} onSelect={setSelected} />)}
+          {loading ? <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 dark:text-white">Loading products...</div> : products.map((product) => <ProductCard key={product.id} product={product} onLink={generate} onSelect={setSelected} />)}
           {!loading && !products.length ? <div className="col-span-full rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-slate-800">No products found.</div> : null}
         </section>
       )}

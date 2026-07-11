@@ -6,6 +6,7 @@ const { connectDb } = require("./config/db");
 const { logger } = require("./utils/logger");
 const { ensurePaymentIndexes } = require("./models/Payment");
 const { ensureCampaignPaymentReleaseIndexes } = require("./scripts/ensureCampaignPaymentReleaseIndexes");
+const { ensureDeliverableAffiliateIndexes } = require("./scripts/ensureDeliverableAffiliateIndexes");
 const { ensurePredefinedStaffRoles } = require("./modules/staff/services/role.service");
 const { initializeSettlementScheduler, shutdown } = require("./jobs/settlement.job");
 const { ensureDefaultPricingCategories } = require("./services/pricing-category.service");
@@ -18,15 +19,21 @@ const {
 const { initializeRecommendationJobs } = require("./modules/recommendation/job");
 const paymentService = require("./services/payment.service");
 
+function shouldVerifyRazorpayOnStartup() {
+  if (process.env.NODE_ENV === "production") return true;
+  return process.env.RAZORPAY_VERIFY_ON_STARTUP === "true";
+}
+
 async function start() {
   await connectDb();
   await ensurePaymentIndexes();
   await ensureCampaignPaymentReleaseIndexes();
+  await ensureDeliverableAffiliateIndexes();
   await ensurePredefinedStaffRoles();
   await ensureDefaultPricingCategories();
 
   const razorpayHealth = await paymentService.validateRazorpayConfiguration({
-    verifyCredentials: process.env.NODE_ENV !== "test",
+    verifyCredentials: shouldVerifyRazorpayOnStartup(),
   });
   logger.info("Razorpay configuration validated", razorpayHealth);
 

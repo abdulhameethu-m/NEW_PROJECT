@@ -35,6 +35,17 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   });
 });
 
+const createCodAdvanceOrder = asyncHandler(async (req, res) => {
+  const { cartId, shippingAddress, trackingToken } = req.body;
+  const result = await paymentService.createCodAdvanceRazorpayOrder({
+    userId: req.user.sub,
+    cartId,
+    shippingAddress,
+    trackingToken,
+  });
+  return ok(res, result, "COD advance Razorpay order created");
+});
+
 const recordCheckoutFailure = asyncHandler(async (req, res) => {
   const result = await paymentService.recordCheckoutFailure({
     userId: req.user.sub,
@@ -115,6 +126,7 @@ const getRefundStatus = asyncHandler(async (req, res) => {
 
 module.exports = {
   createRazorpayOrder,
+  createCodAdvanceOrder,
   verifyRazorpayPayment,
   recordCheckoutFailure,
   recordCheckoutOpened,

@@ -464,26 +464,6 @@ const campaignValidationRuleConfigSchema = new mongoose.Schema(
 
 campaignValidationRuleConfigSchema.index({ campaignTypeId: 1, paymentModelId: 1, "approval.status": 1 });
 
-const requirementFieldSchema = new mongoose.Schema(
-  {
-    key: { type: String, trim: true, lowercase: true, required: true, unique: true, index: true, maxlength: 120 },
-    label: { type: String, trim: true, required: true, maxlength: 160 },
-    fieldType: {
-      type: String,
-      enum: ["text", "textarea", "number", "currency", "select", "multi_select", "boolean", "location", "address", "json"],
-      default: "text",
-    },
-    required: { type: Boolean, default: false },
-    options: { type: [optionSchema], default: [] },
-    displayOrder: { type: Number, default: 0, index: true },
-    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
-    approval: { type: approvalSchema, default: () => ({ status: "active" }) },
-  },
-  { timestamps: true, collection: "influencer_requirement_fields" }
-);
-
-requirementFieldSchema.index({ "approval.status": 1, displayOrder: 1 });
-
 const campaignTemplateSchema = new mongoose.Schema(
   {
     key: { type: String, trim: true, lowercase: true, required: true, unique: true, index: true, maxlength: 120 },
@@ -593,7 +573,6 @@ module.exports = {
   CampaignPaymentRuleConfig: mongoose.models.CampaignPaymentRuleConfig || mongoose.model("CampaignPaymentRuleConfig", campaignPaymentRuleConfigSchema),
   CampaignDynamicFieldConfig: mongoose.models.CampaignDynamicFieldConfig || mongoose.model("CampaignDynamicFieldConfig", campaignDynamicFieldConfigSchema),
   CampaignValidationRuleConfig: mongoose.models.CampaignValidationRuleConfig || mongoose.model("CampaignValidationRuleConfig", campaignValidationRuleConfigSchema),
-  InfluencerRequirementField: mongoose.models.InfluencerRequirementField || mongoose.model("InfluencerRequirementField", requirementFieldSchema),
   InfluencerCampaignTemplate: mongoose.models.InfluencerCampaignTemplate || mongoose.model("InfluencerCampaignTemplate", campaignTemplateSchema),
   InfluencerDiscoveryRule: mongoose.models.InfluencerDiscoveryRule || mongoose.model("InfluencerDiscoveryRule", discoveryRuleSchema),
   InfluencerCampaignRule: mongoose.models.InfluencerCampaignRule || mongoose.model("InfluencerCampaignRule", campaignRuleSchema),

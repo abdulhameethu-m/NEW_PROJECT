@@ -30,7 +30,7 @@ export function AddressCard({
           <div className="text-sm leading-6 text-slate-700 dark:text-slate-200">
             <div>{address.addressLine}</div>
             <div>
-              {address.city}, {address.state} {address.pincode}
+              {address.district || address.city}, {address.state} {address.pincode}
             </div>
             <div>{address.country || "India"}</div>
           </div>
