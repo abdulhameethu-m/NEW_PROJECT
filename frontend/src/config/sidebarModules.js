@@ -132,6 +132,7 @@ export const ADMIN_SECTION_ITEMS = [
     items: [
       { name: "Categories", path: "/admin/categories", permission: "categories.read", icon: FolderTree, legacyOnly: true },
       { name: "Subcategories", path: "/admin/subcategories", permission: "categories.read", icon: Tags, legacyOnly: true },
+      { name: "Catalog Requests", path: "/admin/catalog-requests", permission: "categories.read", icon: FileSearch },
       { name: "Attributes", path: "/admin/attributes", permission: "categories.read", icon: Tags, legacyOnly: true },
       { name: "Product Modules", path: "/admin/product-modules", permission: "categories.read", icon: Boxes, legacyOnly: true },
       { name: "Homepage Containers", path: "/admin/homepage-containers", permission: "settings.read", icon: Image },
@@ -225,6 +226,7 @@ export const VENDOR_STATIC_ITEMS = [
     key: "workspace",
     items: [
       { name: "Notifications", path: "/vendor/notifications", icon: Bell, badgeKey: "notificationsUnread" },
+      { name: "Catalog Requests", path: "/vendor/catalog-requests", icon: FileSearch },
       { name: "Ready for Pickup", path: "/vendor/pickups", icon: Truck },
       { name: "Offers", path: "/vendor/offers", icon: Percent },
       { name: "Support", path: "/vendor/support", icon: HeadphonesIcon, notificationModule: "WORKSPACE", notificationSubModule: "SUPPORT" },

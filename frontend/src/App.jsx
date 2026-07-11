@@ -103,6 +103,7 @@ const VendorOffersPage = lazyNamed(() => import("./pages/VendorOffersPage"), "Ve
 const VendorInfluencerPage = lazyNamed(() => import("./pages/VendorInfluencerPage"), "VendorInfluencerPage");
 const VendorSupportPage = lazyNamed(() => import("./pages/VendorSupportPage"), "VendorSupportPage");
 const VendorSettingsPage = lazyNamed(() => import("./pages/VendorSettingsPage"), "VendorSettingsPage");
+const VendorCatalogRequestsPage = lazyNamed(() => import("./pages/VendorCatalogRequestsPage"), "VendorCatalogRequestsPage");
 const AdminDashboardPage = lazyNamed(() => import("./pages/AdminDashboardPage"), "AdminDashboardPage");
 const AdminVendorDetailsPage = lazyNamed(() => import("./pages/AdminVendorDetailsPage"), "AdminVendorDetailsPage");
 const AdminUsersPage = lazyNamed(() => import("./pages/AdminUsersPage"), "AdminUsersPage");
@@ -145,6 +146,7 @@ const AdminRevenuePage = lazyNamed(() => import("./pages/AdminRevenuePage"), "Ad
 const AuditLogsPage = lazyNamed(() => import("./pages/AuditLogsPage"), "AuditLogsPage");
 const AdminSettingsPage = lazyNamed(() => import("./pages/AdminSettingsPage"), "AdminSettingsPage");
 const AdminCompanyBrandingPage = lazyNamed(() => import("./pages/AdminCompanyBrandingPage"), "AdminCompanyBrandingPage");
+const AdminCatalogRequestsPage = lazyNamed(() => import("./pages/AdminCatalogRequestsPage"), "AdminCatalogRequestsPage");
 const AdminPricingPage = lazyNamed(() => import("./pages/AdminPricingPage"), "AdminPricingPage");
 const AdminCommissionManagementPage = lazyNamed(() => import("./pages/AdminCommissionManagementPage"), "AdminCommissionManagementPage");
 const AdminPricingCategoriesPage = lazyNamed(() => import("./pages/AdminPricingCategoriesPage"), "AdminPricingCategoriesPage");
@@ -297,6 +299,7 @@ export default function App() {
               <Route path="delivery/:id/edit" element={<VendorModuleRoute moduleKey="delivery"><VendorOrderDetailsPage /></VendorModuleRoute>} />
               <Route path="pickups" element={<VendorModuleRoute moduleKey="delivery"><VendorPickupQueuePage /></VendorModuleRoute>} />
               <Route path="notifications" element={<VendorNotificationsPage />} />
+              <Route path="catalog-requests" element={<VendorCatalogRequestsPage />} />
               <Route path="reviews" element={<VendorModuleRoute moduleKey="reviews"><VendorReviewsPage /></VendorModuleRoute>} />
               <Route path="returns" element={<VendorModuleRoute moduleKey="returns"><VendorReturnsPage /></VendorModuleRoute>} />
               <Route path="offers" element={<VendorOffersPage />} />
@@ -326,6 +329,7 @@ export default function App() {
               <Route path="inventory/:productId" element={<AdminInventoryDetailsPage />} />
               <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="subcategories" element={<AdminSubcategoriesPage />} />
+              <Route path="catalog-requests" element={<AdminCatalogRequestsPage />} />
               <Route path="attributes" element={<AdminAttributesPage />} />
               <Route path="product-modules" element={<AdminProductModulesPage />} />
               <Route path="homepage-containers" element={<AdminHomepageContainersPage />} />

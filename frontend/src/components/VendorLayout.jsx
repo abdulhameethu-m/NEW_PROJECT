@@ -60,6 +60,10 @@ const pageMeta = {
     title: "Invoices",
     subtitle: "Download invoice-safe order summaries and GST-ready PDFs for your own orders.",
   },
+  "/vendor/catalog-requests": {
+    title: "Catalog Requests",
+    subtitle: "Search the master catalog and request new categories, subcategories, attributes, or product modules.",
+  },
   "/vendor/earnings": {
     title: "Earnings",
     subtitle: "Track total earnings, pending payouts, and order payment health.",

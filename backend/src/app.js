@@ -36,6 +36,7 @@ const categoryRoutes = require("./routes/category.routes");
 const subcategoryRoutes = require("./routes/subcategory.routes");
 const attributeRoutes = require("./routes/attribute.routes");
 const productModuleRoutes = require("./routes/product-module.routes");
+const catalogRequestRoutes = require("./routes/catalog-request.routes");
 const exportRoutes = require("./routes/export.routes");
 const vendorModuleRoutes = require("./routes/vendorModule.routes");
 const homepageContainerRoutes = require("./routes/homepage-container.routes");
@@ -368,6 +369,7 @@ function createApp() {
   app.use("/api/subcategories", subcategoryRoutes);
   app.use("/api/attributes", attributeRoutes);
   app.use("/api/product-modules", productModuleRoutes);
+  app.use("/api/catalog", catalogRequestRoutes);
   app.use("/api/export", exportRoutes);
   app.use("/api/modules", vendorModuleRoutes);
   app.use("/api/homepage-containers", homepageContainerRoutes);
