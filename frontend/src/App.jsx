@@ -242,6 +242,7 @@ export default function App() {
               <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
               <Route path="/orders/:orderId/invoice" element={<CustomerInvoicePreviewPage />} />
               <Route path="/addresses" element={<AddressesPage />} />
+              <Route path="/dashboard/user/wishlist" element={<WishlistPage />} />
               <Route path="/followed-stores" element={<MyFollowedStoresPage />} />
               <Route path="/reviews" element={<ReviewsPage />} />
               <Route path="/support" element={<SupportPage />} />

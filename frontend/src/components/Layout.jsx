@@ -111,6 +111,7 @@ export function Layout() {
     location.pathname.startsWith("/reels") ||
     (location.pathname.startsWith("/influencer/") && !isInfluencerWorkspace);
   const showShopActions = !user || user?.role === "user";
+  const wishlistHref = user?.role === "user" ? "/dashboard/user/wishlist" : "/wishlist";
 
   // Detect scroll with requestAnimationFrame for smooth performance
   useEffect(() => {
@@ -295,7 +296,7 @@ export function Layout() {
                       <>
                         {showShopActions ? (
                           <>
-                            <HeaderIconLink to="/wishlist" label="Wishlist" badge={wishlistCount}>
+                            <HeaderIconLink to={wishlistHref} label="Wishlist" badge={wishlistCount}>
                               <Heart className="h-4.5 w-4.5" />
                             </HeaderIconLink>
                             <HeaderIconLink to="/cart" label="Cart" badge={cartCount}>
@@ -307,7 +308,7 @@ export function Layout() {
                       </>
                     ) : (
                       <>
-                        <HeaderIconLink to="/wishlist" label="Wishlist" badge={wishlistCount}>
+                        <HeaderIconLink to={wishlistHref} label="Wishlist" badge={wishlistCount}>
                           <Heart className="h-4.5 w-4.5" />
                         </HeaderIconLink>
                         <HeaderIconLink to="/cart" label="Cart" badge={cartCount}>
@@ -337,7 +338,7 @@ export function Layout() {
                   </div>
                   {user ? (
                     <Link
-                      to={showShopActions ? "/wishlist" : "/profile"}
+                      to={showShopActions ? wishlistHref : "/profile"}
                       className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/75 text-slate-600 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur transition hover:text-slate-950 active:scale-95 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:text-white"
                       aria-label={showShopActions ? "Saved items" : "Profile"}
                     >
@@ -346,7 +347,7 @@ export function Layout() {
                   ) : (
                     <div className="flex items-center gap-2">
                       <Link
-                        to="/wishlist"
+                        to={wishlistHref}
                         className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/75 text-slate-600 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur transition hover:text-slate-950 active:scale-95 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:text-white"
                         aria-label="Wishlist"
                       >
@@ -427,7 +428,7 @@ export function Layout() {
                   </button>
                   {showShopActions && (
                     <>
-                      <HeaderIconLinkMobile to="/wishlist" label="Wishlist" badge={wishlistCount}>
+                      <HeaderIconLinkMobile to={wishlistHref} label="Wishlist" badge={wishlistCount}>
                         <Heart className="h-4.5 w-4.5" />
                       </HeaderIconLinkMobile>
                       <HeaderIconLinkMobile to="/cart" label="Cart" badge={cartCount}>
@@ -667,9 +668,9 @@ function MobileBottomNavigation({ cartCount, wishlistCount, user, location }) {
         </Link>
 
         <Link
-          to="/wishlist"
+          to={user?.role === "user" ? "/dashboard/user/wishlist" : "/wishlist"}
           className={`relative flex flex-col items-center gap-1 text-[11px] font-semibold transition duration-200 ${
-            location.pathname === "/wishlist"
+            location.pathname === "/wishlist" || location.pathname === "/dashboard/user/wishlist"
               ? "text-indigo-600 dark:text-indigo-400 font-bold"
               : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
           }`}
@@ -707,7 +708,9 @@ function MobileBottomNavigation({ cartCount, wishlistCount, user, location }) {
         <Link
           to={user?.role === "user" ? "/profile" : user ? "/dashboard" : "/login"}
           className={`relative flex flex-col items-center gap-1 text-[11px] font-semibold transition duration-200 ${
-            location.pathname === "/profile" || location.pathname.startsWith("/dashboard")
+            location.pathname === "/profile" ||
+            location.pathname === "/dashboard/user" ||
+            location.pathname === "/user/dashboard"
               ? "text-indigo-600 dark:text-indigo-400 font-bold"
               : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
           }`}

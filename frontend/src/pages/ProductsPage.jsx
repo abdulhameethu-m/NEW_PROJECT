@@ -1,8 +1,10 @@
 import { logger } from "../services/logger/logger.js";
-import { useEffect, useMemo, useState, memo } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { ChevronDown, Heart, ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, memo } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronDown, Heart, ShoppingCart, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { BackButton } from "../components/BackButton";
+import { CategoryChips } from "../components/shop/CategoryChips";
+import { FilterBottomSheet } from "../components/shop/FilterBottomSheet";
 import { useCategories } from "../hooks/useCategories";
 import { getSubcategoriesByCategory } from "../services/subcategoryService";
 import * as productService from "../services/productService";
@@ -58,13 +60,14 @@ function buildDynamicQueryParams(searchParams) {
 
 export function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { categories } = useCategories();
 
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
   const [error, setError] = useState("");
   const [pagination, setPagination] = useState({ total: 0, pages: 1 });
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [filterDefs, setFilterDefs] = useState([]);
   const [facetMap, setFacetMap] = useState({});
   const [subcategories, setSubcategories] = useState([]);
@@ -81,7 +84,6 @@ export function ProductsPage() {
   const sortBy = searchParams.get("sortBy") || "createdAt";
   const sortOrder = searchParams.get("sortOrder") || "desc";
   const page = parseInt(searchParams.get("page") || "1", 10);
-
   const dynamicParams = useMemo(() => buildDynamicQueryParams(searchParams), [searchParams]);
 
   useEffect(() => {
@@ -215,185 +217,109 @@ export function ProductsPage() {
   }, [category, filterDefs, maxPrice, minPrice, search, searchParams, subCategoryId, subcategories]);
 
   return (
-    <div className="grid gap-4 sm:gap-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Shop Products</h1>
-          <p className="mt-1 text-xs text-slate-600 sm:text-sm">
-            Dynamic category filters, shareable URLs, and real-time storefront facets.
-          </p>
-        </div>
-        <BackButton />
-      </div>
-
-      {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400 sm:text-sm">
-          {error}
-        </div>
-      ) : null}
-
-      {appliedFilterChips.length ? (
-        <div className="flex flex-wrap gap-2">
-          {appliedFilterChips.map((chip) => (
-            <button
-              key={chip.label}
-              type="button"
-              onClick={() =>
-                updateParams((next) => {
-                  if (chip.key === "price") {
-                    next.delete("minPrice");
-                    next.delete("maxPrice");
-                  } else if (filterDefs.some((def) => def.key === chip.key && def.type === "range")) {
-                    const { minKey, maxKey } = toRangeKeys(chip.key);
-                    next.delete(minKey);
-                    next.delete(maxKey);
-                  } else {
-                    next.delete(chip.key);
-                  }
-                  next.set("page", "1");
-                })
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="px-3 pb-3">
+        <CategoryChips
+          categories={categories}
+          selectedCategoryId={categoryId}
+          selectedCategoryName={category}
+          onSelectCategory={(categoryIdValue) =>
+            updateParams((next) => {
+              if (categoryIdValue) {
+                const selectedCategory = categories.find((item) => item._id === categoryIdValue);
+                next.set("categoryId", categoryIdValue);
+                next.set("category", selectedCategory?.name || "");
+              } else {
+                next.delete("categoryId");
+                next.delete("category");
               }
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm"
-            >
-              {chip.label} ×
-            </button>
-          ))}
+              next.delete("subCategoryId");
+              clearDynamicFilters(next);
+              next.set("page", "1");
+            })
+          }
+        />
+
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div>
+            <p className="font-semibold text-slate-900 dark:text-slate-100">{pagination.total} Products</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Compact view for fast browsing</p>
+          </div>
           <button
             type="button"
-            onClick={() =>
-              updateParams((next) => {
-                next.delete("search");
-                next.delete("category");
-                next.delete("categoryId");
-                next.delete("subCategoryId");
-                next.delete("minPrice");
-                next.delete("maxPrice");
-                clearDynamicFilters(next);
-                next.set("sortBy", "createdAt");
-                next.set("sortOrder", "desc");
-                next.set("page", "1");
-              })
-            }
-            className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700"
+            onClick={() => setFilterSheetOpen(true)}
+            className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-200"
           >
-            Clear all
+            <SlidersHorizontal size={16} />
+            Filters
           </button>
         </div>
-      ) : null}
 
-      <div className="grid gap-3 sm:gap-4 lg:grid-cols-6">
-        <div className="hidden lg:block lg:col-span-1">
-          <div className="sticky top-4">
-            <FilterSidebar
-            categories={categories}
-            category={category}
-            categoryId={categoryId}
-            subCategoryId={subCategoryId}
-            subcategories={subcategories}
-            search={search}
-            minPrice={minPrice}
-            maxPrice={maxPrice}
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            filterDefs={filterDefs}
-            facetMap={facetMap}
-            searchParams={searchParams}
-            onCategoryChange={(nextCategoryId) =>
-              updateParams((next) => {
-                const selectedCategory = categories.find((item) => item._id === nextCategoryId);
-                if (selectedCategory) {
-                  next.set("categoryId", selectedCategory._id);
-                  next.set("category", selectedCategory.name);
-                } else {
-                  next.delete("categoryId");
-                  next.delete("category");
-                }
-                next.delete("subCategoryId");
-                clearDynamicFilters(next);
-                next.set("page", "1");
-              })
-            }
-            onSubcategoryChange={(nextSubCategoryId) =>
-              updateParams((next) => {
-                if (nextSubCategoryId) next.set("subCategoryId", nextSubCategoryId);
-                else next.delete("subCategoryId");
-                clearDynamicFilters(next);
-                next.set("page", "1");
-              })
-            }
-            onSearchChange={(value) =>
-              updateParams((next) => {
-                if (value) next.set("search", value);
-                else next.delete("search");
-                next.set("page", "1");
-              })
-            }
-            onPriceChange={(nextMin, nextMax) =>
-              updateParams((next) => {
-                if (nextMin !== "" && nextMin !== null && nextMin !== undefined) next.set("minPrice", String(nextMin));
-                else next.delete("minPrice");
-                if (nextMax !== "" && nextMax !== null && nextMax !== undefined) next.set("maxPrice", String(nextMax));
-                else next.delete("maxPrice");
-                next.set("page", "1");
-              })
-            }
-            onSortChange={(nextSortBy) =>
-              updateParams((next) => {
-                next.set("sortBy", nextSortBy);
-                next.set("sortOrder", nextSortBy === "createdAt" ? "desc" : "asc");
-                next.set("page", "1");
-              })
-            }
-            onFilterChange={(filterKey, value, type) =>
-              updateParams((next) => {
-                if (type === "checkbox") {
-                  if (Array.isArray(value) && value.length) next.set(filterKey, value.join(","));
-                  else next.delete(filterKey);
-                } else if (type === "range") {
-                  const { minKey, maxKey } = toRangeKeys(filterKey);
-                  if (value?.min !== "" && value?.min !== undefined) next.set(minKey, String(value.min));
-                  else next.delete(minKey);
-                  if (value?.max !== "" && value?.max !== undefined) next.set(maxKey, String(value.max));
-                  else next.delete(maxKey);
-                } else {
-                  if (value) next.set(filterKey, value);
-                  else next.delete(filterKey);
-                }
-                next.set("page", "1");
-              })
-            }
-          />
-        </div>
+        {error ? (
+          <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300">
+            {error}
+          </div>
+        ) : null}
 
-        <div className="lg:hidden">
-          <button
-            onClick={() => setShowFilters((prev) => !prev)}
-            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 sm:text-sm"
-          >
-            {showFilters ? "Hide Filters" : "Show Filters"}
-          </button>
-          {showFilters ? (
-            <div className="mt-3">
-              <FilterSidebar
-                categories={categories}
-                category={category}
-                categoryId={categoryId}
-                subCategoryId={subCategoryId}
-                subcategories={subcategories}
-                search={search}
-                minPrice={minPrice}
-                maxPrice={maxPrice}
-                sortBy={sortBy}
-                sortOrder={sortOrder}
-                filterDefs={filterDefs}
-                facetMap={facetMap}
-                searchParams={searchParams}
-                onCategoryChange={(value) =>
+        {appliedFilterChips.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {appliedFilterChips.map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() =>
                   updateParams((next) => {
-                    const selectedCategory = categories.find((item) => item._id === value);
-                    if (selectedCategory) {
-                      next.set("categoryId", selectedCategory._id);
-                      next.set("category", selectedCategory.name);
+                    if (chip.key === "price") {
+                      next.delete("minPrice");
+                      next.delete("maxPrice");
+                    } else if (filterDefs.some((def) => def.key === chip.key && def.type === "range")) {
+                      const { minKey, maxKey } = toRangeKeys(chip.key);
+                      next.delete(minKey);
+                      next.delete(maxKey);
+                    } else {
+                      next.delete(chip.key);
+                    }
+                    next.set("page", "1");
+                  })
+                }
+                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              >
+                {chip.label} ×
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <FilterBottomSheet
+          open={filterSheetOpen}
+          onClose={() => setFilterSheetOpen(false)}
+          onReset={() => {
+            updateParams((next) => {
+              next.delete("search");
+              next.delete("category");
+              next.delete("categoryId");
+              next.delete("subCategoryId");
+              next.delete("minPrice");
+              next.delete("maxPrice");
+              clearDynamicFilters(next);
+              next.set("sortBy", "createdAt");
+              next.set("sortOrder", "desc");
+              next.set("page", "1");
+            });
+          }}
+        >
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Category</label>
+              <select
+                value={categoryId}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  updateParams((next) => {
+                    if (value) {
+                      const selectedCategory = categories.find((item) => item._id === value);
+                      next.set("categoryId", value);
+                      next.set("category", selectedCategory?.name || "");
                     } else {
                       next.delete("categoryId");
                       next.delete("category");
@@ -401,110 +327,199 @@ export function ProductsPage() {
                     next.delete("subCategoryId");
                     clearDynamicFilters(next);
                     next.set("page", "1");
-                  })
-                }
-                onSubcategoryChange={(value) =>
+                  });
+                }}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-slate-100 dark:focus:ring-slate-700"
+              >
+                <option value="">All Categories</option>
+                {categories.map((item) => (
+                  <option key={item._id} value={item._id}>{item.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Subcategory</label>
+              <select
+                value={subCategoryId}
+                onChange={(event) => {
+                  const value = event.target.value;
                   updateParams((next) => {
                     if (value) next.set("subCategoryId", value);
                     else next.delete("subCategoryId");
-                    clearDynamicFilters(next);
                     next.set("page", "1");
-                  })
-                }
-                onSearchChange={(value) =>
-                  updateParams((next) => {
-                    if (value) next.set("search", value);
-                    else next.delete("search");
-                    next.set("page", "1");
-                  })
-                }
-                onPriceChange={(nextMin, nextMax) =>
-                  updateParams((next) => {
-                    if (nextMin !== "" && nextMin !== null && nextMin !== undefined) next.set("minPrice", String(nextMin));
-                    else next.delete("minPrice");
-                    if (nextMax !== "" && nextMax !== null && nextMax !== undefined) next.set("maxPrice", String(nextMax));
-                    else next.delete("maxPrice");
-                    next.set("page", "1");
-                  })
-                }
-                onSortChange={(nextSortBy) =>
-                  updateParams((next) => {
-                    next.set("sortBy", nextSortBy);
-                    next.set("sortOrder", nextSortBy === "createdAt" ? "desc" : "asc");
-                    next.set("page", "1");
-                  })
-                }
-                onFilterChange={(filterKey, value, type) =>
-                  updateParams((next) => {
-                    if (type === "checkbox") {
-                      if (Array.isArray(value) && value.length) next.set(filterKey, value.join(","));
-                      else next.delete(filterKey);
-                    } else if (type === "range") {
-                      const { minKey, maxKey } = toRangeKeys(filterKey);
-                      if (value?.min !== "" && value?.min !== undefined) next.set(minKey, String(value.min));
-                      else next.delete(minKey);
-                      if (value?.max !== "" && value?.max !== undefined) next.set(maxKey, String(value.max));
-                      else next.delete(maxKey);
-                    } else {
-                      if (value) next.set(filterKey, value);
-                      else next.delete(filterKey);
-                    }
-                    next.set("page", "1");
-                  })
-                }
-              />
-            </div>
-          ) : null}
-          </div>
-        </div>
-
-        <div className="lg:col-span-5">
-          {loading && !products.length ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center dark:border-slate-700 dark:bg-slate-800 sm:p-8">
-              <div className="text-xs text-slate-600 dark:text-slate-400 sm:text-sm">Loading products...</div>
-            </div>
-          ) : products.length === 0 ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center dark:border-slate-700 dark:bg-slate-800 sm:p-8">
-              <div className="text-xs text-slate-600 dark:text-slate-400 sm:text-sm">No products found. Try adjusting your filters.</div>
-            </div>
-          ) : (
-            <div className="space-y-3 sm:space-y-4">
-              <div className="text-xs text-slate-600 dark:text-slate-400 sm:text-sm">
-                Showing {products.length} of {pagination.total} products
-              </div>
-
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 lg:gap-3 lg:grid-cols-5 xl:grid-cols-6">
-                {products.map((product) => (
-                  <ProductCard key={product._id} product={product} />
+                  });
+                }}
+                disabled={!categoryId}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900 dark:focus:border-slate-100 dark:focus:ring-slate-700"
+              >
+                <option value="">All Subcategories</option>
+                {subcategories.map((item) => (
+                  <option key={item._id} value={item._id}>{item.name}</option>
                 ))}
-              </div>
+              </select>
+            </div>
 
-              {pagination.pages > 1 ? (
-                <div className="flex flex-col gap-3 border-t pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
-                  <div className="text-xs text-slate-600 dark:text-slate-400 sm:text-sm">
-                    Page {page} of {pagination.pages}
+            <RangeFacetCard
+              title="Price range"
+              min={Number(minPrice || facetMap.price?.min || 0)}
+              max={Number(maxPrice || facetMap.price?.max || 100000)}
+              floor={Number(facetMap.price?.min || 0)}
+              ceiling={Number(facetMap.price?.max || 100000)}
+              step={Number(facetMap.price?.step || 100)}
+              onApply={(nextMin, nextMax) => {
+                updateParams((next) => {
+                  if (nextMin !== "" && nextMin !== null && nextMin !== undefined) next.set("minPrice", String(nextMin));
+                  else next.delete("minPrice");
+                  if (nextMax !== "" && nextMax !== null && nextMax !== undefined) next.set("maxPrice", String(nextMax));
+                  else next.delete("maxPrice");
+                  next.set("page", "1");
+                });
+              }}
+            />
+
+            {filterDefs
+              .filter((def) => !["price", "rating"].includes(def.key))
+              .map((def) => {
+                const facet = facetMap[def.key];
+                if (def.type === "checkbox") {
+                  const values = getCheckboxValues(searchParams, def.key);
+                  return (
+                    <div key={def.key} className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{def.name}</div>
+                      <div className="grid gap-2">
+                        {(facet?.options || def.options?.map((option) => ({ value: option, count: 0 })) || []).map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                              const nextSelected = values.includes(option.value)
+                                ? values.filter((item) => item !== option.value)
+                                : [...values, option.value];
+                              updateParams((next) => {
+                                if (nextSelected.length) next.set(def.key, nextSelected.join(","));
+                                else next.delete(def.key);
+                                next.set("page", "1");
+                              });
+                            }}
+                            className={`rounded-2xl border px-3 py-3 text-left text-sm transition ${
+                              values.includes(option.value)
+                                ? "border-blue-600 bg-blue-600 text-white"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span>{option.value}</span>
+                              <span className="text-[11px] text-slate-400">{option.count}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (def.type === "range") {
+                  const { minKey, maxKey } = toRangeKeys(def.key);
+                  return (
+                    <RangeFacetCard
+                      key={def.key}
+                      title={def.name}
+                      min={Number(searchParams.get(minKey) || facet?.min || def.rangeConfig?.min || 0)}
+                      max={Number(searchParams.get(maxKey) || facet?.max || def.rangeConfig?.max || 0)}
+                      floor={Number(facet?.min ?? def.rangeConfig?.min ?? 0)}
+                      ceiling={Number(facet?.max ?? def.rangeConfig?.max ?? 100)}
+                      step={Number(def.rangeConfig?.step || 1)}
+                      formatSuffix={def.unit || ""}
+                      onApply={(min, max) => {
+                        updateParams((next) => {
+                          if (min !== "" && min !== null && min !== undefined) next.set(`min${def.key.charAt(0).toUpperCase() + def.key.slice(1)}`, String(min));
+                          else next.delete(`min${def.key.charAt(0).toUpperCase() + def.key.slice(1)}`);
+                          if (max !== "" && max !== null && max !== undefined) next.set(`max${def.key.charAt(0).toUpperCase() + def.key.slice(1)}`, String(max));
+                          else next.delete(`max${def.key.charAt(0).toUpperCase() + def.key.slice(1)}`);
+                          next.set("page", "1");
+                        });
+                      }}
+                    />
+                  );
+                }
+
+                return (
+                  <div key={def.key} className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{def.name}</div>
+                    <div className="grid gap-2">
+                      {(facet?.options || def.options?.map((option) => ({ value: option, count: 0 })) || []).map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            updateParams((next) => {
+                              if (option.value) next.set(def.key, option.value);
+                              else next.delete(def.key);
+                              next.set("page", "1");
+                            });
+                          }}
+                          className={`rounded-2xl border px-3 py-3 text-left text-sm transition ${
+                            searchParams.get(def.key) === option.value
+                              ? "border-blue-600 bg-blue-600 text-white"
+                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{option.value}</span>
+                            <span className="text-[11px] text-slate-400">{option.count}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => updateParams((next) => next.set("page", String(Math.max(1, page - 1))))}
-                      disabled={page === 1}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:hover:bg-slate-800 sm:text-sm"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => updateParams((next) => next.set("page", String(Math.min(pagination.pages, page + 1))))}
-                      disabled={page === pagination.pages}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:hover:bg-slate-800 sm:text-sm"
-                    >
-                      Next
-                    </button>
+                );
+              })}
+          </div>
+        </FilterBottomSheet>
+
+        <div className="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {loading && !products.length
+            ? Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="animate-pulse rounded-3xl bg-white p-4 shadow-sm dark:bg-slate-900">
+                  <div className="mb-3 h-40 rounded-3xl bg-slate-100 dark:bg-slate-800" />
+                  <div className="space-y-2">
+                    <div className="h-3 w-3/4 rounded-full bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-3 w-1/2 rounded-full bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-8 rounded-2xl bg-slate-200 dark:bg-slate-800" />
                   </div>
                 </div>
-              ) : null}
-            </div>
-          )}
+              ))
+            : products.map((product) => <ProductCard key={product._id} product={product} />)}
         </div>
+
+        {!loading && products.length === 0 ? (
+          <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 text-center dark:border-slate-800 dark:bg-slate-900">
+            <div className="mx-auto mb-4 h-32 w-32 rounded-full bg-slate-100 dark:bg-slate-800" />
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">No products found</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Try clearing your filters or searching for another category.</p>
+            <button
+              type="button"
+              onClick={() => {
+                updateParams((next) => {
+                  next.delete("search");
+                  next.delete("category");
+                  next.delete("categoryId");
+                  next.delete("subCategoryId");
+                  next.delete("minPrice");
+                  next.delete("maxPrice");
+                  clearDynamicFilters(next);
+                  next.set("sortBy", "createdAt");
+                  next.set("sortOrder", "desc");
+                  next.set("page", "1");
+                });
+              }}
+              className="mt-4 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              Reset filters
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
