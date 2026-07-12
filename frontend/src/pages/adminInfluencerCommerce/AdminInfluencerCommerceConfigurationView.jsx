@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, BarChart3, Calculator, CheckCircle2, Package, Pencil, ShieldCheck, SlidersHorizontal, Trash2, WalletCards, Power, PowerOff, XCircle } from "lucide-react";
-import { createInfluencerCommerceConfig, deleteInfluencerCommerceConfig, updateAdminInfluencerSettings, updateInfluencerCommerceConfig } from "../../services/adminInfluencerCommerceService";
+import { createInfluencerCommerceConfig, deleteInfluencerCommerceConfig, updateInfluencerCommerceConfig } from "../../services/adminInfluencerCommerceService";
 import { formatCurrency } from "../../utils/formatCurrency";
 import { ActionButton, FieldShell, numberValue, Pagination, ResponsiveTable, Section, shortText, StatusBadge } from "./AdminInfluencerCommerceShared";
 
@@ -178,24 +178,6 @@ const COMMERCE_EDITOR_DEFS = {
     detail: (row) => (row.budgetComponents || []).join(", ") || "No budget components",
   },
 };
-
-const defaultSchedulingForm = {
-  minimumCampaignLeadTimeDays: 3,
-  minimumPublishNoticeHours: 0,
-  autoPublish: false,
-  enableDeadlineReminders: true,
-  autoExpireDeliverables: true,
-  autoExpireCampaign: true,
-  enableEscrowRefund: true,
-  gracePeriodHours: 0,
-};
-
-function schedulingFormFromSettings(settings = {}) {
-  return {
-    ...defaultSchedulingForm,
-    ...settings,
-  };
-}
 
 const ADVANCED_CONFIG_ENTITIES = [
   { entityType: "campaignTypes", label: "Campaign Types" },
@@ -445,7 +427,6 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
   const scoreConfig = useMemo(() => data.scoreConfig || {}, [data.scoreConfig]);
   const rankingRule = useMemo(() => data.rankingRule || {}, [data.rankingRule]);
   const budgetRule = useMemo(() => data.budgetRule || {}, [data.budgetRule]);
-  const schedulingSettings = useMemo(() => data.schedulingSettings || data.settings?.scheduling || {}, [data.schedulingSettings, data.settings?.scheduling]);
   const blankTierForm = { tierName: "", minScore: 0, maxScore: 100, minFollowers: 0, maxFollowers: 0, color: "#475569", priority: tiers.length + 1, displayOrder: tiers.length + 1, approval: { status: "active" }, reason: "Created from linked tier and plan configuration" };
   const blankPlanForm = {
     planName: "",
@@ -513,7 +494,6 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
   const [planForm, setPlanForm] = useState(blankPlanForm);
   const [editingPlanId, setEditingPlanId] = useState("");
   const [budgetForm, setBudgetForm] = useState({ warningThresholdPercent: budgetRule.warningThresholdPercent ?? 20, criticalThresholdPercent: budgetRule.criticalThresholdPercent ?? 10, pauseWhenExhausted: budgetRule.pauseWhenExhausted ?? true, approval: { status: "active" }, reason: "Updated from admin configuration engine" });
-  const [schedulingForm, setSchedulingForm] = useState(() => schedulingFormFromSettings(schedulingSettings));
   const scoreKeys = ["followersWeight", "engagementWeight", "conversionWeight", "completionWeight", "revenueWeight"];
   const rankingKeys = ["scoreWeight", "revenueWeight", "ordersWeight", "conversionWeight", "campaignSuccessWeight", "storefrontRevenueWeight", "engagementWeight", "followersWeight"];
   const scoreTotal = weightTotal(scoreForm, scoreKeys);
@@ -536,10 +516,6 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
       reason: "Updated from admin configuration engine",
     });
   }, [budgetRule]);
-
-  useEffect(() => {
-    setSchedulingForm(schedulingFormFromSettings(schedulingSettings));
-  }, [schedulingSettings]);
 
   const resetTierForm = () => {
     setEditingTierId("");
@@ -858,43 +834,6 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <span className={`text-sm font-semibold ${rankingTotal === 100 ? "text-emerald-600" : "text-rose-600"}`}>Total: {rankingTotal}%</span>
             <ActionButton icon={CheckCircle2} disabled={!rankingRule._id || busyId === "save-ranking" || rankingTotal !== 100} onClick={() => runAction("save-ranking", () => updateInfluencerCommerceConfig("rankingRules", rankingRule._id, rankingForm), "Ranking formula activated.")}>Save Ranking</ActionButton>
-          </div>
-        </Section>
-
-        <Section title="Campaign Scheduling" icon={SlidersHorizontal}>
-          <div className="grid gap-3">
-            <ConfigSelect
-              label="Minimum Campaign Lead Time"
-              value={String(schedulingForm.minimumCampaignLeadTimeDays)}
-              onChange={(value) => setSchedulingForm((current) => ({ ...current, minimumCampaignLeadTimeDays: Number(value) }))}
-              options={[1, 2, 3, 5, 7, 10, 14].map((days) => ({ value: String(days), label: `${days} ${days === 1 ? "day" : "days"}` }))}
-            />
-            <ConfigInput
-              label="Minimum Publish Notice (hours)"
-              value={schedulingForm.minimumPublishNoticeHours}
-              onChange={(value) => setSchedulingForm((current) => ({ ...current, minimumPublishNoticeHours: value }))}
-            />
-            <ConfigInput
-              label="Grace Period (hours)"
-              value={schedulingForm.gracePeriodHours}
-              onChange={(value) => setSchedulingForm((current) => ({ ...current, gracePeriodHours: value }))}
-            />
-            <div className="grid gap-2">
-              <ConfigCheckbox label="Auto publish approved deliverables" checked={schedulingForm.autoPublish} onChange={(checked) => setSchedulingForm((current) => ({ ...current, autoPublish: checked }))} />
-              <ConfigCheckbox label="Send deadline reminders" checked={schedulingForm.enableDeadlineReminders} onChange={(checked) => setSchedulingForm((current) => ({ ...current, enableDeadlineReminders: checked }))} />
-              <ConfigCheckbox label="Auto expire overdue deliverables" checked={schedulingForm.autoExpireDeliverables} onChange={(checked) => setSchedulingForm((current) => ({ ...current, autoExpireDeliverables: checked }))} />
-              <ConfigCheckbox label="Auto expire blocked campaigns" checked={schedulingForm.autoExpireCampaign} onChange={(checked) => setSchedulingForm((current) => ({ ...current, autoExpireCampaign: checked }))} />
-              <ConfigCheckbox label="Enable escrow refund on expiry" checked={schedulingForm.enableEscrowRefund} onChange={(checked) => setSchedulingForm((current) => ({ ...current, enableEscrowRefund: checked }))} />
-            </div>
-          </div>
-          <div className="mt-4">
-            <ActionButton
-              icon={CheckCircle2}
-              disabled={busyId === "save-scheduling"}
-              onClick={() => runAction("save-scheduling", () => updateAdminInfluencerSettings({ scheduling: schedulingForm }), "Campaign scheduling settings updated.")}
-            >
-              Save Scheduling Settings
-            </ActionButton>
           </div>
         </Section>
 

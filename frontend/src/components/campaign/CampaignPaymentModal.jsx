@@ -66,6 +66,11 @@ export function CampaignPaymentModal({
       setCheckoutOpening(true);
       setError('');
       const order = paymentData?.orderId ? paymentData : await onCreatePaymentOrder?.();
+      if (order?.escrowFunded || order?.contentEnabled || order?.campaignStatus === 'active') {
+        setCheckoutOpening(false);
+        onClose();
+        return;
+      }
       if (!order?.orderId || !order?.paymentOrderId || !order?.razorpayKeyId) {
         throw new Error('Payment order is incomplete. Verify the Razorpay configuration and try again.');
       }

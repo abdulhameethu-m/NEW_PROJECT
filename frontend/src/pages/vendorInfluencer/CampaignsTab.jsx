@@ -329,7 +329,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   const maximumDeliverableDueDate = contentCreationWindow.end;
   const campaignContentCreationWindow = useMemo(() => {
     if (!form.invitationDeadline) return { start: "", end: "", firstCampaignEndDate: "" };
-    const start = addDaysToInputDate(form.invitationDeadline, 1);
+    const start = form.invitationDeadline;
     const end = addDaysToInputDate(start, adminContentCreationDays);
     return {
       start,
@@ -1120,6 +1120,15 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
               const isCompleted = state === "completed";
               const isExpired = state === "expired";
               const isTerminal = isCancelled || isCompleted || isExpired;
+              const fixedFundingStatus = campaign.fixedPaymentWorkflow?.status || "";
+              const canFundEscrow = ["fixed", "hybrid"].includes(campaign.paymentType)
+                && ["accepted_awaiting_funding", "funding_pending"].includes(fixedFundingStatus);
+              const escrowFunded = ["fixed", "hybrid"].includes(campaign.paymentType)
+                && (
+                  Boolean(campaign.fixedPaymentWorkflow?.fundedAt)
+                  || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled)
+                  || ["funded", "content_in_progress", "vendor_approved", "partially_released", "fully_released"].includes(fixedFundingStatus)
+                );
               const endDate = campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline;
               const paymentModel = campaign.paymentModel || campaign.paymentModelSnapshot || {};
               const attributionRule = campaign.attributionRule || {};
@@ -1154,9 +1163,14 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
                       <button disabled={isBusy || isActive || isTerminal} onClick={() => onStatus(campaign, "activate")} className="rounded-lg border border-emerald-200 px-2 py-1 text-xs font-semibold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-900/50 dark:text-emerald-300">{isActive ? "Active" : "Activate"}</button>
                       <button disabled={isBusy || isPaused || isTerminal} onClick={() => onStatus(campaign, "pause")} className="rounded-lg border border-amber-200 px-2 py-1 text-xs font-semibold text-amber-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-900/50 dark:text-amber-300">{isExpired ? "Expired" : isCancelled ? "Cancelled" : isPaused ? "Paused" : "Pause"}</button>
                       <button disabled={isBusy || isCancelled || isCompleted} onClick={() => onStatus(campaign, "close")} className="rounded-lg border border-slate-200 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">{isCompleted ? "Closed" : isCancelled ? "Cancelled" : isExpired ? "Close" : "Close"}</button>
-                      {["fixed", "hybrid"].includes(campaign.paymentType) && state === "accepted" && ["accepted_awaiting_funding", "funding_pending"].includes(campaign.fixedPaymentWorkflow?.status) ? (
+                      {canFundEscrow ? (
                         <button disabled={busyId === `fund-${campaign._id}`} onClick={() => onFund(campaign)} className="rounded-lg bg-indigo-600 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
                           Fund Escrow
+                        </button>
+                      ) : null}
+                      {escrowFunded ? (
+                        <button disabled className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 disabled:cursor-default dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
+                          Funded
                         </button>
                       ) : null}
                       {["fixed", "hybrid"].includes(campaign.paymentType) && campaign.fixedPaymentWorkflow?.status === "vendor_approved" ? (

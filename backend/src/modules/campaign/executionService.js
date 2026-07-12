@@ -51,6 +51,13 @@ const LIFECYCLE = Object.freeze({
   COMPLETED: "COMPLETED",
 });
 
+const CONTENT_UPLOAD_LIFECYCLES = [
+  LIFECYCLE.CONTENT_CREATION,
+  LIFECYCLE.UNDER_REVIEW,
+  LIFECYCLE.READY_FOR_PUBLISH,
+  LIFECYCLE.PUBLISH_SCHEDULED,
+];
+
 function money(value) {
   const number = Number(value || 0);
   return Number.isFinite(number) ? Number(number.toFixed(2)) : 0;
@@ -159,6 +166,15 @@ function allDeliverablesPublished(deliverables = [], publishedCount = 0) {
     publishedCount: Number(publishedCount || 0),
     complete: requiredCount > 0 && Number(publishedCount || 0) >= requiredCount,
   };
+}
+
+function isDeliverableDueExpired(deliverable = {}, now = new Date()) {
+  const due = deliverable.dueDate || deliverable.expectedCompletionDate;
+  if (!due) return false;
+  const date = new Date(due);
+  if (Number.isNaN(date.getTime())) return false;
+  date.setUTCHours(23, 59, 59, 999);
+  return date.getTime() < now.getTime();
 }
 
 function addDays(date, days) {
@@ -327,6 +343,9 @@ function validateSubmissionPayload(deliverable, payload = {}) {
     uploadMethod,
     mediaUrls: Array.isArray(payload.mediaUrls) ? payload.mediaUrls.map((url) => String(url || "").trim()).filter(Boolean) : [],
     fileMetadata: Array.isArray(payload.fileMetadata) ? payload.fileMetadata : [],
+    contentTitle: String(payload.contentTitle || "").trim(),
+    contentDescription: String(payload.contentDescription || "").trim(),
+    contentCaption: String(payload.contentCaption || "").trim(),
     notes: payload.notes || "",
   };
 }
@@ -598,7 +617,7 @@ class CampaignExecutionService {
         refundEligible: Boolean(row.refundEligible),
         refundStatus: row.refundStatus || "not_eligible",
         missedDeadline: Boolean(row.missedDeadline),
-        uploadLocked: ["expired", "missed_deadline", "cancelled", "published"].includes(String(row.status || "").toLowerCase()) || Boolean((row.dueDate || row.expectedCompletionDate) && new Date(row.dueDate || row.expectedCompletionDate).getTime() < Date.now()),
+        uploadLocked: ["expired", "missed_deadline", "cancelled", "published"].includes(String(row.status || "").toLowerCase()) || isDeliverableDueExpired(row),
         publishLocked: Boolean(row.scheduledPublishAt && new Date(row.scheduledPublishAt).getTime() > Date.now()),
         publishAvailableAt: row.scheduledPublishAt || null,
         latestSubmissionId: row.latestSubmissionId,
@@ -629,7 +648,7 @@ class CampaignExecutionService {
     const profile = await influencerService.getProfile(userId);
     const campaign = await Campaign.findOne({ _id: campaignObjectId, influencerId: profile._id }).lean();
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
-    if (![LIFECYCLE.CONTENT_CREATION, LIFECYCLE.UNDER_REVIEW].includes(campaign.currentLifecycleStatus)) {
+    if (!CONTENT_UPLOAD_LIFECYCLES.includes(campaign.currentLifecycleStatus)) {
       throw new AppError("Content upload is not available in the current campaign lifecycle phase", 409, "CAMPAIGN_UPLOAD_LOCKED", {
         lifecycleStatus: campaign.currentLifecycleStatus,
       });
@@ -666,6 +685,9 @@ class CampaignExecutionService {
       uploadMethod: validatedSubmission.uploadMethod,
       mediaUrls: validatedSubmission.mediaUrls,
       fileMetadata: validatedSubmission.fileMetadata,
+      contentTitle: validatedSubmission.contentTitle,
+      contentDescription: validatedSubmission.contentDescription,
+      contentCaption: validatedSubmission.contentCaption,
       uploadedBy: userId,
       version: Number(latest?.version || 0) + 1,
       status: "under_review",
@@ -686,6 +708,45 @@ class CampaignExecutionService {
     return this.influencerExecution(userId, campaignObjectId);
   }
 
+  async updateSubmissionDetails(userId, campaignId, deliverableId, payload = {}) {
+    const campaignObjectId = assertObjectId(campaignId, "campaignId");
+    const deliverableObjectId = assertObjectId(deliverableId, "deliverableId");
+    const profile = await influencerService.getProfile(userId);
+    const campaign = await Campaign.findOne({ _id: campaignObjectId, influencerId: profile._id }).lean();
+    if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
+    const deliverable = await CampaignDeliverable.findOne({ _id: deliverableObjectId, campaignId: campaignObjectId, influencerId: profile._id }).lean();
+    if (!deliverable) throw new AppError("Deliverable not found", 404, "NOT_FOUND");
+    const submission = await DeliverableSubmission.findById(deliverable.latestSubmissionId || payload.submissionId);
+    if (!submission || String(submission.deliverableId) !== String(deliverable._id)) throw new AppError("Submission not found", 404, "NOT_FOUND");
+    if (deliverable.status === "published" || submission.status === "published") {
+      throw new AppError("Published content details cannot be changed.", 409, "DELIVERABLE_ALREADY_PUBLISHED");
+    }
+    const oldValue = {
+      contentTitle: submission.contentTitle,
+      contentDescription: submission.contentDescription,
+      contentCaption: submission.contentCaption,
+    };
+    submission.contentTitle = String(payload.contentTitle || "").trim();
+    submission.contentDescription = String(payload.contentDescription || "").trim();
+    submission.contentCaption = String(payload.contentCaption || "").trim();
+    await submission.save();
+    await audit({
+      actorId: userId,
+      role: "influencer",
+      action: "submission_details_updated",
+      campaignId: campaignObjectId,
+      deliverableId: deliverableObjectId,
+      submissionId: submission._id,
+      oldValue,
+      newValue: {
+        contentTitle: submission.contentTitle,
+        contentDescription: submission.contentDescription,
+        contentCaption: submission.contentCaption,
+      },
+    });
+    return this.influencerExecution(userId, campaignObjectId);
+  }
+
   async review(userId, campaignId, deliverableId, payload = {}) {
     const campaignObjectId = assertObjectId(campaignId, "campaignId");
     const deliverableObjectId = assertObjectId(deliverableId, "deliverableId");
@@ -701,6 +762,12 @@ class CampaignExecutionService {
     const submission = await DeliverableSubmission.findById(payload.submissionId || deliverable.latestSubmissionId);
     if (!submission || String(submission.deliverableId) !== String(deliverable._id)) throw new AppError("Submission not found", 404, "NOT_FOUND");
     const decision = payload.decision === "approve" ? "approve" : payload.decision === "reject" ? "reject" : "revision_requested";
+    if (["approved", "completed"].includes(String(deliverable.status || "").toLowerCase()) || deliverable.approvalStatus === "approved") {
+      throw new AppError("Approved deliverables cannot be rejected or changed.", 409, "DELIVERABLE_ALREADY_APPROVED");
+    }
+    if (["reject", "revision_requested"].includes(decision) && !String(payload.comments || payload.note || "").trim()) {
+      throw new AppError("A reason is required so the influencer knows what to change.", 400, "REVIEW_REASON_REQUIRED", { field: "comments" });
+    }
     const oldValue = { status: deliverable.status, approvalStatus: deliverable.approvalStatus };
     await DeliverableReview.create({
       submissionId: submission._id,
@@ -744,8 +811,12 @@ class CampaignExecutionService {
       campaign.publishScheduledAt = campaign.publishScheduledAt && campaign.publishScheduledAt < publishSchedule.scheduledPublishAt
         ? campaign.publishScheduledAt
         : publishSchedule.scheduledPublishAt;
-      campaign.currentLifecycleStatus = LIFECYCLE.PUBLISH_SCHEDULED;
-      campaign.state = "publish_scheduled";
+      const allApprovedAfterThisReview = allDeliverables.every((row) => {
+        if (String(row._id) === String(deliverable._id)) return true;
+        return row.completionStatus === "completed" || ["approved", "completed", "published"].includes(String(row.status || "").toLowerCase());
+      });
+      campaign.currentLifecycleStatus = allApprovedAfterThisReview ? LIFECYCLE.PUBLISH_SCHEDULED : LIFECYCLE.UNDER_REVIEW;
+      campaign.state = allApprovedAfterThisReview ? "publish_scheduled" : "partially_completed";
       campaign.scheduling = {
         ...(campaign.scheduling || {}),
         affiliateEnabled: false,
@@ -865,7 +936,7 @@ class CampaignExecutionService {
     if (!vendor) throw new AppError("Vendor profile not found", 404, "VENDOR_NOT_FOUND");
     const campaignMatch = { vendorId: vendor._id };
     if (objectId(query.campaignId)) campaignMatch._id = objectId(query.campaignId);
-    const campaigns = await Campaign.find(campaignMatch).select("_id title campaignType paymentType influencerId").lean();
+    const campaigns = await Campaign.find(campaignMatch).select("_id title campaignType paymentType influencerId endDate deadline").lean();
     const campaignMap = new Map(campaigns.map((row) => [String(row._id), row]));
     const filter = { vendorId: vendor._id, campaignId: { $in: campaigns.map((row) => row._id) } };
     if (query.status) filter.status = query.status;
@@ -878,6 +949,15 @@ class CampaignExecutionService {
     const submissionIds = deliverables.map((row) => row.latestSubmissionId).filter(Boolean);
     const submissions = submissionIds.length ? await DeliverableSubmission.find({ _id: { $in: submissionIds } }).lean() : [];
     const submissionMap = new Map(submissions.map((row) => [String(row._id), row]));
+    const deliverableIds = deliverables.map((row) => row._id);
+    const reviews = deliverableIds.length
+      ? await DeliverableReview.find({ deliverableId: { $in: deliverableIds } }).sort({ reviewedAt: -1 }).lean()
+      : [];
+    const reviewMap = reviews.reduce((map, row) => {
+      const key = String(row.deliverableId);
+      if (!map.has(key)) map.set(key, row);
+      return map;
+    }, new Map());
     return {
       items: deliverables.map((row) => ({
         id: row._id,
@@ -892,7 +972,10 @@ class CampaignExecutionService {
         approvalStatus: row.approvalStatus,
         completionStatus: row.completionStatus,
         paymentEligibility: row.paymentEligibility,
+        dueDate: row.dueDate || row.expectedCompletionDate,
+        expectedCompletionDate: row.expectedCompletionDate,
         latestSubmission: submissionMap.get(String(row.latestSubmissionId)) || null,
+        latestReview: reviewMap.get(String(row._id)) || null,
       })),
     };
   }
@@ -1221,13 +1304,12 @@ class CampaignExecutionService {
       }
     }
 
-    if (settings.autoPublish) {
-      const scheduledReels = await Reel.find({
-        campaignId: { $ne: null },
-        visibility: "scheduled",
-        scheduledAt: { $lte: now },
-      }).limit(200);
-      for (const reel of scheduledReels) {
+    const scheduledReels = await Reel.find({
+      campaignId: { $ne: null },
+      visibility: "scheduled",
+      scheduledAt: { $lte: now },
+    }).limit(200);
+    for (const reel of scheduledReels) {
         const campaign = await Campaign.findById(reel.campaignId).lean();
         const deliverable = await CampaignDeliverable.findOne({
           campaignId: reel.campaignId,
@@ -1288,8 +1370,7 @@ class CampaignExecutionService {
           publishedAt: now,
           actor,
         }).catch(() => null);
-        summary.autoPublishedContent += 1;
-      }
+      summary.autoPublishedContent += 1;
     }
 
     return summary;

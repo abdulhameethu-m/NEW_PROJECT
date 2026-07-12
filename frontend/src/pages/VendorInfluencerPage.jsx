@@ -32,7 +32,7 @@ import {
   verifyVendorInfluencerSubscriptionPayment,
 } from "../services/influencerCommerceService";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
-import { requestInput } from "../services/notificationService";
+import { confirmAction, requestInput } from "../services/notificationService";
 import CampaignEscrowService from "../services/campaignEscrowService";
 import {
   ACTIVE_TAB_REFRESH_INTERVAL_MS,
@@ -67,6 +67,21 @@ const CampaignPaymentModal = lazy(() =>
 
 function TabFallback() {
   return <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Loading section...</div>;
+}
+
+function toDateInputValue(value = new Date()) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 10);
+}
+
+function latestDateInputValue(...values) {
+  return values
+    .map((value) => toDateInputValue(value))
+    .filter(Boolean)
+    .sort()
+    .at(-1) || "";
 }
 
 export function VendorInfluencerPage() {
@@ -191,6 +206,10 @@ export function VendorInfluencerPage() {
             metrics: {},
             products: [],
             totalPrice: row.totalPrice,
+            dueDate: row.dueDate || row.expectedCompletionDate,
+            expectedCompletionDate: row.expectedCompletionDate,
+            latestReview: row.latestReview,
+            reviewNote: row.latestReview?.comments || "",
           }));
           return {
             data: {
@@ -340,6 +359,12 @@ export function VendorInfluencerPage() {
     const campaignId = campaignPayment?.campaign?._id || campaignPayment?.campaign?.id;
     if (!campaignId) throw new Error("Campaign not found.");
     const paymentOrder = await CampaignEscrowService.createPaymentOrder(campaignId);
+    if (paymentOrder?.escrowFunded || paymentOrder?.contentEnabled || paymentOrder?.campaignStatus === "active") {
+      setMessage("Escrow is funded and the campaign is active.");
+      setCampaignPayment(null);
+      await Promise.all([loadTab({ silent: true }), loadFoundation({ force: true })]).catch(() => {});
+      return paymentOrder;
+    }
     setCampaignPayment((current) => current ? { ...current, paymentOrder } : current);
     return paymentOrder;
   }
@@ -624,15 +649,37 @@ export function VendorInfluencerPage() {
             if (url) window.open(url, "_blank", "noopener,noreferrer");
           }}
           onReview={async (row, decision) => {
-            const note = decision === "changes" ? "Please update this content and resubmit." : "";
             if (row.source === "deliverable_execution") {
-              const apiDecision = decision === "changes" ? "revision_requested" : decision;
+              let note = "";
+              if (decision === "approve") {
+                const confirmed = await confirmAction({
+                  title: "Approve deliverable",
+                  message: "Approve this deliverable? After approval, the vendor cannot reject it from this review queue.",
+                  confirmLabel: "Approve",
+                  tone: "warning",
+                });
+                if (!confirmed) return null;
+              }
+              if (decision === "reject") {
+                note = await requestInput({
+                  title: "Reject deliverable",
+                  label: "Reason / changes required",
+                  message: "Tell the influencer exactly what must be changed before reuploading.",
+                  multiline: true,
+                  required: true,
+                  confirmLabel: "Send Reason",
+                });
+                if (!note?.trim()) return null;
+              }
+              const apiDecision = decision;
               let schedule = {};
               if (apiDecision === "approve") {
-                const defaultDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-                const publishDate = await requestInput({ title: "Schedule publish", label: "Publish date (YYYY-MM-DD)", defaultValue: defaultDate, required: true });
+                const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                const minimumPublishDate = latestDateInputValue(tomorrow, row.dueDate || row.expectedCompletionDate);
+                const maximumPublishDate = toDateInputValue(row.campaign?.endDate || row.campaign?.deadline);
+                const publishDate = await requestInput({ title: "Schedule publish", label: "Publish date", type: "date", defaultValue: minimumPublishDate, min: minimumPublishDate, max: maximumPublishDate || undefined, required: true });
                 if (!publishDate) return null;
-                const publishTime = await requestInput({ title: "Schedule publish", label: "Publish time (HH:mm, 24-hour)", defaultValue: "10:00", required: true });
+                const publishTime = await requestInput({ title: "Schedule publish", label: "Publish time", type: "time", defaultValue: "10:00", required: true });
                 if (!publishTime) return null;
                 schedule = {
                   publishDate,
@@ -642,6 +689,10 @@ export function VendorInfluencerPage() {
               }
               return runAction(row.id, () => reviewCampaignExecutionDeliverable(row.campaignId, row.deliverableId, { submissionId: row.submissionId, decision: apiDecision, comments: note, ...schedule }), "Deliverable review synchronized.");
             }
+            const note = decision === "reject"
+              ? await requestInput({ title: "Reject content", label: "Reason", multiline: true, required: true, confirmLabel: "Reject" })
+              : "";
+            if (decision === "reject" && !note?.trim()) return null;
             return runAction(row.id, () => reviewVendorInfluencerContent(row.id, { decision, note }), "Content review synchronized.");
           }}
         />

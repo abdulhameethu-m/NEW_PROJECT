@@ -207,12 +207,12 @@ async function validatePublishSchedule({ campaign, deliverable, publishDate, pub
     throw new AppError("Publish date is earlier than the configured minimum publish notice.", 400, "PUBLISH_NOTICE_REQUIRED", { field: "publishDate" });
   }
   const campaignEnd = parseDate(campaign.endDate || campaign.deadline, "endDate");
-  if (campaignEnd && scheduledPublishAt.getTime() > campaignEnd.getTime()) {
+  if (campaignEnd && scheduledPublishAt.getTime() > endOfUtcDay(campaignEnd).getTime()) {
     throw new AppError("Publish date must be on or before the campaign end date.", 400, "PUBLISH_DATE_INVALID", { field: "publishDate" });
   }
   const due = parseDate(deliverable.dueDate || deliverable.expectedCompletionDate, "dueDate");
-  if (due && scheduledPublishAt.getTime() < due.getTime()) {
-    throw new AppError("Publish date must be after the deliverable due date.", 400, "PUBLISH_DATE_INVALID", { field: "publishDate" });
+  if (due && startOfUtcDay(scheduledPublishAt).getTime() < startOfUtcDay(due).getTime()) {
+    throw new AppError("Publish date must be on or after the deliverable due date.", 400, "PUBLISH_DATE_INVALID", { field: "publishDate" });
   }
   return { scheduledPublishAt, publishDate: scheduledPublishAt, publishTime, publishTimezone: timezone || "UTC" };
 }
@@ -222,7 +222,7 @@ function assertUploadOpen(deliverable = {}, now = new Date()) {
     throw new AppError("Deliverable Deadline Expired. This deliverable can no longer be uploaded.", 409, "DELIVERABLE_DEADLINE_EXPIRED");
   }
   const due = deliverable.dueDate || deliverable.expectedCompletionDate;
-  if (due && new Date(due).getTime() < now.getTime()) {
+  if (due && endOfUtcDay(parseDate(due, "dueDate")).getTime() < now.getTime()) {
     throw new AppError("Deliverable Deadline Expired. This deliverable can no longer be uploaded.", 409, "DELIVERABLE_DEADLINE_EXPIRED");
   }
 }

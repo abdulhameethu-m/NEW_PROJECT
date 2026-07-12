@@ -110,6 +110,15 @@ export function Layout() {
     location.pathname.startsWith("/influencers") ||
     location.pathname.startsWith("/reels") ||
     (location.pathname.startsWith("/influencer/") && !isInfluencerWorkspace);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const showShopActions = !user || user?.role === "user";
   const wishlistHref = user?.role === "user" ? "/dashboard/user/wishlist" : "/wishlist";
 
@@ -551,7 +560,7 @@ export function Layout() {
         </>
       ) : null}
 
-      {!hideShopChrome ? (
+      {!hideShopChrome && !(isMobile && location.pathname.startsWith("/influencers/reels")) ? (
         <CategoryNavigation 
           categories={presentedCategories}
           onSelect={(item) => {

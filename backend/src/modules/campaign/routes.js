@@ -124,10 +124,26 @@ router.post(
       uploadMethod: Joi.string().valid("url", "file").required(),
       mediaUrls: Joi.array().items(Joi.string().trim().max(1200)).default([]),
       fileMetadata: Joi.array().items(Joi.object().unknown(true)).default([]),
+      contentTitle: Joi.string().trim().max(180).allow("").default(""),
+      contentDescription: Joi.string().trim().max(2000).allow("").default(""),
+      contentCaption: Joi.string().trim().max(1000).allow("").default(""),
       notes: Joi.string().trim().max(1000).allow("").default(""),
     })
   ),
   controller.submitExecution
+);
+router.patch(
+  "/influencer/:campaignId/deliverables/:deliverableId/submission-details",
+  authRequired,
+  requireRole("influencer"),
+  validate(
+    Joi.object({
+      contentTitle: Joi.string().trim().max(180).allow("").default(""),
+      contentDescription: Joi.string().trim().max(2000).allow("").default(""),
+      contentCaption: Joi.string().trim().max(1000).allow("").default(""),
+    })
+  ),
+  controller.updateExecutionDetails
 );
 router.get("/vendor/execution/review-queue", vendorAuth, validate(Joi.object({ campaignId: Joi.string().trim().allow("").optional(), status: Joi.string().trim().allow("").optional(), limit: Joi.number().integer().min(1).max(100).optional() }), "query"), controller.reviewQueue);
 router.get("/vendor/:campaignId/execution", vendorAuth, controller.vendorExecution);

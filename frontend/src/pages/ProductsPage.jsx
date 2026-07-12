@@ -216,6 +216,78 @@ export function ProductsPage() {
     return chips;
   }, [category, filterDefs, maxPrice, minPrice, search, searchParams, subCategoryId, subcategories]);
 
+  // Handlers for desktop FilterSidebar
+  function onCategoryChange(value) {
+    updateParams((next) => {
+      if (value) {
+        const selectedCategory = categories.find((item) => item._id === value);
+        next.set("categoryId", value);
+        next.set("category", selectedCategory?.name || "");
+      } else {
+        next.delete("categoryId");
+        next.delete("category");
+      }
+      next.delete("subCategoryId");
+      clearDynamicFilters(next);
+      next.set("page", "1");
+    });
+  }
+
+  function onSubcategoryChange(value) {
+    updateParams((next) => {
+      if (value) next.set("subCategoryId", value);
+      else next.delete("subCategoryId");
+      next.set("page", "1");
+    });
+  }
+
+  function onSearchChange(value) {
+    updateParams((next) => {
+      if (value) next.set("search", value);
+      else next.delete("search");
+      next.set("page", "1");
+    });
+  }
+
+  function onPriceChange(nextMin, nextMax) {
+    updateParams((next) => {
+      if (nextMin !== "" && nextMin !== null && nextMin !== undefined) next.set("minPrice", String(nextMin));
+      else next.delete("minPrice");
+      if (nextMax !== "" && nextMax !== null && nextMax !== undefined) next.set("maxPrice", String(nextMax));
+      else next.delete("maxPrice");
+      next.set("page", "1");
+    });
+  }
+
+  function onSortChange(value) {
+    updateParams((next) => {
+      next.set("sortBy", value);
+      next.set("page", "1");
+    });
+  }
+
+  function onFilterChange(key, value, type) {
+    updateParams((next) => {
+      if (type === "checkbox") {
+        if (Array.isArray(value)) {
+          if (value.length) next.set(key, value.join(","));
+          else next.delete(key);
+        }
+      } else if (type === "range") {
+        const minKey = `min${key.charAt(0).toUpperCase() + key.slice(1)}`;
+        const maxKey = `max${key.charAt(0).toUpperCase() + key.slice(1)}`;
+        if (value && value.min !== undefined) next.set(minKey, String(value.min));
+        else next.delete(minKey);
+        if (value && value.max !== undefined) next.set(maxKey, String(value.max));
+        else next.delete(maxKey);
+      } else {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      }
+      next.set("page", "1");
+    });
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="px-3 pb-3">
@@ -478,19 +550,43 @@ export function ProductsPage() {
           </div>
         </FilterBottomSheet>
 
-        <div className="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {loading && !products.length
-            ? Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="animate-pulse rounded-3xl bg-white p-4 shadow-sm dark:bg-slate-900">
-                  <div className="mb-3 h-40 rounded-3xl bg-slate-100 dark:bg-slate-800" />
-                  <div className="space-y-2">
-                    <div className="h-3 w-3/4 rounded-full bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-3 w-1/2 rounded-full bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-8 rounded-2xl bg-slate-200 dark:bg-slate-800" />
+        <div className="mt-4 lg:flex lg:items-start lg:gap-6">
+          <div className="hidden lg:block lg:w-80">
+            <FilterSidebar
+              categories={categories}
+              categoryId={categoryId}
+              subCategoryId={subCategoryId}
+              subcategories={subcategories}
+              search={search}
+              minPrice={minPrice}
+              maxPrice={maxPrice}
+              sortBy={sortBy}
+              filterDefs={filterDefs}
+              facetMap={facetMap}
+              searchParams={searchParams}
+              onCategoryChange={onCategoryChange}
+              onSubcategoryChange={onSubcategoryChange}
+              onSearchChange={onSearchChange}
+              onPriceChange={onPriceChange}
+              onSortChange={onSortChange}
+              onFilterChange={onFilterChange}
+            />
+          </div>
+
+          <div className="flex-1 grid gap-3 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-8 xl:grid-cols-8">
+            {loading && !products.length
+              ? Array.from({ length: 8 }).map((_, index) => (
+                  <div key={index} className="animate-pulse rounded-3xl bg-white p-4 shadow-sm dark:bg-slate-900">
+                    <div className="mb-3 h-40 rounded-3xl bg-slate-100 dark:bg-slate-800" />
+                    <div className="space-y-2">
+                      <div className="h-3 w-3/4 rounded-full bg-slate-200 dark:bg-slate-800" />
+                      <div className="h-3 w-1/2 rounded-full bg-slate-200 dark:bg-slate-800" />
+                      <div className="h-8 rounded-2xl bg-slate-200 dark:bg-slate-800" />
+                    </div>
                   </div>
-                </div>
-              ))
-            : products.map((product) => <ProductCard key={product._id} product={product} />)}
+                ))
+              : products.map((product) => <ProductCard key={product._id} product={product} />)}
+          </div>
         </div>
 
         {!loading && products.length === 0 ? (

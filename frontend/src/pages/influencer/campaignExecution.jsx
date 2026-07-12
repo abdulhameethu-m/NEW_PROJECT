@@ -308,6 +308,9 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
     mediaType: uploadRule.options[0].mediaType,
     uploadMethod: uploadRule.options[0].uploadMethod,
     fileMetadata: [],
+    contentTitle: "",
+    contentDescription: "",
+    contentCaption: "",
     notes: "",
   });
   const [validationError, setValidationError] = useState("");
@@ -320,6 +323,9 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
   const closed = ["completed", "approved", "cancelled"].includes(deliverable.status);
   const latest = deliverable.submissions?.[0] || null;
   const isApproved = ["approved", "completed"].includes(deliverable.status);
+  const reviewDecision = effectiveReviewDecision(deliverable);
+  const latestReview = deliverable.latestReview || null;
+  const needsReupload = ["reject", "revision_requested"].includes(reviewDecision);
   const selectedOption = uploadRule.options.find((option) => option.value === form.uploadOption) || uploadRule.options[0];
   const requiresUrl = selectedOption.uploadMethod === "url";
   const hasValidUrl = !requiresUrl || isAllowedUrlForOption(form.contentUrl, selectedOption);
@@ -336,6 +342,9 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
       mediaType: option.mediaType,
       uploadMethod: option.uploadMethod,
       fileMetadata: [],
+      contentTitle: "",
+      contentDescription: "",
+      contentCaption: "",
       notes: "",
     });
   }
@@ -345,10 +354,13 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
       campaignId: campaignId,
       deliverableId: deliverable.id,
       videoUrl: latest?.contentUrl || "",
-      title: deliverable.title || "",
-      description: `Deliverable for ${campaignData?.campaign?.title || "campaign"}`,
+      title: latest?.contentTitle || deliverable.title || "",
+      description: latest?.contentDescription || `Deliverable for ${campaignData?.campaign?.title || "campaign"}`,
+      caption: latest?.contentCaption || latest?.notes || "",
       contentType: toReelContentType(latest?.contentType),
       campaignBudget: campaignData?.campaign?.budget || 0,
+      visibility: "scheduled",
+      scheduledAt: deliverable.publishAvailableAt || deliverable.scheduledPublishAt || deliverable.publishDate || "",
     };
     navigate("/influencer/content?tab=upload", { state: publishData });
   }
@@ -523,6 +535,20 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
         </div>
       ) : null}
 
+      {needsReupload ? (
+        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-semibold">{reviewDecision === "reject" ? "Vendor rejected this upload" : "Vendor requested changes"}</p>
+              <p className="mt-1 text-sm whitespace-pre-line">
+                {latestReview?.comments || "Please update the content and reupload it for vendor review."}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {isUploadLocked && !latest ? (
         <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
           <p className="font-semibold">Deliverable Deadline Expired</p>
@@ -642,10 +668,33 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
             </div>
           ) : null}
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              value={form.contentTitle}
+              onChange={(event) => setForm((current) => ({ ...current, contentTitle: event.target.value }))}
+              placeholder="Post title"
+              maxLength={180}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+            />
+            <input
+              value={form.contentCaption}
+              onChange={(event) => setForm((current) => ({ ...current, contentCaption: event.target.value }))}
+              placeholder="Post caption"
+              maxLength={1000}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+            />
+          </div>
+          <textarea
+            value={form.contentDescription}
+            onChange={(event) => setForm((current) => ({ ...current, contentDescription: event.target.value }))}
+            placeholder="Post details / description"
+            maxLength={2000}
+            className="min-h-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+          />
           <textarea
             value={form.notes}
             onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
-            placeholder="Notes for vendor"
+            placeholder="Private notes for vendor"
             className="min-h-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
           />
           <button
@@ -655,23 +704,24 @@ function DeliverableCard({ campaignId, deliverable, busy, onSubmit, navigate, ca
             className="inline-flex h-11 w-fit items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-slate-950"
           >
             <Send className="h-4 w-4" />
-            Upload Content
+            {needsReupload ? "Re-upload Content" : "Upload Content"}
           </button>
         </div>
       ) : !isRefundedLocked && isApproved ? (
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handlePublish}
-            disabled={isPublishLocked}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-500 dark:hover:bg-emerald-600"
-          >
-            <Share2 className="h-4 w-4" />
-            {isPublishLocked ? "Publishing Scheduled" : "Publish Content"}
-          </button>
-          <p className="flex items-center text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-            {isPublishLocked ? `Available on ${dateTimeLabel(deliverable.publishAvailableAt)}` : "Content approved! Ready to publish."}
-          </p>
+        <div className="mt-4 grid gap-3">
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handlePublish}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-600"
+            >
+              <Share2 className="h-4 w-4" />
+              {isPublishLocked ? "Publishing Scheduled" : "Publish Content"}
+            </button>
+            <p className="flex items-center text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+              {isPublishLocked ? `Available on ${dateTimeLabel(deliverable.publishAvailableAt)}` : "Content approved! Ready to publish."}
+            </p>
+          </div>
         </div>
       ) : null}
     </article>

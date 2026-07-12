@@ -86,8 +86,8 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
   const canAccept = hasOpenInvitation || (openInvitationStatuses.includes(workflowStatus) && (!campaignState || openInvitationStatuses.includes(campaignState)));
   const canReject = canAccept;
   const isApplied = ["submitted", "pending_review", "shortlisted", "approved", "accepted", "active", "completed"].includes(applicationStatus);
-  const isActive = ["approved", "accepted", "active", "product_shipped", "content_in_progress", "content_submitted", "under_review", "revision_requested", "partially_completed", "published", "tracking_active", "completed"].includes(workflowStatus);
-  const contentEnabled = ["CONTENT_CREATION", "UNDER_REVIEW"].includes(lifecycleStatus) && (campaign.paymentType !== "fixed" || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled));
+  const isActive = ["approved", "accepted", "active", "product_shipped", "content_in_progress", "content_submitted", "under_review", "revision_requested", "partially_completed", "ready_for_publish", "publish_scheduled", "published", "tracking_active", "completed"].includes(workflowStatus);
+  const contentEnabled = ["CONTENT_CREATION", "UNDER_REVIEW", "READY_FOR_PUBLISH", "PUBLISH_SCHEDULED"].includes(lifecycleStatus) && (campaign.paymentType !== "fixed" || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled));
   const linksEnabled = lifecycleStatus === "LIVE";
   const isWaiting = !isActive && ["submitted", "pending_review", "shortlisted"].includes(applicationStatus);
   const canApply = !isActive && campaign.marketplacePublic && !isApplied && !hasOpenInvitation && !canAccept;

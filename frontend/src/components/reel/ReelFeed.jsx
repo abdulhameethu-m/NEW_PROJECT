@@ -20,6 +20,8 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
+import BackButton from "./BackButton";
+import ActionSidebar from "./ActionSidebar";
 import { useAuthStore } from "../../context/authStore";
 import {
   createReelComment,
@@ -406,7 +408,7 @@ function ShareModal({ reel, onClose, onShare }) {
   );
 }
 
-export function ReelFeed({ detailId = "" }) {
+export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const [tab, setTab] = useState("for_you");
@@ -433,6 +435,19 @@ export function ReelFeed({ detailId = "" }) {
   const viewedReelsRef = useRef(new Set());
 
   const activeReel = reels[activeIndex] || null;
+
+  // When in mobile fullscreen reels, prevent body scrolling so only the reels container scrolls.
+  useEffect(() => {
+    if (!fullScreenMobile) return;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow || "";
+      document.body.style.overflow = prevBodyOverflow || "";
+    };
+  }, [fullScreenMobile]);
 
   const load = useCallback(async ({ reset = false } = {}) => {
     const nextPage = reset ? 1 : pageRef.current;
@@ -745,22 +760,24 @@ export function ReelFeed({ detailId = "" }) {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col bg-slate-950 text-white lg:min-h-[calc(100vh-150px)] lg:bg-transparent lg:text-slate-950 lg:dark:text-white pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
+    <div className={`${fullScreenMobile ? "fixed inset-0 z-50 bg-black text-white" : "mx-auto flex min-h-screen w-full max-w-[1400px] flex-col bg-slate-50 text-slate-950 lg:min-h-[calc(100vh-150px)] lg:bg-transparent lg:text-slate-950"} ${fullScreenMobile ? "pb-0" : "pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0"}`}>
       
       {/* Compact Sticky Mobile Header */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-900 bg-slate-950 px-4 text-white lg:hidden">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="rounded-full p-1 hover:bg-slate-900 transition active:scale-95" aria-label="Go back">
-            <ChevronLeft className="h-6 w-6" />
-          </button>
-          <h1 className="text-lg font-black tracking-tight">Reels</h1>
-        </div>
-        <div className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
-      </header>
+      {!fullScreenMobile ? (
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-900 bg-slate-950 px-4 text-white lg:hidden">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate(-1)} className="rounded-full p-1 hover:bg-slate-900 transition active:scale-95" aria-label="Go back">
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+            <h1 className="text-lg font-black tracking-tight">Reels</h1>
+          </div>
+          <div className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+        </header>
+      ) : null}
 
       {/* Tabs list */}
       <div 
-        className="flex gap-2 overflow-x-auto bg-slate-950 px-3 py-2 lg:bg-transparent lg:px-0 lg:py-0"
+        className={`flex gap-2 overflow-x-auto ${fullScreenMobile ? "hidden" : "bg-slate-100 px-3 py-2"} lg:bg-transparent lg:px-0 lg:py-0 lg:-mt-2`}
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {FEED_TABS.map(([key, label]) => (
@@ -780,31 +797,37 @@ export function ReelFeed({ detailId = "" }) {
 
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 m-2">{error}</div> : null}
 
-      <div className="min-h-0 flex-1 bg-black">
-        <section ref={feedRef} onScroll={handleFeedScroll} className="mx-auto h-[calc(100dvh-172px)] lg:h-[calc(100vh-150px)] w-full max-w-[1240px] snap-y snap-mandatory overflow-y-auto rounded-none lg:rounded-[2rem] p-0 lg:p-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
+      <div className="min-h-0 flex-1 bg-transparent">
+        <section
+          ref={feedRef}
+          onScroll={handleFeedScroll}
+          className={`mx-auto ${fullScreenMobile ? "h-[100dvh]" : "h-[calc(100dvh-172px)] lg:h-[calc(100vh-150px)]"} w-full max-w-[1240px] snap-y snap-mandatory scroll-smooth overflow-y-auto rounded-none lg:rounded-[2rem] p-0 lg:p-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden`}
+          style={ fullScreenMobile ? { height: '100dvh', scrollSnapType: 'y proximity', WebkitOverflowScrolling: 'touch', scrollBehavior: 'smooth' } : { scrollSnapType: 'y proximity', scrollBehavior: 'smooth' } }
+        >
           {loading && !reels.length ? <div className="flex h-full items-center justify-center text-sm font-bold text-slate-500">Loading reels...</div> : null}
           {!loading && !reels.length ? <div className="flex h-full items-center justify-center text-center text-sm font-bold text-slate-500">No published reels yet.</div> : null}
           {reels.map((reel, index) => (
-            <article 
-              key={reel._id} 
-              ref={index === reels.length - 1 ? lastCardRef : null} 
-              onMouseEnter={() => setActiveIndex(index)} 
-              className="grid h-[calc(100dvh-172px)] lg:h-[calc(100vh-166px)] lg:max-h-[90vh] snap-start gap-0 lg:gap-5 grid-cols-1 xl:grid-cols-[320px_minmax(0,900px)] mb-0 lg:mb-4 bg-black"
+            <article
+              key={reel._id}
+              ref={index === reels.length - 1 ? lastCardRef : null}
+              onMouseEnter={() => setActiveIndex(index)}
+              className={`grid ${fullScreenMobile ? "h-[100dvh]" : "h-[calc(100dvh-172px)] lg:h-[calc(100vh-166px)]"} lg:max-h-[90vh] snap-start snap-always gap-0 lg:gap-5 grid-cols-1 xl:grid-cols-[320px_minmax(0,900px)] mb-0 lg:mb-4 ${fullScreenMobile ? "bg-black" : "bg-white shadow-sm"}`}
+              style={ fullScreenMobile ? { height: '100dvh' } : {} }
             >
               <CreatorPanel reel={reel} followed={Boolean(followed[creatorId(reel)])} followBusy={Boolean(followBusy[creatorId(reel)])} onFollow={() => toggleFollow(reel)} onProductOpen={handleProductOpen} onStoreVisit={handleStoreVisit} />
               
-              <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-none lg:rounded-[1.5rem] bg-black shadow-2xl">
-                <video 
-                  ref={(node) => { videoRefs.current[index] = node; }} 
-                  src={resolveApiAssetUrl(reel.videoUrl)} 
-                  poster={resolveApiAssetUrl(reel.thumbnailUrl)} 
-                  className="h-full w-full object-cover lg:max-h-[90vh]" 
-                  autoPlay={index === activeIndex} 
-                  muted={muted} 
-                  loop 
-                  playsInline 
-                  preload={Math.abs(index - activeIndex) <= 1 ? "auto" : "metadata"} 
-                  onClick={(event) => event.currentTarget.paused ? event.currentTarget.play() : event.currentTarget.pause()} 
+              <div className={`relative flex h-full w-full items-center justify-center overflow-hidden ${fullScreenMobile ? "rounded-none" : "rounded-none lg:rounded-[1.5rem]"} ${fullScreenMobile ? "bg-black shadow-2xl" : "bg-slate-100 shadow-sm"}`}>
+                <video
+                  ref={(node) => { videoRefs.current[index] = node; }}
+                  src={resolveApiAssetUrl(reel.videoUrl)}
+                  poster={resolveApiAssetUrl(reel.thumbnailUrl)}
+                  className={`${fullScreenMobile ? "absolute inset-0 w-full h-full object-cover" : "h-full w-full object-cover lg:max-h-[90vh]"}`}
+                  autoPlay={index === activeIndex}
+                  muted={muted}
+                  loop
+                  playsInline
+                  preload={Math.abs(index - activeIndex) <= 1 ? "auto" : "metadata"}
+                  onClick={(event) => event.currentTarget.paused ? event.currentTarget.play() : event.currentTarget.pause()}
                 />
                 
                 {detailId && adjacent.previous?._id ? (
@@ -818,74 +841,88 @@ export function ReelFeed({ detailId = "" }) {
                   </button>
                 ) : null}
                 
-                {/* Mobile Bottom Info Overlay */}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/45 to-transparent p-4 pb-6 pt-16 text-white xl:hidden z-10 flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <Link to={creatorSlug(reel) ? `/influencer/${creatorSlug(reel)}` : "/influencers"} className="flex items-center gap-2 min-w-0">
-                      <span className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/20 bg-slate-800 flex items-center justify-center">
-                        {creatorAvatar(reel) ? (
-                          <img src={creatorAvatar(reel)} alt="" className="h-full w-full object-cover" loading="lazy" />
-                        ) : (
-                          <span className="text-[11px] font-bold text-slate-300">
-                            {creatorName(reel).charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-black">@{creatorSlug(reel) || creatorName(reel)}</span>
-                        <span className="block text-[10px] text-slate-300 font-semibold leading-none">{reel.sponsored ? "Paid Partnership" : "Creator Commerce"}</span>
-                      </span>
-                    </Link>
-                    <button 
-                      onClick={() => toggleFollow(reel)} 
-                      disabled={followBusy[creatorId(reel)]}
-                      className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-black transition active:scale-95 ${
-                        followed[creatorId(reel)] 
-                          ? "border border-white/30 text-white" 
-                          : "bg-white text-black"
-                      }`}
-                    >
-                      {followBusy[creatorId(reel)] ? "…" : followed[creatorId(reel)] ? "Following" : "Follow"}
-                    </button>
-                  </div>
-                  
-                  <p className="text-[13px] leading-snug font-semibold text-slate-200 mt-1 line-clamp-2">
-                    {reel.caption || reel.title || "Shoppable reel"}
-                  </p>
-                  
-                  {reel.products?.length ? (
-                    <div 
-                      className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 pt-1"
-                      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-                    >
-                      {reel.products.slice(0, 4).map((product) => (
-                        <Link 
-                          key={productIdOf(product)} 
-                          to={buildAffiliateProductPath(reel, product)} 
-                          onClick={() => handleProductOpen(reel, product)} 
-                          className="flex min-w-[155px] max-w-[200px] shrink-0 items-center gap-2 rounded-xl bg-white/95 p-1.5 text-left text-slate-950 transition active:scale-95"
-                        >
-                          <img src={productImage(product)} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[11px] font-bold">{product.name}</span>
-                            <span className="text-[11px] font-black text-rose-600 leading-none">{formatCurrency(product.discountPrice || product.price || 0)}</span>
-                          </span>
-                        </Link>
-                      ))}
+                {/* Mobile Bottom Info Overlay - full-screen edge-to-edge */}
+                <div className="absolute inset-x-0 bg-gradient-to-t from-black/95 via-black/45 to-transparent text-white xl:hidden z-10" style={{ bottom: 0, paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+                  <div className="px-4 pt-8 flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <Link to={creatorSlug(reel) ? `/influencer/${creatorSlug(reel)}` : "/influencers"} className="flex items-center gap-2 min-w-0">
+                        <span className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/20 bg-slate-800 flex items-center justify-center">
+                          {creatorAvatar(reel) ? (
+                            <img src={creatorAvatar(reel)} alt="" className="h-full w-full object-cover" loading="lazy" />
+                          ) : (
+                            <span className="text-[11px] font-bold text-slate-300">
+                              {creatorName(reel).charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-[13px] font-black">@{creatorSlug(reel) || creatorName(reel)}</span>
+                          <span className="block text-[10px] text-slate-300 font-semibold leading-none">{reel.sponsored ? "Paid Partnership" : "Creator Commerce"}</span>
+                        </span>
+                      </Link>
+                      <button 
+                        onClick={() => toggleFollow(reel)} 
+                        disabled={followBusy[creatorId(reel)]}
+                        className={`rounded-full px-3 py-1 text-[11px] font-black transition active:scale-95 ${
+                          followed[creatorId(reel)] 
+                            ? "border border-white/30 text-white" 
+                            : "bg-white text-black"
+                        }`}
+                      >
+                        {followBusy[creatorId(reel)] ? "…" : followed[creatorId(reel)] ? "Following" : "Follow"}
+                      </button>
                     </div>
-                  ) : null}
+
+                    <p className="text-[13px] leading-snug font-semibold text-slate-200 mt-1 line-clamp-2">
+                      {reel.caption || reel.title || "Shoppable reel"}
+                    </p>
+
+                    {reel.products?.length ? (
+                      <div 
+                        className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 pt-1"
+                        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                      >
+                        {reel.products.slice(0, 4).map((product) => (
+                          <Link 
+                            key={productIdOf(product)} 
+                            to={buildAffiliateProductPath(reel, product)} 
+                            onClick={() => handleProductOpen(reel, product)} 
+                            className="flex min-w-[155px] max-w-[200px] shrink-0 items-center gap-2 rounded-xl bg-white/95 p-1.5 text-left text-slate-950 transition active:scale-95"
+                          >
+                            <img src={productImage(product)} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[11px] font-bold">{product.name}</span>
+                              <span className="text-[11px] font-black text-rose-600 leading-none">{formatCurrency(product.discountPrice || product.price || 0)}</span>
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 {/* Vertical Overlay Interaction Stack */}
                 {index === activeIndex ? (
-                  <div className="absolute bottom-[170px] right-2.5 z-20 flex w-11 flex-col items-center gap-3.5 xl:bottom-5">
-                    <ActionButton icon={<Heart className="h-5 w-5" />} active={liked[reel._id]} count={compact(reel.metrics?.likes || 0)} onClick={() => handleLike(reel)} overlay />
-                    <ActionButton icon={<MessageCircle className="h-5 w-5" />} count={compact(reel.metrics?.comments || 0)} onClick={() => setCommentsOpen(true)} overlay />
-                    <ActionButton icon={<Share2 className="h-5 w-5" />} count={compact(reel.metrics?.shares || 0)} onClick={() => setShareOpen(true)} overlay />
-                    <ActionButton icon={<Star className="h-5 w-5" />} active={saved[reel._id]} count={compact(reel.metrics?.saves || reel.metrics?.bookmarks || 0)} onClick={() => handleSave(reel)} overlay />
-                    <ActionButton icon={<Flag className="h-5 w-5" />} count="Report" onClick={() => setError("Report submitted for moderation review.")} overlay />
-                    <button onClick={() => setMuted((value) => !value)} className="rounded-full bg-black/45 p-3 text-white shadow-lg backdrop-blur transition active:scale-90" aria-label="Toggle mute">{muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}</button>
-                  </div>
+                  <>
+                    {fullScreenMobile ? (
+                      <>
+                        <BackButton />
+                        <ActionSidebar actions={{ onLike: () => handleLike(reel), liked: Boolean(liked[reel._id]), onComment: () => setCommentsOpen(true), onShare: () => setShareOpen(true), onSave: () => handleSave(reel), saved: Boolean(saved[reel._id]), onReport: () => setError("Report submitted for moderation review."), onFollow: () => toggleFollow(reel), followed: Boolean(followed[creatorId(reel)]) }} />
+                        <div style={{ position: 'absolute', right: 'env(safe-area-inset-right, 12px)', top: 'env(safe-area-inset-top, 12px)', zIndex: 70 }}>
+                          <button onClick={() => setMuted((value) => !value)} className="rounded-full bg-black/45 p-3 text-white shadow-lg backdrop-blur transition active:scale-90" aria-label="Toggle mute">{muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}</button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="absolute bottom-[170px] right-2.5 z-20 flex w-11 flex-col items-center gap-3.5 xl:bottom-5">
+                        <ActionButton icon={<Heart className="h-5 w-5" />} active={liked[reel._id]} count={compact(reel.metrics?.likes || 0)} onClick={() => handleLike(reel)} overlay />
+                        <ActionButton icon={<MessageCircle className="h-5 w-5" />} count={compact(reel.metrics?.comments || 0)} onClick={() => setCommentsOpen(true)} overlay />
+                        <ActionButton icon={<Share2 className="h-5 w-5" />} count={compact(reel.metrics?.shares || 0)} onClick={() => setShareOpen(true)} overlay />
+                        <ActionButton icon={<Star className="h-5 w-5" />} active={saved[reel._id]} count={compact(reel.metrics?.saves || reel.metrics?.bookmarks || 0)} onClick={() => handleSave(reel)} overlay />
+                        <ActionButton icon={<Flag className="h-5 w-5" />} count="Report" onClick={() => setError("Report submitted for moderation review.")} overlay />
+                        <button onClick={() => setMuted((value) => !value)} className="rounded-full bg-black/45 p-3 text-white shadow-lg backdrop-blur transition active:scale-90" aria-label="Toggle mute">{muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}</button>
+                      </div>
+                    )}
+                  </>
                 ) : null}
               </div>
             </article>
@@ -897,8 +934,8 @@ export function ReelFeed({ detailId = "" }) {
       {shareOpen ? <ShareModal reel={activeReel} onClose={() => setShareOpen(false)} onShare={(destination) => { if (activeReel) handleShare(activeReel, destination); setShareOpen(false); }} /> : null}
       {loginPrompt ? <LoginPromptModal onClose={() => setLoginPrompt(false)} /> : null}
 
-      {/* Fixed Sticky Mobile Bottom Navigation */}
-      <MobileInfluencerBottomNav />
+      {/* Next preview removed: keep UI immersive. */}
+
     </div>
   );
 }
@@ -915,8 +952,8 @@ function MobileInfluencerBottomNav() {
   ];
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-slate-900 bg-slate-950/95 backdrop-blur-md lg:hidden"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-slate-800 bg-slate-950/100 shadow-[0_-10px_30px_rgba(0,0,0,0.55)] backdrop-blur-md lg:hidden"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
       aria-label="Bottom navigation"
     >
       {items.map(({ label, icon: Icon, href }) => {
@@ -925,8 +962,8 @@ function MobileInfluencerBottomNav() {
           <Link
             key={href}
             to={href}
-            className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors ${
-              active ? "text-white" : "text-slate-500"
+            className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-3 text-[10px] font-semibold transition-colors ${
+              active ? "text-white" : "text-slate-400 hover:text-slate-100"
             }`}
             aria-label={label}
           >

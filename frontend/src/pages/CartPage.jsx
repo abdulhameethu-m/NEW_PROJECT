@@ -8,6 +8,7 @@ import { formatCurrency } from "../utils/formatCurrency";
 import { formatWeight, getFormattedWeight, getWeightUnit, getWeightValue } from "../utils/weight";
 import { useCart } from "../hooks/useCart";
 import { SellerNameLink } from "../components/seller/SellerNavigation";
+ 
 
 const RECOMMENDATION_CONTAINER_LIMIT = 20;
 

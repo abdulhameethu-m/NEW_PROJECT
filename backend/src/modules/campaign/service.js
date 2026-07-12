@@ -155,8 +155,7 @@ function validateDeliverableDueDates(payload, { contentStart, contentDeadline })
 function campaignContentCreationEndDate(invitationDeadline, contentCreationDays) {
   const invitationEnd = dateOnly(invitationDeadline);
   if (!invitationEnd) return null;
-  const contentCreationStart = addDays(invitationEnd, 1);
-  return addDays(contentCreationStart, lifecycleDays(contentCreationDays, 1));
+  return addDays(invitationEnd, lifecycleDays(contentCreationDays, 1));
 }
 
 function validateCampaignEndDate(campaignEndDate, { invitationDeadline, contentCreationDays }) {

@@ -92,7 +92,8 @@ function validateGatewayOrder(order, paymentOrder) {
   return order;
 }
 
-function paymentOrderResponse(paymentOrder, { resumed = false, reconciled = false } = {}) {
+function paymentOrderResponse(paymentOrder, options = {}) {
+  const { resumed = false, reconciled = false, ...extra } = options;
   return {
     campaignId: paymentOrder.campaignId,
     orderId: paymentOrder.razorpayOrderId,
@@ -112,6 +113,7 @@ function paymentOrderResponse(paymentOrder, { resumed = false, reconciled = fals
     notes: {},
     resumed,
     reconciled,
+    ...extra,
   };
 }
 
@@ -120,6 +122,44 @@ function paymentOrderResponse(paymentOrder, { resumed = false, reconciled = fals
  * Handles Razorpay integration for every campaign model with an escrowed fixed reward.
  */
 class CampaignPaymentService {
+  async recoverSubmittedPaymentOrder(paymentOrder) {
+    if (!paymentOrder) return null;
+    if (paymentOrder.status === "paid") {
+      const activation = await this.processCapturedCampaignPayment(
+        {
+          order_id: paymentOrder.razorpayOrderId,
+          id: paymentOrder.razorpayPaymentId || `payment-order-${paymentOrder._id}`,
+          status: "captured",
+          amount: Math.round(Number(paymentOrder.totalAmount) * 100),
+          currency: paymentOrder.currency || "INR",
+        },
+        `payment-order-recovery:${paymentOrder._id}`
+      );
+      return { recovered: true, escrowFunded: true, ...(activation || {}) };
+    }
+
+    if (paymentOrder.status === "authorized" && paymentOrder.razorpayPaymentId) {
+      const gatewayPayment = await withGatewayTimeout(
+        razorpay.payments.fetch(paymentOrder.razorpayPaymentId),
+        "payment recovery"
+      );
+      if (
+        gatewayPayment?.order_id === paymentOrder.razorpayOrderId &&
+        Number(gatewayPayment.amount) === Math.round(Number(paymentOrder.totalAmount) * 100) &&
+        String(gatewayPayment.currency || "").toUpperCase() === String(paymentOrder.currency || "INR").toUpperCase() &&
+        String(gatewayPayment.status || "").toLowerCase() === "captured"
+      ) {
+        const activation = await this.processCapturedCampaignPayment(
+          gatewayPayment,
+          `payment-order-recovery:${gatewayPayment.id || paymentOrder._id}`
+        );
+        return { recovered: true, escrowFunded: true, ...(activation || {}) };
+      }
+    }
+
+    return null;
+  }
+
   /**
    * Create Razorpay order for campaign funding
    */
@@ -141,9 +181,21 @@ class CampaignPaymentService {
       influencerId: { $exists: true },
       status: "accepted",
     }).select("_id").lean();
+    let paymentOrder = await CampaignPaymentOrder.findOne({ campaignId, vendorId });
+    if (paymentOrder && ["authorized", "paid"].includes(paymentOrder.status)) {
+      const recovery = await this.recoverSubmittedPaymentOrder(paymentOrder);
+      if (recovery?.escrowFunded) {
+        const refreshed = await CampaignPaymentOrder.findById(paymentOrder._id);
+        return paymentOrderResponse(refreshed || paymentOrder, {
+          resumed: true,
+          reconciled: true,
+          ...recovery,
+        });
+      }
+      throw new ApiError(409, "This campaign payment has already been submitted", "CAMPAIGN_PAYMENT_EXISTS");
+    }
     if (
       !acceptance ||
-      campaign.state !== "accepted" ||
       !["accepted_awaiting_funding", "funding_pending"].includes(campaign.fixedPaymentWorkflow?.status)
     ) {
       throw new ApiError(
@@ -152,12 +204,8 @@ class CampaignPaymentService {
         "CAMPAIGN_ACCEPTANCE_REQUIRED"
       );
     }
-    let paymentOrder = await CampaignPaymentOrder.findOne({ campaignId, vendorId });
     if (paymentOrder?.razorpayOrderId && paymentOrder.status === "pending") {
       return paymentOrderResponse(paymentOrder, { resumed: true });
-    }
-    if (paymentOrder && ["authorized", "paid"].includes(paymentOrder.status)) {
-      throw new ApiError(409, "This campaign payment has already been submitted", "CAMPAIGN_PAYMENT_EXISTS");
     }
     if (["RAZORPAY_ORDER_MISMATCH", "DUPLICATE_RAZORPAY_ORDERS"].includes(paymentOrder?.failureCode)) {
       throw new ApiError(
@@ -467,7 +515,9 @@ class CampaignPaymentService {
     if (!["fixed", "hybrid"].includes(campaign.paymentType)) {
       throw new ApiError(400, "Campaign has no fixed reward escrow");
     }
-    if (!campaign.influencerId || !["accepted", "active"].includes(campaign.state)) {
+    const fixedWorkflowStatus = campaign.fixedPaymentWorkflow?.status;
+    const fundingAccepted = ["accepted_awaiting_funding", "funding_pending", "funded", "content_in_progress", "vendor_approved", "partially_released", "fully_released"].includes(fixedWorkflowStatus);
+    if (!campaign.influencerId || !fundingAccepted) {
       throw new ApiError(409, "A funded campaign must have an accepted influencer invitation");
     }
     if (

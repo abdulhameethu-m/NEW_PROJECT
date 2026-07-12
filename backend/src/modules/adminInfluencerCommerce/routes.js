@@ -133,7 +133,7 @@ router.patch(
   controller.updateWithdrawalRequest
 );
 router.get("/settings", controller.settings);
-router.patch("/settings", validate(Joi.object({ enabled: Joi.boolean().optional() }).unknown(true)), controller.updateSettings);
+router.patch("/settings", validate(Joi.object({ enabled: Joi.boolean().optional() })), controller.updateSettings);
 router.get("/audit-logs", validate(querySchema, "query"), controller.auditLogs);
 router.get("/configuration", controller.configOverview);
 router.get("/configuration/audit-logs", validate(querySchema, "query"), controller.configAuditLogs);

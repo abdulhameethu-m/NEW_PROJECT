@@ -70,6 +70,12 @@ export function NotificationProvider({ children }) {
       confirmLabel: options.confirmLabel || "Submit",
       cancelLabel: options.cancelLabel || "Cancel",
       multiline: Boolean(options.multiline),
+      type: options.type || "text",
+      min: options.min,
+      max: options.max,
+      step: options.step,
+      inputMode: options.inputMode,
+      pattern: options.pattern,
       required: options.required !== false,
       resolve,
     });
@@ -151,7 +157,7 @@ export function NotificationProvider({ children }) {
             {inputRequest.multiline ? (
               <textarea id="notification-input" ref={inputRef} defaultValue={inputRequest.defaultValue} placeholder={inputRequest.placeholder} required={inputRequest.required} rows={4} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
             ) : (
-              <input id="notification-input" ref={inputRef} defaultValue={inputRequest.defaultValue} placeholder={inputRequest.placeholder} required={inputRequest.required} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+              <input id="notification-input" ref={inputRef} type={inputRequest.type} defaultValue={inputRequest.defaultValue} placeholder={inputRequest.placeholder} required={inputRequest.required} min={inputRequest.min} max={inputRequest.max} step={inputRequest.step} inputMode={inputRequest.inputMode} pattern={inputRequest.pattern} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
             )}
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => resolveInput(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">{inputRequest.cancelLabel}</button>

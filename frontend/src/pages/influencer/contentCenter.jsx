@@ -72,6 +72,14 @@ function normalizeUploadContentType(value = "", fallback = "POST") {
   return safeFallback === "REEL" ? "REEL" : "POST";
 }
 
+function toDatetimeLocalValue(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
 function formatDate(value) {
   if (!value) return "Not set";
   const date = new Date(value);
@@ -616,6 +624,9 @@ export default function InfluencerContentCenterPage() {
       imageUrls: publishData.imageUrls || current.imageUrls,
       title: publishData.title || current.title,
       description: publishData.description || current.description,
+      caption: publishData.caption || current.caption,
+      visibility: publishData.visibility || current.visibility,
+      scheduledAt: toDatetimeLocalValue(publishData.scheduledAt || current.scheduledAt),
       contentType: normalizeUploadContentType(publishData.contentType || current.contentType, current.contentType),
     }));
     window.history.replaceState({}, document.title);
@@ -793,9 +804,9 @@ export default function InfluencerContentCenterPage() {
 
           <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
             <button onClick={() => submitContent()} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-600">
-              Save as Draft
+              {form.visibility === "scheduled" ? "Schedule Content" : "Save as Draft"}
             </button>
-            {hasPublishableMedia ? (
+            {hasPublishableMedia && form.visibility !== "scheduled" ? (
               <button onClick={() => submitContent({ visibility: "published" })} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-600">
                 Publish Now
               </button>

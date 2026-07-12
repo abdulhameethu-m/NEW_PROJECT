@@ -42,6 +42,7 @@ import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import { saveTrackingContext } from "../utils/influencerTracking";
 import { saveProductPreview } from "../utils/productPreviewCache";
+import { getApiBaseUrl } from "../config/apiBaseUrl";
 
 const HUB_ITEMS = [
   ["home", "Home", Home],
@@ -168,6 +169,8 @@ export function InfluencersHubPage() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const touchStartRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -209,6 +212,25 @@ export function InfluencersHubPage() {
       cancelled = true;
     };
   }, [canLoadFollowedStores, canLoadInfluencerProducts, query, section]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const [debugOverlay, setDebugOverlay] = useState(false);
+  const apiBase = getApiBaseUrl();
+
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        if (window.innerWidth <= 480) setDebugOverlay(true);
+      }
+    } catch (e) {}
+  }, []);
 
   const suggestedCreators = useMemo(() => creators.slice(0, 6), [creators]);
   const trendingCreators = useMemo(() => [...creators].sort((a, b) => Number(b.followers || 0) - Number(a.followers || 0)).slice(0, 12), [creators]);
@@ -374,11 +396,39 @@ export function InfluencersHubPage() {
       </aside>
 
       <main className="min-w-0">
-        <MobileHubNav section={section} navigate={navigate} />
+        {! (section === "reels" && isMobile) && <MobileHubNav section={section} navigate={navigate} />}
         {section === "reels" ? (
-          <ReelFeed />
+          <div
+            onTouchStart={(e) => {
+              const t = e.touches && e.touches[0];
+              if (t) touchStartRef.current = { x: t.clientX, y: t.clientY };
+            }}
+            onTouchEnd={(e) => {
+              try {
+                if (!touchStartRef.current) return;
+                const t = e.changedTouches && e.changedTouches[0];
+                if (!t) return;
+                const dx = t.clientX - touchStartRef.current.x;
+                const dy = t.clientY - touchStartRef.current.y;
+                touchStartRef.current = null;
+                const threshold = 60;
+                if (Math.abs(dx) > threshold && Math.abs(dx) > Math.abs(dy)) {
+                  if (dx > 0) {
+                    navigate("/influencers");
+                  } else {
+                    navigate("/influencers/search");
+                  }
+                }
+              } catch (err) {
+                touchStartRef.current = null;
+              }
+            }}
+          >
+            <ReelFeed fullScreenMobile={isMobile} />
+          </div>
         ) : (
-          <HubContent
+          <>
+            <HubContent
             section={section}
             loading={loading}
             query={query}
@@ -398,7 +448,20 @@ export function InfluencersHubPage() {
             onShare={handleShare}
             onVisitStore={visitStore}
             onProductOpen={openProduct}
-          />
+            />
+            {debugOverlay ? (
+              <div style={{ position: "fixed", left: 8, bottom: 72, zIndex: 9999 }}>
+                <div className="rounded-lg bg-white/95 p-2 text-xs text-slate-900 shadow-lg">
+                  <div className="font-mono">API: {apiBase}</div>
+                  <div>creators: {creators.length}</div>
+                  <div>reels: {reels.length}</div>
+                  <div>products: {products.length}</div>
+                  <div>loading: {loading ? "yes" : "no"}</div>
+                  <button onClick={() => setDebugOverlay(false)} className="mt-1 w-full rounded-md bg-slate-200 px-2 py-1 text-[11px]">Hide</button>
+                </div>
+              </div>
+            ) : null}
+          </>
         )}
       </main>
 
@@ -414,7 +477,7 @@ export function InfluencersHubPage() {
           </div>
         </aside>
       ) : null}
-      <MobileInfluencerBottomNav />
+      {! (section === "reels" && isMobile) && <MobileInfluencerBottomNav />}
       {loginPrompt ? <LoginPromptModal onClose={() => setLoginPrompt(false)} /> : null}
       {commentReel ? (
         <HomeCommentsModal
@@ -677,8 +740,8 @@ function PostFeed({ reels = [], creators = [], products = [], followedIds, follo
       {mixed.map((post, index) => {
         const creator = post.influencerId && typeof post.influencerId === "object" ? post.influencerId : creators[index % Math.max(creators.length, 1)] || {};
         const id = post._id || `${index}`;
-        const sharedProps = { key: id, post, creator, followedIds, followBusy, savedIds, likedIds, onFollow, onSave, onLike, onComment, onShare, onVisitStore, onProductOpen };
-        return contentKind(post) === "POST" ? <PostCard {...sharedProps} /> : <ReelCard {...sharedProps} />;
+        const sharedProps = { post, creator, followedIds, followBusy, savedIds, likedIds, onFollow, onSave, onLike, onComment, onShare, onVisitStore, onProductOpen };
+        return contentKind(post) === "POST" ? <PostCard key={id} {...sharedProps} /> : <ReelCard key={id} {...sharedProps} />;
       })}
     </section>
   );

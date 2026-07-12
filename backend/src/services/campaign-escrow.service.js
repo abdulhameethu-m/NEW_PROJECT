@@ -138,7 +138,6 @@ class CampaignEscrowService {
       throw new ApiError(400, "Campaign payment model has no fixed reward escrow");
     }
     if (
-      campaign.state !== "accepted" ||
       !["accepted_awaiting_funding", "funding_pending"].includes(campaign.fixedPaymentWorkflow?.status)
     ) {
       throw new ApiError(
@@ -172,7 +171,7 @@ class CampaignEscrowService {
     });
     await paymentOrder.save();
     await Campaign.updateOne(
-      { _id: campaignId, paymentType: { $in: ["fixed", "hybrid"] }, state: "accepted" },
+      { _id: campaignId, paymentType: { $in: ["fixed", "hybrid"] } },
       {
         $set: {
           "fixedPaymentWorkflow.status": "funding_pending",
@@ -249,7 +248,18 @@ class CampaignEscrowService {
     if (!campaign || !hasFixedRewardCampaign(campaign)) {
       throw new ApiError(409, "Fixed-reward campaign not found for escrow funding");
     }
-    if (!["accepted", "active"].includes(campaign.state)) {
+    if (
+      !campaign.influencerId ||
+      ![
+        "accepted_awaiting_funding",
+        "funding_pending",
+        "funded",
+        "content_in_progress",
+        "vendor_approved",
+        "partially_released",
+        "fully_released",
+      ].includes(campaign.fixedPaymentWorkflow?.status)
+    ) {
       throw new ApiError(409, "Escrow cannot be funded before the influencer accepts the campaign");
     }
     if (!escrowWallet) {

@@ -28,7 +28,7 @@ function reportProductCardError(message, details = {}) {
   window.dispatchEvent(new CustomEvent("app:error", { detail: payload }));
 }
 
-export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass = "aspect-[4/5]", onProductClick }) {
+export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass = "aspect-[4/5]", onProductClick, dense = false }) {
   const navigate = useNavigate();
   const { cart, addItem: addCartItem } = useCart();
   const { openDrawer, showToast } = useCartDrawer();
@@ -151,16 +151,16 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
   }[styleKey] || "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-lg dark:hover:shadow-lg dark:hover:shadow-slate-950/50 transition-all duration-300 hover:border-blue-300 dark:hover:border-blue-600";
   const categoryTextClass = isEditorial
     ? "text-[11px] font-semibold uppercase tracking-wide text-slate-300 line-clamp-1"
-    : "text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 line-clamp-1";
+    : `text-[11px] font-semibold uppercase tracking-wide ${dense ? "text-slate-500" : "text-slate-500"} dark:text-slate-400 line-clamp-1`;
   const titleTextClass = isEditorial
-    ? "line-clamp-2 text-sm font-semibold text-white transition group-hover:text-slate-100 leading-tight"
-    : "line-clamp-2 text-sm font-semibold text-slate-900 dark:text-white transition group-hover:text-blue-600 dark:group-hover:text-blue-400 leading-tight";
+    ? "line-clamp-2 text-[13px] font-semibold text-white transition group-hover:text-slate-100 leading-tight"
+    : `line-clamp-2 ${dense ? "text-[13px]" : "text-sm"} font-semibold text-slate-900 dark:text-white transition group-hover:text-blue-600 dark:group-hover:text-blue-400 leading-tight`;
   const ratingTextClass = isEditorial
     ? "text-xs font-semibold text-slate-100"
     : "text-xs font-semibold text-slate-600 dark:text-slate-400";
   const priceCurrentClass = isEditorial
-    ? "text-sm font-bold text-white"
-    : "text-sm font-bold text-slate-900 dark:text-white";
+    ? "text-[16px] font-bold text-white"
+    : `${dense ? "text-[16px]" : "text-sm"} font-bold text-slate-900 dark:text-white`;
   const priceOriginalClass = isEditorial
     ? "text-xs text-slate-400 line-through"
     : "text-xs text-slate-500 dark:text-slate-400 line-through";
@@ -313,12 +313,12 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
       </div>
 
       {/* Product Info Section */}
-      <div className="flex flex-col flex-grow p-2.5 sm:p-4 gap-1 sm:gap-2">
+      <div className={`flex flex-col flex-grow ${dense ? "p-2 gap-1" : "p-2.5 sm:p-4 gap-1 sm:gap-2"}`}>
         {/* Category */}
         <p className={categoryTextClass}>{product.category || "Featured"}</p>
 
         {/* Product Name */}
-        <h3 className={`${titleTextClass} min-h-[2.5rem]`}>{product.name}</h3>
+          <h3 className={`${titleTextClass} min-h-[2.5rem]`}>{product.name}</h3>
 
         <div className={`text-[10px] sm:text-xs font-semibold ${inStock ? stockClass : stockOutClass}`}>
           {inStock ? `${availableStock} in stock` : "Out of stock"}

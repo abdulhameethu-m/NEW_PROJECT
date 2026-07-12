@@ -18,6 +18,7 @@ const deliverable = asyncHandler(async (req, res) => ok(res, await campaignServi
 const analytics = asyncHandler(async (req, res) => ok(res, await campaignService.marketplaceAnalytics(req.user.sub, req.query), "Campaign analytics loaded"));
 const influencerExecution = asyncHandler(async (req, res) => ok(res, await executionService.influencerExecution(req.user.sub, req.params.campaignId), "Campaign execution loaded"));
 const submitExecution = asyncHandler(async (req, res) => ok(res, await executionService.submit(req.user.sub, req.params.campaignId, req.params.deliverableId, req.body), "Deliverable submitted"));
+const updateExecutionDetails = asyncHandler(async (req, res) => ok(res, await executionService.updateSubmissionDetails(req.user.sub, req.params.campaignId, req.params.deliverableId, req.body), "Post details saved"));
 const vendorExecution = asyncHandler(async (req, res) => ok(res, await executionService.vendorExecution(req.user.sub, req.params.campaignId), "Campaign execution loaded"));
 const reviewExecution = asyncHandler(async (req, res) => ok(res, await executionService.review(req.user.sub, req.params.campaignId, req.params.deliverableId, req.body), "Deliverable reviewed"));
 const reviewQueue = asyncHandler(async (req, res) => ok(res, await executionService.reviewQueue(req.user.sub, req.query), "Deliverable review queue loaded"));
@@ -37,6 +38,7 @@ module.exports = {
   analytics,
   influencerExecution,
   submitExecution,
+  updateExecutionDetails,
   vendorExecution,
   reviewExecution,
   reviewQueue,

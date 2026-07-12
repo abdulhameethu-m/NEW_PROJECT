@@ -444,6 +444,11 @@ export async function submitCampaignExecutionDeliverable(campaignId, deliverable
   return data;
 }
 
+export async function updateCampaignExecutionSubmissionDetails(campaignId, deliverableId, payload = {}) {
+  const { data } = await api.patch(`/api/campaign/influencer/${campaignId}/deliverables/${deliverableId}/submission-details`, payload);
+  return data;
+}
+
 export async function getVendorCampaignExecution(campaignId) {
   const { data } = await api.get(`/api/campaign/vendor/${campaignId}/execution`);
   return data;

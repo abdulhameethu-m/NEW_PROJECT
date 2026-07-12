@@ -51,14 +51,14 @@ test("fixed escrow release is exposed only through the admin route", () => {
 
 test("campaign end date starts after the full planned content creation period", () => {
   const contentEnd = campaignContentCreationEndDate("2026-07-10", 7);
-  assert.equal(contentEnd.toISOString().slice(0, 10), "2026-07-18");
+  assert.equal(contentEnd.toISOString().slice(0, 10), "2026-07-17");
   assert.throws(
-    () => validateCampaignEndDate("2026-07-18", { invitationDeadline: "2026-07-10", contentCreationDays: 7 }),
-    (error) => error.code === "CAMPAIGN_END_DATE_OUT_OF_RANGE" && error.details?.earliestAllowedDate === "2026-07-19"
+    () => validateCampaignEndDate("2026-07-17", { invitationDeadline: "2026-07-10", contentCreationDays: 7 }),
+    (error) => error.code === "CAMPAIGN_END_DATE_OUT_OF_RANGE" && error.details?.earliestAllowedDate === "2026-07-18"
   );
   assert.equal(
-    validateCampaignEndDate("2026-07-19", { invitationDeadline: "2026-07-10", contentCreationDays: 7 }).toISOString().slice(0, 10),
-    "2026-07-19"
+    validateCampaignEndDate("2026-07-18", { invitationDeadline: "2026-07-10", contentCreationDays: 7 }).toISOString().slice(0, 10),
+    "2026-07-18"
   );
 });
 
