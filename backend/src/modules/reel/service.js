@@ -343,6 +343,8 @@ const CONTENT_READY_CAMPAIGN_STATES = new Set([
   "under_review",
   "revision_requested",
   "approved",
+  "ready_for_publish",
+  "publish_scheduled",
   "published",
   "tracking_active",
   "partially_completed",
@@ -505,7 +507,7 @@ class ReelService {
         throw new AppError("Campaign does not belong to this influencer", 403, "FORBIDDEN");
       }
       if (!campaignAcceptsCreatorContent(campaign)) {
-        throw new AppError("Reels can only be submitted for accepted or active campaigns", 400, "CAMPAIGN_NOT_ACTIVE");
+        throw new AppError("Content can only be submitted for active, approved, or scheduled campaigns", 400, "CAMPAIGN_NOT_ACTIVE");
       }
       if (payload.visibility === "published") {
         await assertCampaignPublishAllowed(campaign, profile._id, payload.deliverableId || null);

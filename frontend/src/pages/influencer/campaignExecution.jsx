@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, AlertCircle, CheckCircle2, Clock3, FileUp, LinkIcon, RefreshCw, Send, Upload, Loader2, Share2, XCircle } from "lucide-react";
-import { getCampaignExecution, submitCampaignExecutionDeliverable, uploadInfluencerContentMedia } from "../../services/influencerCommerceService";
+import {
+  confirmInfluencerProductDelivery,
+  getCampaignExecution,
+  getInfluencerCampaignProduct,
+  requestInfluencerProductReturn,
+  submitCampaignExecutionDeliverable,
+  uploadInfluencerContentMedia,
+} from "../../services/influencerCommerceService";
 import { CampaignLifecycleTimeline } from "../../components/campaign/CampaignLifecycleTimeline";
 import { formatCurrency } from "../../utils/formatCurrency";
 
@@ -291,6 +298,60 @@ function RefundedDeliverablesNotice({ deliverables = [] }) {
             </p>
           </div>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function ProductLogisticsPanel({ shipping, busy, onConfirmDelivery, onRequestReturn }) {
+  if (!shipping?.productRequired) return null;
+  const deliveryAddress = shipping.deliveryAddressSnapshot || {};
+  const returnAddress = shipping.returnAddressSnapshot || {};
+  const canConfirmDelivery = ["dispatched", "in_transit", "delivered"].includes(String(shipping.shipmentStatus || ""));
+  const canRequestReturn = shipping.returnRequired && ["received", "content_creation_started", "campaign_completed"].includes(String(shipping.shipmentStatus || ""));
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200">
+            <Clock3 className="h-3.5 w-3.5" />
+            Product Logistics
+          </p>
+          <h2 className="mt-3 text-xl font-semibold text-slate-950 dark:text-white">Product shipment for this campaign</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Status: {statusLabel(shipping.shipmentStatus || "pending_shipment")}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button disabled={busy || !canConfirmDelivery} onClick={onConfirmDelivery} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+            <CheckCircle2 className="h-4 w-4" />
+            Confirm Delivery
+          </button>
+          {shipping.returnRequired ? (
+            <button disabled={busy || !canRequestReturn} onClick={onRequestReturn} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold dark:border-slate-700 dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
+              Request Return
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <Info label="Courier" value={shipping.courierCompany || "-"} />
+        <Info label="Tracking" value={shipping.trackingNumber || "-"} />
+        <Info label="Shipment Date" value={dateLabel(shipping.shipmentDate)} />
+        <Info label="Estimated Delivery" value={dateLabel(shipping.estimatedDelivery)} />
+      </div>
+      {shipping.trackingUrl ? <a href={shipping.trackingUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-semibold text-indigo-600 dark:text-indigo-300">Open tracking link</a> : null}
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950/60">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Delivery Address</p>
+          <p className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+            {[deliveryAddress.name, deliveryAddress.addressLine1, deliveryAddress.addressLine2, deliveryAddress.city, deliveryAddress.state, deliveryAddress.postalCode, deliveryAddress.country].filter(Boolean).join(", ") || "Waiting for address"}
+          </p>
+        </div>
+        <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950/60">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Return Address</p>
+          <p className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+            {[returnAddress.name, returnAddress.addressLine1, returnAddress.addressLine2, returnAddress.city, returnAddress.state, returnAddress.postalCode, returnAddress.country].filter(Boolean).join(", ") || "Vendor will provide return address"}
+          </p>
+        </div>
       </div>
     </section>
   );
@@ -737,6 +798,7 @@ export default function CampaignExecutionPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [productShipping, setProductShipping] = useState(null);
 
   const load = useCallback(async () => {
     if (!validCampaignId) {
@@ -748,8 +810,12 @@ export default function CampaignExecutionPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await getCampaignExecution(campaignId);
+      const [response, shippingResponse] = await Promise.all([
+        getCampaignExecution(campaignId),
+        getInfluencerCampaignProduct(campaignId).catch(() => null),
+      ]);
       setExecution(response?.data || null);
+      setProductShipping(shippingResponse?.data || null);
     } catch (err) {
       setError(err?.response?.data?.message || "Unable to load campaign execution.");
     } finally {
@@ -771,6 +837,36 @@ export default function CampaignExecutionPage() {
       setMessage("Deliverable uploaded for vendor review.");
     } catch (err) {
       setError(err?.response?.data?.message || "Upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmDelivery() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await confirmInfluencerProductDelivery(campaignId, {});
+      setProductShipping(response?.data || null);
+      setMessage("Product delivery confirmed.");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Unable to confirm delivery.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function requestReturn() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await requestInfluencerProductReturn(campaignId, {});
+      setProductShipping(response?.data || null);
+      setMessage("Return requested.");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Unable to request return.");
     } finally {
       setBusy(false);
     }
@@ -863,6 +959,7 @@ export default function CampaignExecutionPage() {
 
       <VendorApprovalModule deliverables={execution?.deliverables || []} />
       <RefundedDeliverablesNotice deliverables={execution?.deliverables || []} />
+      <ProductLogisticsPanel shipping={productShipping} busy={busy} onConfirmDelivery={confirmDelivery} onRequestReturn={requestReturn} />
 
       <section className="grid gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">

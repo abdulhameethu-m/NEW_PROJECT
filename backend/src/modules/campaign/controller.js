@@ -2,6 +2,7 @@ const { ok } = require("../../utils/apiResponse");
 const { asyncHandler } = require("../../utils/asyncHandler");
 const campaignService = require("./service");
 const executionService = require("./executionService");
+const productShippingService = require("../../services/campaign-product-shipping.service");
 
 const create = asyncHandler(async (req, res) => ok(res, await campaignService.create(req.user.sub, req.body), "Campaign created"));
 const accept = asyncHandler(async (req, res) => ok(res, await campaignService.accept(req.user.sub, req.body.campaignId), "Campaign accepted"));
@@ -23,6 +24,10 @@ const vendorExecution = asyncHandler(async (req, res) => ok(res, await execution
 const reviewExecution = asyncHandler(async (req, res) => ok(res, await executionService.review(req.user.sub, req.params.campaignId, req.params.deliverableId, req.body), "Deliverable reviewed"));
 const reviewQueue = asyncHandler(async (req, res) => ok(res, await executionService.reviewQueue(req.user.sub, req.query), "Deliverable review queue loaded"));
 const checkCompletion = asyncHandler(async (req, res) => ok(res, await executionService.checkAndCompleteCampaign(req.user.sub, req.params.campaignId), "Campaign status checked"));
+const influencerProduct = asyncHandler(async (req, res) => ok(res, await productShippingService.getInfluencerProduct(req.user.sub, req.params.campaignId), "Campaign product shipping loaded"));
+const confirmDelivery = asyncHandler(async (req, res) => ok(res, await productShippingService.confirmDelivery(req.user.sub, req.params.campaignId, req.body), "Product delivery confirmed"));
+const requestReturn = asyncHandler(async (req, res) => ok(res, await productShippingService.requestReturn(req.user.sub, req.params.campaignId, req.body), "Product return requested"));
+const confirmReturn = asyncHandler(async (req, res) => ok(res, await productShippingService.confirmReturn(req.user.sub, req.params.campaignId, req.body), "Product return confirmed"));
 
 module.exports = {
   create,
@@ -43,4 +48,8 @@ module.exports = {
   reviewExecution,
   reviewQueue,
   checkCompletion,
+  influencerProduct,
+  confirmDelivery,
+  requestReturn,
+  confirmReturn,
 };

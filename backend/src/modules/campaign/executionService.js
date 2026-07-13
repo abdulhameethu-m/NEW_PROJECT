@@ -168,6 +168,18 @@ function allDeliverablesPublished(deliverables = [], publishedCount = 0) {
   };
 }
 
+function scheduledPublishAt(row = {}) {
+  if (row.publishDate && row.publishTime) {
+    return schedulingService.combineDateAndTime(
+      row.publishDate,
+      row.publishTime,
+      "publishDate",
+      row.publishTimezone || "UTC"
+    );
+  }
+  return row.scheduledPublishAt || null;
+}
+
 function isDeliverableDueExpired(deliverable = {}, now = new Date()) {
   const due = deliverable.dueDate || deliverable.expectedCompletionDate;
   if (!due) return false;
@@ -567,6 +579,7 @@ class CampaignExecutionService {
         const primaryLink = links.find((link) => String(link.status).toLowerCase() === "active") || links[0] || null;
         const affiliateMetrics = row.affiliateMetrics || {};
         const impressions = Number(row.snapshot?.impressions || row.snapshot?.views || 0);
+        const publishAt = scheduledPublishAt(row);
         return {
         id: row._id,
         deliverableType: row.deliverableType,
@@ -586,7 +599,7 @@ class CampaignExecutionService {
         publishDate: row.publishDate,
         publishTime: row.publishTime,
         publishTimezone: row.publishTimezone,
-        scheduledPublishAt: row.scheduledPublishAt,
+        scheduledPublishAt: publishAt,
         publishedAt: row.publishedAt,
         trackingStartDate: row.trackingStartDate || null,
         trackingEndDate: row.trackingEndDate || null,
@@ -618,8 +631,8 @@ class CampaignExecutionService {
         refundStatus: row.refundStatus || "not_eligible",
         missedDeadline: Boolean(row.missedDeadline),
         uploadLocked: ["expired", "missed_deadline", "cancelled", "published"].includes(String(row.status || "").toLowerCase()) || isDeliverableDueExpired(row),
-        publishLocked: Boolean(row.scheduledPublishAt && new Date(row.scheduledPublishAt).getTime() > Date.now()),
-        publishAvailableAt: row.scheduledPublishAt || null,
+        publishLocked: Boolean(publishAt && new Date(publishAt).getTime() > Date.now()),
+        publishAvailableAt: publishAt,
         latestSubmissionId: row.latestSubmissionId,
         fundingAllocationId: row.fundingAllocationId,
         submissions: submissionMap.get(String(row._id)) || [],
@@ -1307,8 +1320,7 @@ class CampaignExecutionService {
     const scheduledReels = await Reel.find({
       campaignId: { $ne: null },
       visibility: "scheduled",
-      scheduledAt: { $lte: now },
-    }).limit(200);
+    }).limit(500);
     for (const reel of scheduledReels) {
         const campaign = await Campaign.findById(reel.campaignId).lean();
         const deliverable = await CampaignDeliverable.findOne({
@@ -1316,7 +1328,6 @@ class CampaignExecutionService {
           influencerId: reel.influencerId,
           ...(reel.deliverableId ? { _id: reel.deliverableId } : {}),
           status: { $in: ["approved", "completed"] },
-          scheduledPublishAt: { $lte: now },
         });
         if (!campaign || !deliverable) continue;
         try {

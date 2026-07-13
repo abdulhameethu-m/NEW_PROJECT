@@ -9,6 +9,7 @@ const { Product } = require("../models/Product");
 const {
   InfluencerProfile,
   InfluencerSocialAccount,
+  InfluencerBusinessProfile,
 } = require("../modules/influencer/model");
 const {
   InfluencerService,
@@ -102,6 +103,22 @@ function packageId(pkg = {}) {
   return pkg._id ? String(pkg._id) : "";
 }
 
+function deliveryAddressFromBusiness(business = null) {
+  if (!business) return null;
+  const address = {
+    name: business.legalName || business.businessName || "",
+    phone: business.phone || "",
+    addressLine1: business.address1 || "",
+    addressLine2: business.address2 || "",
+    city: business.city || "",
+    state: business.state || "",
+    postalCode: business.postalCode || "",
+    country: business.country || "India",
+  };
+  const hasAddress = [address.addressLine1, address.city, address.state, address.postalCode].some((value) => String(value || "").trim());
+  return hasAddress ? address : null;
+}
+
 class InfluencerRateCardService {
   async getConfiguration() {
     const [configuration, schedulingSettings] = await Promise.all([
@@ -125,14 +142,16 @@ class InfluencerRateCardService {
 
   async getMyCommerceProfile(userId) {
     const profile = await this.getProfileForUser(userId);
-    const [configuration, services] = await Promise.all([
+    const [configuration, services, business] = await Promise.all([
       this.getConfiguration(),
       this.listServices(profile._id, true),
+      InfluencerBusinessProfile.findOne({ influencerId: profile._id }).sort({ updatedAt: -1 }).lean(),
     ]);
     return {
       profile,
       services,
       configuration,
+      deliveryAddress: deliveryAddressFromBusiness(business),
     };
   }
 
@@ -243,6 +262,31 @@ class InfluencerRateCardService {
     return this.getMyCommerceProfile(userId);
   }
 
+  async saveMyDeliveryAddress(userId, payload = {}) {
+    const profile = await this.getProfileForUser(userId);
+    const update = {
+      influencerId: profile._id,
+      legalName: String(payload.name || payload.legalName || profile.userId?.name || profile.displayName || "Influencer").trim(),
+      businessName: String(payload.businessName || payload.name || "").trim(),
+      address1: String(payload.addressLine1 || payload.address1 || "").trim(),
+      address2: String(payload.addressLine2 || payload.address2 || "").trim(),
+      city: String(payload.city || "").trim(),
+      state: String(payload.state || "").trim(),
+      postalCode: String(payload.postalCode || payload.pincode || "").trim(),
+      phone: String(payload.phone || "").trim(),
+      country: String(payload.country || "India").trim(),
+      businessType: String(payload.businessType || "individual").trim(),
+      nationality: String(payload.nationality || payload.country || "India").trim(),
+      status: "draft",
+    };
+    const saved = await InfluencerBusinessProfile.findOneAndUpdate(
+      { influencerId: profile._id },
+      { $set: update, $setOnInsert: { applicationId: profile.applicationId || String(profile._id), dateOfBirth: new Date("2000-01-01") } },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    ).lean();
+    return { deliveryAddress: deliveryAddressFromBusiness(saved) };
+  }
+
   async getCreatorCards(influencerIds = []) {
     const ids = [...new Set(influencerIds.map(String).filter(Boolean))].map(objectId).filter(Boolean);
     if (!ids.length) return new Map();
@@ -282,7 +326,10 @@ class InfluencerRateCardService {
   async getCreatorProfile(influencerId) {
     const profile = await InfluencerProfile.findById(influencerId).populate("userId", "name email username").lean();
     if (!profile) throw new AppError("Influencer not found", 404, "NOT_FOUND");
-    const cardMap = await this.getCreatorCards([profile._id]);
+    const [cardMap, business] = await Promise.all([
+      this.getCreatorCards([profile._id]),
+      InfluencerBusinessProfile.findOne({ influencerId: profile._id }).sort({ updatedAt: -1 }).lean(),
+    ]);
     const card = cardMap.get(String(profile._id)) || {};
     const scored = (await influencerCommerceEngine.scoreProfiles([profile]))[0];
     const clicks = Number(profile.stats?.clicks || 0);
@@ -307,6 +354,7 @@ class InfluencerRateCardService {
       languages: profile.languages || [],
       socialLinks: profile.socialHandles || {},
       campaignHistory: [],
+      deliveryAddress: deliveryAddressFromBusiness(business),
     };
   }
 

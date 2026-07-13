@@ -20,6 +20,36 @@ const toneIcons = {
   info: Info,
 };
 
+function parseTimeParts(value = "") {
+  const raw = String(value || "").trim();
+  const amPmMatch = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?$/i);
+  if (amPmMatch) {
+    const hour = Math.min(12, Math.max(1, Number(amPmMatch[1]) || 10));
+    const minute = Math.min(59, Math.max(0, Number(amPmMatch[2] || 0)));
+    return {
+      hour: String(hour),
+      minute: String(minute).padStart(2, "0"),
+      period: amPmMatch[3].toUpperCase() === "P" ? "PM" : "AM",
+    };
+  }
+  const [hourValue = "10", minuteValue = "00"] = raw.split(":");
+  const hour24 = Math.min(23, Math.max(0, Number(hourValue) || 10));
+  const minute = Math.min(59, Math.max(0, Number(minuteValue) || 0));
+  const hour12 = hour24 % 12 || 12;
+  return {
+    hour: String(hour12),
+    minute: String(minute).padStart(2, "0"),
+    period: hour24 >= 12 ? "PM" : "AM",
+  };
+}
+
+function timePartsToValue(parts = {}) {
+  const hour12 = Math.min(12, Math.max(1, Number(parts.hour) || 12));
+  const minute = Math.min(59, Math.max(0, Number(parts.minute) || 0));
+  const hour24 = parts.period === "PM" ? (hour12 % 12) + 12 : hour12 % 12;
+  return `${String(hour24).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
 function createNotification(input) {
   return {
     id: input.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -35,6 +65,7 @@ export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [confirmation, setConfirmation] = useState(null);
   const [inputRequest, setInputRequest] = useState(null);
+  const [timeParts, setTimeParts] = useState(parseTimeParts("10:00"));
   const inputRef = useRef(null);
 
   const dismissNotification = useCallback((id) => {
@@ -87,6 +118,12 @@ export function NotificationProvider({ children }) {
     if (inputRequest && inputRef.current) inputRef.current.focus();
   }, [inputRequest]);
 
+  useEffect(() => {
+    if (inputRequest?.type === "time") {
+      setTimeParts(parseTimeParts(inputRequest.defaultValue || "10:00"));
+    }
+  }, [inputRequest]);
+
   const value = useMemo(() => ({
     showNotification,
     dismissNotification,
@@ -106,7 +143,7 @@ export function NotificationProvider({ children }) {
   }
 
   function resolveInput(result) {
-    const value = inputRef.current?.value || "";
+    const value = inputRequest?.type === "time" ? timePartsToValue(timeParts) : inputRef.current?.value || "";
     inputRequest?.resolve(result ? value : null);
     setInputRequest(null);
   }
@@ -156,6 +193,32 @@ export function NotificationProvider({ children }) {
             <label className="mt-4 block text-xs font-black uppercase text-slate-500" htmlFor="notification-input">{inputRequest.label}</label>
             {inputRequest.multiline ? (
               <textarea id="notification-input" ref={inputRef} defaultValue={inputRequest.defaultValue} placeholder={inputRequest.placeholder} required={inputRequest.required} rows={4} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+            ) : inputRequest.type === "time" ? (
+              <div className="mt-2 grid grid-cols-[1fr_1fr_1fr] gap-2">
+                <select
+                  id="notification-input"
+                  value={timeParts.hour}
+                  onChange={(event) => setTimeParts((current) => ({ ...current, hour: event.target.value }))}
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                >
+                  {Array.from({ length: 12 }, (_, index) => String(index + 1)).map((hour) => <option key={hour} value={hour}>{hour}</option>)}
+                </select>
+                <select
+                  value={timeParts.minute}
+                  onChange={(event) => setTimeParts((current) => ({ ...current, minute: event.target.value }))}
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                >
+                  {Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0")).map((minute) => <option key={minute} value={minute}>{minute}</option>)}
+                </select>
+                <select
+                  value={timeParts.period}
+                  onChange={(event) => setTimeParts((current) => ({ ...current, period: event.target.value }))}
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                >
+                  <option value="AM">A.M</option>
+                  <option value="PM">P.M</option>
+                </select>
+              </div>
             ) : (
               <input id="notification-input" ref={inputRef} type={inputRequest.type} defaultValue={inputRequest.defaultValue} placeholder={inputRequest.placeholder} required={inputRequest.required} min={inputRequest.min} max={inputRequest.max} step={inputRequest.step} inputMode={inputRequest.inputMode} pattern={inputRequest.pattern} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
             )}

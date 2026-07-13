@@ -103,13 +103,56 @@ function Badge({ children, tone = "slate" }) {
   return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${styles[tone] || styles.slate}`}>{children}</span>;
 }
 
+function CountdownPart({ label, value }) {
+  return (
+    <span className="rounded-lg bg-white px-2 py-1 text-center shadow-sm dark:bg-slate-950">
+      <span className="block text-sm font-bold text-slate-950 dark:text-white">{String(value).padStart(2, "0")}</span>
+      <span className="block text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">{label}</span>
+    </span>
+  );
+}
+
+function ScheduledCountdown({ remainingMs }) {
+  const secondsTotal = Math.max(0, Math.floor(remainingMs / 1000));
+  const days = Math.floor(secondsTotal / 86400);
+  const hours = Math.floor((secondsTotal % 86400) / 3600);
+  const minutes = Math.floor((secondsTotal % 3600) / 60);
+  const seconds = secondsTotal % 60;
+
+  return (
+    <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-indigo-800 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-100">
+      <div className="mb-2 text-xs font-bold uppercase tracking-wide">
+        {remainingMs > 0 ? "Publishing in" : "Ready to publish"}
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        <CountdownPart label="Days" value={days} />
+        <CountdownPart label="Hours" value={hours} />
+        <CountdownPart label="Min" value={minutes} />
+        <CountdownPart label="Sec" value={seconds} />
+      </div>
+    </div>
+  );
+}
+
 function ContentCard({ item, onAction, busy = false }) {
   const metrics = item.metrics || {};
   const status = item.visibility || item.state || "draft";
+  const normalizedStatus = String(status || "").toLowerCase();
   const publicType = String(item.contentType || "").toUpperCase();
   const imageSrc = resolveApiAssetUrl(item.imageUrls?.[0] || item.thumbnailUrl || item.videoUrl);
   const videoSrc = resolveApiAssetUrl(item.videoUrl);
   const posterSrc = resolveApiAssetUrl(item.thumbnailUrl);
+  const scheduledAt = item.scheduledAt ? new Date(item.scheduledAt) : null;
+  const isScheduled = normalizedStatus === "scheduled" && scheduledAt && !Number.isNaN(scheduledAt.getTime());
+  const [now, setNow] = useState(Date.now());
+  const remainingMs = isScheduled ? Math.max(0, scheduledAt.getTime() - now) : 0;
+  const publishLocked = isScheduled && remainingMs > 0;
+
+  useEffect(() => {
+    if (!isScheduled) return undefined;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [isScheduled]);
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -124,16 +167,22 @@ function ContentCard({ item, onAction, busy = false }) {
       </div>
       <h3 className="mt-3 line-clamp-2 text-sm font-semibold text-slate-950 dark:text-white">{item.title || item.caption || "Untitled content"}</h3>
       <p className="mt-1 text-xs capitalize text-slate-500">{String(item.contentType || "video").replace(/_/g, " ")} - {status}</p>
+      {isScheduled ? (
+        <>
+          <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">Scheduled for {formatDate(item.scheduledAt)}</p>
+          <ScheduledCountdown remainingMs={remainingMs} />
+        </>
+      ) : null}
       <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
         <Metric label="Views" value={metrics.views || 0} />
         <Metric label="Clicks" value={metrics.clicks || 0} />
         <Metric label="Revenue" value={formatCurrency(metrics.revenue || 0)} />
       </div>
       <div className="mt-3 flex gap-2">
-        <button disabled={busy || status === "published"} onClick={() => onAction(item, "publish")} className="flex-1 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600">
-          Publish
+        <button disabled={busy || normalizedStatus === "published" || publishLocked} onClick={() => onAction(item, "publish")} className="flex-1 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600">
+          {publishLocked ? "Scheduled" : "Publish"}
         </button>
-        <button disabled={busy || status === "archived"} onClick={() => onAction(item, "archive")} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-white">
+        <button disabled={busy || normalizedStatus === "archived"} onClick={() => onAction(item, "archive")} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-white">
           Archive
         </button>
         <button disabled={busy} onClick={() => onAction(item, "delete")} className="inline-flex items-center gap-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900/60 dark:text-rose-300" aria-label="Delete content">

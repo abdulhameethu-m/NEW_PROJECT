@@ -342,6 +342,7 @@ const influencerBusinessProfileSchema = new mongoose.Schema(
     address1: { type: String, trim: true, maxlength: 255, required: true },
     address2: { type: String, trim: true, maxlength: 255, default: "" },
     postalCode: { type: String, trim: true, required: true },
+    phone: { type: String, trim: true, maxlength: 40, default: "" },
     businessType: { type: String, trim: true, required: true },
     customBusinessType: { type: String, trim: true, maxlength: 100, default: "" },
     gstNumberEncrypted: { type: String, trim: true, default: "" },

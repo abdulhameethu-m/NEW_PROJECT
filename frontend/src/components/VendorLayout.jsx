@@ -108,6 +108,10 @@ const pageMeta = {
     title: "Campaign Management",
     subtitle: "Create campaigns, review applications, and manage creator collaboration.",
   },
+  "/vendor/influencer-commerce/media-library": {
+    title: "Media Library",
+    subtitle: "Monitor influencer reels and posts, scheduled publishing, performance, and campaign media assets.",
+  },
   "/vendor/influencer-commerce/content": {
     title: "Content Approvals",
     subtitle: "Review submitted reels, videos, live recordings, and campaign deliverables.",

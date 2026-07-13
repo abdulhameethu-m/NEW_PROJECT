@@ -64,16 +64,72 @@ function addHours(date, hours) {
   return next;
 }
 
-function combineDateAndTime(dateValue, timeValue = "23:59", field = "dateTime") {
+function dateParts(dateValue, field = "dateTime") {
+  if (!dateValue) return null;
+  if (typeof dateValue === "string") {
+    const match = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return {
+        year: Number(match[1]),
+        month: Number(match[2]),
+        day: Number(match[3]),
+      };
+    }
+  }
   const date = parseDate(dateValue, field);
+  if (!date) return null;
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+  };
+}
+
+function timeZoneOffsetMs(timeZone = "UTC", date = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).formatToParts(date).reduce((acc, part) => {
+      if (part.type !== "literal") acc[part.type] = part.value;
+      return acc;
+    }, {});
+    const localAsUtc = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour),
+      Number(parts.minute),
+      Number(parts.second)
+    );
+    return localAsUtc - date.getTime();
+  } catch {
+    return 0;
+  }
+}
+
+function zonedDateTimeToUtc(parts, timeZone = "UTC") {
+  const guess = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hours, parts.minutes, 0, 0);
+  const first = guess - timeZoneOffsetMs(timeZone, new Date(guess));
+  const second = guess - timeZoneOffsetMs(timeZone, new Date(first));
+  return new Date(second);
+}
+
+function combineDateAndTime(dateValue, timeValue = "23:59", field = "dateTime", timezone = "UTC") {
+  const date = dateParts(dateValue, field);
   if (!date) return null;
   const time = String(timeValue || "23:59").trim();
   const match = time.match(/^(\d{1,2}):(\d{2})$/);
   if (!match) throw new AppError(`Invalid ${field} time`, 400, "VALIDATION_ERROR", { field });
   const hours = Math.min(23, Math.max(0, Number(match[1])));
   const minutes = Math.min(59, Math.max(0, Number(match[2])));
-  date.setUTCHours(hours, minutes, 0, 0);
-  return date;
+  return zonedDateTimeToUtc({ ...date, hours, minutes }, timezone || "UTC");
 }
 
 function startOfUtcDay(date = new Date()) {
@@ -200,7 +256,7 @@ function validateDeliverableDueDate(dueDate, campaign = {}, { now = new Date() }
 
 async function validatePublishSchedule({ campaign, deliverable, publishDate, publishTime = "00:00", timezone = "UTC", now = new Date() }) {
   const settings = await getSettings();
-  const scheduledPublishAt = combineDateAndTime(publishDate, publishTime, "publishDate");
+  const scheduledPublishAt = combineDateAndTime(publishDate, publishTime, "publishDate", timezone);
   if (!scheduledPublishAt) throw new AppError("Publish date and time are required when approving a deliverable.", 400, "PUBLISH_SCHEDULE_REQUIRED", { field: "publishDate" });
   const minimum = addHours(now, settings.minimumPublishNoticeHours);
   if (scheduledPublishAt.getTime() < minimum.getTime()) {
@@ -232,7 +288,9 @@ function assertPublishOpen(campaign = {}, deliverable = {}, now = new Date()) {
   if (endDate && new Date(endDate).getTime() <= now.getTime()) {
     throw new AppError("Campaign expired. Publishing is no longer allowed.", 409, "CAMPAIGN_EXPIRED");
   }
-  const publishAt = deliverable.scheduledPublishAt || deliverable.publishDate;
+  const publishAt = deliverable.publishDate && deliverable.publishTime
+    ? combineDateAndTime(deliverable.publishDate, deliverable.publishTime, "publishDate", deliverable.publishTimezone || "UTC")
+    : deliverable.scheduledPublishAt || deliverable.publishDate;
   if (publishAt && new Date(publishAt).getTime() > now.getTime()) {
     throw new AppError("Publishing scheduled. Publish button is not available yet.", 409, "PUBLISH_LOCKED", { availableAt: publishAt });
   }

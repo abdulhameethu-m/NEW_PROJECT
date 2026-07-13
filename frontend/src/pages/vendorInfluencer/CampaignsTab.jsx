@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { confirmAction } from "../../services/notificationService";
 import { CheckCircle2, Megaphone, Package, Plus, Send, XCircle } from "lucide-react";
-import { previewVendorInfluencerCampaign } from "../../services/influencerCommerceService";
+import { getVendorInfluencerProfile, previewVendorInfluencerCampaign } from "../../services/influencerCommerceService";
 import { BudgetSummaryPanel } from "../../components/campaign/BudgetSummaryPanel";
 import { CampaignLifecycleTimeline } from "../../components/campaign/CampaignLifecycleTimeline";
 import { formatCurrency } from "../../utils/formatCurrency";
@@ -254,6 +254,28 @@ function withoutSelectionKey(item = {}) {
   return next;
 }
 
+function emptyProductShipping() {
+  return {
+    productRequired: false,
+    returnRequired: true,
+    deliveryAddressSnapshot: { name: "", phone: "", addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "", country: "India" },
+    returnAddressSnapshot: { name: "", phone: "", addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "", country: "India" },
+    courierCompany: "",
+    trackingNumber: "",
+    trackingUrl: "",
+    shipmentDate: "",
+    estimatedDelivery: "",
+    shippingCost: 0,
+    packageWeight: "",
+    packageDimensions: { length: "", width: "", height: "", unit: "cm" },
+    notes: "",
+  };
+}
+
+function isAddressEmpty(address = {}) {
+  return ![address.name, address.phone, address.addressLine1, address.city, address.state, address.postalCode].some((value) => String(value || "").trim());
+}
+
 function CampaignForm({ influencers, products, configuration = {}, onCreate, busy, initialInfluencerId = "", initialProductIds = [] }) {
   const initialProductKey = initialProductIds.join("|");
   const rules = useMemo(() => campaignRuleConfig(configuration), [configuration]);
@@ -277,6 +299,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     endDate: "",
     deadline: "",
     marketplace: { public: true },
+    productShipping: emptyProductShipping(),
   });
   const [preview, setPreview] = useState(null);
   const [previewError, setPreviewError] = useState("");
@@ -304,6 +327,46 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     const id = String(form.influencerId || "");
     return influencerOptions.find((row) => influencerRowId(row) === id) || null;
   }, [form.influencerId, influencerOptions]);
+  const [deliveryAddressStatus, setDeliveryAddressStatus] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const influencerId = String(form.influencerId || "");
+    if (!influencerId || !form.productShipping?.productRequired) {
+      setDeliveryAddressStatus("");
+      return () => {
+        cancelled = true;
+      };
+    }
+    setDeliveryAddressStatus("loading");
+    getVendorInfluencerProfile(influencerId)
+      .then((response) => {
+        if (cancelled) return;
+        const address = response?.data?.deliveryAddress || response?.data?.profile?.deliveryAddress || null;
+        if (!address?.addressLine1 && !address?.city && !address?.postalCode) {
+          setDeliveryAddressStatus("missing");
+          return;
+        }
+        setForm((current) => {
+          const currentAddress = current.productShipping?.deliveryAddressSnapshot || {};
+          if (!isAddressEmpty(currentAddress)) return current;
+          return {
+            ...current,
+            productShipping: {
+              ...(current.productShipping || emptyProductShipping()),
+              deliveryAddressSnapshot: { ...emptyProductShipping().deliveryAddressSnapshot, ...address },
+            },
+          };
+        });
+        setDeliveryAddressStatus("loaded");
+      })
+      .catch(() => {
+        if (!cancelled) setDeliveryAddressStatus("missing");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.influencerId, form.productShipping?.productRequired]);
 
   const selectedRateCard = selectedInfluencer?.rateCard || selectedInfluencer?.services || [];
   const selectedCampaignType = rules.campaignTypes.find((type) => type.key === form.campaignType) || rules.campaignTypes[0] || null;
@@ -419,6 +482,27 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
 
   function setField(key, value) {
     setForm((current) => ({ ...current, [key]: value, dynamicFields: { ...current.dynamicFields, [key]: value } }));
+  }
+
+  function setProductShippingField(key, value) {
+    setForm((current) => ({
+      ...current,
+      productShipping: { ...(current.productShipping || emptyProductShipping()), [key]: value },
+    }));
+  }
+
+  function setProductShippingAddress(type, key, value) {
+    setForm((current) => {
+      const productShipping = current.productShipping || emptyProductShipping();
+      const address = productShipping[type] || {};
+      return {
+        ...current,
+        productShipping: {
+          ...productShipping,
+          [type]: { ...address, [key]: value },
+        },
+      };
+    });
   }
 
   function setCampaignEndDate(value) {
@@ -652,6 +736,12 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
         returnRequired: Boolean(dynamicFieldValues.returnRequired),
         currency: dynamicFieldValues.currency || undefined,
       },
+      productShipping: {
+        ...(source.productShipping || emptyProductShipping()),
+        productRequired: Boolean(source.productShipping?.productRequired),
+        returnRequired: source.productShipping?.returnRequired !== false,
+        shippingCost: Number(source.productShipping?.shippingCost || 0),
+      },
     };
   }, [deliverableCommissionRatesFrom, form]);
 
@@ -707,6 +797,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
       endDate: "",
       deadline: "",
       marketplace: { public: true },
+      productShipping: emptyProductShipping(),
     });
     setPreview(null);
   }
@@ -752,7 +843,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
           </label>
           <label className="block space-y-1.5">
             <FieldLabel>Influencer</FieldLabel>
-            <select value={form.influencerId} onChange={(event) => setForm((current) => ({ ...current, influencerId: event.target.value, selectedServices: [] }))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Invite influencer">
+            <select value={form.influencerId} onChange={(event) => setForm((current) => ({ ...current, influencerId: event.target.value, selectedServices: [], productShipping: { ...(current.productShipping || emptyProductShipping()), deliveryAddressSnapshot: emptyProductShipping().deliveryAddressSnapshot } }))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Invite influencer">
               <option value="">Public marketplace campaign</option>
               {influencerOptions.map((row) => {
                 const id = influencerRowId(row);
@@ -927,6 +1018,128 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
             </div>
           </div>
         ) : null}
+
+        <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+              <div>
+                <h4 className="text-sm font-bold text-slate-950 dark:text-white">Product Shipping</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Use this when the creator must receive a physical product before content starts.</p>
+              </div>
+            </div>
+            <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold dark:border-slate-700">
+              <input
+                type="checkbox"
+                checked={Boolean(form.productShipping?.productRequired)}
+                onChange={(event) => setProductShippingField("productRequired", event.target.checked)}
+              />
+              Product Required
+            </label>
+          </div>
+
+          {form.productShipping?.productRequired ? (
+            <div className="mt-4 space-y-4">
+              <label className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={form.productShipping?.returnRequired !== false}
+                  onChange={(event) => setProductShippingField("returnRequired", event.target.checked)}
+                />
+                Product return required after campaign
+              </label>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                  <FieldLabel>Influencer Delivery Address</FieldLabel>
+                  {selectedInfluencer ? <FieldHint>{influencerRowName(selectedInfluencer)}{influencerRowUsername(selectedInfluencer) ? ` @${influencerRowUsername(selectedInfluencer)}` : ""}</FieldHint> : <FieldHint>Select an influencer to auto-link this shipment to the creator.</FieldHint>}
+                  {deliveryAddressStatus === "loading" ? <p className="mt-2 rounded-lg bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300">Loading saved creator delivery address...</p> : null}
+                  {deliveryAddressStatus === "loaded" && !isAddressEmpty(form.productShipping.deliveryAddressSnapshot) ? <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">Saved creator delivery address loaded.</p> : null}
+                  {deliveryAddressStatus === "missing" && isAddressEmpty(form.productShipping.deliveryAddressSnapshot) ? <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">No saved creator address found yet. Ask the influencer to click Product Required in My Services and save a delivery address.</p> : null}
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {[
+                      ["name", "Receiver name"],
+                      ["phone", "Phone"],
+                      ["addressLine1", "Address line 1"],
+                      ["addressLine2", "Address line 2"],
+                      ["city", "City"],
+                      ["state", "State"],
+                      ["postalCode", "Postal code"],
+                      ["country", "Country"],
+                    ].map(([key, label]) => (
+                      <input
+                        key={key}
+                        value={form.productShipping.deliveryAddressSnapshot?.[key] || ""}
+                        onChange={(event) => setProductShippingAddress("deliveryAddressSnapshot", key, event.target.value)}
+                        placeholder={label}
+                        className="h-10 rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                        aria-label={`Delivery ${label}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                  <FieldLabel>Vendor Return Address</FieldLabel>
+                  <FieldHint>Leave blank to use the default vendor pickup address saved in settings.</FieldHint>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {[
+                      ["name", "Return contact"],
+                      ["phone", "Phone"],
+                      ["addressLine1", "Address line 1"],
+                      ["addressLine2", "Address line 2"],
+                      ["city", "City"],
+                      ["state", "State"],
+                      ["postalCode", "Postal code"],
+                      ["country", "Country"],
+                    ].map(([key, label]) => (
+                      <input
+                        key={key}
+                        value={form.productShipping.returnAddressSnapshot?.[key] || ""}
+                        onChange={(event) => setProductShippingAddress("returnAddressSnapshot", key, event.target.value)}
+                        placeholder={label}
+                        className="h-10 rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                        aria-label={`Return ${label}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                <label className="block space-y-1.5">
+                  <FieldLabel>Courier Company</FieldLabel>
+                  <input value={form.productShipping.courierCompany || ""} onChange={(event) => setProductShippingField("courierCompany", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+                </label>
+                <label className="block space-y-1.5">
+                  <FieldLabel>Tracking Number</FieldLabel>
+                  <input value={form.productShipping.trackingNumber || ""} onChange={(event) => setProductShippingField("trackingNumber", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+                </label>
+                <label className="block space-y-1.5">
+                  <FieldLabel>Shipment Date</FieldLabel>
+                  <input type="date" value={form.productShipping.shipmentDate || ""} onChange={(event) => setProductShippingField("shipmentDate", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+                </label>
+                <label className="block space-y-1.5">
+                  <FieldLabel>Estimated Delivery</FieldLabel>
+                  <input type="date" value={form.productShipping.estimatedDelivery || ""} onChange={(event) => setProductShippingField("estimatedDelivery", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+                </label>
+                <label className="block space-y-1.5">
+                  <FieldLabel>Shipping Cost</FieldLabel>
+                  <input type="number" min="0" value={form.productShipping.shippingCost || 0} onChange={(event) => setProductShippingField("shippingCost", Number(event.target.value || 0))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+                </label>
+                <label className="block space-y-1.5">
+                  <FieldLabel>Package Weight</FieldLabel>
+                  <input value={form.productShipping.packageWeight || ""} onChange={(event) => setProductShippingField("packageWeight", event.target.value)} placeholder="Example: 500 g" className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+                </label>
+                <label className="block space-y-1.5 lg:col-span-2">
+                  <FieldLabel>Tracking URL</FieldLabel>
+                  <input value={form.productShipping.trackingUrl || ""} onChange={(event) => setProductShippingField("trackingUrl", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+                </label>
+              </div>
+              <textarea value={form.productShipping.notes || ""} onChange={(event) => setProductShippingField("notes", event.target.value)} placeholder="Packaging notes, handoff instructions, or product condition notes" className="min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+            </div>
+          ) : null}
+        </div>
 
         {allowsServiceSelection ? (
           <fieldset className="mt-5 space-y-2">
@@ -1157,7 +1370,14 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
                   <td className="px-3 py-3">{numberValue(campaign.orders || campaign.analytics?.orders || 0)}</td>
                   <td className="px-3 py-3">{campaign.applicationsCount || campaign.applications?.length || 0}</td>
                   <td className="px-3 py-3">{campaign.approvedCreators || 0}</td>
-                  <td className="px-3 py-3"><StatusBadge value={campaign.state} /></td>
+                  <td className="px-3 py-3">
+                    <StatusBadge value={campaign.state} />
+                    {campaign.productShipping?.productRequired ? (
+                      <div className="mt-2 rounded-lg border border-indigo-100 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-300">
+                        Product: {statusText(campaign.productShipping.shipmentStatus || "pending_shipment")}
+                      </div>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap gap-2">
                       <button disabled={isBusy || isActive || isTerminal} onClick={() => onStatus(campaign, "activate")} className="rounded-lg border border-emerald-200 px-2 py-1 text-xs font-semibold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-900/50 dark:text-emerald-300">{isActive ? "Active" : "Activate"}</button>
@@ -1192,6 +1412,13 @@ function CampaignsView({ campaigns, pagination, products, influencers, configura
                         Delete
                       </button>
                     </div>
+                    {campaign.productShipping?.productRequired ? (
+                      <div className="mt-2 max-w-xs rounded-lg bg-slate-50 px-2 py-1.5 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                        <span className="font-semibold">Logistics:</span> {statusText(campaign.productShipping.shipmentStatus || "pending_shipment")}
+                        {campaign.productShipping.courierCompany ? ` via ${campaign.productShipping.courierCompany}` : ""}
+                        {campaign.productShipping.trackingNumber ? ` · ${campaign.productShipping.trackingNumber}` : ""}
+                      </div>
+                    ) : null}
                     {!canDelete ? <p className="mt-2 max-w-xs text-xs text-slate-500">{deleteReason}</p> : null}
                     {(campaign.applications || []).length ? (
                       <div className="mt-3 space-y-2">

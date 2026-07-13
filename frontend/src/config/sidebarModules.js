@@ -215,6 +215,7 @@ export const VENDOR_STATIC_ITEMS = [
       { name: "Discover Influencers", path: "/vendor/influencer-commerce/discover", icon: Search, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
       { name: "My Influencers", path: "/vendor/influencer-commerce/relationships", icon: Users, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
       { name: "Campaign Management", path: "/vendor/influencer-commerce/campaigns", icon: Megaphone, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
+      { name: "Media Library", path: "/vendor/influencer-commerce/media-library", icon: Image, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
       { name: "Content Approvals", path: "/vendor/influencer-commerce/content", icon: FileCheck2, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
       { name: "Influencer Performance", path: "/vendor/influencer-commerce/performance", icon: LineChart, notificationModule: "GROWTH", notificationSubModule: "INFLUENCER_COMMERCE" },
       { name: "Escrow Refunds", path: "/vendor/influencer-commerce/escrow-refunds", icon: RotateCcw, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },

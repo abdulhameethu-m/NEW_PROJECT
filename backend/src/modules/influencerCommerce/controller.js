@@ -1,6 +1,7 @@
 const { ok } = require("../../utils/apiResponse");
 const { asyncHandler } = require("../../utils/asyncHandler");
 const service = require("./service");
+const productShippingService = require("../../services/campaign-product-shipping.service");
 
 const dashboard = asyncHandler(async (req, res) => ok(res, await service.dashboard(req.user.sub, req.query), "Influencer commerce dashboard loaded"));
 const subscriptionPlans = asyncHandler(async (req, res) => ok(res, await service.subscriptionPlans(req.user.sub), "Subscription plans loaded"));
@@ -28,8 +29,16 @@ const products = asyncHandler(async (req, res) => ok(res, await service.products
 const contentApprovals = asyncHandler(async (req, res) => ok(res, await service.contentApprovals(req.user.sub, req.query), "Content approvals loaded"));
 const reviewContent = asyncHandler(async (req, res) => ok(res, await service.reviewContent(req.user.sub, req.params.reelId, req.body), "Content reviewed"));
 const performance = asyncHandler(async (req, res) => ok(res, await service.performance(req.user.sub, req.query), "Influencer performance loaded"));
+const mediaLibrary = asyncHandler(async (req, res) => ok(res, await service.mediaLibrary(req.user.sub, req.query), "Vendor media library loaded"));
+const mediaDashboard = asyncHandler(async (req, res) => ok(res, await service.mediaDashboard(req.user.sub, req.query), "Vendor media analytics loaded"));
+const mediaDetails = asyncHandler(async (req, res) => ok(res, await service.mediaDetails(req.user.sub, req.params.mediaId), "Vendor media details loaded"));
 const escrowRefunds = asyncHandler(async (req, res) => ok(res, await service.escrowRefunds(req.user.sub, req.query), "Escrow refund finance loaded"));
 const escrowRefundDeliverables = asyncHandler(async (req, res) => ok(res, await service.escrowRefundDeliverables(req.user.sub, req.params.campaignId), "Escrow refund deliverables loaded"));
+const getCampaignShipping = asyncHandler(async (req, res) => ok(res, await productShippingService.getVendorShipping(req.user.sub, req.params.campaignId), "Campaign product shipping loaded"));
+const saveCampaignShipping = asyncHandler(async (req, res) => ok(res, await productShippingService.upsertForCampaign({ userId: req.user.sub, campaignId: req.params.campaignId, payload: req.body }), "Campaign product shipping saved"));
+const dispatchCampaignProduct = asyncHandler(async (req, res) => ok(res, await productShippingService.dispatch(req.user.sub, req.params.campaignId, req.body), "Campaign product dispatched"));
+const updateCampaignReturn = asyncHandler(async (req, res) => ok(res, await productShippingService.updateReturn(req.user.sub, req.params.campaignId, req.body), "Campaign return updated"));
+const getCampaignTracking = asyncHandler(async (req, res) => ok(res, await productShippingService.getTracking(req.user.sub, req.params.campaignId), "Campaign tracking loaded"));
 
 module.exports = {
   dashboard,
@@ -58,6 +67,14 @@ module.exports = {
   contentApprovals,
   reviewContent,
   performance,
+  mediaLibrary,
+  mediaDashboard,
+  mediaDetails,
   escrowRefunds,
   escrowRefundDeliverables,
+  getCampaignShipping,
+  saveCampaignShipping,
+  dispatchCampaignProduct,
+  updateCampaignReturn,
+  getCampaignTracking,
 };

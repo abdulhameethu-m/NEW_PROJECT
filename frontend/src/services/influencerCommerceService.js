@@ -170,6 +170,11 @@ export async function saveInfluencerServices(payload = {}) {
   return data;
 }
 
+export async function saveInfluencerDeliveryAddress(payload = {}) {
+  const { data } = await api.put("/api/influencer/delivery-address", payload);
+  return data;
+}
+
 export async function listInfluencers(params = {}) {
   const { data } = await api.get("/api/influencer/list", { params });
   return data;
@@ -384,6 +389,31 @@ export async function deleteVendorInfluencerCampaign(campaignId) {
   return data;
 }
 
+export async function getVendorCampaignShipping(campaignId) {
+  const { data } = await api.get(`/api/vendor/influencer-commerce/campaigns/${campaignId}/shipping`);
+  return data;
+}
+
+export async function saveVendorCampaignShipping(campaignId, payload = {}) {
+  const { data } = await api.put(`/api/vendor/influencer-commerce/campaigns/${campaignId}/shipping`, payload);
+  return data;
+}
+
+export async function dispatchVendorCampaignProduct(campaignId, payload = {}) {
+  const { data } = await api.post(`/api/vendor/influencer-commerce/campaigns/${campaignId}/dispatch`, payload);
+  return data;
+}
+
+export async function updateVendorCampaignReturn(campaignId, payload = {}) {
+  const { data } = await api.post(`/api/vendor/influencer-commerce/campaigns/${campaignId}/return`, payload);
+  return data;
+}
+
+export async function getVendorCampaignTracking(campaignId) {
+  const { data } = await api.get(`/api/vendor/influencer-commerce/campaigns/${campaignId}/tracking`);
+  return data;
+}
+
 export async function getVendorPromotionProducts(params = {}) {
   const { data } = await api.get("/api/vendor/influencer-commerce/products", { params });
   return data;
@@ -391,6 +421,21 @@ export async function getVendorPromotionProducts(params = {}) {
 
 export async function getVendorContentApprovals(params = {}) {
   const { data } = await api.get("/api/vendor/influencer-commerce/content-approvals", { params });
+  return data;
+}
+
+export async function getVendorMediaLibrary(params = {}) {
+  const { data } = await api.get("/api/vendor/influencer-commerce/media", { params: compactParams(params) });
+  return data;
+}
+
+export async function getVendorMediaDashboard(params = {}) {
+  const { data } = await api.get("/api/vendor/influencer-commerce/media/dashboard", { params: compactParams(params) });
+  return data;
+}
+
+export async function getVendorMediaDetails(mediaId) {
+  const { data } = await api.get(`/api/vendor/influencer-commerce/media/${mediaId}`);
   return data;
 }
 
@@ -446,6 +491,26 @@ export async function submitCampaignExecutionDeliverable(campaignId, deliverable
 
 export async function updateCampaignExecutionSubmissionDetails(campaignId, deliverableId, payload = {}) {
   const { data } = await api.patch(`/api/campaign/influencer/${campaignId}/deliverables/${deliverableId}/submission-details`, payload);
+  return data;
+}
+
+export async function getInfluencerCampaignProduct(campaignId) {
+  const { data } = await api.get(`/api/campaign/influencer/${campaignId}/product`);
+  return data;
+}
+
+export async function confirmInfluencerProductDelivery(campaignId, payload = {}) {
+  const { data } = await api.post(`/api/campaign/influencer/${campaignId}/confirm-delivery`, payload);
+  return data;
+}
+
+export async function requestInfluencerProductReturn(campaignId, payload = {}) {
+  const { data } = await api.post(`/api/campaign/influencer/${campaignId}/request-return`, payload);
+  return data;
+}
+
+export async function confirmInfluencerProductReturn(campaignId, payload = {}) {
+  const { data } = await api.post(`/api/campaign/influencer/${campaignId}/confirm-return`, payload);
   return data;
 }
 

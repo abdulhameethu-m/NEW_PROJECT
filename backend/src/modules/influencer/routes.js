@@ -454,6 +454,16 @@ const servicesSchema = Joi.object({
   replace: Joi.boolean().optional(),
   services: Joi.array().items(serviceItemSchema).max(100).default([]),
 }).unknown(true);
+const deliveryAddressSchema = Joi.object({
+  name: Joi.string().trim().max(160).allow("").default(""),
+  phone: Joi.string().trim().max(40).allow("").default(""),
+  addressLine1: Joi.string().trim().max(255).allow("").default(""),
+  addressLine2: Joi.string().trim().max(255).allow("").default(""),
+  city: Joi.string().trim().max(120).allow("").default(""),
+  state: Joi.string().trim().max(120).allow("").default(""),
+  postalCode: Joi.string().trim().max(40).allow("").default(""),
+  country: Joi.string().trim().max(80).allow("").default("India"),
+});
 const publicStorefrontQuery = Joi.object({
   tab: Joi.string().valid("storefront", "posts", "reels", "collections", "about").optional(),
   filter: Joi.string().allow("").optional(),
@@ -568,6 +578,7 @@ router.post("/register", authRequired, requireRole("influencer", "user"), valida
 router.get("/commerce-profile", authRequired, requireRole("influencer"), controller.commerceProfile);
 router.get("/services", authRequired, requireRole("influencer"), controller.commerceProfile);
 router.put("/services", authRequired, requireRole("influencer"), validate(servicesSchema), controller.saveServices);
+router.put("/delivery-address", authRequired, requireRole("influencer"), validate(deliveryAddressSchema), controller.saveDeliveryAddress);
 router.post("/generate-affiliate-link", authRequired, requireRole("influencer"), validate(affiliateLinkSchema), controller.generateAffiliateLink);
 router.get("/earnings-withdrawals", authRequired, requireRole("influencer"), validate(earningsQuery, "query"), controller.earningsDashboard);
 router.post("/earnings-withdrawals/withdrawals", authRequired, requireRole("influencer"), validate(withdrawalRequestSchema), controller.requestWithdrawal);

@@ -1,5 +1,5 @@
 import { createElement, useCallback, useMemo } from "react";
-import { BarChart3, CreditCard, FileCheck2, LineChart, Megaphone, RotateCcw, Search, Users } from "lucide-react";
+import { BarChart3, CreditCard, FileCheck2, Images, LineChart, Megaphone, RotateCcw, Search, Users } from "lucide-react";
 
 const TABS = [
   ["dashboard", "Dashboard", BarChart3],
@@ -7,6 +7,7 @@ const TABS = [
   ["subscription", "Subscription", CreditCard],
   ["relationships", "My Influencers", Users],
   ["campaigns", "Campaign Management", Megaphone],
+  ["media-library", "Media Library", Images],
   ["content", "Content Approvals", FileCheck2],
   ["performance", "Influencer Performance", LineChart],
   ["escrow-refunds", "Escrow Refunds", RotateCcw],
@@ -30,6 +31,7 @@ const TAB_PATHS = {
   subscription: "/vendor/influencer-commerce/subscription",
   relationships: "/vendor/influencer-commerce/relationships",
   campaigns: "/vendor/influencer-commerce/campaigns",
+  "media-library": "/vendor/influencer-commerce/media-library",
   content: "/vendor/influencer-commerce/content",
   performance: "/vendor/influencer-commerce/performance",
   "escrow-refunds": "/vendor/influencer-commerce/escrow-refunds",
@@ -51,6 +53,7 @@ const defaultFilters = {
   campaignId: "",
   productId: "",
   influencerId: "",
+  contentType: "",
   startDate: "",
   endDate: "",
   serviceType: "",
@@ -314,6 +317,7 @@ function Filters({ filters, setFilters, campaigns = [], products = [], configura
     return [...values].filter(Boolean).sort((a, b) => String(a).localeCompare(String(b)));
   }, [campaigns, configuration.categoryOptions, products]);
   const discoverFilters = tab === "discover";
+  const mediaFilters = tab === "media-library";
 
   return (
     <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2 xl:grid-cols-6">
@@ -336,17 +340,40 @@ function Filters({ filters, setFilters, campaigns = [], products = [], configura
         <FieldLabel>Status</FieldLabel>
         <select value={filters.status} onChange={(event) => updateFilter("status", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Status filter">
           <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="approved">Approved</option>
-          <option value="pending_review">Pending review</option>
-          <option value="uploaded">Uploaded</option>
-          <option value="draft">Draft</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-          <option value="paused">Paused</option>
-          <option value="rejected">Rejected</option>
+          {mediaFilters ? (
+            <>
+              <option value="published">Published</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="pending">Pending approval</option>
+              <option value="rejected">Rejected</option>
+              <option value="archived">Archived</option>
+              <option value="draft">Draft</option>
+            </>
+          ) : (
+            <>
+              <option value="active">Active</option>
+              <option value="approved">Approved</option>
+              <option value="pending_review">Pending review</option>
+              <option value="uploaded">Uploaded</option>
+              <option value="draft">Draft</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="paused">Paused</option>
+              <option value="rejected">Rejected</option>
+            </>
+          )}
         </select>
       </label>
+      {mediaFilters ? (
+        <label className="block space-y-1.5">
+          <FieldLabel>Content Type</FieldLabel>
+          <select value={filters.contentType || ""} onChange={(event) => updateFilter("contentType", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Content type filter">
+            <option value="">All content</option>
+            <option value="REEL">Reels</option>
+            <option value="POST">Posts</option>
+          </select>
+        </label>
+      ) : null}
       <label className="block space-y-1.5">
         <FieldLabel>Payment Model</FieldLabel>
         <select value={filters.paymentModel || "all"} onChange={(event) => updateFilter("paymentModel", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Payment model filter">

@@ -25,6 +25,7 @@ import {
   getInfluencerCommerceProfile,
   listCampaignMarketplace,
   saveCampaignMarketplace,
+  saveInfluencerDeliveryAddress,
   saveInfluencerServices,
 } from "../../services/influencerCommerceService";
 import { CampaignLifecycleTimeline, campaignLifecycleLabel } from "../../components/campaign/CampaignLifecycleTimeline";
@@ -523,7 +524,70 @@ function TextInput({ label, value, onChange, type = "text", min, textarea = fals
   );
 }
 
-function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServices }) {
+function emptyDeliveryAddress(address = {}) {
+  return {
+    name: address?.name || "",
+    phone: address?.phone || "",
+    addressLine1: address?.addressLine1 || "",
+    addressLine2: address?.addressLine2 || "",
+    city: address?.city || "",
+    state: address?.state || "",
+    postalCode: address?.postalCode || "",
+    country: address?.country || "India",
+  };
+}
+
+function DeliveryAddressPanel({ address, busy, onSave }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(emptyDeliveryAddress(address));
+
+  useEffect(() => {
+    setForm(emptyDeliveryAddress(address));
+  }, [address]);
+
+  function setField(key, value) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  const hasAddress = Boolean(address?.addressLine1 || address?.city || address?.postalCode);
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div>
+          <h2 className="font-semibold text-slate-950 dark:text-white">Product Delivery Address</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {hasAddress ? [address.name, address.addressLine1, address.city, address.state, address.postalCode].filter(Boolean).join(", ") : "Add the address vendors should ship campaign products to."}
+          </p>
+        </div>
+        <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 dark:border-indigo-900/60 dark:text-indigo-300 dark:hover:bg-indigo-950/30">
+          <CheckCircle2 className="h-4 w-4" />
+          Product Required
+        </button>
+      </div>
+      {open ? (
+        <div className="grid gap-3 border-t border-slate-200 px-4 py-4 dark:border-slate-800 md:grid-cols-2">
+          <TextInput label="Receiver name" value={form.name} onChange={(value) => setField("name", value)} />
+          <TextInput label="Phone" value={form.phone} onChange={(value) => setField("phone", value)} />
+          <TextInput label="Address line 1" value={form.addressLine1} onChange={(value) => setField("addressLine1", value)} />
+          <TextInput label="Address line 2" value={form.addressLine2} onChange={(value) => setField("addressLine2", value)} />
+          <TextInput label="City" value={form.city} onChange={(value) => setField("city", value)} />
+          <TextInput label="State" value={form.state} onChange={(value) => setField("state", value)} />
+          <TextInput label="Postal code" value={form.postalCode} onChange={(value) => setField("postalCode", value)} />
+          <TextInput label="Country" value={form.country} onChange={(value) => setField("country", value)} />
+          <div className="md:col-span-2">
+            <button type="button" disabled={busy === "delivery-address"} onClick={() => onSave(form)} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+              <Save className="h-4 w-4" />
+              {busy === "delivery-address" ? "Saving..." : "Save Delivery Address"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServices, onSaveDeliveryAddress }) {
   const configuration = commerceProfile?.configuration || {};
   const serviceTypes = configuration.serviceTypes || [];
   const packageTemplates = configuration.packageTemplates || [];
@@ -596,6 +660,7 @@ function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServic
 
   return (
     <div className="grid gap-5">
+      <DeliveryAddressPanel address={commerceProfile?.deliveryAddress} busy={busy} onSave={onSaveDeliveryAddress} />
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
           <div>
@@ -881,6 +946,21 @@ export default function InfluencerCampaignsPage() {
     }
   }
 
+  async function handleSaveDeliveryAddress(address) {
+    setBusyId("delivery-address");
+    setError("");
+    setMessage("");
+    try {
+      const response = await saveInfluencerDeliveryAddress(address);
+      setCommerceProfile((current) => ({ ...(current || {}), deliveryAddress: response?.data?.deliveryAddress || address }));
+      setMessage("Delivery address saved.");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Unable to save delivery address.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
@@ -972,6 +1052,7 @@ export default function InfluencerCampaignsPage() {
             setCommerceProfile={setCommerceProfile}
             busy={busyId}
             onSaveServices={handleSaveServices}
+            onSaveDeliveryAddress={handleSaveDeliveryAddress}
           />
         )
       ) : tab === "analytics" ? (

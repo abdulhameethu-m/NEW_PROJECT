@@ -19,6 +19,7 @@ import {
   getVendorInfluencerEscrowRefunds,
   getVendorInfluencerPerformance,
   getVendorInfluencerRelationships,
+  getVendorMediaLibrary,
   getVendorInfluencerSubscriptionPlans,
   getVendorPromotionProducts,
   previewVendorInfluencerSubscriptionChange,
@@ -56,6 +57,7 @@ const DiscoverView = lazy(() => import("./vendorInfluencer/DiscoverTab"));
 const SubscriptionView = lazy(() => import("./vendorInfluencer/SubscriptionTab"));
 const RelationshipsView = lazy(() => import("./vendorInfluencer/RelationshipsTab"));
 const CampaignsView = lazy(() => import("./vendorInfluencer/CampaignsTab"));
+const MediaLibraryView = lazy(() => import("./vendorInfluencer/MediaLibraryTab"));
 const ContentView = lazy(() => import("./vendorInfluencer/ContentTab"));
 const PerformanceView = lazy(() => import("./vendorInfluencer/PerformanceTab"));
 const VendorEscrowRefundsView = lazy(() => import("./vendorInfluencer/EscrowRefundsTab"));
@@ -183,6 +185,7 @@ export function VendorInfluencerPage() {
         subscription: () => getVendorInfluencerSubscriptionPlans(),
         relationships: () => getVendorInfluencerRelationships(query),
         campaigns: () => getVendorInfluencerCampaigns(query),
+        "media-library": () => getVendorMediaLibrary(query),
         content: async () => {
           const [contentResponse, deliverableResponse] = await Promise.all([
             getVendorContentApprovals({ ...query, queue: "pending" }),
@@ -638,6 +641,14 @@ export function VendorInfluencerPage() {
         />
       ) : null}
       {tab === "campaigns" ? <CampaignsView campaigns={campaigns} pagination={data.campaigns?.pagination} products={products} influencers={campaignInfluencers} configuration={data.configuration || {}} selectedInfluencerId={filters.influencerId} selectedProductIds={filters.productId ? [filters.productId] : []} busyId={busyId} onPage={(page) => setFilters((current) => ({ ...current, page }))} onCreate={createCampaign} onReview={(campaign, application, decision) => runAction(`${campaign._id}-${application.influencerId}`, () => reviewVendorCampaignApplication(campaign._id, application.influencerId, { decision }), "Campaign application reviewed.")} onStatus={(campaign, action) => runAction(campaign._id, () => updateVendorInfluencerCampaignStatus(campaign._id, { action }), "Campaign status updated.")} onFund={openCampaignFunding} onDelete={(campaign) => runAction(`delete-${campaign._id}`, () => deleteVendorInfluencerCampaign(campaign._id), "Campaign deleted.")} /> : null}
+      {tab === "media-library" ? (
+        <MediaLibraryView
+          data={data["media-library"] || {}}
+          pagination={data["media-library"]?.pagination}
+          serverTime={data["media-library"]?.serverTime}
+          onPage={(page) => setFilters((current) => ({ ...current, page }))}
+        />
+      ) : null}
       {tab === "content" ? (
         <ContentView
           rows={data.content?.items || []}

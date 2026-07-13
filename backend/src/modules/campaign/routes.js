@@ -8,6 +8,43 @@ const controller = require("./controller");
 const router = express.Router();
 const vendorAuth = [authRequired, requireRole("vendor"), requireApprovedVendor];
 
+const addressPayload = Joi.object({
+  name: Joi.string().trim().max(160).allow("").optional(),
+  phone: Joi.string().trim().max(40).allow("").optional(),
+  addressLine1: Joi.string().trim().max(300).allow("").optional(),
+  addressLine2: Joi.string().trim().max(300).allow("").optional(),
+  city: Joi.string().trim().max(120).allow("").optional(),
+  state: Joi.string().trim().max(120).allow("").optional(),
+  postalCode: Joi.string().trim().max(40).allow("").optional(),
+  country: Joi.string().trim().max(80).allow("").optional(),
+}).unknown(true);
+
+const productShippingPayload = Joi.object({
+  productRequired: Joi.boolean().default(false),
+  returnRequired: Joi.boolean().default(true),
+  deliveryAddressSnapshot: addressPayload.default({}),
+  returnAddressSnapshot: addressPayload.default({}),
+  courierCompany: Joi.string().trim().max(120).allow("").default(""),
+  trackingNumber: Joi.string().trim().max(120).allow("").default(""),
+  trackingUrl: Joi.string().trim().max(500).allow("").default(""),
+  shipmentDate: Joi.date().iso().allow(null).optional(),
+  estimatedDelivery: Joi.date().iso().allow(null).optional(),
+  shippingCost: Joi.number().min(0).default(0),
+  packageWeight: Joi.string().trim().max(80).allow("").default(""),
+  packageDimensions: Joi.object().unknown(true).default({}),
+  notes: Joi.string().trim().max(1500).allow("").default(""),
+  note: Joi.string().trim().max(1500).allow("").default(""),
+  shipmentStatus: Joi.string().trim().allow("").optional(),
+  deliveryProof: Joi.object().unknown(true).default({}),
+  returnProof: Joi.object().unknown(true).default({}),
+  returnCourierCompany: Joi.string().trim().max(120).allow("").default(""),
+  returnTrackingNumber: Joi.string().trim().max(120).allow("").default(""),
+  returnTrackingUrl: Joi.string().trim().max(500).allow("").default(""),
+  returnShipmentDate: Joi.date().iso().allow(null).optional(),
+  returnEstimatedDelivery: Joi.date().iso().allow(null).optional(),
+  returnNotes: Joi.string().trim().max(1500).allow("").default(""),
+}).unknown(true).default({});
+
 router.post(
   "/create",
   vendorAuth,
@@ -75,6 +112,7 @@ router.post(
         requiredDeliverables: Joi.array().items(Joi.string().trim()).default([]),
         assets: Joi.array().items(Joi.object().unknown(true)).default([]),
       }).default({}),
+      productShipping: productShippingPayload.optional(),
     })
   ),
   controller.create
@@ -104,6 +142,10 @@ router.post(
 router.get("/vendor", vendorAuth, controller.vendor);
 router.get("/influencer", authRequired, requireRole("influencer"), controller.influencer);
 router.get("/influencer/:campaignId/execution", authRequired, requireRole("influencer"), controller.influencerExecution);
+router.get("/influencer/:campaignId/product", authRequired, requireRole("influencer"), validate(Joi.object({ campaignId: Joi.string().required() }), "params"), controller.influencerProduct);
+router.post("/influencer/:campaignId/confirm-delivery", authRequired, requireRole("influencer"), validate(productShippingPayload), controller.confirmDelivery);
+router.post("/influencer/:campaignId/request-return", authRequired, requireRole("influencer"), validate(productShippingPayload), controller.requestReturn);
+router.post("/influencer/:campaignId/confirm-return", authRequired, requireRole("influencer"), validate(productShippingPayload), controller.confirmReturn);
 router.post(
   "/influencer/:campaignId/check-completion",
   authRequired,

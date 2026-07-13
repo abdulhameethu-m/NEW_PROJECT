@@ -8,6 +8,7 @@ const auditService = require("../../services/audit.service");
 const notificationService = require("../../services/notification.service");
 const commissionService = require("../commission/service");
 const schedulingService = require("../../services/campaign-scheduling.service");
+const campaignProductShippingService = require("../../services/campaign-product-shipping.service");
 const { emitDomainEvent } = require("../events/event-bus");
 const { INFLUENCER_EVENTS } = require("../shared/constants");
 const { CommissionRecord } = require("../commission/models");
@@ -765,6 +766,13 @@ class CampaignService {
       history: [pushHistory(initialState, userId, "Campaign invitation sent by vendor")],
     });
     await influencerRateCardService.attachCampaignPricing(campaign, pricing);
+    if (payload.productShipping?.productRequired) {
+      await campaignProductShippingService.ensureCreatedFromCampaign({
+        userId,
+        campaign,
+        payload: payload.productShipping,
+      });
+    }
     await commissionService.ensureCampaignCommissionConfiguration(campaign, payload, pricing, { _id: userId, role: "vendor" });
     await createInvitationRecord({ campaign, influencerId: influencer._id, actorId: userId });
     await notifyInfluencerProfile(influencer, {

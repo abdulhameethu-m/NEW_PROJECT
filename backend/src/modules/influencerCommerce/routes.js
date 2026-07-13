@@ -40,6 +40,46 @@ const listQuery = Joi.object({
   queue: Joi.string().trim().allow("").optional(),
 });
 
+const mediaQuery = listQuery.keys({
+  contentType: Joi.string().trim().allow("").optional(),
+  subcategory: Joi.string().trim().allow("").optional(),
+});
+
+const addressPayload = Joi.object({
+  name: Joi.string().trim().max(160).allow("").optional(),
+  phone: Joi.string().trim().max(40).allow("").optional(),
+  addressLine1: Joi.string().trim().max(300).allow("").optional(),
+  addressLine2: Joi.string().trim().max(300).allow("").optional(),
+  city: Joi.string().trim().max(120).allow("").optional(),
+  state: Joi.string().trim().max(120).allow("").optional(),
+  postalCode: Joi.string().trim().max(40).allow("").optional(),
+  country: Joi.string().trim().max(80).allow("").optional(),
+}).unknown(true);
+
+const productShippingPayload = Joi.object({
+  productRequired: Joi.boolean().default(false),
+  returnRequired: Joi.boolean().default(true),
+  influencerAddressId: Joi.string().trim().allow("").optional(),
+  vendorReturnAddressId: Joi.string().trim().allow("").optional(),
+  deliveryAddressSnapshot: addressPayload.default({}),
+  returnAddressSnapshot: addressPayload.default({}),
+  courierCompany: Joi.string().trim().max(120).allow("").default(""),
+  trackingNumber: Joi.string().trim().max(120).allow("").default(""),
+  trackingUrl: Joi.string().trim().max(500).allow("").default(""),
+  shipmentDate: Joi.date().iso().allow(null).optional(),
+  estimatedDelivery: Joi.date().iso().allow(null).optional(),
+  shippingCost: Joi.number().min(0).default(0),
+  packageWeight: Joi.string().trim().max(80).allow("").default(""),
+  packageDimensions: Joi.object({
+    length: Joi.string().trim().max(40).allow("").default(""),
+    width: Joi.string().trim().max(40).allow("").default(""),
+    height: Joi.string().trim().max(40).allow("").default(""),
+    unit: Joi.string().trim().max(20).allow("").default("cm"),
+  }).default({}),
+  notes: Joi.string().trim().max(1500).allow("").default(""),
+  shipmentStatus: Joi.string().trim().allow("").optional(),
+}).default({});
+
 const campaignPayload = Joi.object({
   influencerId: Joi.string().allow("").optional(),
   productIds: Joi.array().items(Joi.string().required()).min(1).required(),
@@ -101,6 +141,7 @@ const campaignPayload = Joi.object({
     requiredDeliverables: Joi.array().items(Joi.string().trim()).default([]),
     assets: Joi.array().items(Joi.object().unknown(true)).default([]),
   }).default({}),
+  productShipping: productShippingPayload.optional(),
 });
 
 router.get("/dashboard", validate(listQuery, "query"), controller.dashboard);
@@ -201,6 +242,12 @@ router.patch(
 router.get("/campaigns", validate(listQuery, "query"), controller.campaigns);
 router.post("/campaigns/preview", validate(campaignPayload), controller.campaignPreview);
 router.post("/campaigns", validate(campaignPayload), controller.createCampaign);
+router.get("/campaigns/:campaignId/shipping", validate(Joi.object({ campaignId: Joi.string().required() }), "params"), controller.getCampaignShipping);
+router.post("/campaigns/:campaignId/shipping", validate(productShippingPayload), controller.saveCampaignShipping);
+router.put("/campaigns/:campaignId/shipping", validate(productShippingPayload), controller.saveCampaignShipping);
+router.post("/campaigns/:campaignId/dispatch", validate(productShippingPayload), controller.dispatchCampaignProduct);
+router.post("/campaigns/:campaignId/return", validate(productShippingPayload), controller.updateCampaignReturn);
+router.get("/campaigns/:campaignId/tracking", validate(Joi.object({ campaignId: Joi.string().required() }), "params"), controller.getCampaignTracking);
 router.patch(
   "/campaigns/:campaignId/status",
   validate(Joi.object({ action: Joi.string().valid("pause", "close", "activate").optional(), state: Joi.string().allow("").optional(), note: Joi.string().allow("").max(500).default("") })),
@@ -214,6 +261,9 @@ router.patch(
 );
 
 router.get("/products", validate(listQuery, "query"), controller.products);
+router.get("/media/dashboard", validate(mediaQuery, "query"), controller.mediaDashboard);
+router.get("/media/:mediaId", validate(Joi.object({ mediaId: Joi.string().required() }), "params"), controller.mediaDetails);
+router.get("/media", validate(mediaQuery, "query"), controller.mediaLibrary);
 router.get("/content-approvals", validate(listQuery, "query"), controller.contentApprovals);
 router.patch(
   "/content-approvals/:reelId",

@@ -11,6 +11,7 @@ const influencerCommerceEngine = require("../../services/influencer-commerce-eng
 const influencerRateCardService = require("../../services/influencer-rate-card.service");
 const campaignRefundService = require("../../services/campaign-refund.service");
 const campaignSchedulingService = require("../../services/campaign-scheduling.service");
+const campaignProductShippingService = require("../../services/campaign-product-shipping.service");
 const analyticsAggregator = require("../analytics/service");
 const { AppError } = require("../../utils/AppError");
 const { Campaign, CampaignStatusHistory, CampaignInvitation, CampaignAcceptance } = require("../campaign/model");
@@ -21,6 +22,7 @@ const { TrackingSession } = require("../tracking/model");
 const { Product } = require("../../models/Product");
 const { Order } = require("../../models/Order");
 const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
+const CampaignProductShipment = require("../../models/CampaignProductShipment");
 const { emitDomainEvent } = require("../events/event-bus");
 const { VendorInfluencerRelationship, InfluencerService } = require("./model");
 const { CAMPAIGN_STATES } = require("../shared/constants");
@@ -313,6 +315,113 @@ function profileName(profile = {}) {
 
 function profileUsername(profile = {}) {
   return profile.userId?.username || profile.userId?.email || profile.influencerCode || String(profile._id || "").slice(-8);
+}
+
+function contentKind(row = {}) {
+  const value = String(row.contentType || "").toUpperCase();
+  if (value === "POST") return "POST";
+  if (value === "REEL") return "REEL";
+  const media = [row.videoUrl, row.thumbnailUrl, ...(row.imageUrls || []), ...(row.mediaUrls || [])].filter(Boolean).join(" ").toLowerCase();
+  if (/\.(jpg|jpeg|png|webp|gif)(\?|#|$)/.test(media)) return "POST";
+  return "REEL";
+}
+
+function mediaStatus(row = {}) {
+  const visibility = String(row.visibility || "").toLowerCase();
+  const state = String(row.state || "").toLowerCase();
+  if (visibility === "scheduled") return "scheduled";
+  if (visibility === "published" || state === "published") return "published";
+  if (visibility === "archived") return "archived";
+  if (state === "rejected") return "rejected";
+  if (["pending_review", "uploaded", "approved"].includes(state)) return "pending";
+  return visibility || state || "draft";
+}
+
+function mediaMetrics(row = {}) {
+  const metrics = row.metrics || {};
+  const views = Number(metrics.views || 0);
+  const clicks = Number(metrics.clicks || 0);
+  const orders = Number(metrics.orders || 0);
+  const revenue = money(metrics.revenue || 0);
+  const likes = Number(metrics.likes || 0);
+  const comments = Number(metrics.comments || 0);
+  const shares = Number(metrics.shares || 0);
+  const saves = Number(metrics.saves || metrics.bookmarks || 0);
+  return {
+    views,
+    uniqueViews: Number(metrics.uniqueViews || 0),
+    reach: Number(metrics.reach || metrics.uniqueViews || 0),
+    impressions: Number(metrics.impressions || views),
+    likes,
+    comments,
+    shares,
+    saves,
+    profileVisits: Number(metrics.profileVisits || 0),
+    clicks,
+    orders,
+    revenue,
+    affiliateRevenue: money(metrics.affiliateRevenue || revenue),
+    commission: money(metrics.commission || 0),
+    ctr: views ? money((clicks / views) * 100) : 0,
+    conversionRate: clicks ? money((orders / clicks) * 100) : 0,
+    engagement: views ? money(((likes + comments + shares + saves) / views) * 100) : 0,
+    averageWatchTime: Number(metrics.averageViewDuration || 0),
+    completionRate: Number(metrics.completionRate || 0),
+  };
+}
+
+function normalizeMediaRow(row = {}) {
+  const campaign = row.campaignId || {};
+  const influencer = row.influencerId || {};
+  const products = Array.isArray(row.productIds) ? row.productIds : [];
+  const metrics = mediaMetrics(row);
+  return {
+    id: row._id,
+    title: row.title || row.caption || "Untitled content",
+    caption: row.caption || "",
+    description: row.description || "",
+    contentType: contentKind(row),
+    status: mediaStatus(row),
+    visibility: row.visibility || "",
+    state: row.state || "",
+    previewUrl: row.thumbnailUrl || row.imageUrls?.[0] || row.mediaUrls?.[0] || row.videoUrl || "",
+    mediaUrl: row.videoUrl || row.imageUrls?.[0] || row.mediaUrls?.[0] || "",
+    imageUrls: row.imageUrls || [],
+    mediaUrls: row.mediaUrls || [],
+    createdAt: row.createdAt,
+    uploadedAt: row.createdAt,
+    scheduledAt: row.scheduledAt || null,
+    publishedAt: row.publishedAt || null,
+    campaign: campaign?._id ? {
+      id: campaign._id,
+      title: campaign.title || "Campaign",
+      state: campaign.state || "",
+      paymentType: campaign.paymentType || "",
+      endDate: campaign.endDate || campaign.deadline || null,
+    } : null,
+    influencer: influencer?._id ? {
+      id: influencer._id,
+      name: profileName(influencer),
+      username: profileUsername(influencer),
+      email: influencer.userId?.email || "",
+    } : null,
+    products: products.map((product) => ({
+      id: product._id,
+      name: product.name || "Product",
+      category: product.category || "",
+      subcategory: product.subcategory || "",
+      thumbnail: productImage(product),
+    })),
+    metrics,
+  };
+}
+
+function mediaSort(query = {}) {
+  const sort = String(query.sort || "").toLowerCase();
+  if (sort === "views") return { "metrics.views": -1, createdAt: -1 };
+  if (sort === "revenue") return { "metrics.revenue": -1, createdAt: -1 };
+  if (sort === "scheduled") return { scheduledAt: 1, createdAt: -1 };
+  return { createdAt: -1 };
 }
 
 function normalizeStatus(status = "") {
@@ -1568,6 +1677,13 @@ class InfluencerCommerceVendorService {
       });
       await influencerRateCardService.attachCampaignPricing(campaign, pricing);
     }
+    if (payload.productShipping?.productRequired) {
+      await campaignProductShippingService.ensureCreatedFromCampaign({
+        userId,
+        campaign,
+        payload: payload.productShipping,
+      });
+    }
     await influencerCommerceEngine.ensureCampaignBudgetControl(campaign, campaign.pricing?.totalBudget || payload.budget || campaign.fixedFee || 0);
     await auditService.log({ actor: { _id: userId, role: "vendor" }, action: payload.influencerId ? "campaign.invite" : "campaign.create", entityType: "Campaign", entityId: campaign._id, metadata: { influencerId: payload.influencerId || null } }).catch(() => {});
     return campaign;
@@ -1603,7 +1719,7 @@ class InfluencerCommerceVendorService {
       Campaign.countDocuments(filter),
     ]);
     const campaignIds = items.map((campaign) => campaign._id);
-    const [contentCounts, commissionCounts, orderCounts, fundedEscrows, commerceDocs] = campaignIds.length
+    const [contentCounts, commissionCounts, orderCounts, fundedEscrows, commerceDocs, productShipments] = campaignIds.length
       ? await Promise.all([
         Reel.aggregate([
           { $match: { campaignId: { $in: campaignIds } } },
@@ -1621,12 +1737,14 @@ class InfluencerCommerceVendorService {
           .select("campaignId")
           .lean(),
         influencerRateCardService.getCampaignCommerceDocs(campaignIds),
+        CampaignProductShipment.find({ campaignId: { $in: campaignIds } }).lean(),
       ])
-      : [[], [], [], [], { paymentModels: new Map(), attributionRules: new Map() }];
+      : [[], [], [], [], { paymentModels: new Map(), attributionRules: new Map() }, []];
     const contentCountMap = new Map(contentCounts.map((row) => [String(row._id), Number(row.count || 0)]));
     const commissionCountMap = new Map(commissionCounts.map((row) => [String(row._id), row]));
     const orderCountMap = new Map(orderCounts.map((row) => [String(row._id), row]));
     const fundedEscrowSet = new Set(fundedEscrows.map((row) => String(row.campaignId)));
+    const shipmentMap = new Map(productShipments.map((row) => [String(row.campaignId), campaignProductShippingService.shipmentSummary(row)]));
     return {
       items: items.map((campaign) => {
         const applicationsCount = campaign.applications?.length || 0;
@@ -1664,6 +1782,7 @@ class InfluencerCommerceVendorService {
           contentCount,
           commissionCount,
           orderAttributionCount,
+          productShipping: shipmentMap.get(String(campaign._id)) || { productRequired: false },
           canDelete: deleteBlockers.length === 0,
           deleteBlockers,
           deleteDisabledReason: deleteBlockers.length ? `Cannot delete: ${deleteBlockers.join(", ")} exist.` : "",
@@ -2245,6 +2364,157 @@ class InfluencerCommerceVendorService {
         orders: merged.reduce((sum, row) => sum + Number(row.ordersGenerated || 0), 0),
       },
       pagination: { total: merged.length, page, limit, pages: Math.ceil(merged.length / limit) || 1 },
+    };
+  }
+
+  async vendorMediaBase(userId, query = {}) {
+    const vendor = await this.getVendor(userId);
+    const { page, limit, skip } = pageOptions(query, 24);
+    const campaignFilter = applyPaymentModelFilter({ vendorId: vendor._id }, query);
+    if (objectId(query.campaignId)) campaignFilter._id = objectId(query.campaignId);
+    const campaignIds = await campaignIdsForFilter(campaignFilter);
+    const filter = { campaignId: { $in: campaignIds } };
+    if (objectId(query.influencerId)) filter.influencerId = objectId(query.influencerId);
+    if (objectId(query.productId)) filter.productIds = objectId(query.productId);
+    if (query.status) {
+      const status = String(query.status).toLowerCase();
+      if (status === "pending") filter.state = { $in: ["uploaded", "pending_review", "approved"] };
+      else if (["draft", "scheduled", "published", "archived"].includes(status)) filter.visibility = status;
+      else filter.state = status;
+    }
+    if (query.contentType) {
+      const type = String(query.contentType).toUpperCase();
+      if (["POST", "REEL"].includes(type)) filter.contentType = { $in: [type, type.toLowerCase()] };
+    }
+    if (query.startDate || query.endDate) {
+      const { start, end } = parseRange(query);
+      filter.createdAt = { $gte: start, $lte: end };
+    }
+    if (query.category || query.subcategory) {
+      const productFilter = {};
+      if (query.category) productFilter.category = { $regex: escapeRegex(query.category), $options: "i" };
+      if (query.subcategory) productFilter.subcategory = { $regex: escapeRegex(query.subcategory), $options: "i" };
+      const productIds = await Product.find(productFilter).select("_id").lean();
+      filter.productIds = { $in: productIds.map((product) => product._id) };
+    }
+    if (query.search) {
+      const text = { $regex: escapeRegex(query.search), $options: "i" };
+      filter.$or = [{ title: text }, { caption: text }, { description: text }, { tags: text }];
+    }
+    return { vendor, page, limit, skip, filter };
+  }
+
+  async mediaDashboard(userId, query = {}) {
+    const { filter } = await this.vendorMediaBase(userId, query);
+    const rows = await Reel.find(filter)
+      .populate({ path: "campaignId", select: "title state paymentType endDate deadline" })
+      .populate({ path: "influencerId", populate: { path: "userId", select: "name email username" } })
+      .populate({ path: "productIds", select: "name category subcategory thumbnail images" })
+      .sort({ createdAt: -1 })
+      .limit(1000)
+      .lean();
+    const items = rows.map(normalizeMediaRow);
+    const today = startOfDay(new Date());
+    const totals = items.reduce((acc, item) => {
+      const status = item.status;
+      const metrics = item.metrics || {};
+      acc.totalContent += 1;
+      acc[status] = Number(acc[status] || 0) + 1;
+      if (item.createdAt && new Date(item.createdAt) >= today) acc.todaysUploads += 1;
+      acc.totalViews += Number(metrics.views || 0);
+      acc.totalClicks += Number(metrics.clicks || 0);
+      acc.conversions += Number(metrics.orders || 0);
+      acc.revenue += Number(metrics.revenue || 0);
+      acc.affiliateSales += Number(metrics.orders || 0);
+      if (item.campaign?.id) acc.campaignIds.add(String(item.campaign.id));
+      if (item.influencer?.id) acc.influencerIds.add(String(item.influencer.id));
+      return acc;
+    }, {
+      totalContent: 0,
+      published: 0,
+      scheduled: 0,
+      pending: 0,
+      rejected: 0,
+      archived: 0,
+      draft: 0,
+      todaysUploads: 0,
+      totalViews: 0,
+      totalClicks: 0,
+      conversions: 0,
+      revenue: 0,
+      affiliateSales: 0,
+      campaignIds: new Set(),
+      influencerIds: new Set(),
+    });
+    const chartMap = new Map();
+    items.forEach((item) => {
+      const key = item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : "unknown";
+      const row = chartMap.get(key) || { date: key, views: 0, clicks: 0, revenue: 0, conversions: 0, published: 0, scheduled: 0 };
+      row.views += Number(item.metrics.views || 0);
+      row.clicks += Number(item.metrics.clicks || 0);
+      row.revenue += Number(item.metrics.revenue || 0);
+      row.conversions += Number(item.metrics.orders || 0);
+      if (item.status === "published") row.published += 1;
+      if (item.status === "scheduled") row.scheduled += 1;
+      chartMap.set(key, row);
+    });
+    const topContent = [...items].sort((a, b) => Number(b.metrics.views || 0) - Number(a.metrics.views || 0)).slice(0, 6);
+    return {
+      summary: {
+        ...totals,
+        campaignCount: totals.campaignIds.size,
+        influencerCount: totals.influencerIds.size,
+        ctr: totals.totalViews ? money((totals.totalClicks / totals.totalViews) * 100) : 0,
+        roi: totals.revenue ? money((totals.revenue / Math.max(1, totals.totalContent)) * 100) : 0,
+        revenue: money(totals.revenue),
+        campaignIds: undefined,
+        influencerIds: undefined,
+      },
+      trends: [...chartMap.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-30),
+      topContent,
+    };
+  }
+
+  async mediaLibrary(userId, query = {}) {
+    const { page, limit, skip, filter } = await this.vendorMediaBase(userId, query);
+    const [rows, total, dashboard] = await Promise.all([
+      Reel.find(filter)
+        .populate({ path: "campaignId", select: "title state paymentType endDate deadline" })
+        .populate({ path: "influencerId", populate: { path: "userId", select: "name email username" } })
+        .populate({ path: "productIds", select: "name category subcategory thumbnail images" })
+        .sort(mediaSort(query))
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Reel.countDocuments(filter),
+      this.mediaDashboard(userId, query),
+    ]);
+    return {
+      items: rows.map(normalizeMediaRow),
+      summary: dashboard.summary,
+      trends: dashboard.trends,
+      topContent: dashboard.topContent,
+      pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
+      serverTime: new Date(),
+    };
+  }
+
+  async mediaDetails(userId, mediaId) {
+    const vendor = await this.getVendor(userId);
+    const reel = await Reel.findById(mediaId)
+      .populate({ path: "campaignId", select: "title state paymentType endDate deadline vendorId description" })
+      .populate({ path: "influencerId", populate: { path: "userId", select: "name email username" } })
+      .populate({ path: "productIds", select: "name category subcategory thumbnail images price discountPrice" })
+      .lean();
+    if (!reel || String(reel.campaignId?.vendorId || "") !== String(vendor._id)) {
+      throw new AppError("Media not found", 404, "NOT_FOUND");
+    }
+    return {
+      item: normalizeMediaRow(reel),
+      approvalHistory: [],
+      auditLogs: [],
+      affiliateMetrics: mediaMetrics(reel),
+      serverTime: new Date(),
     };
   }
 
