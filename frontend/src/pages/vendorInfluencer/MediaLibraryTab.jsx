@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { BarChart3, CalendarClock, Eye, FileVideo, MousePointerClick, Package, Play, Search, TrendingUp, Users, X } from "lucide-react";
 import { getVendorMediaDetails } from "../../services/influencerCommerceService";
 import { resolveApiAssetUrl } from "../../utils/resolveUrl";
@@ -23,15 +23,16 @@ function isVideo(url = "") {
 
 function CountdownTimer({ scheduledAt, serverTime, status }) {
   const [now, setNow] = useState(() => Date.now());
-  const offset = useMemo(() => {
-    const server = serverTime ? new Date(serverTime).getTime() : Date.now();
-    return server - Date.now();
-  }, [serverTime]);
+  const [offset, setOffset] = useState(0);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    setOffset(serverTime ? new Date(serverTime).getTime() - Date.now() : 0);
+  }, [serverTime]);
 
   if (!scheduledAt || status !== "scheduled") return null;
   const remaining = Math.max(0, new Date(scheduledAt).getTime() - (now + offset));

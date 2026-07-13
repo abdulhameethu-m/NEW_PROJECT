@@ -144,7 +144,7 @@ function ContentCard({ item, onAction, busy = false }) {
   const posterSrc = resolveApiAssetUrl(item.thumbnailUrl);
   const scheduledAt = item.scheduledAt ? new Date(item.scheduledAt) : null;
   const isScheduled = normalizedStatus === "scheduled" && scheduledAt && !Number.isNaN(scheduledAt.getTime());
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const remainingMs = isScheduled ? Math.max(0, scheduledAt.getTime() - now) : 0;
   const publishLocked = isScheduled && remainingMs > 0;
 

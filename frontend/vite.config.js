@@ -18,10 +18,9 @@ const vendorChunks = {
   "vendor-dates": /\/node_modules\/date-fns\//,
   "vendor-charts": /\/node_modules\/recharts\//,
   "vendor-animation": /\/node_modules\/(?:framer-motion|motion-dom|motion-utils)\//,
-  "vendor-interactions": /\/node_modules\/(?:@dnd-kit|react-rnd|react-draggable|re-resizable|react-intersection-observer)\//,
+  "vendor-interactions": /\/node_modules\/(?:@dnd-kit)\//,
   "vendor-http": /\/node_modules\/axios\//,
   "vendor-state": /\/node_modules\/zustand\//,
-  "vendor-data": /\/node_modules\/(?:@tanstack\/react-query|zod|zod-validation-error)\//,
   "vendor-redux": /\/node_modules\/(?:@reduxjs|react-redux|redux|redux-thunk|reselect|immer)\//,
   "vendor-maps": /\/node_modules\/(?:@react-google-maps|@googlemaps|supercluster|kdbush)\//,
 };
