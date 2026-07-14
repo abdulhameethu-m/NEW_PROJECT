@@ -29,7 +29,9 @@ const createAdminOrderSchema = Joi.object({
   userId: Joi.string().required(),
   items: Joi.array().items(orderItemSchema).min(1).required(),
   paymentMethod: Joi.string().valid("ONLINE", "COD").required(),
-  paymentStatus: Joi.string().valid("PENDING", "PAID", "FAILED", "Pending", "Paid", "Failed").default("PENDING"),
+  paymentStatus: Joi.string()
+    .valid("PENDING", "PARTIALLY_PAID", "PAID", "FAILED", "Pending", "Partially Paid", "Paid", "Failed")
+    .default("PENDING"),
   orderStatus: Joi.string()
     .valid(
       "PLACED",

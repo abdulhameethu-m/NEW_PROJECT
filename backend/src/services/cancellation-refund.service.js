@@ -30,7 +30,12 @@ function deriveOrderPaymentStatus({
   grossAmount = 0,
 }) {
   const currentStatus = String(order.paymentStatus || "Pending");
-  if (currentStatus !== "Paid" && currentStatus !== "Refunded" && currentStatus !== "Partially Refunded") {
+  if (
+    currentStatus !== "Paid" &&
+    currentStatus !== "Partially Paid" &&
+    currentStatus !== "Refunded" &&
+    currentStatus !== "Partially Refunded"
+  ) {
     return currentStatus;
   }
 
@@ -70,6 +75,60 @@ function getGatewayFee(order = {}, payment = null) {
       order?.paymentRecordId?.gatewayFeeAmount ||
       0
   );
+}
+
+function isCodAdvanceOrder(order = {}) {
+  return (
+    String(order.paymentMethod || "").toUpperCase() === "COD" &&
+    (
+      Number(order.advanceAmount || 0) > 0 ||
+      Number(order.codAdvance?.advanceAmount || 0) > 0 ||
+      order.codAdvance?.enabled === true ||
+      order.paymentMode === "COD_ADVANCE"
+    )
+  );
+}
+
+function isNormalCodWithoutAdvance(order = {}) {
+  return String(order.paymentMethod || "").toUpperCase() === "COD" && !isCodAdvanceOrder(order);
+}
+
+function cancellationFeeBlocksRefund(refund = {}, order = {}) {
+  const fee = Number(refund.cancellationFee || order.cancellation?.cancellationFee || 0);
+  if (fee <= 0) return false;
+  return !(refund.cancellationFeePaid || order.cancellation?.cancellationFeePaid);
+}
+
+function getRefundAdvancePaid(refund = {}, order = {}) {
+  return Number(
+    refund.breakdown?.advancePaid ??
+      order.advanceAmount ??
+      order.codAdvance?.advanceAmount ??
+      0
+  );
+}
+
+function getRefundCancellationFee(refund = {}, order = {}) {
+  const explicitFee = Number(
+    refund.cancellationFee ||
+      order.cancellation?.cancellationFee ||
+      order.cancellation?.preview?.cancellationFee ||
+      0
+  );
+  if (explicitFee > 0) return explicitFee;
+  if (
+    String(refund.paymentMethod || order.paymentMethod || "").toUpperCase() === "COD" &&
+    getRefundAdvancePaid(refund, order) <= 0 &&
+    Number(refund.deductionAmount || 0) > 0
+  ) {
+    return Number(refund.deductionAmount || 0);
+  }
+  return 0;
+}
+
+function isCustomerPaidCancellationFeeRefund(refund = {}, order = {}) {
+  const paymentMethod = String(refund.paymentMethod || order.paymentMethod || "").toUpperCase();
+  return paymentMethod === "COD" && getRefundAdvancePaid(refund, order) <= 0 && getRefundCancellationFee(refund, order) > 0;
 }
 
 function getPolicyPaymentConfig(policy, paymentMethod) {
@@ -176,11 +235,14 @@ function buildRefundPreview({ order, payment, policy }) {
   const platformFee = roundMoney(order.platformFee || 0);
   const gatewayFee = getGatewayFee(order, payment);
   const grossOrderAmount = roundMoney(order.totalAmount || order.priceBreakdown?.totalAmount || 0);
-  const isCodAdvance = paymentMethod === "COD" && Number(order.advanceAmount || order.codAdvance?.advanceAmount || 0) > 0;
+  const isCodAdvance = paymentMethod === "COD" && isCodAdvanceOrder(order);
+  const isNormalCod = paymentMethod === "COD" && !isCodAdvance;
   const grossAmount = isCodAdvance
     ? roundMoney(order.advanceAmount || order.codAdvance?.advanceAmount || payment?.amount || 0)
+    : isNormalCod
+      ? 0
     : grossOrderAmount;
-  const refundableBase = grossAmount;
+  const refundableBase = isNormalCod ? grossOrderAmount : grossAmount;
   const deductions = (stageRule.deductions || []).map((deduction) => ({
     type: deduction.type,
     label: deduction.label,
@@ -194,8 +256,10 @@ function buildRefundPreview({ order, payment, policy }) {
       gatewayFee,
     }),
   }));
-  const deductionAmount = roundMoney(Math.min(grossAmount, deductions.reduce((sum, item) => sum + Number(item.amount || 0), 0)));
-  const refundAmount = roundMoney(Math.max(0, grossAmount - deductionAmount));
+  const rawDeductionAmount = roundMoney(deductions.reduce((sum, item) => sum + Number(item.amount || 0), 0));
+  const deductionAmount = roundMoney(Math.min(isNormalCod ? grossOrderAmount : grossAmount, rawDeductionAmount));
+  const refundAmount = isNormalCod ? 0 : roundMoney(Math.max(0, grossAmount - deductionAmount));
+  const cancellationFee = isNormalCod ? deductionAmount : 0;
   const refundMethod = decideRefundMethod({ paymentMethod, payment, policy, paymentConfig });
   const approvalRequired = Boolean(stageRule.manualApproval && !stageRule.autoApproval);
 
@@ -210,6 +274,10 @@ function buildRefundPreview({ order, payment, policy }) {
     grossAmount,
     deductionAmount,
     refundAmount,
+    cancellationFee,
+    cancellationFeePaymentRequired: cancellationFee > 0 && order.cancellation?.cancellationFeePaid !== true,
+    cancellationFeePaid: Boolean(order.cancellation?.cancellationFeePaid),
+    cancellationFeePaymentStatus: order.cancellation?.cancellationFeePaymentStatus || (cancellationFee > 0 ? "PENDING" : "NOT_REQUIRED"),
     breakdown: {
       subtotal,
       shipping,
@@ -220,6 +288,7 @@ function buildRefundPreview({ order, payment, policy }) {
       cancellationDeduction: deductionAmount,
       orderTotal: grossOrderAmount,
       advancePaid: isCodAdvance ? grossAmount : 0,
+      cancellationFee,
       deductions,
     },
     featureFlags: policy.featureFlags,
@@ -268,6 +337,224 @@ class CancellationRefundService {
       status: order.status,
       cancellation: preview,
     };
+  }
+
+  async createCancellationFeeOrder({ order, preview, actor, reason = "", notes = "", meta = {} }) {
+    if (!isNormalCodWithoutAdvance(order) || Number(preview.cancellationFee || 0) <= 0) {
+      return null;
+    }
+    await paymentService.assertGatewayEnabled();
+    const existingRazorpayOrderId = order.cancellation?.cancellationFeeRazorpayOrderId;
+    if (existingRazorpayOrderId && order.cancellation?.cancellationFeePaymentStatus === "PENDING") {
+      const existingPayment = await paymentRepo.findByRazorpayOrderId(existingRazorpayOrderId).catch(() => null);
+      if (existingPayment && Number(existingPayment.amount || 0) === Number(preview.cancellationFee || 0) && existingPayment.status !== "FAILED") {
+        return {
+          paymentId: existingPayment._id,
+          razorpayOrderId: existingRazorpayOrderId,
+          razorpay_order_id: existingRazorpayOrderId,
+          orderId: existingRazorpayOrderId,
+          amount: Math.round(Number(preview.cancellationFee || 0) * 100),
+          amountMajor: preview.cancellationFee,
+          currency: existingPayment.currency || order.currency || "INR",
+          key: process.env.RAZORPAY_KEY_ID,
+          key_id: process.env.RAZORPAY_KEY_ID,
+          receipt: existingPayment.receipt,
+          title: "Cancellation Fee",
+          description: `Cancellation charge for order ${order.orderNumber}`,
+        };
+      }
+    }
+    const razorpay = this.getRazorpayClient();
+    const amount = Math.round(Number(preview.cancellationFee || 0) * 100);
+    const currency = order.currency || "INR";
+    const receipt = `cncl_${String(order._id).slice(-18)}_${Date.now().toString().slice(-6)}`;
+    const gatewayOrder = await razorpay.orders.create({
+      amount,
+      currency,
+      receipt,
+      notes: {
+        orderId: String(order._id),
+        orderNumber: String(order.orderNumber || ""),
+        purpose: "cancellation_fee",
+        reason: String(reason || "").slice(0, 120),
+      },
+    });
+
+    if (!gatewayOrder?.id || !String(gatewayOrder.id).startsWith("order_") || Number(gatewayOrder.amount) !== amount) {
+      throw new AppError("Invalid Razorpay cancellation fee order. Please retry.", 502, "RAZORPAY_ORDER_VALIDATION_FAILED");
+    }
+
+    const paymentRecord = await paymentRepo.create({
+      userId: order.userId?._id || order.userId,
+      orderIds: [order._id],
+      amount: preview.cancellationFee,
+      currency,
+      method: "ONLINE",
+      paymentMode: "CANCELLATION_FEE",
+      status: "CREATED",
+      fulfillmentStatus: "PENDING",
+      receipt,
+      razorpayOrderId: gatewayOrder.id,
+      amountBreakdown: {
+        totalAmount: preview.cancellationFee,
+        paymentMethod: "ONLINE",
+      },
+      gatewayResponse: {
+        purpose: "cancellation_fee",
+        gatewayOrder,
+        cancellationPreview: preview,
+        reason,
+        notes,
+      },
+    });
+
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          "cancellation.reason": String(reason || "").trim(),
+          "cancellation.requestedAt": new Date(),
+          "cancellation.requestedByRole": actor?.role || "user",
+          "cancellation.requestedById": actor?.sub || actor?._id || null,
+          "cancellation.currentStageKey": preview.stage,
+          "cancellation.policyId": preview.policyId,
+          "cancellation.preview": preview,
+          "cancellation.cancellationFee": preview.cancellationFee,
+          "cancellation.cancellationFeePaid": false,
+          "cancellation.cancellationFeePaymentId": String(paymentRecord._id),
+          "cancellation.cancellationFeeRazorpayOrderId": gatewayOrder.id,
+          "cancellation.cancellationFeePaymentStatus": "PENDING",
+          "cancellation.cancellationFeeGateway": "RAZORPAY",
+        },
+        $push: {
+          timeline: {
+            status: "Cancellation Fee Pending",
+            note: `Cancellation fee ${preview.cancellationFee} must be paid before cancellation`,
+            timestamp: new Date(),
+          },
+        },
+      }
+    );
+
+    await auditService.log({
+      actor,
+      action: "order.cancellation_fee.payment_initiated",
+      entityType: "Order",
+      entityId: order._id,
+      metadata: {
+        amount: preview.cancellationFee,
+        razorpayOrderId: gatewayOrder.id,
+        paymentRecordId: paymentRecord._id,
+        ipAddress: meta?.ipAddress,
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    }).catch(() => null);
+
+    return {
+      paymentId: paymentRecord._id,
+      razorpayOrderId: gatewayOrder.id,
+      razorpay_order_id: gatewayOrder.id,
+      orderId: gatewayOrder.id,
+      amount: gatewayOrder.amount,
+      amountMajor: preview.cancellationFee,
+      currency,
+      key: process.env.RAZORPAY_KEY_ID,
+      key_id: process.env.RAZORPAY_KEY_ID,
+      receipt,
+      title: "Cancellation Fee",
+      description: `Cancellation charge for order ${order.orderNumber}`,
+    };
+  }
+
+  async verifyCancellationFeePayment({ orderId, actor, razorpay_order_id, razorpay_payment_id, razorpay_signature, reason = "", notes = "", meta = {} }) {
+    const order = await this.loadOrderForActor(orderId, actor);
+    const payment = await paymentRepo.findByRazorpayOrderId(razorpay_order_id);
+    if (!payment || String(payment.paymentMode) !== "CANCELLATION_FEE" || String(payment.orderIds?.[0]?._id || payment.orderIds?.[0]) !== String(order._id)) {
+      throw new AppError("Cancellation fee payment reference is invalid", 400, "INVALID_CANCELLATION_FEE_PAYMENT");
+    }
+    if (String(payment.userId?._id || payment.userId) !== String(actor?.sub || actor?._id)) {
+      throw new AppError("Forbidden", 403, "FORBIDDEN");
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+    const actual = Buffer.from(String(razorpay_signature || ""), "hex");
+    const expected = Buffer.from(expectedSignature, "hex");
+    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
+      await paymentRepo.updateById(payment._id, { $set: { status: "FAILED", failedAt: new Date() } }).catch(() => null);
+      await Order.updateOne(
+        { _id: order._id },
+        { $set: { "cancellation.cancellationFeePaymentStatus": "FAILED" } }
+      ).catch(() => null);
+      throw new AppError("Cancellation fee payment verification failed", 400, "PAYMENT_SIGNATURE_INVALID");
+    }
+
+    const gatewayPayment = await paymentService.fetchGatewayPayment(razorpay_payment_id);
+    if (String(gatewayPayment?.order_id || "") !== String(razorpay_order_id) || String(gatewayPayment?.status || "").toLowerCase() !== "captured") {
+      throw new AppError("Cancellation fee payment is not captured by Razorpay", 409, "PAYMENT_NOT_CAPTURED");
+    }
+
+    await paymentRepo.updateById(payment._id, {
+      $set: {
+        status: "PAID",
+        fulfillmentStatus: "COMPLETED",
+        razorpayPaymentId: razorpay_payment_id,
+        razorpaySignature: razorpay_signature,
+        paidAt: new Date(),
+        gatewayResponse: {
+          ...(payment.gatewayResponse || {}),
+          verifiedPayment: gatewayPayment,
+        },
+      },
+    });
+
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          "cancellation.cancellationFeePaid": true,
+          "cancellation.cancellationFeePaymentId": String(payment._id),
+          "cancellation.cancellationFeeRazorpayOrderId": razorpay_order_id,
+          "cancellation.cancellationFeeTransactionId": razorpay_payment_id,
+          "cancellation.cancellationFeePaymentStatus": "PAID",
+          "cancellation.cancellationFeeGateway": "RAZORPAY",
+          "cancellation.cancellationFeePaidAt": new Date(),
+        },
+        $push: {
+          timeline: {
+            status: "Cancellation Fee Paid",
+            note: `Cancellation fee paid through Razorpay (${razorpay_payment_id})`,
+            timestamp: new Date(),
+          },
+        },
+      }
+    );
+
+    await auditService.log({
+      actor,
+      action: "order.cancellation_fee.payment_success",
+      entityType: "Order",
+      entityId: order._id,
+      metadata: {
+        amount: payment.amount,
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    }).catch(() => null);
+
+    return this.processOrderCancellation({
+      orderId,
+      actor,
+      meta,
+      reason: reason || order.cancellation?.reason,
+      notes,
+      skipCancellationFeeGate: true,
+    });
   }
 
   async createCustomerWalletRefund(userId, amount, referenceId, note, { session = null } = {}) {
@@ -403,6 +690,7 @@ class CancellationRefundService {
     if (existing) {
       return existing;
     }
+    const isCustomerPaidCancellationFee = Number(preview.refundAmount || 0) <= 0 && Number(preview.cancellationFee || 0) > 0;
 
     const refund = await Refund.create(
       [
@@ -413,21 +701,27 @@ class CancellationRefundService {
           amount: preview.refundAmount,
           deductionAmount: preview.deductionAmount,
           grossAmount: preview.grossAmount,
-          status: "PENDING",
+          status: isCustomerPaidCancellationFee ? "PROCESSED" : "PENDING",
           reason: reason || "Order cancelled",
           gateway: "",
           refundMethod: "",
-          recommendedRefundMethod: refundMethod,
+          recommendedRefundMethod: isCustomerPaidCancellationFee ? "" : refundMethod,
           refundType: "CANCELLATION",
           requestedByRole: actor?.role || "system",
           requestedById: actor?.sub || actor?._id || null,
           paymentMethod: order.paymentMethod,
+          cancellationFee: Number(order.cancellation?.cancellationFee || preview.cancellationFee || 0),
+          cancellationFeePaid: Boolean(order.cancellation?.cancellationFeePaid),
+          cancellationFeePaymentStatus: order.cancellation?.cancellationFeePaymentStatus || (preview.cancellationFee > 0 ? "PENDING" : "NOT_REQUIRED"),
+          cancellationFeePaymentId: order.cancellation?.cancellationFeePaymentId || "",
+          cancellationFeeGateway: order.cancellation?.cancellationFeeGateway || "",
+          cancellationFeePaidAt: order.cancellation?.cancellationFeePaidAt || null,
           attemptCount: 0,
           lastAttemptAt: new Date(),
-          retryable: true,
+          retryable: !isCustomerPaidCancellationFee,
           approval: {
-            status: approvalStatus,
-            ...(approvalStatus === "APPROVED" || approvalStatus === "AUTO_APPROVED"
+            status: isCustomerPaidCancellationFee ? "AUTO_APPROVED" : approvalStatus,
+            ...(isCustomerPaidCancellationFee || approvalStatus === "APPROVED" || approvalStatus === "AUTO_APPROVED"
               ? { approvedBy: actor?.sub || actor?._id || null, approvedAt: new Date() }
               : {}),
           },
@@ -436,6 +730,7 @@ class CancellationRefundService {
             refundAmount: preview.refundAmount,
           },
           notes: notes || "",
+          ...(isCustomerPaidCancellationFee ? { processedAt: new Date() } : {}),
         },
       ],
       { session: session || undefined }
@@ -555,6 +850,7 @@ class CancellationRefundService {
     reason,
     notes,
     previewOnly = false,
+    skipCancellationFeeGate = false,
   }) {
     const order = await this.loadOrderForActor(orderId, actor);
     const payment = order.paymentRecordId?._id
@@ -571,6 +867,32 @@ class CancellationRefundService {
         orderId: order._id,
         orderNumber: order.orderNumber,
         preview,
+      };
+    }
+
+    if (
+      !skipCancellationFeeGate &&
+      isNormalCodWithoutAdvance(order) &&
+      Number(preview.cancellationFee || 0) > 0 &&
+      order.cancellation?.cancellationFeePaid !== true
+    ) {
+      const cancellationFeePayment = await this.createCancellationFeeOrder({ order, preview, actor, reason, notes, meta });
+      await UserNotification.create({
+        userId: order.userId?._id || order.userId,
+        type: "ORDER",
+        title: "Cancellation fee payment required",
+        message: `Pay ${preview.cancellationFee} to complete cancellation for order ${order.orderNumber}.`,
+        entityType: "Order",
+        entityId: order._id,
+        meta: { cancellationFee: preview.cancellationFee, razorpayOrderId: cancellationFeePayment?.razorpayOrderId },
+      }).catch(() => null);
+      return {
+        requiresCancellationFeePayment: true,
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        preview,
+        cancellationFeePayment,
+        message: "Cancellation fee payment is required before cancelling this order.",
       };
     }
 
@@ -621,8 +943,11 @@ class CancellationRefundService {
       async (session) => {
         await this.restoreInventoryForOrder(claim, actor?.sub || actor?._id, { session });
 
+        const shouldCreateRefundVisibilityRow =
+          preview.refundAmount > 0 ||
+          (isNormalCodWithoutAdvance(claim) && Number(preview.cancellationFee || 0) > 0 && claim.cancellation?.cancellationFeePaid === true);
         const refund =
-          preview.refundAmount > 0
+          shouldCreateRefundVisibilityRow
             ? await this.createRefundRecord({
                 order: claim,
                 payment,
@@ -761,14 +1086,120 @@ class CancellationRefundService {
     const grouped = refunds.map((refund) => {
       const row = refund.toObject?.() || refund;
       const order = row.orderId || refund.orderId || null;
+      const customerPaidFee = isCustomerPaidCancellationFeeRefund(row, order || {});
+      const cancellationFee = getRefundCancellationFee(row, order || {});
       return {
         ...row,
+        amount: customerPaidFee ? 0 : row.amount,
+        grossAmount: customerPaidFee ? 0 : row.grossAmount,
+        status: customerPaidFee ? "PROCESSED" : row.status,
+        refundMethod: customerPaidFee ? "" : row.refundMethod,
+        recommendedRefundMethod: customerPaidFee ? "" : row.recommendedRefundMethod,
+        retryable: customerPaidFee ? false : row.retryable,
+        cancellationFee,
+        cancellationFeePaid: customerPaidFee ? true : row.cancellationFeePaid,
+        cancellationFeePaymentStatus: customerPaidFee ? "PAID" : row.cancellationFeePaymentStatus,
+        customerPaidCancellationFee: customerPaidFee,
         orderStatus: order?.status || "",
         paymentMethod: order?.paymentMethod || row.paymentMethod || "",
         customer: order?.userId || null,
         unifiedPricingBreakdown: order ? pricingBreakdownEngine.buildFromOrder(order) : null,
       };
     });
+
+    if (!query.status || query.status === "PROCESSED") {
+      const refundOrderIds = new Set(
+        grouped
+          .map((refund) => String(refund.orderId?._id || refund.orderId || ""))
+          .filter(Boolean)
+      );
+      const orderQuery = {
+        paymentMethod: "COD",
+        $or: [
+          { "cancellation.cancellationFeePaid": true },
+          { "cancellation.cancellationFeePaymentStatus": "PAID" },
+        ],
+      };
+      if (query.startDate || query.endDate) {
+        orderQuery.$and = [
+          {
+            $or: [
+              { "cancellation.cancellationFeePaidAt": {} },
+              { updatedAt: {} },
+            ],
+          },
+        ];
+        if (query.startDate) {
+          orderQuery.$and[0].$or[0]["cancellation.cancellationFeePaidAt"].$gte = new Date(query.startDate);
+          orderQuery.$and[0].$or[1].updatedAt.$gte = new Date(query.startDate);
+        }
+        if (query.endDate) {
+          orderQuery.$and[0].$or[0]["cancellation.cancellationFeePaidAt"].$lte = new Date(query.endDate);
+          orderQuery.$and[0].$or[1].updatedAt.$lte = new Date(query.endDate);
+        }
+      }
+
+      const feeOnlyOrders = await Order.find(orderQuery)
+        .populate("userId", "name email phone")
+        .populate("sellerId", "companyName shopName supportPhone")
+        .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
+        .sort({ updatedAt: -1 })
+        .limit(Math.min(Math.max(Number(query.limit || 100), 1), 200))
+        .exec();
+
+      for (const order of feeOnlyOrders) {
+        if (refundOrderIds.has(String(order._id))) continue;
+        if (isCodAdvanceOrder(order)) continue;
+        const cancellationFee = getRefundCancellationFee({}, order);
+        if (cancellationFee <= 0) continue;
+        const row = {
+          _id: `cancellation-fee:${order._id}`,
+          orderId: order,
+          paymentId: order.paymentRecordId || null,
+          refundId: "",
+          idempotencyKey: `cancellation-fee:${order._id}`,
+          amount: 0,
+          deductionAmount: cancellationFee,
+          grossAmount: 0,
+          status: "PROCESSED",
+          reason: order.cancellation?.reason || "COD cancellation fee paid",
+          gateway: "",
+          refundMethod: "",
+          recommendedRefundMethod: "",
+          refundType: "CANCELLATION",
+          requestedByRole: order.cancellation?.requestedByRole || "user",
+          requestedById: order.userId?._id || order.userId || null,
+          paymentMethod: "COD",
+          cancellationFee,
+          cancellationFeePaid: true,
+          cancellationFeePaymentStatus: "PAID",
+          cancellationFeePaymentId: order.cancellation?.cancellationFeePaymentId || "",
+          cancellationFeeGateway: order.cancellation?.cancellationFeeGateway || "RAZORPAY",
+          cancellationFeePaidAt: order.cancellation?.cancellationFeePaidAt || order.updatedAt,
+          retryable: false,
+          approval: {
+            status: "AUTO_APPROVED",
+            approvedAt: order.cancellation?.cancellationFeePaidAt || order.updatedAt,
+          },
+          breakdown: {
+            refundAmount: 0,
+            cancellationDeduction: cancellationFee,
+          },
+          notes: "Customer paid COD cancellation fee. No refund is due.",
+          processedAt: order.cancellation?.cancellationFeePaidAt || order.updatedAt,
+          createdAt: order.cancellation?.cancellationFeePaidAt || order.updatedAt,
+          updatedAt: order.updatedAt,
+          customerPaidCancellationFee: true,
+          orderStatus: order.status || "",
+          customer: order.userId || null,
+          unifiedPricingBreakdown: pricingBreakdownEngine.buildFromOrder(order),
+        };
+        grouped.push(row);
+      }
+
+      grouped.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      grouped.splice(Math.min(Math.max(Number(query.limit || 100), 1), 200));
+    }
 
     const overview = grouped.reduce(
       (acc, refund) => {
@@ -814,6 +1245,9 @@ class CancellationRefundService {
     if (!order) throw new AppError("Linked order not found", 404, "NOT_FOUND");
 
     if (payload.action === "approve") {
+      if (cancellationFeeBlocksRefund(refund, order)) {
+        throw new AppError("Cancellation fee must be paid before refund processing", 409, "CANCELLATION_FEE_PENDING");
+      }
       if (refund.status === "PROCESSED") {
         return { refund, order, payment, duplicate: true };
       }
@@ -1000,6 +1434,12 @@ class CancellationRefundService {
       throw new AppError("Refund is already completed", 409, "REFUND_ALREADY_PROCESSED");
     }
 
+    const order = await orderRepo.findById(refund.orderId?._id || refund.orderId);
+    if (!order) throw new AppError("Linked order not found", 404, "NOT_FOUND");
+    if (cancellationFeeBlocksRefund(refund, order)) {
+      throw new AppError("Cancellation fee must be paid before refund processing", 409, "CANCELLATION_FEE_PENDING");
+    }
+
     const updated = await Refund.findByIdAndUpdate(
       refund._id,
       {
@@ -1020,7 +1460,6 @@ class CancellationRefundService {
       { returnDocument: "after" }
     );
 
-    const order = await orderRepo.findById(refund.orderId?._id || refund.orderId);
     await Order.updateOne(
       { _id: order._id },
       {
@@ -1067,6 +1506,10 @@ class CancellationRefundService {
 
     const order = await orderRepo.findById(refund.orderId?._id || refund.orderId);
     const payment = await paymentRepo.findById(refund.paymentId?._id || refund.paymentId);
+    if (!order) throw new AppError("Linked order not found", 404, "NOT_FOUND");
+    if (cancellationFeeBlocksRefund(refund, order)) {
+      throw new AppError("Cancellation fee must be paid before refund processing", 409, "CANCELLATION_FEE_PENDING");
+    }
     const updated = await this.triggerRefund(refund, order, payment, actor);
 
     await Order.updateOne(

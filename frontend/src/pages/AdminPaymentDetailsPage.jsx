@@ -16,7 +16,7 @@ export function AdminPaymentDetailsPage() {
   useEffect(() => {
     paymentService
       .getPaymentDetails(paymentId)
-      .then((response) => setData(response.data))
+      .then((response) => setData(response))
       .catch((err) => setError(normalizeError(err)));
   }, [paymentId]);
 
@@ -53,8 +53,9 @@ export function AdminPaymentDetailsPage() {
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <KeyValue label="Razorpay order" value={payment.razorpayOrderId || "N/A"} />
           <KeyValue label="Razorpay payment" value={payment.razorpayPaymentId || "N/A"} />
-          <KeyValue label="Method" value={payment.method} />
-          <KeyValue label="Status" value={<StatusBadge value={payment.status} />} />
+          <KeyValue label="Method" value={payment.displayMethod || payment.paymentMode || payment.method} />
+          <KeyValue label="Gateway method" value={payment.gatewayMethod || payment.method || "N/A"} />
+          <KeyValue label="Status" value={<StatusBadge value={payment.displayStatus || payment.status} />} />
         </div>
       </section>
 

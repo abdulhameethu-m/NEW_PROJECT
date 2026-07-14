@@ -44,16 +44,16 @@ function ChargeRuleTrace({ charge }) {
 
   if (!details.length) return null;
 
-  return (
-    <div className="mt-2 grid gap-2 rounded-2xl bg-slate-50 p-3 text-xs dark:bg-slate-950/70 sm:grid-cols-2">
-      {details.map(([label, value]) => (
-        <div key={label}>
-          <div className="font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</div>
-          <div className="mt-1 break-words text-slate-700 dark:text-slate-200">{String(value)}</div>
-        </div>
-      ))}
-    </div>
-  );
+  // return (
+  //   <div className="mt-2 grid gap-2 rounded-2xl bg-slate-50 p-3 text-xs dark:bg-slate-950/70 sm:grid-cols-2">
+  //     {details.map(([label, value]) => (
+  //       <div key={label}>
+  //         <div className="font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</div>
+  //         <div className="mt-1 break-words text-slate-700 dark:text-slate-200">{String(value)}</div>
+  //       </div>
+  //     ))}
+  //   </div>
+  // );
 }
 
 export function PriceBreakdown({ breakdown }) {

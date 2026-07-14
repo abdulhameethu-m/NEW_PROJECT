@@ -16,6 +16,11 @@ export async function verifyRazorpayPayment(payload) {
   return data?.data || data;
 }
 
+export async function verifyCancellationFeePayment(payload) {
+  const { data } = await api.post("/api/payments/cancellation-fee/verify", payload, { timeout: 90000 });
+  return data?.data || data;
+}
+
 export async function recordCheckoutFailure(payload) {
   const { data } = await api.post("/api/payments/checkout-failure", payload, { timeout: 15000 });
   return data?.data || data;

@@ -6,6 +6,7 @@ const STATUS_STYLES = {
   processed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
   disabled: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
   pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  partially_paid: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   created: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
   queued: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
   processing: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
@@ -23,7 +24,7 @@ const STATUS_STYLES = {
 
 export function StatusBadge({ value }) {
   const label = String(value || "unknown");
-  const key = label.toLowerCase();
+  const key = label.toLowerCase().replace(/\s+/g, "_");
   const tone = STATUS_STYLES[key] || "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
 
   return (

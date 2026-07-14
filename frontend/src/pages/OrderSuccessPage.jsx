@@ -118,7 +118,10 @@ export function OrderSuccessPage() {
   const orders = state.orders || [];
   const payment = state.payment || null;
   const processing = Boolean(state.processing);
-  const isCod = (orders[0]?.paymentMethod || payment?.method || "ONLINE") === "COD";
+  const [settleError, setSettleError] = useState(state.verificationError || "");
+  const rawPaymentMethod = orders[0]?.paymentMethod || payment?.businessMethod || payment?.paymentMode || payment?.method || "ONLINE";
+  const isCod = rawPaymentMethod === "COD" || rawPaymentMethod === "COD_ADVANCE";
+  const displayPaymentMethod = rawPaymentMethod === "COD_ADVANCE" ? "COD advance" : rawPaymentMethod;
   const codAdvancePaid = orders.reduce((sum, order) => sum + getOrderAdvanceAmount(order), 0);
   const hasCodAdvance = isCod && codAdvancePaid > 0;
   const codPayable = orders.reduce((sum, order) => sum + getOrderRemainingCodAmount(order), 0);
@@ -132,6 +135,22 @@ export function OrderSuccessPage() {
 
     async function settleSuccessState() {
       const verificationPayload = state.verificationPayload || null;
+      const checkoutStartedAt = Number(state.checkoutStartedAt || 0);
+      const razorpayOrderId = verificationPayload?.razorpay_order_id || payment?.razorpayOrderId || "";
+
+      function belongsToThisCheckout(order) {
+        const createdAt = new Date(order?.createdAt || 0).getTime();
+        const paymentOrderId =
+          order?.razorpayOrderId ||
+          order?.paymentRecordId?.razorpayOrderId ||
+          order?.payment?.razorpayOrderId ||
+          "";
+
+        if (razorpayOrderId && paymentOrderId && String(paymentOrderId) === String(razorpayOrderId)) {
+          return true;
+        }
+        return checkoutStartedAt > 0 && createdAt >= checkoutStartedAt - 60_000;
+      }
 
       if (verificationPayload) {
         for (let attempt = 1; attempt <= 4 && active; attempt += 1) {
@@ -145,7 +164,8 @@ export function OrderSuccessPage() {
             clearCheckoutCartState();
             if (active) setState(nextState);
             return;
-          } catch {
+          } catch (error) {
+            if (active) setSettleError(error?.response?.data?.message || error?.message || "Order creation is still processing.");
             await new Promise((resolve) => window.setTimeout(resolve, 1500 * attempt));
           }
         }
@@ -154,7 +174,7 @@ export function OrderSuccessPage() {
       for (let attempt = 1; attempt <= 4 && active; attempt += 1) {
         try {
           const response = await userService.getUserOrders({ page: 1, limit: 5 });
-          const nextOrders = response?.data?.orders || [];
+          const nextOrders = (response?.data?.orders || []).filter(belongsToThisCheckout);
           if (nextOrders.length) {
             const nextState = {
               orders: nextOrders,
@@ -170,13 +190,17 @@ export function OrderSuccessPage() {
         }
         await new Promise((resolve) => window.setTimeout(resolve, 1500 * attempt));
       }
+
+      if (active) {
+        setSettleError("Payment was captured, but the order is not available yet. Please refresh this page before trying again.");
+      }
     }
 
     settleSuccessState();
     return () => {
       active = false;
     };
-  }, [payment, processing, state.verificationPayload]);
+  }, [payment, processing, state.checkoutStartedAt, state.verificationPayload]);
 
   if (!orders.length && !processing) {
     return <Navigate to="/orders" replace />;
@@ -209,7 +233,7 @@ export function OrderSuccessPage() {
 
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard label="Orders created" value={String(orders.length)} />
-        <StatCard label="Payment method" value={orders[0]?.paymentMethod || payment?.method || "ONLINE"} />
+        <StatCard label="Payment method" value={displayPaymentMethod} />
         <StatCard label={isCod ? (hasCodAdvance ? "Advance paid" : "Payable on delivery") : "Payment status"} value={isCod ? formatCurrency(hasCodAdvance ? codAdvancePaid : codPayable) : (orders[0]?.paymentStatus || payment?.status || "Pending")} />
       </section>
 
@@ -222,7 +246,7 @@ export function OrderSuccessPage() {
 
       {processing && !orders.length ? (
         <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm text-sm text-slate-600">
-          Loading your order summary...
+          {settleError ? settleError : "Loading your order summary..."}
         </section>
       ) : null}
 

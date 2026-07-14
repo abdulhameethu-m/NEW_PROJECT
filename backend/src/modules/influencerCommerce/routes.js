@@ -50,9 +50,12 @@ const addressPayload = Joi.object({
   phone: Joi.string().trim().max(40).allow("").optional(),
   addressLine1: Joi.string().trim().max(300).allow("").optional(),
   addressLine2: Joi.string().trim().max(300).allow("").optional(),
+  addressLine: Joi.string().trim().max(300).allow("").optional(),
+  district: Joi.string().trim().max(120).allow("").optional(),
   city: Joi.string().trim().max(120).allow("").optional(),
   state: Joi.string().trim().max(120).allow("").optional(),
   postalCode: Joi.string().trim().max(40).allow("").optional(),
+  pincode: Joi.string().trim().max(40).allow("").optional(),
   country: Joi.string().trim().max(80).allow("").optional(),
 }).unknown(true);
 
@@ -77,8 +80,17 @@ const productShippingPayload = Joi.object({
     unit: Joi.string().trim().max(20).allow("").default("cm"),
   }).default({}),
   notes: Joi.string().trim().max(1500).allow("").default(""),
+  note: Joi.string().trim().max(1500).allow("").default(""),
   shipmentStatus: Joi.string().trim().allow("").optional(),
-}).default({});
+  deliveryProof: Joi.object().unknown(true).default({}),
+  returnProof: Joi.object().unknown(true).default({}),
+  returnCourierCompany: Joi.string().trim().max(120).allow("").default(""),
+  returnTrackingNumber: Joi.string().trim().max(120).allow("").default(""),
+  returnTrackingUrl: Joi.string().trim().max(500).allow("").default(""),
+  returnShipmentDate: Joi.date().iso().allow(null).optional(),
+  returnEstimatedDelivery: Joi.date().iso().allow(null).optional(),
+  returnNotes: Joi.string().trim().max(1500).allow("").default(""),
+}).unknown(true).default({});
 
 const campaignPayload = Joi.object({
   influencerId: Joi.string().allow("").optional(),

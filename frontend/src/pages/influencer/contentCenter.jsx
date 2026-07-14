@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useMemo, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { BarChart3, Download, FileVideo, RefreshCw, Search, Trash2, Upload, Video, X } from "lucide-react";
 import { confirmAction } from "../../services/notificationService";
@@ -145,6 +145,7 @@ function ContentCard({ item, onAction, busy = false }) {
   const scheduledAt = item.scheduledAt ? new Date(item.scheduledAt) : null;
   const isScheduled = normalizedStatus === "scheduled" && scheduledAt && !Number.isNaN(scheduledAt.getTime());
   const [now, setNow] = useState(() => Date.now());
+  const autoPublishRef = useRef("");
   const remainingMs = isScheduled ? Math.max(0, scheduledAt.getTime() - now) : 0;
   const publishLocked = isScheduled && remainingMs > 0;
 
@@ -153,6 +154,18 @@ function ContentCard({ item, onAction, busy = false }) {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [isScheduled]);
+
+  useEffect(() => {
+    autoPublishRef.current = "";
+  }, [item._id, item.id, item.scheduledAt]);
+
+  useEffect(() => {
+    const id = String(item._id || item.id || "");
+    if (!id || !isScheduled || remainingMs > 0 || busy || normalizedStatus === "published") return;
+    if (autoPublishRef.current === id) return;
+    autoPublishRef.current = id;
+    onAction(item, "publish");
+  }, [busy, isScheduled, item, normalizedStatus, onAction, remainingMs]);
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -180,7 +193,7 @@ function ContentCard({ item, onAction, busy = false }) {
       </div>
       <div className="mt-3 flex gap-2">
         <button disabled={busy || normalizedStatus === "published" || publishLocked} onClick={() => onAction(item, "publish")} className="flex-1 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600">
-          {publishLocked ? "Scheduled" : "Publish"}
+          {busy && isScheduled && remainingMs <= 0 ? "Publishing..." : publishLocked ? "Scheduled" : "Publish"}
         </button>
         <button disabled={busy || normalizedStatus === "archived"} onClick={() => onAction(item, "archive")} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-white">
           Archive

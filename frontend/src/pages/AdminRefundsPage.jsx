@@ -50,6 +50,41 @@ function isCodAdvanceRefund(refund) {
   return paymentMethod === "COD" && getRefundAdvancePaid(refund) > 0;
 }
 
+function isNormalCodRefund(refund) {
+  const order = getRefundOrder(refund);
+  const paymentMethod = String(refund?.paymentMethod || order?.paymentMethod || "").toUpperCase();
+  return paymentMethod === "COD" && !isCodAdvanceRefund(refund);
+}
+
+function getCancellationFeeAmount(refund = {}) {
+  const explicitFee = Number(
+    refund.cancellationFee ||
+      refund.orderId?.cancellation?.cancellationFee ||
+      refund.orderId?.cancellation?.preview?.cancellationFee ||
+      0
+  );
+  if (explicitFee > 0) return explicitFee;
+  if (isNormalCodRefund(refund) && Number(refund.deductionAmount || 0) > 0) {
+    return Number(refund.deductionAmount || 0);
+  }
+  return 0;
+}
+
+function cancellationFeeStatus(refund = {}) {
+  if (getCancellationFeeAmount(refund) <= 0) return "Not required";
+  if (refund.cancellationFeePaid || refund.orderId?.cancellation?.cancellationFeePaid || isNormalCodRefund(refund)) return "Fee Paid";
+  const status = String(refund.cancellationFeePaymentStatus || refund.orderId?.cancellation?.cancellationFeePaymentStatus || "PENDING").toUpperCase();
+  return status === "FAILED" ? "Fee Failed" : "Fee Pending";
+}
+
+function isCancellationFeeBlocking(refund = {}) {
+  return cancellationFeeStatus(refund) === "Fee Pending" || cancellationFeeStatus(refund) === "Fee Failed";
+}
+
+function isCustomerPaidCancellationFee(refund = {}) {
+  return isNormalCodRefund(refund) && cancellationFeeStatus(refund) === "Fee Paid" && getCancellationFeeAmount(refund) > 0;
+}
+
 function RefundProcessModal({ refund, loading, onClose, onSubmit }) {
   const [refundMethod, setRefundMethod] = useState("RAZORPAY");
   const [transactionReference, setTransactionReference] = useState("");
@@ -282,6 +317,8 @@ export function AdminRefundsPage() {
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Payment Method</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Refund Base</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Deduction</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Cancellation Fee</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Fee Status</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Refund Amount</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Refund Status</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Refund Method</th>
@@ -291,7 +328,7 @@ export function AdminRefundsPage() {
             </thead>
             <tbody className="divide-y divide-slate-200">
               {loading ? (
-                <tr><td colSpan={11} className="px-4 py-10 text-center text-slate-500">Loading refunds...</td></tr>
+                <tr><td colSpan={13} className="px-4 py-10 text-center text-slate-500">Loading refunds...</td></tr>
               ) : refunds.length ? (
                 refunds.map((refund) => {
                   const customer = refund.orderId?.userId?.name || refund.orderId?.shippingAddress?.fullName || "Not available";
@@ -301,6 +338,11 @@ export function AdminRefundsPage() {
                   const orderTotal = getRefundOrderTotal(refund);
                   const advancePaid = getRefundAdvancePaid(refund);
                   const balanceOnDelivery = getRefundBalanceOnDelivery(refund);
+                  const feeAmount = getCancellationFeeAmount(refund);
+                  const feeStatus = cancellationFeeStatus(refund);
+                  const feeBlocking = isCancellationFeeBlocking(refund);
+                  const customerPaidFee = isCustomerPaidCancellationFee(refund);
+                  const orderId = refund.orderId?._id || refund.orderId;
                   return (
                     <tr key={refund._id}>
                       <td className="px-4 py-3 font-semibold text-slate-950">{refund.orderId?.orderNumber || refund.orderId?._id}</td>
@@ -316,26 +358,53 @@ export function AdminRefundsPage() {
                           </div>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">{formatCurrency(refund.deductionAmount || 0)}</td>
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-slate-950">{formatCurrency(refund.amount || 0)}</div>
-                        {isCodAdvance ? <div className="mt-1 text-xs text-emerald-700">From {formatCurrency(advancePaid)} advance paid</div> : null}
+                      <td className="px-4 py-3 text-slate-600">
+                        {customerPaidFee ? (
+                          <span className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">Paid by customer</span>
+                        ) : (
+                          formatCurrency(refund.deductionAmount || 0)
+                        )}
                       </td>
-                      <td className="px-4 py-3"><StatusBadge value={refund.status} /></td>
-                      <td className="px-4 py-3 text-slate-600">{refund.refundMethod || refund.recommendedRefundMethod || "Finance Pending"}</td>
+                      <td className="px-4 py-3 text-slate-600">{formatCurrency(feeAmount || 0)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-xl px-3 py-1.5 text-xs font-semibold ${feeStatus === "Fee Paid" ? "bg-emerald-50 text-emerald-700" : feeStatus === "Not required" ? "bg-slate-100 text-slate-600" : "bg-amber-50 text-amber-700"}`}>
+                          {feeStatus}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-slate-950">{formatCurrency(customerPaidFee ? 0 : refund.amount || 0)}</div>
+                        {isCodAdvance ? <div className="mt-1 text-xs text-emerald-700">From {formatCurrency(advancePaid)} advance paid</div> : null}
+                        {customerPaidFee ? <div className="mt-1 text-xs text-slate-500">No refund due</div> : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        {customerPaidFee ? (
+                          <span className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">Fee paid</span>
+                        ) : (
+                          <StatusBadge value={refund.status} />
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{customerPaidFee ? "Paid by customer" : refund.refundMethod || refund.recommendedRefundMethod || "Finance Pending"}</td>
                       <td className="px-4 py-3 text-slate-600">{new Date(refund.createdAt).toLocaleString()}</td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
-                          <Link to={`/admin/refunds/${refund._id}`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
-                            View
-                          </Link>
-                          {isCompleted ? (
+                          {customerPaidFee && orderId ? (
+                            <Link to={`/admin/orders/${orderId}`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                              View Order
+                            </Link>
+                          ) : (
+                            <Link to={`/admin/refunds/${refund._id}`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                              View
+                            </Link>
+                          )}
+                          {customerPaidFee ? (
+                            <span className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">Completed</span>
+                          ) : isCompleted ? (
                             <span className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">Refunded</span>
                           ) : refund.status === "FAILED" ? (
                             <button type="button" disabled={actionLoading} onClick={() => handleRetry(refund._id)} className="rounded-xl border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 disabled:opacity-50">Retry</button>
                           ) : refund.status === "PENDING" || refund.status === "PROCESSING" ? (
-                            <button type="button" disabled={actionLoading} onClick={() => setSelectedRefund(refund)} className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
-                              Process Refund
+                            <button type="button" disabled={actionLoading || feeBlocking} onClick={() => setSelectedRefund(refund)} className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50" title={feeBlocking ? "Waiting for cancellation fee payment" : ""}>
+                              {feeBlocking ? "Waiting For Fee" : "Process Refund"}
                             </button>
                           ) : (
                             <span className="text-xs text-slate-400">No actions</span>
@@ -346,7 +415,7 @@ export function AdminRefundsPage() {
                   );
                 })
               ) : (
-                <tr><td colSpan={11} className="px-4 py-10 text-center text-slate-500">No refunds found.</td></tr>
+                <tr><td colSpan={13} className="px-4 py-10 text-center text-slate-500">No refunds found.</td></tr>
               )}
             </tbody>
           </table>

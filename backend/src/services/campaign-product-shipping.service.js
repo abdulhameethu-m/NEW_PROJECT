@@ -1,9 +1,12 @@
 const mongoose = require("mongoose");
 const vendorRepo = require("../repositories/vendor.repository");
 const influencerService = require("../modules/influencer/service");
+const auditService = require("./audit.service");
+const notificationService = require("./notification.service");
 const { AppError } = require("../utils/AppError");
 const { Campaign } = require("../modules/campaign/model");
-const { InfluencerBusinessProfile } = require("../modules/influencer/model");
+const { InfluencerBusinessProfile, InfluencerProfile } = require("../modules/influencer/model");
+const { UserAddress } = require("../models/UserAddress");
 const CampaignProductShipment = require("../models/CampaignProductShipment");
 
 function objectId(value) {
@@ -19,8 +22,9 @@ function compactAddress(address = {}) {
   const normalized = {
     name: address.name || address.legalName || address.businessName || "",
     phone: address.phone || "",
-    addressLine1: address.addressLine1 || address.address1 || address.address || "",
+    addressLine1: address.addressLine1 || address.addressLine || address.address1 || address.address || "",
     addressLine2: address.addressLine2 || address.address2 || "",
+    district: address.district || "",
     city: address.city || "",
     state: address.state || "",
     postalCode: address.postalCode || address.pincode || "",
@@ -30,7 +34,20 @@ function compactAddress(address = {}) {
 }
 
 function hasUsableAddress(address = {}) {
-  return Boolean(address.addressLine1 || address.address1 || address.address || address.city || address.postalCode || address.pincode);
+  return Boolean(address.addressLine1 || address.addressLine || address.address1 || address.address || address.city || address.postalCode || address.pincode);
+}
+
+function addressBookSnapshot(address = {}) {
+  return compactAddress({
+    name: address.name,
+    phone: address.phone,
+    addressLine1: address.addressLine,
+    district: address.district,
+    city: address.city,
+    state: address.state,
+    postalCode: address.pincode,
+    country: address.country,
+  });
 }
 
 function vendorReturnAddress(vendor = {}, payload = {}) {
@@ -47,10 +64,28 @@ function vendorReturnAddress(vendor = {}, payload = {}) {
 }
 
 async function influencerDeliveryAddress(influencerId, payload = {}) {
-  if (hasUsableAddress(payload.deliveryAddressSnapshot)) return compactAddress(payload.deliveryAddressSnapshot);
+  const explicitAddressId = objectId(payload.influencerAddressId);
+  if (hasUsableAddress(payload.deliveryAddressSnapshot)) {
+    return {
+      address: compactAddress(payload.deliveryAddressSnapshot),
+      addressId: explicitAddressId || undefined,
+    };
+  }
+
+  const profile = await InfluencerProfile.findById(influencerId).select("userId displayName").lean();
+  if (profile?.userId) {
+    const address = explicitAddressId
+      ? await UserAddress.findOne({ _id: explicitAddressId, userId: profile.userId }).lean()
+      : await UserAddress.findOne({ userId: profile.userId }).sort({ isDefault: -1, createdAt: -1 }).lean();
+    if (address && hasUsableAddress(address)) {
+      return { address: addressBookSnapshot(address), addressId: address._id };
+    }
+  }
+
   const business = await InfluencerBusinessProfile.findOne({ influencerId }).sort({ updatedAt: -1 }).lean();
   if (business && hasUsableAddress(business)) {
-    return compactAddress({
+    return {
+      address: compactAddress({
       name: business.legalName || business.businessName,
       address1: business.address1,
       address2: business.address2,
@@ -59,9 +94,11 @@ async function influencerDeliveryAddress(influencerId, payload = {}) {
       postalCode: business.postalCode,
       phone: business.phone,
       country: business.country,
-    });
+      }),
+      addressId: explicitAddressId || undefined,
+    };
   }
-  return {};
+  return { address: {}, addressId: explicitAddressId || undefined };
 }
 
 function timeline(status, label, actorId, actorRole, note = "") {
@@ -87,6 +124,10 @@ function shipmentSummary(row) {
     trackingUrl: row.trackingUrl,
     shipmentDate: row.shipmentDate,
     estimatedDelivery: row.estimatedDelivery,
+    shippingCost: row.shippingCost,
+    packageWeight: row.packageWeight,
+    packageDimensions: row.packageDimensions || {},
+    notes: row.notes,
     deliveredAt: row.deliveredAt,
     receivedAt: row.receivedAt,
     deliveryAddressSnapshot: row.deliveryAddressSnapshot || {},
@@ -99,6 +140,45 @@ function shipmentSummary(row) {
     returnNotes: row.returnNotes,
     timeline: row.timeline || [],
   };
+}
+
+async function notifyInfluencer(influencerId, payload) {
+  const profile = await InfluencerProfile.findById(influencerId).select("userId").lean();
+  if (!profile?.userId) return null;
+  return notificationService.createNotification({
+    userId: profile.userId,
+    role: "INFLUENCER",
+    module: "GROWTH",
+    subModule: "CAMPAIGN_PRODUCT_SHIPPING",
+    type: "INFLUENCER_COMMERCE",
+    ...payload,
+  }).catch(() => null);
+}
+
+async function notifyVendor(vendorId, payload) {
+  return notificationService.notifyVendorUser(vendorId, {
+    module: "GROWTH",
+    subModule: "CAMPAIGN_PRODUCT_SHIPPING",
+    type: "INFLUENCER_COMMERCE",
+    ...payload,
+  }).catch(() => null);
+}
+
+async function logShipmentAction(actor, action, shipment, metadata = {}) {
+  if (!shipment?._id) return null;
+  return auditService.log({
+    actor,
+    action,
+    entityType: "CampaignProductShipment",
+    entityId: shipment._id,
+    metadata: {
+      campaignId: String(shipment.campaignId || ""),
+      vendorId: String(shipment.vendorId || ""),
+      influencerId: String(shipment.influencerId || ""),
+      shipmentStatus: shipment.shipmentStatus,
+      ...metadata,
+    },
+  }).catch(() => null);
 }
 
 async function findVendorCampaign(userId, campaignId) {
@@ -126,8 +206,21 @@ async function findInfluencerCampaign(userId, campaignId) {
 async function buildUpsert({ vendor, campaign, payload = {}, actorId }) {
   const productRequired = payload.productRequired === true;
   const influencerId = campaign.influencerId || payload.influencerId || null;
-  const deliveryAddressSnapshot = influencerId ? await influencerDeliveryAddress(influencerId, payload) : compactAddress(payload.deliveryAddressSnapshot || {});
+  if (productRequired && !influencerId) {
+    throw new AppError("Select an influencer before enabling product shipment", 400, "INFLUENCER_REQUIRED_FOR_PRODUCT_SHIPMENT");
+  }
+  const delivery = influencerId
+    ? await influencerDeliveryAddress(influencerId, payload)
+    : { address: compactAddress(payload.deliveryAddressSnapshot || {}), addressId: objectId(payload.influencerAddressId) || undefined };
+  const deliveryAddressSnapshot = delivery.address;
   const returnAddressSnapshot = vendorReturnAddress(vendor, payload);
+  const returnRequired = payload.returnRequired !== false;
+  if (productRequired && !hasUsableAddress(deliveryAddressSnapshot)) {
+    throw new AppError("Influencer delivery address is required for product shipment", 400, "DELIVERY_ADDRESS_REQUIRED");
+  }
+  if (productRequired && returnRequired && !hasUsableAddress(returnAddressSnapshot)) {
+    throw new AppError("Vendor return address is required when product return is enabled", 400, "RETURN_ADDRESS_REQUIRED");
+  }
   const status = payload.shipmentStatus || (productRequired ? "pending_shipment" : "cancelled");
   return {
     $set: {
@@ -136,8 +229,8 @@ async function buildUpsert({ vendor, campaign, payload = {}, actorId }) {
       influencerId,
       productIds: campaign.productIds || [],
       productRequired,
-      returnRequired: payload.returnRequired !== false,
-      influencerAddressId: objectId(payload.influencerAddressId) || undefined,
+      returnRequired,
+      influencerAddressId: delivery.addressId || objectId(payload.influencerAddressId) || undefined,
       vendorReturnAddressId: objectId(payload.vendorReturnAddressId) || undefined,
       deliveryAddressSnapshot,
       returnAddressSnapshot,
@@ -171,6 +264,7 @@ async function upsertForCampaign({ userId, campaignId, payload = {} }) {
     returnDocument: "after",
     setDefaultsOnInsert: true,
   }).lean();
+  await logShipmentAction({ _id: userId, role: "vendor" }, "campaign.product_shipping.saved", shipment, { productRequired: shipment.productRequired });
   return shipmentSummary(shipment);
 }
 
@@ -183,6 +277,7 @@ async function ensureCreatedFromCampaign({ userId, campaign, payload = {} }) {
     returnDocument: "after",
     setDefaultsOnInsert: true,
   }).lean();
+  await logShipmentAction({ _id: userId, role: "vendor" }, "campaign.product_shipping.created", shipment, { productRequired: shipment.productRequired });
   return shipmentSummary(shipment);
 }
 
@@ -194,6 +289,15 @@ async function getVendorShipping(userId, campaignId) {
 
 async function dispatch(userId, campaignId, payload = {}) {
   const { campaign } = await findVendorCampaign(userId, campaignId);
+  if (!present(payload.courierCompany) || !present(payload.trackingNumber)) {
+    throw new AppError("Courier company and tracking number are required to dispatch the product", 400, "TRACKING_DETAILS_REQUIRED");
+  }
+  const current = await CampaignProductShipment.findOne({ campaignId: campaign._id }).lean();
+  if (!current) throw new AppError("Product shipping setup not found", 404, "SHIPMENT_NOT_FOUND");
+  if (!current.productRequired) throw new AppError("Product shipment is not enabled for this campaign", 400, "PRODUCT_SHIPMENT_NOT_ENABLED");
+  if (!hasUsableAddress(current.deliveryAddressSnapshot)) {
+    throw new AppError("Influencer delivery address is required before dispatch", 400, "DELIVERY_ADDRESS_REQUIRED");
+  }
   const shipment = await CampaignProductShipment.findOneAndUpdate(
     { campaignId: campaign._id },
     {
@@ -211,12 +315,23 @@ async function dispatch(userId, campaignId, payload = {}) {
     },
     { upsert: false, returnDocument: "after" }
   ).lean();
-  if (!shipment) throw new AppError("Product shipping setup not found", 404, "SHIPMENT_NOT_FOUND");
+  await Promise.all([
+    logShipmentAction({ _id: userId, role: "vendor" }, "campaign.product_shipping.dispatched", shipment, { trackingNumber: shipment.trackingNumber }),
+    notifyInfluencer(shipment.influencerId, {
+      title: "Campaign product dispatched",
+      message: `${shipment.courierCompany} tracking ${shipment.trackingNumber} has been added for your campaign product.`,
+      referenceId: String(shipment.campaignId),
+      meta: { campaignId: String(shipment.campaignId), shipmentId: String(shipment._id) },
+    }),
+  ]);
   return shipmentSummary(shipment);
 }
 
 async function updateReturn(userId, campaignId, payload = {}) {
   const { campaign } = await findVendorCampaign(userId, campaignId);
+  const current = await CampaignProductShipment.findOne({ campaignId: campaign._id }).lean();
+  if (!current) throw new AppError("Product shipping setup not found", 404, "SHIPMENT_NOT_FOUND");
+  if (!current.returnRequired) throw new AppError("Product return is not required for this campaign", 400, "RETURN_NOT_REQUIRED");
   const status = payload.shipmentStatus || "return_dispatched";
   const shipment = await CampaignProductShipment.findOneAndUpdate(
     { campaignId: campaign._id },
@@ -234,7 +349,7 @@ async function updateReturn(userId, campaignId, payload = {}) {
     },
     { returnDocument: "after" }
   ).lean();
-  if (!shipment) throw new AppError("Product shipping setup not found", 404, "SHIPMENT_NOT_FOUND");
+  await logShipmentAction({ _id: userId, role: "vendor" }, "campaign.product_shipping.return_updated", shipment, { shipmentStatus: status });
   return shipmentSummary(shipment);
 }
 
@@ -261,11 +376,23 @@ async function confirmDelivery(userId, campaignId, payload = {}) {
     { returnDocument: "after" }
   ).lean();
   if (!shipment) throw new AppError("Product shipping setup not found", 404, "SHIPMENT_NOT_FOUND");
+  await Promise.all([
+    logShipmentAction({ _id: userId, role: "influencer" }, "campaign.product_shipping.received", shipment),
+    notifyVendor(shipment.vendorId, {
+      title: "Campaign product received",
+      message: "The influencer confirmed that the campaign product was received.",
+      referenceId: String(shipment.campaignId),
+      meta: { campaignId: String(shipment.campaignId), shipmentId: String(shipment._id) },
+    }),
+  ]);
   return shipmentSummary(shipment);
 }
 
 async function requestReturn(userId, campaignId, payload = {}) {
   const { campaign } = await findInfluencerCampaign(userId, campaignId);
+  const current = await CampaignProductShipment.findOne({ campaignId: campaign._id }).lean();
+  if (!current) throw new AppError("Product shipping setup not found", 404, "SHIPMENT_NOT_FOUND");
+  if (!current.returnRequired) throw new AppError("Product return is not required for this campaign", 400, "RETURN_NOT_REQUIRED");
   const shipment = await CampaignProductShipment.findOneAndUpdate(
     { campaignId: campaign._id },
     {
@@ -274,12 +401,26 @@ async function requestReturn(userId, campaignId, payload = {}) {
     },
     { returnDocument: "after" }
   ).lean();
-  if (!shipment) throw new AppError("Product shipping setup not found", 404, "SHIPMENT_NOT_FOUND");
+  await Promise.all([
+    logShipmentAction({ _id: userId, role: "influencer" }, "campaign.product_shipping.return_requested", shipment),
+    notifyVendor(shipment.vendorId, {
+      title: "Product return requested",
+      message: "The influencer requested the return workflow for a campaign product.",
+      referenceId: String(shipment.campaignId),
+      meta: { campaignId: String(shipment.campaignId), shipmentId: String(shipment._id) },
+    }),
+  ]);
   return shipmentSummary(shipment);
 }
 
 async function confirmReturn(userId, campaignId, payload = {}) {
   const { campaign } = await findInfluencerCampaign(userId, campaignId);
+  const current = await CampaignProductShipment.findOne({ campaignId: campaign._id }).lean();
+  if (!current) throw new AppError("Product shipping setup not found", 404, "SHIPMENT_NOT_FOUND");
+  if (!current.returnRequired) throw new AppError("Product return is not required for this campaign", 400, "RETURN_NOT_REQUIRED");
+  if (!present(payload.returnCourierCompany || payload.courierCompany) || !present(payload.returnTrackingNumber || payload.trackingNumber)) {
+    throw new AppError("Return courier company and tracking number are required", 400, "RETURN_TRACKING_DETAILS_REQUIRED");
+  }
   const status = payload.shipmentStatus || "return_dispatched";
   const shipment = await CampaignProductShipment.findOneAndUpdate(
     { campaignId: campaign._id },
@@ -296,7 +437,15 @@ async function confirmReturn(userId, campaignId, payload = {}) {
     },
     { returnDocument: "after" }
   ).lean();
-  if (!shipment) throw new AppError("Product shipping setup not found", 404, "SHIPMENT_NOT_FOUND");
+  await Promise.all([
+    logShipmentAction({ _id: userId, role: "influencer" }, "campaign.product_shipping.return_dispatched", shipment, { trackingNumber: shipment.returnTrackingNumber }),
+    notifyVendor(shipment.vendorId, {
+      title: "Campaign product return dispatched",
+      message: `${shipment.returnCourierCompany} tracking ${shipment.returnTrackingNumber} has been added for the return shipment.`,
+      referenceId: String(shipment.campaignId),
+      meta: { campaignId: String(shipment.campaignId), shipmentId: String(shipment._id) },
+    }),
+  ]);
   return shipmentSummary(shipment);
 }
 

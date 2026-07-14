@@ -63,7 +63,7 @@ const RULE_PRECEDENCE = {
 const FINAL_ORDER_STATUSES = ["Delivered"];
 const FINAL_PAYMENT_STATUSES = ["Paid"];
 const INELIGIBLE_ORDER_STATUSES = ["Pending", "Cancelled", "Returned"];
-const INELIGIBLE_PAYMENT_STATUSES = ["Pending", "Failed", "Refunded", "Partially Refunded"];
+const INELIGIBLE_PAYMENT_STATUSES = ["Pending", "Partially Paid", "Failed", "Refunded", "Partially Refunded"];
 const RULE_STATUSES = ["draft", "pending_approval", "active", "inactive", "expired", "rejected", "archived"];
 
 function buildCommissionRecordKey(orderId) {

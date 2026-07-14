@@ -16,7 +16,7 @@ class PaymentRepository {
     return await Payment.findById(id)
       .populate("userId", "name email phone")
       .populate("paymentSessionId")
-      .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod status createdAt")
+      .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod paymentMode advanceAmount remainingCODAmount status createdAt")
       .exec();
   }
 
@@ -24,7 +24,7 @@ class PaymentRepository {
     return await Payment.findOne({ razorpayPaymentId: paymentId })
       .populate("userId", "name email phone")
       .populate("paymentSessionId")
-      .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod status createdAt")
+      .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod paymentMode advanceAmount remainingCODAmount status createdAt")
       .exec();
   }
 
@@ -32,7 +32,7 @@ class PaymentRepository {
     return await Payment.findOne({ razorpayOrderId: orderId })
       .populate("userId", "name email phone")
       .populate("paymentSessionId")
-      .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod status createdAt")
+      .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod paymentMode advanceAmount remainingCODAmount status createdAt")
       .exec();
   }
 
@@ -47,7 +47,25 @@ class PaymentRepository {
   } = {}) {
     const query = {};
     if (status) query.status = status;
-    if (method) query.method = method;
+    if (method === "COD_ADVANCE") {
+      query.$or = [
+        { paymentMode: "COD_ADVANCE" },
+        { method: "ONLINE", "amountBreakdown.paymentMethod": "COD" },
+      ];
+    } else if (method === "COD") {
+      query.$or = [
+        { method: "COD" },
+        { paymentMode: "COD" },
+        { paymentMode: "COD_ADVANCE" },
+        { "amountBreakdown.paymentMethod": "COD" },
+      ];
+    } else if (method) {
+      query.method = method;
+      query.paymentMode = { $ne: "COD_ADVANCE" };
+      if (method === "ONLINE") {
+        query["amountBreakdown.paymentMethod"] = { $ne: "COD" };
+      }
+    }
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -66,7 +84,7 @@ class PaymentRepository {
       Payment.find(query)
         .populate("userId", "name email phone")
         .populate("paymentSessionId")
-        .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod status createdAt")
+        .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod paymentMode advanceAmount remainingCODAmount status createdAt")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -91,7 +109,7 @@ class PaymentRepository {
     return await Payment.findOneAndUpdate({ razorpayOrderId: orderId }, asUpdateDocument(update), { returnDocument: "after" })
       .populate("userId", "name email phone")
       .populate("paymentSessionId")
-      .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod status createdAt")
+      .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod paymentMode advanceAmount remainingCODAmount status createdAt")
       .exec();
   }
 
@@ -99,7 +117,7 @@ class PaymentRepository {
     return await Payment.findByIdAndUpdate(id, asUpdateDocument(updateData), { returnDocument: "after" })
       .populate("userId", "name email phone")
       .populate("paymentSessionId")
-      .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod status createdAt")
+      .populate("orderIds", "orderNumber totalAmount paymentStatus paymentMethod paymentMode advanceAmount remainingCODAmount status createdAt")
       .exec();
   }
 }

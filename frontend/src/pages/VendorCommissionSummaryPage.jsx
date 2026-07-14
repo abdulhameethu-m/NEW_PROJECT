@@ -17,6 +17,46 @@ function normalizeError(error) {
   return error?.response?.data?.message || error?.message || "Request failed";
 }
 
+function isShippingCharge(charge = {}) {
+  const text = `${charge.key || ""} ${charge.label || ""}`.toLowerCase();
+  return text.includes("shipping");
+}
+
+function buildSettlementColumns(chargeColumns = []) {
+  const hasShipping = chargeColumns.some(isShippingCharge);
+  const nonShippingColumns = chargeColumns.filter((column) => !isShippingCharge(column));
+  return [
+    ...(hasShipping ? [{ key: "shipping_fee", label: "Shipping fee", groupedShipping: true }] : []),
+    ...nonShippingColumns.map((column) => ({
+      key: `charge:${column.key}`,
+      label: `${column.label} (${column.recipient === "VENDOR" ? "Vendor" : "Admin"})`,
+      sourceKey: column.key,
+    })),
+  ];
+}
+
+function sumShippingCharges(order = {}, chargeColumns = []) {
+  return chargeColumns.reduce((total, column) => {
+    if (!isShippingCharge(column)) return total;
+    return total + Number(order.settlement?.charges?.[column.key] || 0);
+  }, 0);
+}
+
+function buildOverviewCharges(dynamicCharges = []) {
+  const shippingTotal = dynamicCharges.reduce((total, charge) => {
+    if (!isShippingCharge(charge)) return total;
+    return total + Number(charge.total || 0);
+  }, 0);
+  const nonShippingCharges = dynamicCharges.filter((charge) => !isShippingCharge(charge));
+  return [
+    ...(shippingTotal > 0 ? [{ key: "shipping_fee", label: "Shipping fee", total: shippingTotal }] : []),
+    ...nonShippingCharges.map((charge) => ({
+      ...charge,
+      label: `${charge.label} to ${charge.recipient === "VENDOR" ? "Vendor" : "Admin"}`,
+    })),
+  ];
+}
+
 export function VendorCommissionSummaryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -42,16 +82,18 @@ export function VendorCommissionSummaryPage() {
   const overview = data.overview || {};
   const chargeColumns = Array.isArray(data.chargeColumns) ? data.chargeColumns : [];
   const dynamicCharges = Array.isArray(overview.dynamicCharges) ? overview.dynamicCharges : [];
+  const settlementColumns = buildSettlementColumns(chargeColumns);
+  const overviewCharges = buildOverviewCharges(dynamicCharges);
   return (
     <div className="space-y-6">
       <FinanceTabs items={financeTabs} />
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <VendorMetricCard label="Gross Order Amount" value={formatCurrency(overview.totalGross)} />
-        {dynamicCharges.map((charge) => (
+        {overviewCharges.map((charge) => (
           <VendorMetricCard
             key={charge.key}
-            label={`${charge.label} to ${charge.recipient === "VENDOR" ? "Vendor" : "Admin"}`}
+            label={charge.label}
             value={formatCurrency(charge.total)}
           />
         ))}
@@ -60,14 +102,16 @@ export function VendorCommissionSummaryPage() {
         <VendorMetricCard label="Vendor Net" value={formatCurrency(overview.totalVendorNet)} />
         <VendorMetricCard label="Orders" value={overview.orders || 0} />
       </div>
-      <VendorSection title="Order-wise Settlement" description="Every active pricing and shipping rule becomes its own column. Amounts are immutable snapshots created with the order.">
+      <VendorSection title="Order-wise Settlement" description="Shipping charges are shown as one order-level fee. Other charges remain based on the immutable order snapshot.">
         <VendorDataTable
           rows={(data.orders || []).map((order) => {
             const chargeCells = Object.fromEntries(
-              chargeColumns.map((column) => [
-                `charge:${column.key}`,
-                formatCurrency(order.settlement?.charges?.[column.key] || 0),
-              ])
+              settlementColumns.map((column) => {
+                if (column.groupedShipping) {
+                  return [column.key, formatCurrency(sumShippingCharges(order, chargeColumns))];
+                }
+                return [column.key, formatCurrency(order.settlement?.charges?.[column.sourceKey] || 0)];
+              })
             );
             return {
               id: order._id,
@@ -83,10 +127,7 @@ export function VendorCommissionSummaryPage() {
           columns={[
             { key: "orderNumber", label: "Order" },
             { key: "gross", label: "Gross" },
-            ...chargeColumns.map((column) => ({
-              key: `charge:${column.key}`,
-              label: `${column.label} (${column.recipient === "VENDOR" ? "Vendor" : "Admin"})`,
-            })),
+            ...settlementColumns.map((column) => ({ key: column.key, label: column.label })),
             { key: "remaining", label: "Remaining" },
             { key: "commission", label: "Commission (Admin)" },
             { key: "vendorNet", label: "Vendor Net" },

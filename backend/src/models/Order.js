@@ -4,13 +4,13 @@ const { AppError } = require("../utils/AppError");
 // NOTE: Keep existing statuses for backward-compatibility with current UI and stored data.
 // Admin APIs accept normalized uppercase statuses and map to these stored values.
 const ORDER_STATUS = ["Pending", "Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Returned", "Cancelled"];
-const PAYMENT_STATUS = ["Pending", "Paid", "Failed", "Refunded", "Partially Refunded"];
+const PAYMENT_STATUS = ["Pending", "Partially Paid", "Paid", "Failed", "Refunded", "Partially Refunded"];
 const SHIPPING_MODE = ["SELF", "PLATFORM"];
 const SHIPPING_STATUS = ["NOT_SHIPPED", "READY_FOR_PICKUP", "PICKUP_SCHEDULED", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"];
 const PICKUP_STATUS = ["NOT_REQUESTED", "REQUESTED", "SCHEDULED", "COMPLETED", "FAILED"];
 
 const ORDER_STATUS_NORMALIZED = ["PLACED", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"];
-const PAYMENT_STATUS_NORMALIZED = ["PENDING", "PAID", "FAILED"];
+const PAYMENT_STATUS_NORMALIZED = ["PENDING", "PARTIALLY_PAID", "PAID", "FAILED"];
 const CANCELLATION_WORKFLOW_STATUS = ["NONE", "REQUESTED", "APPROVED", "REJECTED", "CANCELLED"];
 const REFUND_WORKFLOW_STATUS = ["NONE", "PENDING", "PROCESSING", "REFUNDED", "FAILED"];
 
@@ -401,6 +401,19 @@ const orderSchema = new mongoose.Schema(
       inventoryRestoredAt: { type: Date },
       shipmentCancellationAttemptedAt: { type: Date },
       shipmentCancelledAt: { type: Date },
+      cancellationFee: { type: Number, min: 0, default: 0 },
+      cancellationFeePaid: { type: Boolean, default: false },
+      cancellationFeePaymentId: { type: String, trim: true, default: "" },
+      cancellationFeeRazorpayOrderId: { type: String, trim: true, default: "" },
+      cancellationFeeTransactionId: { type: String, trim: true, default: "" },
+      cancellationFeePaymentStatus: {
+        type: String,
+        enum: ["NOT_REQUIRED", "PENDING", "PAID", "FAILED"],
+        default: "NOT_REQUIRED",
+        index: true,
+      },
+      cancellationFeeGateway: { type: String, trim: true, default: "" },
+      cancellationFeePaidAt: { type: Date },
     },
     refundSummary: {
       status: {

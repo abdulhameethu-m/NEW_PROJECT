@@ -124,6 +124,23 @@ const getRefundStatus = asyncHandler(async (req, res) => {
   return ok(res, result, "Refund status loaded");
 });
 
+const verifyCancellationFeePayment = asyncHandler(async (req, res) => {
+  const result = await cancellationRefundService.verifyCancellationFeePayment({
+    orderId: req.body.orderId,
+    actor: req.user,
+    razorpay_order_id: req.body.razorpay_order_id,
+    razorpay_payment_id: req.body.razorpay_payment_id,
+    razorpay_signature: req.body.razorpay_signature,
+    reason: req.body.reason,
+    notes: req.body.notes,
+    meta: {
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    },
+  });
+  return ok(res, result, "Cancellation fee paid and cancellation completed");
+});
+
 module.exports = {
   createRazorpayOrder,
   createCodAdvanceOrder,
@@ -139,5 +156,6 @@ module.exports = {
   listRefunds,
   reviewRefund,
   getRefundStatus,
+  verifyCancellationFeePayment,
 };
 

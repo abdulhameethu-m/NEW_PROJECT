@@ -1,7 +1,27 @@
 const TRACKING_STORAGE_KEY = "grm_influencer_tracking";
 
+function decodeBase64Url(value) {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  return atob(padded);
+}
+
+export function isValidTrackingToken(token) {
+  if (typeof token !== "string" || token.split(".").length !== 3) return false;
+  if (typeof window === "undefined") return true;
+
+  try {
+    const payload = JSON.parse(decodeBase64Url(token.split(".")[1]));
+    if (payload.typ && payload.typ !== "tracking") return false;
+    if (payload.exp && Number(payload.exp) * 1000 <= Date.now()) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function saveTrackingContext(context) {
-  if (typeof window === "undefined" || !context?.trackingToken) return;
+  if (typeof window === "undefined" || !isValidTrackingToken(context?.trackingToken)) return;
   const payload = {
     ...context,
     savedAt: Date.now(),
@@ -18,7 +38,7 @@ export function loadTrackingContext() {
     const raw = window.sessionStorage.getItem(TRACKING_STORAGE_KEY) || window.localStorage.getItem(TRACKING_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed.expiresAt && Number(parsed.expiresAt) < Date.now()) {
+    if (!isValidTrackingToken(parsed.trackingToken) || (parsed.expiresAt && Number(parsed.expiresAt) < Date.now())) {
       clearTrackingContext();
       return null;
     }

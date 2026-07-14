@@ -47,6 +47,12 @@ const paymentSchema = new mongoose.Schema(
       default: "ONLINE",
       index: true,
     },
+    paymentMode: {
+      type: String,
+      enum: ["ONLINE", "COD", "COD_ADVANCE", "CANCELLATION_FEE"],
+      default: "ONLINE",
+      index: true,
+    },
     status: {
       type: String,
       enum: PAYMENT_STATUS,
@@ -191,6 +197,7 @@ paymentSchema.pre("validate", function normalizeGatewayFields() {
   }
 
   if (this.method === "COD") {
+    this.paymentMode = this.paymentMode && this.paymentMode !== "ONLINE" ? this.paymentMode : "COD";
     this.razorpayOrderId = undefined;
     this.razorpayPaymentId = undefined;
     this.razorpaySignature = undefined;

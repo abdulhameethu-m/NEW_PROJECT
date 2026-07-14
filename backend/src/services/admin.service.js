@@ -458,7 +458,7 @@ function toStoredPaymentStatus(value) {
   if (!value) return null;
   const v = String(value).trim();
   const upper = v.toUpperCase();
-  const map = { PENDING: "Pending", PAID: "Paid", FAILED: "Failed" };
+  const map = { PENDING: "Pending", PARTIALLY_PAID: "Partially Paid", PAID: "Paid", FAILED: "Failed" };
   if (map[upper]) return map[upper];
   return v;
 }

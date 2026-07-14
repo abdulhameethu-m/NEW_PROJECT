@@ -3,6 +3,7 @@ import { ReportingToolbar } from "../components/ReportingToolbar";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
 import { StatusBadge } from "../components/StatusBadge";
+import { OrderPaymentSummary } from "../components/OrderPaymentSummary";
 import { formatCurrency } from "../utils/formatCurrency";
 import { VendorDataTable, VendorSection } from "../components/VendorPanel";
 import { useModuleAccess } from "../context/VendorModuleContext";
@@ -78,6 +79,7 @@ export function VendorOrdersPage() {
           shippingStatus: order.shippingStatus || "NOT_SHIPPED",
           pickupStatus: order.pickupStatus || "NOT_REQUESTED",
           paymentStatus: order.paymentStatus,
+          order,
           placedAt: new Date(order.createdAt).toLocaleString(),
         }))}
         columns={[
@@ -87,7 +89,7 @@ export function VendorOrdersPage() {
           { key: "status", label: "Status", render: (row) => <StatusBadge value={row.status} /> },
           { key: "shippingMode", label: "Mode", render: (row) => <StatusBadge value={row.shippingMode} /> },
           { key: "shippingStatus", label: "Shipping", render: (row) => <StatusBadge value={row.shippingStatus} /> },
-          { key: "paymentStatus", label: "Payment", render: (row) => <StatusBadge value={row.paymentStatus} /> },
+          { key: "paymentStatus", label: "Payment", render: (row) => <OrderPaymentSummary order={row.order} /> },
           { key: "placedAt", label: "Created" },
           {
             key: "workflow",

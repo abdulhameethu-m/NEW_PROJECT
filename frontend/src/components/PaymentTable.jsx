@@ -31,8 +31,13 @@ export function PaymentTable({ rows = [], onRefund = null, detailsBasePath = "/a
                     <div className="mt-1 text-xs text-slate-500">{payment.userId?.email || payment.userId?.phone || "No contact"}</div>
                   </td>
                   <td className="px-4 py-3 font-semibold text-slate-950 dark:text-white">{formatCurrency(payment.amount || 0)}</td>
-                  <td className="px-4 py-3"><StatusBadge value={payment.status} /></td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{payment.method}</td>
+                  <td className="px-4 py-3"><StatusBadge value={payment.displayStatus || payment.status} /></td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                    <div className="font-medium text-slate-700 dark:text-slate-200">{payment.displayMethod || payment.paymentMode || payment.method}</div>
+                    {payment.gatewayMethod && payment.gatewayMethod !== (payment.paymentMode || payment.method) ? (
+                      <div className="mt-1 text-xs text-slate-500">Gateway: {payment.gatewayMethod}</div>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{new Date(payment.createdAt).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">

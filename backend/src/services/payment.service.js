@@ -203,6 +203,40 @@ function buildOrderSnapshotFromSession(paymentSession) {
   };
 }
 
+function isCodAdvanceSession(paymentSession) {
+  return String(paymentSession?.metadata?.intent || "").toUpperCase() === "COD_ADVANCE";
+}
+
+function isCodAdvancePayment(payment = {}) {
+  const session = payment.paymentSessionId;
+  const order = Array.isArray(payment.orderIds) ? payment.orderIds[0] : null;
+  return (
+    String(payment.paymentMode || "").toUpperCase() === "COD_ADVANCE" ||
+    isCodAdvanceSession(session) ||
+    String(order?.paymentMode || "").toUpperCase() === "COD_ADVANCE" ||
+    (
+      String(payment.method || "").toUpperCase() === "ONLINE" &&
+      String(payment.amountBreakdown?.paymentMethod || "").toUpperCase() === "COD" &&
+      Number(payment.amount || 0) < Number(payment.amountBreakdown?.totalAmount || 0)
+    )
+  );
+}
+
+function decoratePayment(payment) {
+  if (!payment) return payment;
+  const row = typeof payment.toObject === "function" ? payment.toObject() : { ...payment };
+  const codAdvance = isCodAdvancePayment(row);
+  const paymentMode = codAdvance ? "COD_ADVANCE" : row.paymentMode || row.method || "";
+  return {
+    ...row,
+    paymentMode,
+    businessMethod: codAdvance || paymentMode === "COD" ? "COD" : row.method || paymentMode,
+    gatewayMethod: row.method || "",
+    displayMethod: codAdvance ? "COD Advance" : paymentMode === "COD" ? "COD" : row.method || paymentMode,
+    displayStatus: codAdvance && row.status === "PAID" ? "Advance Paid" : row.status,
+  };
+}
+
 class PaymentService {
   async getGatewayConfig() {
     let config = await PaymentGatewayConfig.findOne({ provider: "RAZORPAY" });
@@ -420,6 +454,7 @@ class PaymentService {
 
     const summary = paymentSession.checkoutSnapshot || {};
     const amountBreakdown = buildAmountBreakdown(summary);
+    const isCodAdvance = isCodAdvanceSession(paymentSession);
 
     try {
       const paymentRecord = await paymentRepo.create({
@@ -427,6 +462,7 @@ class PaymentService {
         amount: roundMoney(paymentSession.amount || summary.total || 0),
         currency: paymentSession.currency || summary.currency || "INR",
         method: "ONLINE",
+        paymentMode: isCodAdvance ? "COD_ADVANCE" : "ONLINE",
         status: "PENDING",
         fulfillmentStatus: "PENDING",
         receipt: paymentSession.metadata?.receipt || buildReceipt(paymentSession.userId),
@@ -856,7 +892,7 @@ class PaymentService {
           paymentMethod: isCodAdvance ? "COD" : "ONLINE",
           paymentRecordId: payment._id,
           orderGroupId: payment.orderGroupId || paymentSession.orderGroupId || `grp_${payment._id}`,
-          paymentStatus: "Paid",
+          paymentStatus: isCodAdvance ? "Partially Paid" : "Paid",
           razorpayOrderId: razorpayOrderId || payment.razorpayOrderId,
           razorpayPaymentId: razorpayPaymentId || payment.razorpayPaymentId,
           fraudFlags: payment.fraudChecks?.flaggedReasons || [],
@@ -1529,8 +1565,9 @@ class PaymentService {
       startDate: query.startDate,
       endDate: query.endDate,
     });
+    const payments = result.payments.map(decoratePayment);
 
-    const overview = result.payments.reduce(
+    const overview = payments.reduce(
       (acc, payment) => {
         const amount = Number(payment.amount || 0);
         acc.totalAmount += amount;
@@ -1553,14 +1590,14 @@ class PaymentService {
       }
     );
 
-    overview.successRate = overview.totalCount ? roundMoney((overview.paidAmount > 0 ? result.payments.filter((p) => p.status === "PAID").length / overview.totalCount : 0) * 100) : 0;
+    overview.successRate = overview.totalCount ? roundMoney((overview.paidAmount > 0 ? payments.filter((p) => p.status === "PAID").length / overview.totalCount : 0) * 100) : 0;
     overview.refundRate = overview.totalCount
       ? roundMoney(
-          (result.payments.filter((p) => ["REFUNDED", "PARTIALLY_REFUNDED"].includes(p.status)).length / overview.totalCount) * 100
+          (payments.filter((p) => ["REFUNDED", "PARTIALLY_REFUNDED"].includes(p.status)).length / overview.totalCount) * 100
         )
       : 0;
 
-    return { ...result, overview };
+    return { ...result, payments, overview };
   }
 
   async getPaymentDetails(paymentId) {
@@ -1571,7 +1608,7 @@ class PaymentService {
     const refunds = await refundRepo.list({ limit: 100 });
     const webhookEvents = await webhookEventRepo.list({ provider: "RAZORPAY", limit: 100 });
     return {
-      payment,
+      payment: decoratePayment(payment),
       paymentSession,
       refunds: refunds.filter((refund) => String(refund.paymentId?._id || refund.paymentId) === String(paymentId)),
       webhookEvents: webhookEvents.filter(

@@ -15,6 +15,8 @@ import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import { SellerCard, StoreRatingDisplay, VisitStoreButton } from "../components/seller/SellerNavigation";
 import { UnifiedPricingBreakdown } from "../components/commerce/UnifiedPricingBreakdown";
+import { ensureRazorpay } from "../utils/razorpayLoader";
+import { verifyCancellationFeePayment } from "../services/paymentService";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Failed to load order details.";
@@ -130,7 +132,53 @@ export function OrderDetailsPage() {
   async function handleConfirmCancellation(payload = {}) {
     setActionBusy(true);
     try {
-      await confirmUserOrderCancellation(orderId, payload);
+      const response = await confirmUserOrderCancellation(orderId, payload);
+      const result = response.data || response;
+      if (result?.requiresCancellationFeePayment) {
+        await ensureRazorpay();
+        const feePayment = result.cancellationFeePayment || {};
+        await new Promise((resolve, reject) => {
+          const checkout = new window.Razorpay({
+            key: feePayment.key || feePayment.key_id,
+            amount: feePayment.amount,
+            currency: feePayment.currency || "INR",
+            name: "Cancellation Fee",
+            description: feePayment.description || `Cancellation charge for order ${result.orderNumber || order?.orderNumber}`,
+            order_id: feePayment.razorpay_order_id || feePayment.razorpayOrderId,
+            prefill: {
+              name: order?.shippingAddress?.fullName || order?.userId?.name || "",
+              contact: order?.shippingAddress?.phone || "",
+            },
+            notes: {
+              orderNumber: result.orderNumber || order?.orderNumber,
+              reason: payload.reason || "",
+            },
+            handler: async (paymentResult) => {
+              try {
+                await verifyCancellationFeePayment({
+                  orderId,
+                  reason: payload.reason,
+                  notes: payload.notes,
+                  razorpay_order_id: paymentResult.razorpay_order_id,
+                  razorpay_payment_id: paymentResult.razorpay_payment_id,
+                  razorpay_signature: paymentResult.razorpay_signature,
+                });
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            },
+            modal: {
+              ondismiss: () => reject(new Error("Cancellation requires payment of the cancellation fee.")),
+            },
+            theme: { color: "#0f172a" },
+          });
+          checkout.on?.("payment.failed", (failure) => {
+            reject(new Error(failure?.error?.description || "Payment failed. Cancellation not completed."));
+          });
+          checkout.open();
+        });
+      }
       const [orderResponse, trackingResponse] = await Promise.all([getUserOrder(orderId), getUserOrderTracking(orderId)]);
       setOrder(orderResponse.data);
       setTracking(trackingResponse.data);

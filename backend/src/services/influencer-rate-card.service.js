@@ -6,6 +6,7 @@ const campaignRuleEngine = require("./campaign-rule-engine.service");
 const campaignSchedulingService = require("./campaign-scheduling.service");
 const { Campaign } = require("../modules/campaign/model");
 const { Product } = require("../models/Product");
+const { UserAddress } = require("../models/UserAddress");
 const {
   InfluencerProfile,
   InfluencerSocialAccount,
@@ -119,6 +120,35 @@ function deliveryAddressFromBusiness(business = null) {
   return hasAddress ? address : null;
 }
 
+function deliveryAddressFromUserAddress(address = null) {
+  if (!address) return null;
+  const normalized = {
+    id: address._id,
+    name: address.name || "",
+    phone: address.phone || "",
+    addressLine1: address.addressLine || "",
+    addressLine2: "",
+    district: address.district || "",
+    city: address.city || "",
+    state: address.state || "",
+    postalCode: address.pincode || "",
+    country: address.country || "India",
+    isDefault: Boolean(address.isDefault),
+  };
+  const hasAddress = [normalized.addressLine1, normalized.city, normalized.state, normalized.postalCode].some((value) => String(value || "").trim());
+  return hasAddress ? normalized : null;
+}
+
+async function resolveDeliveryAddress(profile, businessPromise = null) {
+  const address = profile?.userId
+    ? await UserAddress.findOne({ userId: profile.userId?._id || profile.userId }).sort({ isDefault: -1, createdAt: -1 }).lean()
+    : null;
+  const addressBookAddress = deliveryAddressFromUserAddress(address);
+  if (addressBookAddress) return addressBookAddress;
+  const business = businessPromise ? await businessPromise : await InfluencerBusinessProfile.findOne({ influencerId: profile._id }).sort({ updatedAt: -1 }).lean();
+  return deliveryAddressFromBusiness(business);
+}
+
 class InfluencerRateCardService {
   async getConfiguration() {
     const [configuration, schedulingSettings] = await Promise.all([
@@ -142,16 +172,17 @@ class InfluencerRateCardService {
 
   async getMyCommerceProfile(userId) {
     const profile = await this.getProfileForUser(userId);
-    const [configuration, services, business] = await Promise.all([
+    const businessPromise = InfluencerBusinessProfile.findOne({ influencerId: profile._id }).sort({ updatedAt: -1 }).lean();
+    const [configuration, services, deliveryAddress] = await Promise.all([
       this.getConfiguration(),
       this.listServices(profile._id, true),
-      InfluencerBusinessProfile.findOne({ influencerId: profile._id }).sort({ updatedAt: -1 }).lean(),
+      resolveDeliveryAddress(profile, businessPromise),
     ]);
     return {
       profile,
       services,
       configuration,
-      deliveryAddress: deliveryAddressFromBusiness(business),
+      deliveryAddress,
     };
   }
 
@@ -326,9 +357,10 @@ class InfluencerRateCardService {
   async getCreatorProfile(influencerId) {
     const profile = await InfluencerProfile.findById(influencerId).populate("userId", "name email username").lean();
     if (!profile) throw new AppError("Influencer not found", 404, "NOT_FOUND");
-    const [cardMap, business] = await Promise.all([
+    const businessPromise = InfluencerBusinessProfile.findOne({ influencerId: profile._id }).sort({ updatedAt: -1 }).lean();
+    const [cardMap, deliveryAddress] = await Promise.all([
       this.getCreatorCards([profile._id]),
-      InfluencerBusinessProfile.findOne({ influencerId: profile._id }).sort({ updatedAt: -1 }).lean(),
+      resolveDeliveryAddress(profile, businessPromise),
     ]);
     const card = cardMap.get(String(profile._id)) || {};
     const scored = (await influencerCommerceEngine.scoreProfiles([profile]))[0];
@@ -354,7 +386,7 @@ class InfluencerRateCardService {
       languages: profile.languages || [],
       socialLinks: profile.socialHandles || {},
       campaignHistory: [],
-      deliveryAddress: deliveryAddressFromBusiness(business),
+      deliveryAddress,
     };
   }
 

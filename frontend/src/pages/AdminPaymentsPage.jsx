@@ -131,6 +131,7 @@ export function AdminPaymentsPage() {
           <option value="">All methods</option>
           <option value="ONLINE">Online</option>
           <option value="COD">COD</option>
+          <option value="COD_ADVANCE">COD advance</option>
         </select>
       </FilterBar>
 

@@ -388,11 +388,12 @@ export function CheckoutPage() {
   }
 
   async function recoverLatestOrderRedirect(maxAttempts = 4) {
+    const startedAt = Date.now();
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
         const response = await userService.getUserOrders({ page: 1, limit: 5 });
         const orders = response?.data?.orders || [];
-        const latestOrder = orders[0] || null;
+        const latestOrder = orders.find((order) => new Date(order?.createdAt || 0).getTime() >= startedAt - 60_000) || null;
         if (latestOrder?._id) {
           const successPayload = { orders, payment: null };
           persistCheckoutSuccessPayload(successPayload);
@@ -841,6 +842,7 @@ export function CheckoutPage() {
             shippingAddress,
             trackingToken: trackingContext?.trackingToken,
           };
+          const checkoutStartedAt = Date.now();
 
           navigate("/checkout/success", {
             replace: true,
@@ -854,6 +856,7 @@ export function CheckoutPage() {
               },
               processing: true,
               verificationPayload,
+              checkoutStartedAt,
             },
           });
 
@@ -872,15 +875,26 @@ export function CheckoutPage() {
               state: successPayload,
             });
           } catch (verificationError) {
-            const recovered = await recoverLatestOrderRedirect();
-            if (!recovered) {
-              if (verificationError?.response?.status === 401) {
-                redirectToLoginForFinalCheckout(shippingAddress);
-                return;
-              }
-              setError(normalizeError(verificationError));
-              setToast({ type: "error", message: "Payment verification failed. Please retry or open your orders." });
+            if (verificationError?.response?.status === 401) {
+              redirectToLoginForFinalCheckout(shippingAddress);
+              return;
             }
+            navigate("/checkout/success", {
+              replace: true,
+              state: {
+                orders: [],
+                payment: {
+                  method: paymentMethod === "COD" ? "COD_ADVANCE" : "ONLINE",
+                  status: "PROCESSING",
+                  razorpayOrderId: response.razorpay_order_id,
+                  razorpayPaymentId: response.razorpay_payment_id,
+                },
+                processing: true,
+                verificationPayload,
+                checkoutStartedAt,
+                verificationError: normalizeError(verificationError),
+              },
+            });
           } finally {
             setVerifyingPayment(false);
             setPlacing(false);

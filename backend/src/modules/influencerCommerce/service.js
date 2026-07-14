@@ -2369,6 +2369,7 @@ class InfluencerCommerceVendorService {
 
   async vendorMediaBase(userId, query = {}) {
     const vendor = await this.getVendor(userId);
+    await reelService.publishDueScheduledContent();
     const { page, limit, skip } = pageOptions(query, 24);
     const campaignFilter = applyPaymentModelFilter({ vendorId: vendor._id }, query);
     if (objectId(query.campaignId)) campaignFilter._id = objectId(query.campaignId);

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { confirmAction } from "../services/notificationService";
 import { cancelOrder, listOrders, updateOrderStatus } from "../services/adminApi";
 import { useStaffPermission } from "../hooks/useStaffAuth";
+import { OrderPaymentSummary } from "../components/OrderPaymentSummary";
+import { formatCurrency } from "../utils/formatCurrency";
 
 function normalizeError(error) {
   return error?.response?.data?.message || error?.message || "Request failed";
@@ -166,8 +168,10 @@ export function StaffOrdersPage() {
                   <div className="mt-1 text-xs text-slate-500">{order.userId?.email || ""}</div>
                 </div>
                 <div>
-                  <div className="font-semibold text-slate-950">${Number(order.totalAmount || 0).toFixed(2)}</div>
-                  <div className="mt-1 text-xs text-slate-500">{order.paymentStatus || "Pending payment"}</div>
+                  <div className="font-semibold text-slate-950">{formatCurrency(order.totalAmount || 0)}</div>
+                  <div className="mt-2">
+                    <OrderPaymentSummary order={order} />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   {canUpdateOrders ? (

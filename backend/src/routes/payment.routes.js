@@ -8,6 +8,7 @@ const {
   createRazorpayOrderSchema,
   createCodAdvanceOrderSchema,
   verifyRazorpayPaymentSchema,
+  verifyCancellationFeePaymentSchema,
   checkoutFailureSchema,
   checkoutOpenedSchema,
   refundPaymentSchema,
@@ -27,6 +28,7 @@ function deprecatedRouteAlias(canonicalPath) {
 router.post("/create-order", authRequired, validate(createRazorpayOrderSchema), paymentController.createRazorpayOrder);
 router.post("/cod/advance/create-order", authRequired, validate(createCodAdvanceOrderSchema), paymentController.createCodAdvanceOrder);
 router.post("/verify", authRequired, validate(verifyRazorpayPaymentSchema), paymentController.verifyRazorpayPayment);
+router.post("/cancellation-fee/verify", authRequired, validate(verifyCancellationFeePaymentSchema), paymentController.verifyCancellationFeePayment);
 router.post("/checkout-opened", authRequired, validate(checkoutOpenedSchema), paymentController.recordCheckoutOpened);
 router.post("/checkout-failure", authRequired, validate(checkoutFailureSchema), paymentController.recordCheckoutFailure);
 router.get("/checkout-inspect/:razorpayOrderId", authRequired, paymentController.inspectCheckoutOrder);

@@ -5,6 +5,7 @@ import { deleteOrder, listOrders } from "../services/adminApi";
 import { AdminTable } from "../components/AdminTable";
 import { ReportingToolbar } from "../components/ReportingToolbar";
 import { StatusBadge } from "../components/StatusBadge";
+import { OrderPaymentSummary } from "../components/OrderPaymentSummary";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
 import { formatCurrency } from "../utils/formatCurrency";
@@ -143,6 +144,7 @@ export function AdminOrdersPage() {
           >
             <option value="">All</option>
             <option value="Pending">Pending</option>
+            <option value="Partially Paid">Partially paid</option>
             <option value="Paid">Paid</option>
             <option value="Failed">Failed</option>
           </select>
@@ -207,7 +209,7 @@ export function AdminOrdersPage() {
                 </div>
               </td>
               <td className="px-4 py-3">
-                <StatusBadge value={order.paymentStatus} />
+                <OrderPaymentSummary order={order} />
               </td>
               <td className="px-4 py-3">
                 <StatusBadge value={order.status} />

@@ -269,12 +269,31 @@ function attributionFromTrackingSession({ session, trackingToken = "" }) {
   };
 }
 
+async function resolveOptionalTrackingContext(trackingToken, userId, source = "checkout") {
+  if (!trackingToken) return null;
+  try {
+    return await trackingService.validateTrackingToken(trackingToken, userId);
+  } catch (error) {
+    logger.warn("Ignoring invalid checkout tracking token", {
+      source,
+      userId: String(userId || ""),
+      code: error?.code,
+      message: error?.message,
+    });
+    return null;
+  }
+}
+
 async function resolveOrderAttribution({ userId, items = [], fallbackTrackingContext = null, subtotal, platformCommissionAmount }) {
   const attributedItem = items.find((item) => item?.attribution?.trackingToken || item?.attribution?.trackingSessionId);
   let trackingContext = null;
 
   if (attributedItem?.attribution?.trackingToken) {
-    trackingContext = await trackingService.validateTrackingToken(attributedItem.attribution.trackingToken, userId);
+    trackingContext = await resolveOptionalTrackingContext(
+      attributedItem.attribution.trackingToken,
+      userId,
+      "checkout_order_item"
+    );
   } else if (attributedItem?.attribution?.trackingSessionId && mongoose.isValidObjectId(attributedItem.attribution.trackingSessionId)) {
     const session = await TrackingSession.findById(attributedItem.attribution.trackingSessionId);
     trackingContext = await trackingService.validateTrackingSession(session, userId);
@@ -588,7 +607,7 @@ class CheckoutService {
       throw new AppError("Cart is empty", 400, "EMPTY_CART");
     }
 
-    const trackingContext = trackingToken ? await trackingService.validateTrackingToken(trackingToken, userId) : null;
+    const trackingContext = await resolveOptionalTrackingContext(trackingToken, userId, "checkout_prepare");
 
     const validatedItems = await Promise.all(cart.items.map(async (item) => {
       asObjectId(item.productId, "productId");
@@ -769,7 +788,7 @@ class CheckoutService {
       throw new AppError("User not found", 404, "NOT_FOUND");
     }
 
-    const trackingContext = trackingToken ? await trackingService.validateTrackingToken(trackingToken, userId) : null;
+    const trackingContext = await resolveOptionalTrackingContext(trackingToken, userId, "checkout_create_prepared");
     const flattenedItems = sellers.flatMap((seller) => seller.items || []);
     const overallSubtotal = roundMoney(summary.subtotal || 0);
     const chargesBreakdown = Array.isArray(summary.charges) ? summary.charges : [];
@@ -804,7 +823,7 @@ class CheckoutService {
           })
         : null;
     if (paymentMethod === "COD" && codAdvance?.enabled && codAdvance.advanceAmount > 0) {
-      if (!paymentRecordId || paymentStatus !== "Paid") {
+      if (!paymentRecordId || !["Paid", "Partially Paid"].includes(paymentStatus)) {
         throw new AppError("COD advance payment is required before creating this order", 402, "COD_ADVANCE_REQUIRED", {
           advanceAmount: codAdvance.advanceAmount,
           remainingCODAmount: codAdvance.remainingCODAmount,
@@ -1277,7 +1296,7 @@ class CheckoutService {
 
       const validated = [];
       const productById = new Map();
-      const trackingContext = trackingToken ? await trackingService.validateTrackingToken(trackingToken, userId) : null;
+      const trackingContext = await resolveOptionalTrackingContext(trackingToken, userId, "checkout_create");
       for (const item of cart.items) {
         const product = await productRepo.findById(item.productId);
         if (!product) throw new AppError("Product not found", 404, "NOT_FOUND");
@@ -1386,7 +1405,7 @@ class CheckoutService {
         : null;
 
     if (paymentMethod === "COD" && codAdvance?.enabled && codAdvance.advanceAmount > 0) {
-      if (!paymentRecordId || paymentStatus !== "Paid") {
+      if (!paymentRecordId || !["Paid", "Partially Paid"].includes(paymentStatus)) {
         throw new AppError("COD advance payment is required before creating this order", 402, "COD_ADVANCE_REQUIRED", {
           advanceAmount: codAdvance.advanceAmount,
           remainingCODAmount: codAdvance.remainingCODAmount,
@@ -1684,6 +1703,7 @@ class CheckoutService {
             amount: totalAmount,
             currency: "INR",
             method: "COD",
+            paymentMode: "COD",
             status: "PENDING",
             fulfillmentStatus: "COMPLETED",
             fulfilledAt: new Date(),

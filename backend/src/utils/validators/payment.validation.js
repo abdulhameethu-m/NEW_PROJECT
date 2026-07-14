@@ -15,6 +15,12 @@ const verifyRazorpayPaymentSchema = Joi.object({
   razorpay_signature: Joi.string().trim().pattern(/^[a-f0-9]{64}$/i).required().max(256),
 });
 
+const verifyCancellationFeePaymentSchema = verifyRazorpayPaymentSchema.keys({
+  orderId: Joi.string().trim().required(),
+  reason: Joi.string().trim().max(500).allow("").optional(),
+  notes: Joi.string().trim().max(500).allow("").optional(),
+});
+
 const checkoutFailureSchema = Joi.object({
   razorpay_order_id: Joi.string().trim().pattern(/^order_[A-Za-z0-9]+$/).required().max(120),
   paymentSessionId: Joi.string().trim().allow("", null).optional(),
@@ -81,6 +87,7 @@ module.exports = {
   createRazorpayOrderSchema,
   createCodAdvanceOrderSchema,
   verifyRazorpayPaymentSchema,
+  verifyCancellationFeePaymentSchema,
   checkoutFailureSchema,
   checkoutOpenedSchema,
   refundPaymentSchema,

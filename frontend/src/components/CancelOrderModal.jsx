@@ -17,6 +17,14 @@ function TextRow({ label, value, tone = "default" }) {
   );
 }
 
+function SectionTitle({ children }) {
+  return (
+    <div className="pt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+      {children}
+    </div>
+  );
+}
+
 export function CancelOrderModal({
   open,
   loading = false,
@@ -42,6 +50,8 @@ export function CancelOrderModal({
   const advancePaid = Number(preview?.preview?.breakdown?.advancePaid || 0);
   const orderTotal = Number(preview?.preview?.breakdown?.orderTotal || 0);
   const isCodAdvance = preview?.preview?.paymentMethod === "COD" && advancePaid > 0;
+  const requiresCancellationFeePayment = Boolean(preview?.preview?.cancellationFeePaymentRequired);
+  const cancellationFee = Number(preview?.preview?.cancellationFee || 0);
   const balanceOnDelivery = Math.max(0, orderTotal - advancePaid);
 
   return (
@@ -52,8 +62,10 @@ export function CancelOrderModal({
           <h2 className="mt-2 text-2xl font-semibold">Review refund before cancelling</h2>
           <p className="mt-2 text-sm text-slate-200">
             {isCodAdvance
-              ? "We will calculate the refund from the COD advance already paid. The unpaid delivery balance will be cancelled with the order."
-              : "We will calculate deductions and refund amount using the live marketplace policy. The finance team will process the refund after cancellation."}
+              ? "Only the advance amount already paid can be refunded. The remaining cash-on-delivery amount will simply be cancelled."
+              : requiresCancellationFeePayment
+                ? "This COD order requires cancellation fee payment before the cancellation can be completed."
+              : "We will show the cancellation charges and the final refund before you confirm."}
           </p>
         </div>
 
@@ -86,13 +98,16 @@ export function CancelOrderModal({
             </label>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              <div className="font-semibold text-slate-950">Policy behavior</div>
-              <div className="mt-2">Refund processing: Finance team will choose the refund method after cancellation</div>
+              <div className="font-semibold text-slate-950">How this refund works</div>
+              <div className="mt-2">Refund method: Finance team will process it after cancellation</div>
               {isCodAdvance ? (
-                <div className="mt-1">COD advance: Refund applies only to the paid advance amount</div>
+                <div className="mt-1">Refund basis: COD advance already paid</div>
+              ) : null}
+              {requiresCancellationFeePayment ? (
+                <div className="mt-1">Payment required: Cancellation fee must be paid before cancellation</div>
               ) : null}
               <div className="mt-1">Approval: {preview?.preview?.approvalRequired ? "Manual review required" : "Auto approved"}</div>
-              <div className="mt-1">Stage: {preview?.preview?.stage || "Not loaded yet"}</div>
+              <div className="mt-1">Current order stage: {preview?.preview?.stage || "Not loaded yet"}</div>
             </div>
           </div>
 
@@ -101,7 +116,7 @@ export function CancelOrderModal({
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Refund Breakdown</div>
                 <div className="mt-1 text-lg font-semibold text-slate-950">
-                  {preview?.order?.orderNumber || "Load preview"}
+                  {preview?.order?.orderNumber || "Preview not loaded"}
                 </div>
               </div>
             </div>
@@ -110,40 +125,47 @@ export function CancelOrderModal({
               <div className="space-y-3">
                 {isCodAdvance ? (
                   <>
-                    <TextRow label="Order total" value={formatCurrency(orderTotal || 0, { currency: amountCurrency })} />
-                    <TextRow label="COD advance paid" value={formatCurrency(advancePaid || 0, { currency: amountCurrency })} />
-                    <TextRow label="Balance on delivery" value={formatCurrency(balanceOnDelivery || 0, { currency: amountCurrency })} />
+                    <SectionTitle>Order amount</SectionTitle>
+                    <TextRow label="Full order value" value={formatCurrency(orderTotal || 0, { currency: amountCurrency })} />
+                    <TextRow label="Already paid as COD advance" value={formatCurrency(advancePaid || 0, { currency: amountCurrency })} tone="positive" />
+                    <TextRow label="Unpaid COD balance cancelled" value={formatCurrency(balanceOnDelivery || 0, { currency: amountCurrency })} />
                   </>
                 ) : (
-                  <TextRow label="Order amount" value={formatCurrency(preview.preview.grossAmount || 0, { currency: amountCurrency })} />
+                  <TextRow label={requiresCancellationFeePayment ? "Order value" : "Order amount"} value={formatCurrency(requiresCancellationFeePayment ? orderTotal : preview.preview.grossAmount || 0, { currency: amountCurrency })} />
                 )}
-                <TextRow label="Shipping" value={formatCurrency(preview.preview.breakdown?.shipping || 0, { currency: amountCurrency })} />
-                <TextRow label="Taxes" value={formatCurrency(preview.preview.breakdown?.taxes || 0, { currency: amountCurrency })} />
+                <SectionTitle>Charges included in order</SectionTitle>
+                <TextRow label="Shipping charge" value={formatCurrency(preview.preview.breakdown?.shipping || 0, { currency: amountCurrency })} />
+                <TextRow label="Tax" value={formatCurrency(preview.preview.breakdown?.taxes || 0, { currency: amountCurrency })} />
                 <TextRow label="Platform fee" value={formatCurrency(preview.preview.breakdown?.platformFee || 0, { currency: amountCurrency })} />
-                <TextRow label="Gateway fee" value={formatCurrency(preview.preview.breakdown?.gatewayFee || 0, { currency: amountCurrency })} />
+                <TextRow label="Payment gateway fee" value={formatCurrency(preview.preview.breakdown?.gatewayFee || 0, { currency: amountCurrency })} />
                 {isCodAdvance ? (
                   <div className="rounded-2xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
-                    Deductions below are applied against the COD advance paid, not the full order total.
+                    Cancellation charges are deducted only from the COD advance paid. The unpaid COD balance is not charged.
                   </div>
                 ) : null}
                 {deductionRows.map((item) => (
                   <TextRow
                     key={`${item.type}-${item.label}`}
-                    label={item.label}
+                    label={item.label || "Cancellation charge"}
                     value={`- ${formatCurrency(item.amount || 0, { currency: amountCurrency })}`}
                     tone="negative"
                   />
                 ))}
                 <div className="border-t border-dashed border-slate-300 pt-3">
                   <TextRow
-                    label="Total deduction"
-                    value={`- ${formatCurrency(preview.preview.deductionAmount || 0, { currency: amountCurrency })}`}
+                    label={requiresCancellationFeePayment ? "Cancellation fee payable" : "Total cancellation charges"}
+                    value={`${requiresCancellationFeePayment ? "" : "- "}${formatCurrency(preview.preview.deductionAmount || 0, { currency: amountCurrency })}`}
                     tone="negative"
                   />
                 </div>
+                {requiresCancellationFeePayment ? (
+                  <div className="rounded-2xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                    You must pay {formatCurrency(cancellationFee, { currency: amountCurrency })} through Razorpay before this COD cancellation can be completed.
+                  </div>
+                ) : null}
                 <div className="rounded-2xl bg-emerald-50 p-4">
                   <TextRow
-                    label="Refund payable"
+                    label="Final refund to customer"
                     value={formatCurrency(preview.preview.refundAmount || 0, { currency: amountCurrency })}
                     tone="positive"
                   />

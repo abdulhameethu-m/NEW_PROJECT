@@ -26,8 +26,8 @@ export function StaffPaymentsPage() {
     setError("");
     try {
       const response = await paymentService.listPayments(filters);
-      setPayments(response.data?.payments || []);
-      setOverview(response.data?.overview || null);
+      setPayments(response?.payments || []);
+      setOverview(response?.overview || null);
     } catch (err) {
       setError(normalizeError(err));
     } finally {
@@ -94,6 +94,7 @@ export function StaffPaymentsPage() {
           <option value="">All methods</option>
           <option value="ONLINE">Online</option>
           <option value="COD">COD</option>
+          <option value="COD_ADVANCE">COD advance</option>
         </select>
       </FilterBar>
 

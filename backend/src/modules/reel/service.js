@@ -570,6 +570,7 @@ class ReelService {
 
   async listContent(userId, query = {}) {
     const profile = await influencerService.getProfile(userId);
+    await this.publishDueScheduledContent({ influencerId: profile._id });
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(50, Math.max(1, Number(query.limit) || 12));
     const skip = (page - 1) * limit;
@@ -653,6 +654,39 @@ class ReelService {
     return contentSummary(reel);
   }
 
+  async publishDueScheduledContent({ now = new Date(), influencerId = null, limit = 200 } = {}) {
+    const filter = {
+      visibility: "scheduled",
+      scheduledAt: { $lte: now },
+    };
+    if (influencerId) filter.influencerId = influencerId;
+
+    const dueReels = await Reel.find(filter).sort({ scheduledAt: 1 }).limit(limit);
+    let published = 0;
+    for (const reel of dueReels) {
+      try {
+        validateContentMedia(reel.toObject?.() || reel);
+        reel.visibility = "published";
+        reel.state = "published";
+        reel.publishedAt = reel.publishedAt || now;
+        await reel.save();
+        if (reel.campaignId) {
+          await markCampaignDeliverablePublishedForReel(reel, { role: "system" });
+        }
+        await emitDomainEvent(INFLUENCER_EVENTS.REEL_PUBLISHED, {
+          reelId: reel._id,
+          campaignId: reel.campaignId,
+          deliverableId: reel.deliverableId,
+          influencerId: reel.influencerId,
+        }).catch(() => null);
+        published += 1;
+      } catch {
+        // Keep the listing request resilient; invalid scheduled content stays scheduled for manual review.
+      }
+    }
+    return { published };
+  }
+
   async deleteContent(userId, reelId) {
     const profile = await influencerService.getProfile(userId);
     const reel = await Reel.findOneAndDelete({ _id: reelId, influencerId: profile._id }).lean();
@@ -681,6 +715,7 @@ class ReelService {
 
   async listMediaLibrary(userId, query = {}) {
     const profile = await influencerService.getProfile(userId);
+    await this.publishDueScheduledContent({ influencerId: profile._id });
     const filter = buildContentFilter(profile._id, query);
     const items = await Reel.find(filter)
       .select("title caption videoUrl thumbnailUrl contentType visibility state campaignId productIds createdAt publishedAt processing metrics")
@@ -1165,6 +1200,7 @@ class ReelService {
   }
 
   async getFeed({ category, tab = "for_you", search = "", page = 1, limit = 12 } = {}, userId = "") {
+    await this.publishDueScheduledContent();
     const query = { visibility: "published", state: { $in: ["approved", "published"] } };
     if (tab === "live") query.contentType = "live";
     if (tab === "product") query.contentType = { $in: ["product_video", "affiliate", "review", "tutorial", "unboxing"] };
@@ -1566,6 +1602,7 @@ class ReelService {
   }
 
   async listAll() {
+    await this.publishDueScheduledContent();
     return await Reel.find({})
       .populate("campaignId", "state")
       .populate({ path: "influencerId", populate: { path: "userId", select: "name email" } })
