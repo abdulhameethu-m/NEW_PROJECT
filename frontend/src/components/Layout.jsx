@@ -104,12 +104,18 @@ export function Layout() {
   const isVendorWorkspace = isVendorWorkspacePath(location.pathname);
   const isStaffWorkspace = location.pathname.startsWith("/staff/");
   const isInfluencerWorkspace = isInfluencerWorkspacePath(location.pathname);
-  const hideShopChrome = isAdminRoute || isVendorWorkspace || isStaffWorkspace || isInfluencerWorkspace;
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < 1024;
+    }
+    return false;
+  });
+  const isProductRoute = location.pathname.startsWith("/product/");
+  const hideShopChrome = isAdminRoute || isVendorWorkspace || isStaffWorkspace || isInfluencerWorkspace || (isProductRoute && isMobile);
   const isPublicInfluencerPage =
     location.pathname.startsWith("/influencers") ||
     location.pathname.startsWith("/reels") ||
     (location.pathname.startsWith("/influencer/") && !isInfluencerWorkspace);
-  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
