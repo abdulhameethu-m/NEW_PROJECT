@@ -4,6 +4,7 @@
   "description": "",
   "main": "src/server.js",
   "scripts": {
+    "seed:admin": "node src/scripts/seedAdmin.js",
     "start": "node src/server.js"
   },
   "keywords": [],
