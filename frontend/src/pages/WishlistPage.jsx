@@ -1,7 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { formatCurrency } from "../utils/formatCurrency";
-import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import { useWishlist } from "../hooks/useWishlist";
 import { useCart } from "../hooks/useCart";
 import { getCartErrorMessage } from "../utils/cartErrors";

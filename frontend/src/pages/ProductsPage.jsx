@@ -1,6 +1,6 @@
 import { logger } from "../services/logger/logger.js";
-import { useEffect, useMemo, useRef, useState, memo } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState, memo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { ChevronDown, Heart, ShoppingCart, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { BackButton } from "../components/BackButton";
 import { CategoryChips } from "../components/shop/CategoryChips";
@@ -60,7 +60,6 @@ function buildDynamicQueryParams(searchParams) {
 
 export function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const { categories } = useCategories();
 
   const [loading, setLoading] = useState(true);

@@ -1296,7 +1296,7 @@ function StorefrontBottomNav({ canEdit }) {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="Bottom navigation"
     >
-      {navItems.map(({ label, icon: Icon, href }) => {
+      {navItems.map(({ label, icon, href }) => {
         const active = isActive(href);
         return (
           <Link
@@ -1305,7 +1305,7 @@ function StorefrontBottomNav({ canEdit }) {
             className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors ${active ? "text-indigo-600 dark:text-indigo-400" : "text-slate-500"}`}
             aria-label={label}
           >
-            <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.25 : 1.5} />
+            {createElement(icon, { className: "h-[22px] w-[22px]", strokeWidth: active ? 2.25 : 1.5 })}
             {label}
           </Link>
         );

@@ -227,7 +227,9 @@ export function InfluencersHubPage() {
       if (typeof window !== "undefined" && import.meta.env.DEV) {
         if (window.innerWidth <= 480) setDebugOverlay(true);
       }
-    } catch (e) {}
+    } catch {
+      setDebugOverlay(false);
+    }
   }, []);
 
   const suggestedCreators = useMemo(() => creators.slice(0, 6), [creators]);
@@ -417,7 +419,7 @@ export function InfluencersHubPage() {
                     navigate("/influencers/search");
                   }
                 }
-              } catch (err) {
+              } catch {
                 touchStartRef.current = null;
               }
             }}
@@ -1085,7 +1087,7 @@ function MobileInfluencerBottomNav() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="Bottom navigation"
     >
-      {items.map(({ label, icon: Icon, href }) => {
+      {items.map(({ label, icon, href }) => {
         const active = isActive(href);
         return (
           <Link
@@ -1096,10 +1098,10 @@ function MobileInfluencerBottomNav() {
             }`}
             aria-label={label}
           >
-            <Icon
-              className="h-[22px] w-[22px]"
-              strokeWidth={active ? 2.25 : 1.5}
-            />
+            {createElement(icon, {
+              className: "h-[22px] w-[22px]",
+              strokeWidth: active ? 2.25 : 1.5,
+            })}
             {label}
           </Link>
         );

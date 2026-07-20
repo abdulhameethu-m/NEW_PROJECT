@@ -1,1 +1,0 @@
-function e(e){return e?`${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,`0`)}-${String(e.getDate()).padStart(2,`0`)}`:``}function t(t,n){return{...t?{startDate:e(t)}:{},...n?{endDate:e(n)}:{}}}function n(){let e=new Date,t=new Date;return t.setDate(e.getDate()-6),[t,e]}export{n,t};

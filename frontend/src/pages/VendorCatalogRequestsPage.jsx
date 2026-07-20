@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { createCatalogRequest, listVendorCatalogRequests, searchCatalog } from "../services/catalogRequestService";
 import * as categoryService from "../services/categoryService";
@@ -46,13 +46,6 @@ export function VendorCatalogRequestsPage() {
   }, []);
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      loadSearch();
-    }, 250);
-    return () => clearTimeout(timeout);
-  }, [searchQuery, searchType]);
-
-  useEffect(() => {
     if (form.categoryId) {
       loadSubcategories(form.categoryId);
     } else {
@@ -79,7 +72,7 @@ export function VendorCatalogRequestsPage() {
     }
   }
 
-  async function loadSearch() {
+  const loadSearch = useCallback(async () => {
     try {
       const response = await searchCatalog({ type: searchType, query: searchQuery, page: 1, limit: 10 });
       const items = response?.data?.items || [];
@@ -90,7 +83,14 @@ export function VendorCatalogRequestsPage() {
     } catch {
       setSearchResults([]);
     }
-  }
+  }, [searchQuery, searchType]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      loadSearch();
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [loadSearch]);
 
   function hasDuplicateVendorRequest(requestedName) {
     const normalizedName = requestedName.toLowerCase();
@@ -162,9 +162,6 @@ export function VendorCatalogRequestsPage() {
         businessJustification: form.businessJustification,
         payload: {
           requestNote: form.requestNote || undefined,
-          options: form.requestType === "attribute"
-            ? String(form.optionsValue || "").split(",").map((value) => value.trim()).filter(Boolean)
-            : undefined,
           options: form.requestType === "attribute"
             ? form.optionsValue
                 .split(",")

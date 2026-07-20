@@ -8,7 +8,7 @@ const { logger } = require("../utils/logger");
 
 require("dotenv").config({ path: ".env" });
 const mongoose = require("mongoose");
-const vendorModuleService = require("../src/services/vendorModule.service");
+const vendorModuleService = require("../services/vendorModule.service");
 
 async function initializeModules() {
   try {

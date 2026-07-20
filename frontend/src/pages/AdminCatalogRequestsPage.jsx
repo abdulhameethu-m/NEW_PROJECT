@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { listAdminCatalogRequests, reviewCatalogRequest } from "../services/catalogRequestService";
+import { requestInput } from "../services/notificationService";
 
 export function AdminCatalogRequestsPage() {
   const [requests, setRequests] = useState([]);
@@ -23,7 +24,14 @@ export function AdminCatalogRequestsPage() {
   async function handleDecision(id, action) {
     let reviewReason = "";
     if (action === "reject") {
-      reviewReason = window.prompt("Enter rejection reason for the vendor:");
+      reviewReason = await requestInput({
+        title: "Reject catalog request",
+        label: "Rejection reason",
+        placeholder: "Enter rejection reason for the vendor",
+        required: true,
+        multiline: true,
+        confirmLabel: "Reject request",
+      });
       if (!reviewReason || !reviewReason.trim()) {
         setMessage("Rejection reason is required to reject a request.");
         return;

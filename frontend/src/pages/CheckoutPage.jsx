@@ -387,34 +387,6 @@ export function CheckoutPage() {
     throw lastError || new Error("Payment verification failed.");
   }
 
-  async function recoverLatestOrderRedirect(maxAttempts = 4) {
-    const startedAt = Date.now();
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      try {
-        const response = await userService.getUserOrders({ page: 1, limit: 5 });
-        const orders = response?.data?.orders || [];
-        const latestOrder = orders.find((order) => new Date(order?.createdAt || 0).getTime() >= startedAt - 60_000) || null;
-        if (latestOrder?._id) {
-          const successPayload = { orders, payment: null };
-          persistCheckoutSuccessPayload(successPayload);
-          navigate(`/orders/${latestOrder._id}`, {
-            replace: true,
-            state: successPayload,
-          });
-          return true;
-        }
-      } catch {
-        // Keep retrying briefly because the order may have been created server-side just before navigation.
-      }
-
-      if (attempt < maxAttempts) {
-        await delay(1500 * attempt);
-      }
-    }
-
-    return false;
-  }
-
   const loadPreparedCheckout = useCallback(
     async (shippingAddress, selectedPaymentMethod = paymentMethod, guestCartItems = cart?.items || []) => {
       const trackingContext = loadTrackingContext();

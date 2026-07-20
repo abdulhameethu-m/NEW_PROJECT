@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { confirmAction } from "../../services/notificationService";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -737,10 +737,6 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
     recordReelStoreVisit(reel._id, { anonymousId: getAnonymousId(), source: "creator_panel" }).catch(() => null);
   }
 
-  function goTo(index) {
-    setActiveIndex(Math.max(0, Math.min(index, reels.length - 1)));
-  }
-
   function handleFeedScroll() {
     const container = feedRef.current;
     if (!container) return;
@@ -956,7 +952,7 @@ function MobileInfluencerBottomNav() {
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
       aria-label="Bottom navigation"
     >
-      {items.map(({ label, icon: Icon, href }) => {
+      {items.map(({ label, icon, href }) => {
         const active = isActive(href);
         return (
           <Link
@@ -967,10 +963,10 @@ function MobileInfluencerBottomNav() {
             }`}
             aria-label={label}
           >
-            <Icon
-              className="h-[22px] w-[22px]"
-              strokeWidth={active ? 2.25 : 1.5}
-            />
+            {createElement(icon, {
+              className: "h-[22px] w-[22px]",
+              strokeWidth: active ? 2.25 : 1.5,
+            })}
             {label}
           </Link>
         );

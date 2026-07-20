@@ -95,8 +95,11 @@ runTest("detects invalid spans and duplicate assignments", () => {
   assert.throws(() => assertNoVisualCollisions(snapshot.layouts, snapshot.builder), /DUPLICATE_LAYOUT_ASSIGNMENT|assigned/i);
 });
 
+let reportedSuccess = false;
+
 process.on("beforeExit", () => {
-  if (!process.exitCode) {
+  if (!process.exitCode && !reportedSuccess) {
+    reportedSuccess = true;
     logger.info("script_output", { value: "All homepage layout visual tests passed." });
   }
 });

@@ -1,9 +1,20 @@
 const express = require("express");
 const Joi = require("joi");
 const { validate } = require("../../middleware/validate");
+const { requireWorkspacePermission } = require("../../middleware/adminAccess");
 const controller = require("./controller");
 
 const router = express.Router();
+
+const requireInfluencerCommerceManage = requireWorkspacePermission("influencerCommerce.manage", {
+  legacyPermission: "influencerCommerce:manage",
+});
+const requireInfluencerCommercePayouts = requireWorkspacePermission("influencerCommerce.payouts", {
+  legacyPermission: "payouts:process",
+});
+const requireInfluencerCommerceSettings = requireWorkspacePermission("influencerCommerce.settings", {
+  legacyPermission: "influencerCommerce:settings",
+});
 
 const querySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
@@ -81,6 +92,7 @@ router.get("/vendors", validate(querySchema, "query"), controller.vendors);
 router.get("/campaigns", validate(querySchema, "query"), controller.campaigns);
 router.patch(
   "/campaigns/:campaignId",
+  requireInfluencerCommerceManage,
   validate(
     Joi.object({
       title: Joi.string().trim().max(180).allow("").optional(),
@@ -111,7 +123,13 @@ router.patch(
 router.get("/matching", validate(querySchema, "query"), controller.matching);
 router.get("/affiliate-links", validate(querySchema, "query"), controller.affiliateLinks);
 router.get("/affiliate-links/:linkId", validate(objectIdParamSchema, "params"), controller.affiliateLinkDetails);
-router.patch("/affiliate-links/:linkId/status", validate(objectIdParamSchema, "params"), validate(affiliateLinkStatusSchema), controller.updateAffiliateLinkStatus);
+router.patch(
+  "/affiliate-links/:linkId/status",
+  requireInfluencerCommerceManage,
+  validate(objectIdParamSchema, "params"),
+  validate(affiliateLinkStatusSchema),
+  controller.updateAffiliateLinkStatus
+);
 router.get("/affiliate-tracking", validate(querySchema, "query"), controller.tracking);
 router.get("/product-promotions", validate(querySchema, "query"), controller.productPromotions);
 router.get("/settlements", validate(querySchema, "query"), controller.settlements);
@@ -120,6 +138,7 @@ router.get("/revenue-dashboard", validate(querySchema, "query"), controller.reve
 router.get("/fixed-revenue", validate(querySchema, "query"), controller.fixedRevenueDashboard);
 router.patch(
   "/withdrawals/:requestId",
+  requireInfluencerCommercePayouts,
   validate(Joi.object({ requestId: Joi.string().trim().required() }), "params"),
   validate(
     Joi.object({
@@ -133,15 +152,43 @@ router.patch(
   controller.updateWithdrawalRequest
 );
 router.get("/settings", controller.settings);
-router.patch("/settings", validate(Joi.object({ enabled: Joi.boolean().optional() })), controller.updateSettings);
+router.patch(
+  "/settings",
+  requireInfluencerCommerceSettings,
+  validate(Joi.object({ enabled: Joi.boolean().optional() })),
+  controller.updateSettings
+);
 router.get("/audit-logs", validate(querySchema, "query"), controller.auditLogs);
 router.get("/configuration", controller.configOverview);
 router.get("/configuration/audit-logs", validate(querySchema, "query"), controller.configAuditLogs);
 router.get("/configuration/:entityType", validate(configEntitySchema, "params"), validate(querySchema, "query"), controller.listConfig);
-router.post("/configuration/:entityType", validate(configEntitySchema, "params"), validate(flexibleConfigSchema), controller.createConfig);
-router.patch("/configuration/:entityType/:id", validate(configEntitySchema, "params"), validate(flexibleConfigSchema), controller.updateConfig);
-router.delete("/configuration/:entityType/:id", validate(configEntitySchema, "params"), controller.deleteConfig);
+router.post(
+  "/configuration/:entityType",
+  requireInfluencerCommerceSettings,
+  validate(configEntitySchema, "params"),
+  validate(flexibleConfigSchema),
+  controller.createConfig
+);
+router.patch(
+  "/configuration/:entityType/:id",
+  requireInfluencerCommerceSettings,
+  validate(configEntitySchema, "params"),
+  validate(flexibleConfigSchema),
+  controller.updateConfig
+);
+router.delete(
+  "/configuration/:entityType/:id",
+  requireInfluencerCommerceSettings,
+  validate(configEntitySchema, "params"),
+  controller.deleteConfig
+);
 router.get("/configuration/:entityType/:id/history", validate(configEntitySchema, "params"), controller.configVersions);
-router.post("/configuration/:entityType/:id/recover", validate(configEntitySchema, "params"), validate(recoverConfigSchema), controller.recoverConfig);
+router.post(
+  "/configuration/:entityType/:id/recover",
+  requireInfluencerCommerceSettings,
+  validate(configEntitySchema, "params"),
+  validate(recoverConfigSchema),
+  controller.recoverConfig
+);
 
 module.exports = router;

@@ -213,8 +213,8 @@ export default defineConfig(({ mode }) => {
       // Chunk size optimization
       minify: "oxc",
 
-      // Enable source maps in production for error tracking
-      sourcemap: "hidden",
+      // Do not emit source maps for normal production hosting.
+      sourcemap: shouldAnalyze ? "hidden" : false,
 
       // Optimize chunk sizes
       cssCodeSplit: true,

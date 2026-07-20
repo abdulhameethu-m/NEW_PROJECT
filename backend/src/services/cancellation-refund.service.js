@@ -236,9 +236,11 @@ function buildRefundPreview({ order, payment, policy }) {
   const grossOrderAmount = roundMoney(order.totalAmount || order.priceBreakdown?.totalAmount || 0);
   const isCodAdvance = paymentMethod === "COD" && isCodAdvanceOrder(order);
   const isNormalCod = paymentMethod === "COD" && !isCodAdvance;
+  const normalCodHasDeductions =
+    isNormalCod && (stageRule.deductions || []).some((deduction) => deduction?.enabled !== false);
   const grossAmount = isCodAdvance
     ? roundMoney(order.advanceAmount || order.codAdvance?.advanceAmount || payment?.amount || 0)
-    : isNormalCod
+    : normalCodHasDeductions
       ? 0
     : grossOrderAmount;
   const refundableBase = isNormalCod ? grossOrderAmount : grossAmount;
@@ -257,8 +259,8 @@ function buildRefundPreview({ order, payment, policy }) {
   }));
   const rawDeductionAmount = roundMoney(deductions.reduce((sum, item) => sum + Number(item.amount || 0), 0));
   const deductionAmount = roundMoney(Math.min(isNormalCod ? grossOrderAmount : grossAmount, rawDeductionAmount));
-  const refundAmount = isNormalCod ? 0 : roundMoney(Math.max(0, grossAmount - deductionAmount));
-  const cancellationFee = isNormalCod ? deductionAmount : 0;
+  const refundAmount = normalCodHasDeductions ? 0 : roundMoney(Math.max(0, grossAmount - deductionAmount));
+  const cancellationFee = normalCodHasDeductions ? deductionAmount : 0;
   const refundMethod = decideRefundMethod({ paymentMethod, payment, policy, paymentConfig });
   const approvalRequired = Boolean(stageRule.manualApproval && !stageRule.autoApproval);
 
