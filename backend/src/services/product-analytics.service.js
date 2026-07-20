@@ -808,10 +808,20 @@ class ProductAnalyticsService {
       lastSoldAt: null,
     });
 
+    const currentSnapshot = {
+      productDeleted: false,
+      productIsActive: product.isActive !== false,
+      productStatus: product.status || "",
+      categoryName: product.category || "",
+      productName: product.name || "",
+    };
+    for (const key of Object.keys(currentSnapshot)) {
+      delete empty[key];
+    }
+
     await ProductAnalytics.updateOne(
       { productId: product._id },
-      { $setOnInsert: empty, $set: { productDeleted: false, productIsActive: product.isActive !== false, productStatus: product.status || "", categoryName: product.category || "", productName: product.name || "" } },
-      { upsert: true }
+      { $setOnInsert: empty, $set: currentSnapshot },
     );
     return await ProductAnalytics.findOne({ productId: product._id }).lean();
   }

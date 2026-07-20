@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Bookmark, HeartHandshake, PackageCheck, Star, Target, ThumbsUp } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, HeartHandshake, PackageCheck, Star, Target, ThumbsUp } from "lucide-react";
 import { VendorStoreHeader } from "../components/vendor-storefront/VendorStoreHeader";
 import { VendorProductGrid } from "../components/vendor-storefront/VendorProductGrid";
 import { DynamicHomepageRenderer } from "../components/homepage/DynamicHomepageRenderer";
@@ -25,10 +25,10 @@ function useStoreSeo(vendor) {
 function ProductSection({ title, products, to }) {
   if (!products?.length) return null;
   return (
-    <section className="grid gap-3">
+    <section className="grid min-w-0 gap-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-slate-950 dark:text-white">{title}</h2>
-        {to ? <Link to={to} className="text-sm font-semibold text-blue-600">View all</Link> : null}
+        <h2 className="text-base font-bold text-slate-950 dark:text-white sm:text-lg">{title}</h2>
+        {to ? <Link to={to} className="shrink-0 text-sm font-semibold text-blue-600">View all</Link> : null}
       </div>
       <VendorProductGrid products={products} />
     </section>
@@ -51,7 +51,7 @@ function ReviewCard({ review }) {
   const imageUrl = resolveApiAssetUrl(product.images?.[0]?.url || "");
 
   return (
-    <article className="w-[280px] shrink-0 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:w-[320px]">
+    <article className="w-[72vw] max-w-[310px] shrink-0 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:w-[320px]">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
           {review.customerId?.avatarUrl ? <img src={resolveApiAssetUrl(review.customerId.avatarUrl)} alt="" className="h-full w-full rounded-full object-cover" /> : (review.customerId?.name || "C").slice(0, 1)}
@@ -87,6 +87,7 @@ function ReviewCard({ review }) {
 
 function VendorReviewsAndAbout({ vendor, reviewsData }) {
   const reviews = reviewsData?.reviews || [];
+  const reviewsRef = useRef(null);
   const totalReviews = Number(reviewsData?.totalReviews ?? vendor.totalReviews ?? 0);
   const averageRating = Number(reviewsData?.averageRating ?? vendor.rating ?? 0);
   const distribution = reviewsData?.ratingDistribution || {};
@@ -98,44 +99,78 @@ function VendorReviewsAndAbout({ vendor, reviewsData }) {
     { icon: HeartHandshake, title: storeAbout.valueTitle, text: storeAbout.valueText },
   ];
 
+  const scrollReviews = (direction) => {
+    if (!reviewsRef.current) return;
+    const width = reviewsRef.current.clientWidth;
+    reviewsRef.current.scrollBy({ left: direction * width, behavior: "smooth" });
+  };
+
   return (
-    <div className="grid gap-4">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+    <div id="about-store" className="grid min-w-0 scroll-mt-28 gap-4">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 max-sm:rounded-xl max-sm:p-3">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-bold text-slate-950 dark:text-white">Customer Reviews</h2>
-          <Link to={`/vendor/${vendor.storeSlug}/reviews`} className="text-sm font-semibold text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">View all reviews</Link>
+          <h2 className="text-base font-bold text-slate-950 dark:text-white sm:text-lg">Customer Reviews</h2>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => scrollReviews(-1)} className="hidden h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 sm:inline-flex">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => scrollReviews(1)} className="hidden h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 sm:inline-flex">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <Link to={`/vendor/${vendor.storeSlug}/reviews`} className="shrink-0 text-sm font-semibold text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">View all</Link>
+          </div>
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          <div className="w-[260px] shrink-0 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
-            <div className="text-4xl font-bold text-slate-950 dark:text-white">{averageRating.toFixed(1)}</div>
-            <div className="mt-2"><RatingStars value={averageRating} /></div>
-            <div className="mt-2 text-sm text-slate-500">Based on {totalReviews.toLocaleString()} reviews</div>
-            <div className="mt-5 grid gap-2">
-              {[5, 4, 3, 2, 1].map((rating) => {
-                const count = Number(distribution[rating] || 0);
-                const percent = totalReviews ? Math.min(100, (count / totalReviews) * 100) : 0;
-                return (
-                  <div key={rating} className="grid grid-cols-[1.5rem_1fr_3rem] items-center gap-2 text-xs text-slate-500">
-                    <span>{rating}</span>
-                    <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800">
-                      <div className="h-full rounded-full bg-amber-400" style={{ width: `${percent}%` }} />
-                    </div>
-                    <span className="text-right">{count}</span>
-                  </div>
-                );
-              })}
+        <div className="relative max-w-full">
+          <button type="button" onClick={() => scrollReviews(-1)} className="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-slate-200 bg-white/95 p-2 text-slate-700 shadow transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950/95 dark:text-slate-200 dark:hover:bg-slate-800 sm:inline-flex">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={() => scrollReviews(1)} className="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-slate-200 bg-white/95 p-2 text-slate-700 shadow transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950/95 dark:text-slate-200 dark:hover:bg-slate-800 sm:inline-flex">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <div
+            ref={reviewsRef}
+            className="-mx-3 max-w-[calc(100%+1.5rem)] snap-x snap-mandatory overflow-x-scroll overscroll-x-contain scroll-smooth px-3 pb-3 [scrollbar-width:thin] sm:mx-0 sm:max-w-full sm:px-0"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
+            <div className="flex min-w-max gap-3 pr-3 sm:gap-4 sm:pr-0">
+              <div className="w-[72vw] max-w-[280px] shrink-0 snap-start rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:w-[260px] sm:p-5">
+                <div className="text-4xl font-bold text-slate-950 dark:text-white">{averageRating.toFixed(1)}</div>
+                <div className="mt-2"><RatingStars value={averageRating} /></div>
+                <div className="mt-2 text-sm text-slate-500">Based on {totalReviews.toLocaleString()} reviews</div>
+                <div className="mt-5 grid gap-2">
+                  {[5, 4, 3, 2, 1].map((rating) => {
+                    const count = Number(distribution[rating] || 0);
+                    const percent = totalReviews ? Math.min(100, (count / totalReviews) * 100) : 0;
+                    return (
+                      <div key={rating} className="grid grid-cols-[1.5rem_1fr_3rem] items-center gap-2 text-xs text-slate-500">
+                        <span>{rating}</span>
+                        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800">
+                          <div className="h-full rounded-full bg-amber-400" style={{ width: `${percent}%` }} />
+                        </div>
+                        <span className="text-right">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {reviews.length ? reviews.map((review) => (
+                <div key={review._id} className="shrink-0 snap-start">
+                  <ReviewCard review={review} />
+                </div>
+              )) : (
+                <div className="flex min-h-64 w-[72vw] max-w-[310px] shrink-0 snap-start items-center justify-center rounded-xl border border-dashed border-slate-300 text-sm text-slate-500 dark:border-slate-700">
+                  No public reviews yet.
+                </div>
+              )}
             </div>
           </div>
-          {reviews.length ? reviews.map((review) => <ReviewCard key={review._id} review={review} />) : (
-            <div className="flex min-h-64 min-w-[320px] items-center justify-center rounded-xl border border-dashed border-slate-300 text-sm text-slate-500 dark:border-slate-700">No public reviews yet.</div>
-          )}
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <h2 className="text-lg font-bold text-slate-950 dark:text-white">About the Store</h2>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-5 max-sm:rounded-xl">
+        <h2 className="text-base font-bold text-slate-950 dark:text-white sm:text-lg">About the Store</h2>
         <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{aboutText}</p>
-        <div className="mt-8 grid gap-4 text-center sm:grid-cols-3">
+        <div className="mt-6 grid gap-4 text-center sm:mt-8 sm:grid-cols-3">
           {aboutHighlights.map((item, index) => {
             const Icon = item.icon;
             return (
@@ -197,15 +232,15 @@ export function VendorStorefrontPage() {
 
   useStoreSeo(state.data?.vendor);
 
-  if (state.loading) return <div className="rounded-2xl bg-white p-8 text-sm text-slate-500 dark:bg-slate-900">Loading vendor store...</div>;
-  if (state.error) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{state.error}</div>;
+  if (state.loading) return <div className="rounded-2xl bg-white p-5 text-sm text-slate-500 dark:bg-slate-900 sm:p-8">Loading vendor store...</div>;
+  if (state.error) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 sm:p-6">{state.error}</div>;
 
   const data = state.data;
   const vendor = data.vendor;
   const hasAssignedLayout = Boolean(data.assignedLayout && data.layoutRows?.length);
 
   return (
-    <div className="grid gap-6">
+    <div className="grid max-w-full min-w-0 gap-4 overflow-hidden sm:gap-6">
       <VendorStoreHeader vendor={vendor} isFollowing={data.isFollowing} onFollowChange={(next) => setState((current) => ({ ...current, data: { ...current.data, ...next } }))} />
 
       {hasAssignedLayout ? (
@@ -219,7 +254,7 @@ export function VendorStorefrontPage() {
 
       {!hasAssignedLayout && data.collections?.length ? (
         <section className="grid gap-3">
-          <h2 className="text-lg font-bold text-slate-950 dark:text-white">Seasonal Collections</h2>
+          <h2 className="text-base font-bold text-slate-950 dark:text-white sm:text-lg">Seasonal Collections</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {data.collections.map((collection) => (
               <Link key={collection._id} to={`/vendor/${vendor.storeSlug}/products?category=${encodeURIComponent(collection.category || "")}`} className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
