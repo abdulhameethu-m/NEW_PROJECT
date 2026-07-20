@@ -11,6 +11,7 @@ export function ReportingToolbar({
   disabled = false,
   isDirty = false,
   applyLabel = "Apply filters",
+  onToday,
 }) {
   const [selectedFormat, setSelectedFormat] = useState("csv");
 
@@ -31,6 +32,16 @@ export function ReportingToolbar({
 
         <div className="flex w-full flex-col gap-4 md:flex-row md:items-end md:gap-4">
           <DateRangePicker startDate={startDate} endDate={endDate} onChange={onDateChange} disabled={disabled} />
+          {onToday ? (
+            <button
+              type="button"
+              onClick={onToday}
+              disabled={disabled}
+              className="h-12 self-start whitespace-nowrap rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 md:self-auto"
+            >
+              Today
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onApply}

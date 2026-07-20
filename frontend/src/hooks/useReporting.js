@@ -8,6 +8,14 @@ function sameDate(left, right) {
   return left.getTime() === right.getTime();
 }
 
+function todayRange() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  return [start, end];
+}
+
 export function useReporting({ module, getFilters, onApply, exporter }) {
   const [initialStartDate, initialEndDate] = defaultLast7Days();
   const [draftDateRange, setDraftDateRange] = useState([initialStartDate, initialEndDate]);
@@ -25,6 +33,13 @@ export function useReporting({ module, getFilters, onApply, exporter }) {
   function applyDateRange() {
     setAppliedDateRange([startDate || null, endDate || null]);
     onApply?.([startDate || null, endDate || null]);
+  }
+
+  function applyToday() {
+    const nextRange = todayRange();
+    setDraftDateRange(nextRange);
+    setAppliedDateRange(nextRange);
+    onApply?.(nextRange);
   }
 
   async function exportReport(format) {
@@ -56,6 +71,7 @@ export function useReporting({ module, getFilters, onApply, exporter }) {
     endDate,
     setDateRange: setDraftDateRange,
     applyDateRange,
+    applyToday,
     appliedStartDate,
     appliedEndDate,
     appliedParams,

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   BarChart3,
-  Bell,
   ChevronRight,
   Clapperboard,
   Download,
@@ -556,12 +555,12 @@ export default function InfluencerDashboardPage() {
             )) : <EmptyState label="No pending campaign invitations" />}
           </div>
         </Card>
-        <Card title="Notifications" className="lg:col-span-4">
+        <Card title="Content Pipeline" className="lg:col-span-4">
           <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-4 dark:bg-slate-950">
-            <Bell className="h-5 w-5 text-indigo-500" />
+            <Package className="h-5 w-5 text-indigo-500" />
             <div>
-              <p className="font-semibold text-slate-950 dark:text-white">{data?.notifications?.unreadCount || 0} unread</p>
-              <p className="text-sm text-slate-500">Orders, campaigns, content, and system alerts.</p>
+              <p className="font-semibold text-slate-950 dark:text-white">{numberFormatter.format(data?.content?.pendingCount || 0)} pending</p>
+              <p className="text-sm text-slate-500">Campaign drafts, media, and product showcases.</p>
             </div>
           </div>
         </Card>

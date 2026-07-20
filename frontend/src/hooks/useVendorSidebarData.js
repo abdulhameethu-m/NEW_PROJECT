@@ -13,11 +13,9 @@ function normalizeSectionKey(section) {
     .replace(/[^a-z0-9]+/g, "-");
 }
 
-export function useVendorSidebarData({ unreadCount = 0, summary = { modules: {}, subModules: {} } } = {}) {
+export function useVendorSidebarData() {
   const { modules, loading, error } = useModuleAccess();
   const { influencerCommerceEnabled, loading: platformFeaturesLoading } = usePlatformFeatures();
-  const moduleSummary = useMemo(() => summary?.modules || {}, [summary?.modules]);
-  const subModuleSummary = useMemo(() => summary?.subModules || {}, [summary?.subModules]);
 
   const dynamicSections = useMemo(() => {
     const grouped = new Map();
@@ -67,33 +65,20 @@ export function useVendorSidebarData({ unreadCount = 0, summary = { modules: {},
     return Array.from(grouped.entries()).map(([section, items]) => ({
       section,
       key: normalizeSectionKey(section),
-      badgeCount: Number(moduleSummary[normalizeSectionKey(section)] || 0),
-      items: items.map((item) => ({
-        ...item,
-        badgeCount: Number(moduleSummary[item.moduleKey] || subModuleSummary[item.path] || 0),
-      })),
+      items,
     }));
-  }, [modules, moduleSummary, subModuleSummary]);
+  }, [modules]);
 
   const staticSections = useMemo(() => {
     const hideInfluencerCommerce = !platformFeaturesLoading && !influencerCommerceEnabled;
 
     return VENDOR_STATIC_ITEMS.map((section) => ({
       ...section,
-      badgeCount: Number(moduleSummary[section.key] || 0),
       items: section.items
         .filter((item) => !(hideInfluencerCommerce && item.path?.startsWith("/vendor/influencer-commerce")))
-        .map((item) => ({
-          ...item,
-          notificationModule: item.badgeKey === "notificationsUnread" ? item.notificationModule : undefined,
-          notificationSubModule: item.badgeKey === "notificationsUnread" ? item.notificationSubModule : undefined,
-          badgeCount:
-            item.badgeKey === "notificationsUnread"
-              ? unreadCount
-              : Number(moduleSummary[item.moduleKey] || subModuleSummary[item.path] || 0),
-        })),
+        .map((item) => ({ ...item, badgeCount: 0 })),
     }));
-  }, [unreadCount, platformFeaturesLoading, influencerCommerceEnabled, moduleSummary, subModuleSummary]);
+  }, [platformFeaturesLoading, influencerCommerceEnabled]);
 
   return {
     title: "Vendor Central",

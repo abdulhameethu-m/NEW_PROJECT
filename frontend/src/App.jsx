@@ -61,7 +61,6 @@ const AddressesPage = lazyNamed(() => import("./pages/AddressesPage"), "Addresse
 const MyFollowedStoresPage = lazyNamed(() => import("./pages/MyFollowedStoresPage"), "MyFollowedStoresPage");
 const ReviewsPage = lazyNamed(() => import("./pages/ReviewsPage"), "ReviewsPage");
 const SupportPage = lazyNamed(() => import("./pages/SupportPage"), "SupportPage");
-const NotificationsPage = lazyNamed(() => import("./pages/NotificationsPage"), "NotificationsPage");
 const SettingsPage = lazyNamed(() => import("./pages/SettingsPage"), "SettingsPage");
 const OrderSuccessPage = lazyNamed(() => import("./pages/OrderSuccessPage"), "OrderSuccessPage");
 const InfluencerPublicStorefrontPage = lazyNamed(() => import("./pages/InfluencerPublicStorefrontPage"), "InfluencerPublicStorefrontPage");
@@ -96,7 +95,6 @@ const VendorInvoiceDetailsPage = lazyNamed(() => import("./pages/VendorInvoiceDe
 const VendorDeliveryPage = lazyNamed(() => import("./pages/VendorDeliveryPage"), "VendorDeliveryPage");
 const VendorOrderDetailsPage = lazyNamed(() => import("./pages/VendorOrderDetailsPage"), "VendorOrderDetailsPage");
 const VendorPickupQueuePage = lazyNamed(() => import("./pages/VendorPickupQueuePage"), "VendorPickupQueuePage");
-const VendorNotificationsPage = lazyNamed(() => import("./pages/VendorNotificationsPage"), "VendorNotificationsPage");
 const VendorReviewsPage = lazyNamed(() => import("./pages/VendorReviewsPage"), "VendorReviewsPage");
 const VendorReturnsPage = lazyNamed(() => import("./pages/VendorReturnsPage"), "VendorReturnsPage");
 const VendorOffersPage = lazyNamed(() => import("./pages/VendorOffersPage"), "VendorOffersPage");
@@ -246,7 +244,6 @@ export default function App() {
               <Route path="/followed-stores" element={<MyFollowedStoresPage />} />
               <Route path="/reviews" element={<ReviewsPage />} />
               <Route path="/support" element={<SupportPage />} />
-              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="/checkout/success" element={<OrderSuccessPage />} />
@@ -299,7 +296,6 @@ export default function App() {
               <Route path="delivery" element={<VendorModuleRoute moduleKey="delivery"><VendorDeliveryPage /></VendorModuleRoute>} />
               <Route path="delivery/:id/edit" element={<VendorModuleRoute moduleKey="delivery"><VendorOrderDetailsPage /></VendorModuleRoute>} />
               <Route path="pickups" element={<VendorModuleRoute moduleKey="delivery"><VendorPickupQueuePage /></VendorModuleRoute>} />
-              <Route path="notifications" element={<VendorNotificationsPage />} />
               <Route path="catalog-requests" element={<VendorCatalogRequestsPage />} />
               <Route path="reviews" element={<VendorModuleRoute moduleKey="reviews"><VendorReviewsPage /></VendorModuleRoute>} />
               <Route path="returns" element={<VendorModuleRoute moduleKey="returns"><VendorReturnsPage /></VendorModuleRoute>} />

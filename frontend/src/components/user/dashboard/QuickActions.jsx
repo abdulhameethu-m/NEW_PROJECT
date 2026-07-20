@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Bell, Heart, HelpCircle, MapPin, Package, Settings, TicketPercent, UserRound } from "lucide-react";
+import { Heart, HelpCircle, MapPin, Package, Settings, TicketPercent, UserRound } from "lucide-react";
 
 const actions = [
   { label: "Orders", href: "/orders", icon: Package },
@@ -8,7 +8,6 @@ const actions = [
   { label: "Coupons", href: "/shop", icon: TicketPercent },
   { label: "Support", href: "/support", icon: HelpCircle },
   { label: "Settings", href: "/settings", icon: Settings },
-  { label: "Alerts", href: "/notifications", icon: Bell },
   { label: "Profile", href: "/profile", icon: UserRound },
 ];
 

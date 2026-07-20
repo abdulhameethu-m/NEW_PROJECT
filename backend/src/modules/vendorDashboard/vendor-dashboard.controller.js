@@ -23,8 +23,6 @@ const getSettings = asyncHandler(async (req, res) => ok(res, await vendorDashboa
 const updateSettings = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateSettings(req.user.sub, req.body), "Vendor settings updated"));
 const getShippingSettings = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getShippingSettings(req.user.sub), "Vendor shipping settings retrieved"));
 const updateShippingSettings = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.updateShippingSettings(req.user.sub, req.body), "Vendor shipping settings updated"));
-const getNotifications = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getNotifications(req.user.sub, req.query), "Notifications retrieved"));
-const markNotificationRead = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.markNotificationRead(req.user.sub, req.params.id), "Notification updated"));
 const getReviews = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getReviews(req.user.sub, req.query), "Reviews retrieved"));
 const respondToReview = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.respondToReview(req.user.sub, req.params.id, req.body.message), "Review response saved"));
 const getReturns = asyncHandler(async (req, res) => ok(res, await vendorDashboardService.getReturns(req.user.sub, req.query), "Returns retrieved"));
@@ -58,8 +56,6 @@ module.exports = {
   updateSettings,
   getShippingSettings,
   updateShippingSettings,
-  getNotifications,
-  markNotificationRead,
   getReviews,
   respondToReview,
   getReturns,

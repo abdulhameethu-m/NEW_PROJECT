@@ -40,7 +40,7 @@ export function VendorOverviewPage() {
     { label: "Revenue", value: formatCurrency(dashboard.stats.totalRevenue), hint: "Delivered + shipped revenue" },
     { label: "Orders Today", value: dashboard.stats.ordersToday, hint: "Orders created today" },
     { label: "Pending Orders", value: dashboard.stats.pendingOrders, hint: "Needs fulfillment action" },
-    { label: "Unread Alerts", value: dashboard.stats.unreadNotifications, hint: "Operational notifications pending" },
+    { label: "Low Stock", value: dashboard.stats.lowStockProducts, hint: "Products below threshold" },
   ];
 
   return (

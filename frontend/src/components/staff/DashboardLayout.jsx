@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useStaffAuthStore } from "../../context/staffAuthStore";
 import { StaffSidebar } from "./Sidebar";
 import { StaffTopbar } from "./Topbar";
 import * as staffAuthService from "../../services/staffAuthService";
 import { getStaffModuleByRoute } from "../../config/staffModules";
-import { useRoleNotifications } from "../../hooks/useRoleNotifications";
 import {
   logPermissionSyncFailed,
   logPermissionSyncStart,
@@ -27,19 +26,7 @@ export function StaffDashboardLayout({ children }) {
   const [error, setError] = useState("");
   const [lastSyncTime, setLastSyncTime] = useState(null);
 
-  // Calculate active module and notification target before any hooks (for consistency)
   const activeModule = getStaffModuleByRoute(location.pathname);
-  const activeNotificationTarget = useMemo(() => (
-    activeModule?.notificationModule || activeModule?.notificationSubModule
-      ? {
-          module: activeModule.notificationModule,
-          subModule: activeModule.notificationSubModule,
-        }
-      : null
-  ), [activeModule?.notificationModule, activeModule?.notificationSubModule]);
-
-  // Call all hooks at the top level before any conditional returns
-  const { summary } = useRoleNotifications("staff", activeNotificationTarget);
 
   // Initial sync and periodic sync
   useEffect(() => {
@@ -167,7 +154,6 @@ export function StaffDashboardLayout({ children }) {
       <StaffSidebar
         permissions={user?.permissions || {}}
         enabledModules={user?.enabledModules || {}}
-        summary={summary}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((current) => !current)}
       />

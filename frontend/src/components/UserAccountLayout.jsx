@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  Bell,
   ChevronRight,
   Heart,
   HelpCircle,
@@ -19,7 +18,6 @@ import {
   X,
 } from "lucide-react";
 import { useAuthStore } from "../context/authStore";
-import { getUserNotifications } from "../services/userService";
 import * as authService from "../services/authService";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import { getInitials } from "./user/dashboard/dashboardUtils";
@@ -40,7 +38,6 @@ const drawerSections = [
     title: "Shopping",
     items: [
       { label: "Coupons", path: "/shop", icon: TicketPercent },
-      { label: "Notifications", path: "/notifications", icon: Bell },
       { label: "Support", path: "/support", icon: MessageCircle },
     ],
   },
@@ -187,27 +184,6 @@ export function UserAccountLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    getUserNotifications({ page: 1, limit: 1 })
-      .then((response) => {
-        if (!cancelled) {
-          setUnreadNotifications(response.data?.unreadCount || 0);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setUnreadNotifications(0);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [location.pathname]);
 
   useEffect(() => {
     setDrawerOpen(false);
@@ -244,11 +220,6 @@ export function UserAccountLayout() {
           >
             <Menu className="h-4 w-4" />
             Account menu
-            {unreadNotifications > 0 ? (
-              <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-black text-white">
-                {unreadNotifications > 99 ? "99+" : unreadNotifications}
-              </span>
-            ) : null}
           </button>
           <Outlet />
         </main>

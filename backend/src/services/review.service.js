@@ -11,7 +11,6 @@ const { ReviewVote, REVIEW_VOTE_TYPES } = require("../models/ReviewVote");
 const { Product } = require("../models/Product");
 const { Order } = require("../models/Order");
 const { User } = require("../models/User");
-const { UserNotification } = require("../models/UserNotification");
 const vendorRepo = require("../repositories/vendor.repository");
 const auditService = require("./audit.service");
 const notificationService = require("./notification.service");
@@ -430,19 +429,6 @@ class ReviewService {
       userAgent: meta.userAgent,
     });
 
-    if (payload.status === "approved" || payload.status === "rejected") {
-      await notifySafely(() =>
-        UserNotification.create({
-          userId: review.customerId,
-          type: "SYSTEM",
-          title: payload.status === "approved" ? "Review approved" : "Review rejected",
-          message: payload.status === "approved" ? "Your review is now published." : "Your review was rejected by moderation.",
-          entityType: "ProductReview",
-          entityId: review._id,
-        })
-      );
-    }
-
     return review;
   }
 
@@ -498,17 +484,6 @@ class ReviewService {
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
     });
-
-    await notifySafely(() =>
-      UserNotification.create({
-        userId: review.customerId,
-        type: "SYSTEM",
-        title: "Vendor replied to your review",
-        message: "The vendor responded to your product review.",
-        entityType: "ProductReview",
-        entityId: review._id,
-      })
-    );
 
     return review;
   }

@@ -2,7 +2,6 @@ import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { confirmAction } from "../services/notificationService";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  Bell,
   Bookmark,
   Compass,
   Eye,
@@ -49,7 +48,6 @@ const HUB_ITEMS = [
   ["reels", "Reels", Video],
   ["search", "Search", Search],
   ["explore", "Explore", Compass],
-  ["notifications", "Notifications", Bell],
   ["saved", "Saved", Bookmark],
   ["following", "Following", Users],
   ["trending", "Trending", TrendingUp],
@@ -635,10 +633,6 @@ function HubContent({ section, loading, query, setQuery, creators, reels, produc
     );
   }
 
-  if (section === "notifications") {
-    return <FeedShell title="Notifications" subtitle="Creator updates, product recommendations, campaign content, follows, likes, and comments."><NotificationList /></FeedShell>;
-  }
-
   if (section === "saved") {
     return (
       <FeedShell title="Saved" subtitle="Saved posts, reels, products, collections, influencers, and campaigns.">
@@ -1038,11 +1032,6 @@ function MasonryGrid({ creators = [], reels = [], products = [] }) {
       })}
     </section>
   );
-}
-
-function NotificationList() {
-  const rows = ["New campaign reel from a creator you follow", "A saved product is trending", "Recommended creator posted a product showcase", "Storefront update from followed store"];
-  return <section className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">{rows.map((row) => <div key={row} className="flex items-center gap-3 border-b border-slate-100 py-3 last:border-b-0 dark:border-slate-800"><Bell className="h-5 w-5 text-indigo-500" /><span className="text-sm font-bold text-slate-700 dark:text-slate-200">{row}</span></div>)}</section>;
 }
 
 function FollowedStores({ stores = [] }) {

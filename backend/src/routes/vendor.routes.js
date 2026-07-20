@@ -100,9 +100,6 @@ router.route("/settings").get(vendorDashboardController.getSettings).patch(vendo
 router.patch("/settings/storefront", vendorStorefrontController.updateVendorStoreSettings);
 
 // 🔥 NOTIFICATIONS - All modules can have notifications
-router.get("/notifications", vendorDashboardController.getNotifications);
-router.patch("/notifications/:id/read", vendorDashboardController.markNotificationRead);
-
 // 🔥 REVIEWS MODULE - Protected by vendorModuleAccess
 router.get("/reviews", requireVendorModule("reviews"), vendorDashboardController.getReviews);
 router.post("/reviews/:id/respond", requireVendorPermission("reviews.update"), vendorDashboardController.respondToReview);

@@ -9,7 +9,6 @@ const sessionRepo = require("../repositories/session.repository");
 const auditService = require("./audit.service");
 const cancellationRefundService = require("./cancellation-refund.service");
 const { UserAddress } = require("../models/UserAddress");
-const { UserNotification } = require("../models/UserNotification");
 const { UserSupportTicket } = require("../models/UserSupportTicket");
 const { Wishlist } = require("../models/Wishlist");
 const { Order } = require("../models/Order");
@@ -71,10 +70,7 @@ function formatAddressForOrder(address) {
 }
 
 async function createNotification(userId, payload) {
-  return await UserNotification.create({
-    userId,
-    ...payload,
-  });
+  return null;
 }
 
 async function logUserAction(userId, action, entityType, entityId, metadata, meta) {
@@ -175,7 +171,7 @@ class UserService {
   async getDashboard(userId) {
     const user = await ensureUser(userId);
 
-    const [ordersSummary, wishlistCount, recentOrders, unreadNotifications] = await Promise.all([
+    const [ordersSummary, wishlistCount, recentOrders] = await Promise.all([
       Order.aggregate([
         { $match: { userId: new mongoose.Types.ObjectId(userId) } },
         {
@@ -205,7 +201,6 @@ class UserService {
         .sort({ createdAt: -1 })
         .limit(5)
         .select("orderNumber totalAmount status paymentStatus createdAt"),
-      UserNotification.countDocuments({ userId, isRead: false }),
     ]);
 
     return {
@@ -214,7 +209,7 @@ class UserService {
         totalOrders: ordersSummary[0]?.totalOrders || 0,
         pendingOrders: ordersSummary[0]?.pendingOrders || 0,
         wishlistCount,
-        unreadNotifications,
+        unreadNotifications: 0,
       },
       recentOrders,
       quickActions: [
@@ -777,40 +772,6 @@ class UserService {
     await recomputeProductRatings(review.productId);
     await logUserAction(userId, "user.review.deleted", "ProductReview", reviewId, null, meta);
     return { _id: reviewId };
-  }
-
-  async listNotifications(userId, query = {}) {
-    const page = Math.max(Number(query.page || 1), 1);
-    const limit = Math.min(Math.max(Number(query.limit || 10), 1), 50);
-    const skip = (page - 1) * limit;
-
-    const [notifications, total, unreadCount] = await Promise.all([
-      UserNotification.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit),
-      UserNotification.countDocuments({ userId }),
-      UserNotification.countDocuments({ userId, isRead: false }),
-    ]);
-
-    return {
-      notifications,
-      unreadCount,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  async markNotificationRead(userId, notificationId) {
-    assertObjectId(notificationId, "notificationId");
-    const notification = await UserNotification.findOneAndUpdate(
-      { _id: notificationId, userId },
-      { $set: { isRead: true, readAt: new Date() } },
-      { returnDocument: "after" }
-    );
-    if (!notification) throw new AppError("Notification not found", 404, "NOT_FOUND");
-    return notification;
   }
 
   async listSupportTickets(userId) {

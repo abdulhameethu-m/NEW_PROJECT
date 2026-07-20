@@ -6,7 +6,6 @@ const vendorRepo = require("../../repositories/vendor.repository");
 const { Order } = require("../../models/Order");
 const { Payout } = require("../../models/Payout");
 const { Product } = require("../../models/Product");
-const { VendorNotification } = require("../../models/VendorNotification");
 const { Review } = require("../../models/Review");
 const { ReturnRequest, RETURN_REQUEST_STATUS } = require("../../models/ReturnRequest");
 const { Offer } = require("../../models/Offer");
@@ -133,7 +132,7 @@ class VendorDashboardService {
   }
 
   async createNotification(vendorId, payload) {
-    return await VendorNotification.create({ vendorId, ...payload });
+    return null;
   }
 
   async getDashboard(userId, query = {}) {
@@ -148,7 +147,7 @@ class VendorDashboardService {
       ? orderMatch
       : { sellerId: vendor._id, createdAt: { $gte: startOfToday(), $lte: endOfToday() } };
 
-    const [todayOrders, pendingOrders, shippedOrders, revenueAggregate, lowStockProducts, unreadNotifications] = await Promise.all([
+    const [todayOrders, pendingOrders, shippedOrders, revenueAggregate, lowStockProducts] = await Promise.all([
       Order.countDocuments(todayMatch),
       Order.countDocuments({ ...orderMatch, status: { $in: ["Pending", "Placed", "Packed"] } }),
       Order.countDocuments({ ...orderMatch, status: "Shipped" }),
@@ -161,7 +160,6 @@ class VendorDashboardService {
         isActive: true,
         $expr: { $lte: ["$stock", "$lowStockThreshold"] },
       }),
-      VendorNotification.countDocuments({ vendorId: vendor._id, isRead: false }),
     ]);
 
     const [recentOrders, topProducts] = await Promise.all([
@@ -190,7 +188,7 @@ class VendorDashboardService {
         shippedOrders,
         totalRevenue: revenueAggregate[0]?.revenue || 0,
         lowStockProducts,
-        unreadNotifications,
+        unreadNotifications: 0,
       },
       recentOrders,
       topProducts,
@@ -217,6 +215,9 @@ class VendorDashboardService {
   async createProduct(userId, payload) {
     const vendor = await this.getVendorContext(userId);
     const product = await productService.createProduct(payload, userId, "seller", vendor._id);
+    if (product.status === "DRAFT") {
+      return product;
+    }
     await this.createNotification(vendor._id, {
       type: "PRODUCT",
       title: "Product submitted",
@@ -230,6 +231,9 @@ class VendorDashboardService {
   async updateProduct(userId, productId, payload) {
     const vendor = await this.getVendorContext(userId);
     const product = await productService.updateProduct(productId, payload, userId, "seller", vendor._id);
+    if (product.status === "DRAFT") {
+      return product;
+    }
     await this.createNotification(vendor._id, {
       type: "PRODUCT",
       title: "Product updated",
@@ -715,45 +719,6 @@ class VendorDashboardService {
     };
     await vendorRepo.updateById(vendor._id, { shippingSettings });
     return await this.getShippingSettings(userId);
-  }
-
-  async getNotifications(userId, query) {
-    const vendor = await this.getVendorContext(userId);
-    const { page, limit } = normalizePagination(query);
-    const skip = (page - 1) * limit;
-    const filter = { vendorId: vendor._id };
-    if (query.type) filter.type = query.type;
-    if (query.isRead != null) filter.isRead = query.isRead === "true";
-
-    const [notifications, total, unreadCount] = await Promise.all([
-      VendorNotification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      VendorNotification.countDocuments(filter),
-      VendorNotification.countDocuments({ vendorId: vendor._id, isRead: false }),
-    ]);
-
-    return {
-      notifications,
-      unreadCount,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  async markNotificationRead(userId, notificationId) {
-    const vendor = await this.getVendorContext(userId);
-    const notification = await VendorNotification.findOneAndUpdate(
-      { _id: notificationId, vendorId: vendor._id },
-      { $set: { isRead: true, readAt: new Date() } },
-      { returnDocument: "after" }
-    );
-    if (!notification) {
-      throw new AppError("Notification not found", 404, "NOT_FOUND");
-    }
-    return notification;
   }
 
   async getReviews(userId, query) {

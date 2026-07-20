@@ -175,16 +175,6 @@ export async function updateVendorShippingSettings(payload) {
   return data;
 }
 
-export async function getVendorNotifications(params) {
-  const { data } = await api.get("/api/vendor/notifications", { params });
-  return data;
-}
-
-export async function markVendorNotificationRead(id) {
-  const { data } = await api.patch(`/api/vendor/notifications/${id}/read`);
-  return data;
-}
-
 export async function getVendorReviews(params) {
   const { data } = await api.get("/api/reviews/vendor", { params });
   return data;

@@ -61,6 +61,8 @@ const weightSchema = Joi.object({
   unit: Joi.string().valid("kg").default("kg"),
 });
 
+const productStatusSchema = Joi.string().valid("DRAFT", "PENDING", "APPROVED", "REJECTED");
+
 // Schema for creating/updating a product
 const productSchema = Joi.object({
   name: Joi.string().required().trim().min(3).max(255).messages({
@@ -165,16 +167,72 @@ const productSchema = Joi.object({
     enableImageScroll: Joi.boolean().default(true),
     imageScrollSpeed: Joi.number().integer().min(300).max(5000).default(800),
   }),
+  status: productStatusSchema,
 }).unknown(true); // Allow unknown fields but validate known ones
 
 // Schema for creating product (stricter)
-const createProductSchema = productSchema.fork(
+const publishProductSchema = productSchema.fork(
   ["name", "description", "category", "categoryId", "subCategoryId", "price", "stock", "images"],
   (schema) => schema.required()
 );
 
+const draftProductSchema = Joi.object({
+  name: Joi.string().trim().max(255).allow(""),
+  description: Joi.string().trim().max(5000).allow(""),
+  shortDescription: Joi.string().trim().max(500).allow(""),
+  category: Joi.string().trim().allow(""),
+  categoryId: objectId.allow(""),
+  subCategory: Joi.string().trim().allow("", null),
+  subCategoryId: objectId.allow(""),
+  tags: Joi.array().items(Joi.string().trim()).max(10),
+  price: Joi.number().min(0).allow(null),
+  discountPrice: Joi.number().min(0).allow(null),
+  currency: Joi.string().valid("USD", "EUR", "INR", "GBP").default("INR"),
+  stock: Joi.number().integer().min(0).allow(null),
+  SKU: Joi.string().trim().uppercase().regex(/^[A-Z0-9-]+$/).allow(""),
+  productNumber: Joi.string().trim().uppercase().regex(/^[A-Z0-9-]+$/).allow(""),
+  lowStockThreshold: Joi.number().integer().min(0).default(10),
+  images: Joi.array().items(productImageSchema).max(10).default([]),
+  genericImages: Joi.array().items(productImageSchema).max(10),
+  thumbnail: Joi.string().uri().allow(""),
+  variantConfig: Joi.array().items(Joi.string().trim().lowercase().pattern(/^[a-z][a-z0-9_]*$/)).default([]),
+  variants: Joi.array().items(productVariantSchema).default([]),
+  metaDescription: Joi.string().trim().max(160).allow(""),
+  metaKeywords: Joi.array().items(Joi.string().trim()).max(10),
+  weight: weightSchema.optional(),
+  dimensions: Joi.object({
+    length: Joi.number().min(0),
+    width: Joi.number().min(0),
+    height: Joi.number().min(0),
+  }),
+  returnPolicy: Joi.string().trim().max(1000).allow(""),
+  modulesData: Joi.object().pattern(
+    Joi.string(),
+    Joi.object().pattern(Joi.string(), Joi.alternatives().try(Joi.string().allow(""), Joi.number(), Joi.boolean(), Joi.array()))
+  ).default({}),
+  attributes: Joi.object().pattern(Joi.string(), Joi.alternatives().try(Joi.string().allow(""), Joi.number(), Joi.boolean(), Joi.array())).default({}),
+  extraDetails: Joi.object().pattern(
+    Joi.string(),
+    Joi.object().pattern(Joi.string(), Joi.alternatives().try(Joi.string().allow(""), Joi.number(), Joi.boolean(), Joi.array()))
+  ).default({}),
+  displaySettings: Joi.object({
+    cardType: Joi.string().valid("scroll", "normal").default("scroll"),
+    enableImageScroll: Joi.boolean().default(true),
+    imageScrollSpeed: Joi.number().integer().min(300).max(5000).default(800),
+  }),
+  status: Joi.valid("DRAFT").required(),
+}).unknown(true);
+
+const createProductSchema = Joi.alternatives().conditional(
+  Joi.object({ status: Joi.valid("DRAFT").required() }).unknown(),
+  {
+    then: draftProductSchema,
+    otherwise: publishProductSchema,
+  }
+);
+
 // Schema for updating product (all optional)
-const updateProductSchema = Joi.object({
+const publishUpdateProductSchema = Joi.object({
   name: Joi.string().trim().min(3).max(255),
   description: Joi.string().trim().min(10).max(5000),
   shortDescription: Joi.string().trim().max(500),
@@ -222,7 +280,16 @@ const updateProductSchema = Joi.object({
     enableImageScroll: Joi.boolean(),
     imageScrollSpeed: Joi.number().integer().min(300).max(5000),
   }),
+  status: productStatusSchema,
 }).unknown(true);
+
+const updateProductSchema = Joi.alternatives().conditional(
+  Joi.object({ status: Joi.valid("DRAFT").required() }).unknown(),
+  {
+    then: draftProductSchema,
+    otherwise: publishUpdateProductSchema,
+  }
+);
 
 // Schema for admin approval
 const approveProductSchema = Joi.object({}).unknown(true);

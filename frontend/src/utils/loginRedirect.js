@@ -26,7 +26,6 @@ const SAFE_REDIRECT_PREFIXES = [
   "/profile",
   "/reviews",
   "/support",
-  "/notifications",
   "/settings",
   "/",
 ];

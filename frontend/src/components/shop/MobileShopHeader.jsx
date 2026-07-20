@@ -1,7 +1,7 @@
-import { Bell, ChevronLeft, Heart, Search, ShoppingCart } from "lucide-react";
+import { ChevronLeft, Heart, Search, ShoppingCart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export function MobileShopHeader({ title = "Shop", onSearchOpen, onWishlistOpen, onCartOpen, onNotificationsOpen, cartCount = 0 }) {
+export function MobileShopHeader({ title = "Shop", onSearchOpen, onWishlistOpen, onCartOpen, cartCount = 0 }) {
   const navigate = useNavigate();
 
   return (
@@ -50,15 +50,6 @@ export function MobileShopHeader({ title = "Shop", onSearchOpen, onWishlistOpen,
                 {cartCount}
               </span>
             ) : null}
-          </button>
-          <button
-            type="button"
-            onClick={onNotificationsOpen}
-            aria-label="View notifications"
-            className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-          >
-            <Bell size={18} />
-            <span className="absolute -right-0.5 top-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-950" />
           </button>
         </div>
       </div>

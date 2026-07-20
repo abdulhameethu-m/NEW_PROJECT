@@ -294,6 +294,32 @@ async function ensureAdminVendor(userId) {
   return vendor;
 }
 
+function isDraftStatus(status) {
+  return String(status || "").trim().toUpperCase() === "DRAFT";
+}
+
+function buildDraftProductNumber() {
+  return `DRAFT${new mongoose.Types.ObjectId().toString().toUpperCase()}`;
+}
+
+function hasPublishReadyFields(productData = {}) {
+  return Boolean(productData.name && productData.description && productData.categoryId && productData.subCategoryId);
+}
+
+function assertPublishReadyProductData(productData = {}) {
+  if (!hasPublishReadyFields(productData)) {
+    throw new AppError("Missing required fields: name, description, category, subcategory", 400, "VALIDATION_ERROR");
+  }
+  const images = Array.isArray(productData.images) ? productData.images : [];
+  if (!images.some((image) => image?.url)) {
+    throw new AppError("At least one product image is required", 400, "VALIDATION_ERROR");
+  }
+  const weightValue = Number(productData.weight?.value ?? productData.weight);
+  if (!Number.isFinite(weightValue) || weightValue <= 0) {
+    throw new AppError("Product weight is required", 400, "VALIDATION_ERROR");
+  }
+}
+
 class ProductService {
   getReferenceId(value) {
     if (!value) return null;
@@ -325,9 +351,9 @@ class ProductService {
    * @param {String} sellerId - Vendor/Seller ID (required for sellers)
    */
   async createProduct(productData, userId, userRole, sellerId = null) {
-    // Validate inputs
-    if (!productData.name || !productData.description || !productData.categoryId || !productData.subCategoryId) {
-      throw new AppError("Missing required fields: name, description, category, subcategory", 400, "VALIDATION_ERROR");
+    const createAsDraft = isDraftStatus(productData.status);
+    if (!createAsDraft) {
+      assertPublishReadyProductData(productData);
     }
 
     if (userRole === "seller" && !sellerId) {
@@ -350,6 +376,44 @@ class ProductService {
     if (userRole === "admin" && !sellerId) {
       const vendor = await ensureAdminVendor(userId);
       sellerId = vendor._id;
+    }
+
+    if (createAsDraft) {
+      const draftNumber = productData.productNumber || productData.SKU || buildDraftProductNumber();
+      const draftSlug = productData.name
+        ? `${generateSlug(productData.name)}-${new mongoose.Types.ObjectId().toString().slice(-6)}`
+        : draftNumber.toLowerCase();
+      const draftPayload = {
+        ...productData,
+        name: String(productData.name || "").trim(),
+        description: String(productData.description || "").trim(),
+        category: String(productData.category || "").trim(),
+        subCategory: String(productData.subCategory || "").trim(),
+        price: Number(productData.price || 0),
+        stock: Number(productData.stock || 0),
+        slug: draftSlug,
+        SKU: draftNumber,
+        productNumber: draftNumber,
+        images: (Array.isArray(productData.images) ? productData.images : []).map(normalizeImage).filter((item) => item.url),
+        modulesData: productData.modulesData || {},
+        attributes: productData.attributes || {},
+        extraDetails: productData.extraDetails || productData.modulesData || {},
+        variants: [],
+        variantConfig: [],
+        status: "DRAFT",
+        isActive: false,
+        createdBy: userId,
+        creatorType: userRole === "admin" ? "ADMIN" : "SELLER",
+        ...(sellerId && { sellerId }),
+      };
+
+      if (productData.weight?.value) {
+        draftPayload.weight = normalizeProductWeight(productData.weight);
+      }
+      if (!mongoose.Types.ObjectId.isValid(draftPayload.categoryId)) delete draftPayload.categoryId;
+      if (!mongoose.Types.ObjectId.isValid(draftPayload.subCategoryId)) delete draftPayload.subCategoryId;
+
+      return await productRepo.create(draftPayload);
     }
 
     // Generate slug from name
@@ -435,6 +499,14 @@ class ProductService {
       throw new AppError("Product not found", 404, "NOT_FOUND");
     }
 
+    const requestedStatus = String(updateData.status || "").trim().toUpperCase();
+    const wasDraft = isDraftStatus(product.status);
+    const finalizingDraft =
+      wasDraft &&
+      ((userRole === "admin" && requestedStatus === "APPROVED") ||
+        (userRole === "seller" && requestedStatus === "PENDING"));
+    const savingDraft = isDraftStatus(requestedStatus) || (wasDraft && !finalizingDraft);
+
     // Authorization check
     if (userRole === "seller") {
       // Sellers can only edit their own products
@@ -446,16 +518,85 @@ class ProductService {
         updateData.sellerId = sellerId;
       }
 
-      // Sellers cannot change status
-      delete updateData.status;
+      // Sellers can keep their own draft as DRAFT or submit it to PENDING.
+      if (!savingDraft && !finalizingDraft) {
+        delete updateData.status;
+      }
       delete updateData.creatorType;
       delete updateData.createdBy;
     }
 
-    // Don't allow changing immutable identifiers
-    delete updateData.slug;
-    delete updateData.SKU;
-    delete updateData.productNumber;
+    if (savingDraft) {
+      const draftNumber = product.productNumber || product.SKU || buildDraftProductNumber();
+      const draftUpdate = {
+        ...updateData,
+        name: String(updateData.name ?? product.name ?? "").trim(),
+        description: String(updateData.description ?? product.description ?? "").trim(),
+        category: String(updateData.category ?? product.category ?? "").trim(),
+        subCategory: String(updateData.subCategory ?? product.subCategory ?? "").trim(),
+        price: Number(updateData.price ?? product.price ?? 0),
+        stock: Number(updateData.stock ?? product.stock ?? 0),
+        SKU: draftNumber,
+        productNumber: draftNumber,
+        images: updateData.images !== undefined
+          ? (Array.isArray(updateData.images) ? updateData.images : []).map(normalizeImage).filter((item) => item.url)
+          : product.images || [],
+        modulesData: updateData.modulesData || product.modulesData || {},
+        attributes: updateData.attributes || product.attributes || {},
+        extraDetails: updateData.extraDetails || updateData.modulesData || product.extraDetails || {},
+        variants: [],
+        variantConfig: [],
+        status: "DRAFT",
+        isActive: false,
+      };
+
+      delete draftUpdate.slug;
+      delete draftUpdate.creatorType;
+      delete draftUpdate.createdBy;
+      if (updateData.weight?.value) {
+        draftUpdate.weight = normalizeProductWeight(updateData.weight);
+      } else {
+        delete draftUpdate.weight;
+      }
+      if (!mongoose.Types.ObjectId.isValid(draftUpdate.categoryId)) delete draftUpdate.categoryId;
+      if (!mongoose.Types.ObjectId.isValid(draftUpdate.subCategoryId)) delete draftUpdate.subCategoryId;
+
+      return await productRepo.updateById(productId, draftUpdate);
+    }
+
+    if (finalizingDraft) {
+      const mergedData = {
+        ...(typeof product.toObject === "function" ? product.toObject() : product),
+        ...updateData,
+      };
+      assertPublishReadyProductData(mergedData);
+      updateData.status = userRole === "admin" ? "APPROVED" : "PENDING";
+      updateData.isActive = userRole === "admin";
+      if (userRole === "admin") {
+        updateData.approvedAt = new Date();
+        updateData.approvedBy = userId;
+      }
+
+      const slug = generateSlug(updateData.name || product.name);
+      const existingProduct = await productRepo.findBySlug(slug, product.sellerId || sellerId);
+      if (existingProduct && String(existingProduct._id) !== String(product._id)) {
+        throw new AppError("You already have a product with this name", 409, "DUPLICATE_PRODUCT");
+      }
+
+      const generatedProductNumber = await generateNextProductNumber({
+        categoryId: updateData.categoryId || product.categoryId,
+        subCategoryId: updateData.subCategoryId || product.subCategoryId,
+      });
+      await assertUniqueProductNumber(generatedProductNumber);
+      updateData.slug = slug;
+      updateData.SKU = generatedProductNumber;
+      updateData.productNumber = generatedProductNumber;
+    } else {
+      // Don't allow changing immutable identifiers
+      delete updateData.SKU;
+      delete updateData.productNumber;
+      delete updateData.slug;
+    }
 
     if (Object.prototype.hasOwnProperty.call(updateData, "weight")) {
       updateData.weight = normalizeProductWeight(updateData.weight);

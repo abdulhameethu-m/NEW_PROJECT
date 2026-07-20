@@ -191,7 +191,7 @@ export function AdminProductsPage() {
           >
             All
           </button>
-          {["PENDING", "APPROVED", "REJECTED"].map((value) => (
+          {["DRAFT", "PENDING", "APPROVED", "REJECTED"].map((value) => (
             <button
               key={value}
               type="button"

@@ -6,7 +6,6 @@ import { useVendorDashboardStore } from "../context/vendorDashboardStore";
 import { useAuthStore } from "../context/authStore";
 import { VendorModuleProvider, useModuleAccess } from "../context/VendorModuleContext";
 import { useVendorSidebarData } from "../hooks/useVendorSidebarData";
-import { useRoleNotifications } from "../hooks/useRoleNotifications";
 import { getVendorInfluencerSubscriptionPlans } from "../services/influencerCommerceService";
 import * as vendorService from "../services/vendorService";
 import { getVendorAccessRedirect } from "../utils/vendorAccess";
@@ -76,10 +75,6 @@ const pageMeta = {
     title: "Ready for Pickup",
     subtitle: "Batch ready shipments into one pickup request.",
   },
-  "/vendor/notifications": {
-    title: "Notifications",
-    subtitle: "Stay on top of orders, payouts, system activity, and product alerts.",
-  },
   "/vendor/reviews": {
     title: "Reviews",
     subtitle: "See customer feedback and reply quickly from one place.",
@@ -134,21 +129,6 @@ const pageMeta = {
   },
 };
 
-function getActiveNotificationTarget(sections, pathname) {
-  for (const section of sections) {
-    const item = section.items.find(
-      (entry) => pathname === entry.path || pathname.startsWith(`${entry.path}/`)
-    );
-    if (item?.notificationModule || item?.notificationSubModule) {
-      return {
-        module: item.notificationModule,
-        subModule: item.notificationSubModule,
-      };
-    }
-  }
-  return null;
-}
-
 function VendorAccessGate({ children }) {
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
@@ -201,13 +181,7 @@ function VendorLayoutInner() {
   const { sidebarOpen, setSidebarOpen } = useVendorDashboardStore();
   const { can } = useModuleAccess();
   const [subscriptionPlanName, setSubscriptionPlanName] = useState("");
-  const baseSidebarData = useVendorSidebarData();
-  const activeNotificationTarget = getActiveNotificationTarget(baseSidebarData.sections, location.pathname);
-  const { summary } = useRoleNotifications("vendor", activeNotificationTarget);
-  const sidebarData = useVendorSidebarData({
-    unreadCount: summary.total,
-    summary,
-  });
+  const sidebarData = useVendorSidebarData();
   useEffect(() => {
     let active = true;
 

@@ -52,8 +52,13 @@ const createProduct = asyncHandler(async (req, res) => {
     await vendorStorefrontService.notifyFollowersForProduct(product, "NEW_PRODUCT");
   }
 
-  const statusCode = isAdminContext ? 201 : 202; // 202 Accepted for pending approval
-  const message = isAdminContext ? "Product created and approved" : "Product created and pending approval";
+  const statusCode = product.status === "DRAFT" ? 201 : isAdminContext ? 201 : 202; // 202 Accepted for pending approval
+  const message =
+    product.status === "DRAFT"
+      ? "Product draft saved"
+      : isAdminContext
+        ? "Product created and approved"
+        : "Product created and pending approval";
 
   return ok(res, product, message);
 });

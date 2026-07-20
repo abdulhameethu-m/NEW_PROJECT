@@ -156,6 +156,7 @@ export function AdminOrdersPage() {
         endDate={reporting.endDate}
         onDateChange={reporting.setDateRange}
         onApply={reporting.applyDateRange}
+        onToday={reporting.applyToday}
         onExport={handleExport}
         exportingFormat={reporting.exportingFormat}
         isDirty={reporting.hasPendingChanges}

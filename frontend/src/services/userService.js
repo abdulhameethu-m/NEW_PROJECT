@@ -191,16 +191,6 @@ export async function deleteUserReview(id) {
   return data;
 }
 
-export async function getUserNotifications(params = {}) {
-  const { data } = await api.get("/api/user/notifications", { params });
-  return data;
-}
-
-export async function markUserNotificationRead(id) {
-  const { data } = await api.patch(`/api/user/notifications/${id}/read`);
-  return data;
-}
-
 export async function getUserSupportTickets() {
   const { data } = await api.get("/api/user/support");
   return data;

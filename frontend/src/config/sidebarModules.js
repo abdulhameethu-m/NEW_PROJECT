@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  Bell,
   Brush,
   Boxes,
   CreditCard,
@@ -226,7 +225,6 @@ export const VENDOR_STATIC_ITEMS = [
     notificationModule: "WORKSPACE",
     key: "workspace",
     items: [
-      { name: "Notifications", path: "/vendor/notifications", icon: Bell, badgeKey: "notificationsUnread" },
       { name: "Catalog Requests", path: "/vendor/catalog-requests", icon: FileSearch },
       { name: "Ready for Pickup", path: "/vendor/pickups", icon: Truck },
       { name: "Offers", path: "/vendor/offers", icon: Percent },

@@ -127,7 +127,7 @@ export function VendorProductsPage() {
         }
       >
         <div className="mb-4 flex flex-wrap gap-2">
-          {["", "PENDING", "APPROVED", "REJECTED"].map((item) => (
+          {["", "DRAFT", "PENDING", "APPROVED", "REJECTED"].map((item) => (
             <button
               key={item || "all"}
               onClick={() => {

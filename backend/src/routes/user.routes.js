@@ -59,9 +59,6 @@ router.post("/reviews", upload.array("photos", 10), validate(reviewSchema), user
 router.patch("/reviews/:id", upload.array("photos", 10), validate(reviewUpdateSchema), userController.updateReview);
 router.delete("/reviews/:id", userController.deleteReview);
 
-router.get("/notifications", userController.listNotifications);
-router.patch("/notifications/:id/read", userController.markNotificationRead);
-
 router.get("/support", userController.listSupportTickets);
 router.post("/support", validate(supportTicketSchema), userController.createSupportTicket);
 router.post("/support/:id/reply", validate(supportReplySchema), userController.replySupportTicket);

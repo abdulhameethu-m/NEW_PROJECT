@@ -3,8 +3,6 @@ import { useState } from "react";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Topbar } from "./Topbar";
 import { useAdminSidebarData } from "../hooks/useAdminSidebarData";
-import { useRoleNotifications } from "../hooks/useRoleNotifications";
-import { ADMIN_SECTION_ITEMS } from "../config/sidebarModules";
 
 const pageMeta = {
   "/admin/dashboard": {
@@ -237,32 +235,10 @@ const pageMeta = {
   },
 };
 
-function getActiveNotificationTarget(pathname) {
-  for (const section of ADMIN_SECTION_ITEMS) {
-    for (const item of section.items) {
-      const entries = item.children || [item];
-      const match = entries.find(
-        (entry) => entry.path && (entry.exact
-          ? pathname === entry.path
-          : pathname === entry.path || pathname.startsWith(`${entry.path}/`))
-      );
-      if (match?.notificationModule || match?.notificationSubModule) {
-        return {
-          module: match.notificationModule,
-          subModule: match.notificationSubModule,
-        };
-      }
-    }
-  }
-  return null;
-}
-
 export function AdminLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const activeNotificationTarget = getActiveNotificationTarget(location.pathname);
-  const { summary } = useRoleNotifications("admin", activeNotificationTarget);
-  const sidebarData = useAdminSidebarData(summary);
+  const sidebarData = useAdminSidebarData();
 
   let meta = pageMeta[location.pathname] || pageMeta["/admin/dashboard"];
   if (location.pathname.startsWith("/admin/sellers/")) {

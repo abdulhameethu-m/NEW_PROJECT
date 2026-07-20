@@ -42,7 +42,6 @@ const VENDOR_WORKSPACE_SEGMENTS = new Set([
   "finance",
   "influencer-commerce",
   "inventory",
-  "notifications",
   "offers",
   "onboarding",
   "orders",

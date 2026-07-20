@@ -3,7 +3,7 @@ import { ADMIN_PRIMARY_ITEM, ADMIN_SECTION_ITEMS } from "../config/sidebarModule
 import { useAdminSession } from "./useAdminSession";
 import vendorModuleService from "../services/vendorModule.service";
 
-export function useAdminSidebarData(summary = { modules: {}, subModules: {} }) {
+export function useAdminSidebarData() {
   const { isLegacyAdmin, canAccess } = useAdminSession();
   const [enabledModules, setEnabledModules] = useState({});
   const [loading, setLoading] = useState(false);
@@ -66,23 +66,18 @@ export function useAdminSidebarData(summary = { modules: {}, subModules: {} }) {
         return {
           ...item,
           children,
-          badgeCount: children.reduce((sum, child) => sum + Number(child.badgeCount || 0), 0),
         };
       }
 
       if (!canShowItem(item)) return null;
-      return {
-        ...item,
-        badgeCount: Number(summary.subModules?.[item.notificationSubModule] || 0),
-      };
+      return { ...item };
     }
 
     return ADMIN_SECTION_ITEMS.map((section) => ({
       ...section,
-      badgeCount: Number(summary.modules?.[section.notificationModule] || 0),
       items: section.items.map(normalizeItem).filter(Boolean),
     })).filter((section) => section.items.length > 0);
-  }, [canAccess, enabledModules, isLegacyAdmin, summary.modules, summary.subModules]);
+  }, [canAccess, enabledModules, isLegacyAdmin]);
 
   return {
     title: "Admin Hub",

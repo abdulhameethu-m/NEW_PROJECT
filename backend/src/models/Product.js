@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const PRODUCT_STATUS = ["PENDING", "APPROVED", "REJECTED"];
+const PRODUCT_STATUS = ["DRAFT", "PENDING", "APPROVED", "REJECTED"];
 const CREATOR_TYPE = ["ADMIN", "SELLER"];
 
 const variantOptionSchema = new mongoose.Schema(
@@ -118,20 +118,20 @@ const productSchema = new mongoose.Schema(
     // Basic Info
     name: {
       type: String,
-      required: true,
+      required: isNotDraft,
       trim: true,
       maxlength: 255,
       index: true,
     },
     slug: {
       type: String,
-      required: true,
+      required: isNotDraft,
       lowercase: true,
       index: true,
     },
     description: {
       type: String,
-      required: true,
+      required: isNotDraft,
       maxlength: 5000,
     },
     shortDescription: {
@@ -142,7 +142,7 @@ const productSchema = new mongoose.Schema(
     // Classification
     category: {
       type: String,
-      required: true,
+      required: isNotDraft,
       trim: true,
       index: true,
     },
@@ -165,7 +165,7 @@ const productSchema = new mongoose.Schema(
     // Pricing
     price: {
       type: Number,
-      required: true,
+      required: isNotDraft,
       min: 0,
     },
     discountPrice: {
@@ -181,20 +181,20 @@ const productSchema = new mongoose.Schema(
     // Inventory
     stock: {
       type: Number,
-      required: true,
+      required: isNotDraft,
       min: 0,
       default: 0,
     },
     SKU: {
       type: String,
-      required: true,
+      required: isNotDraft,
       unique: true,
       trim: true,
       index: true,
     },
     productNumber: {
       type: String,
-      required: true,
+      required: isNotDraft,
       unique: true,
       trim: true,
       index: true,
@@ -317,7 +317,9 @@ const productSchema = new mongoose.Schema(
     weight: {
       value: {
         type: Number,
-        required: true,
+        required: function () {
+          return this.ownerDocument?.().status !== "DRAFT";
+        },
         min: [0.1, "Weight must be greater than 0"],
         description: "Weight in kilograms",
       },
@@ -366,6 +368,10 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+function isNotDraft() {
+  return this.status !== "DRAFT";
+}
+
 productSchema.set("toJSON", { virtuals: true });
 productSchema.set("toObject", { virtuals: true });
 
@@ -379,6 +385,8 @@ productSchema.virtual("genericImages").set(function setGenericImages(value) {
 
 // Pre-save validation for weight
 productSchema.pre("save", async function () {
+  if (this.status === "DRAFT") return;
+
   if (!this.weight || !this.weight.value) {
     const err = new Error(
       "Product weight is required. Must specify weight in kg with minimum value 0.1"

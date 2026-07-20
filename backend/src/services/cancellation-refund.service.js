@@ -5,7 +5,6 @@ const { AppError } = require("../utils/AppError");
 const { Order } = require("../models/Order");
 const { Refund } = require("../models/Refund");
 const { User } = require("../models/User");
-const { UserNotification } = require("../models/UserNotification");
 const orderRepo = require("../repositories/order.repository");
 const paymentRepo = require("../repositories/payment.repository");
 const refundRepo = require("../repositories/refund.repository");
@@ -877,15 +876,6 @@ class CancellationRefundService {
       order.cancellation?.cancellationFeePaid !== true
     ) {
       const cancellationFeePayment = await this.createCancellationFeeOrder({ order, preview, actor, reason, notes, meta });
-      await UserNotification.create({
-        userId: order.userId?._id || order.userId,
-        type: "ORDER",
-        title: "Cancellation fee payment required",
-        message: `Pay ${preview.cancellationFee} to complete cancellation for order ${order.orderNumber}.`,
-        entityType: "Order",
-        entityId: order._id,
-        meta: { cancellationFee: preview.cancellationFee, razorpayOrderId: cancellationFeePayment?.razorpayOrderId },
-      }).catch(() => null);
       return {
         requiresCancellationFeePayment: true,
         orderId: order._id,
@@ -1047,22 +1037,6 @@ class CancellationRefundService {
           deductionAmount: preview.deductionAmount,
         },
       }),
-      UserNotification.create({
-        userId: order.userId?._id || order.userId,
-        type: "ORDER",
-        title: preview.refundAmount > 0 ? "Refund pending" : "Order cancelled",
-        message:
-          preview.refundAmount > 0
-            ? `Your cancellation was accepted for order ${order.orderNumber}. Refund review is pending with the finance team.`
-            : `Order ${order.orderNumber} was cancelled successfully.`,
-        entityType: "Refund",
-        entityId: result.refund?._id || order._id,
-        meta: {
-          refundAmount: preview.refundAmount,
-          deductionAmount: preview.deductionAmount,
-          refundMethod,
-        },
-      }).catch(() => null),
     ]);
 
     return {

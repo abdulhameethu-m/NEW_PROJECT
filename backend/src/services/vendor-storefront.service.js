@@ -5,7 +5,6 @@ const { Vendor } = require("../models/Vendor");
 const { Product } = require("../models/Product");
 const { ProductReview } = require("../models/ProductReview");
 const { Order } = require("../models/Order");
-const { UserNotification } = require("../models/UserNotification");
 const { VendorFollower } = require("../models/VendorFollower");
 const { VendorStoreView } = require("../models/VendorStoreView");
 const { VendorCollection } = require("../models/VendorCollection");
@@ -406,15 +405,6 @@ class VendorStorefrontService {
       { upsert: true }
     );
 
-    await UserNotification.create({
-      userId: customerId,
-      type: "SYSTEM",
-      title: "Store followed",
-      message: `You will receive product, collection, deal, flash sale, and restock alerts from ${vendor.shopName || vendor.companyName}.`,
-      entityType: "Vendor",
-      entityId: vendor._id,
-    });
-
     clearVendorCache(vendor._id);
     clearVendorCache(vendor.storeSlug);
     const metrics = await getVendorMetrics(vendor._id);
@@ -653,18 +643,6 @@ class VendorStorefrontService {
       FLASH_SALE: "Flash sale from a followed store",
       NEW_COLLECTION: "New collection from a followed store",
     };
-
-    await UserNotification.insertMany(
-      followers.map((follow) => ({
-        userId: follow.customerId,
-        type: "SYSTEM",
-        title: titleByType[eventType] || "Store update from a followed vendor",
-        message: `${vendor?.shopName || vendor?.companyName || "A followed store"} updated ${product.name}.`,
-        entityType: "Product",
-        entityId: product._id,
-      })),
-      { ordered: false }
-    );
 
     return { notified: followers.length };
   }

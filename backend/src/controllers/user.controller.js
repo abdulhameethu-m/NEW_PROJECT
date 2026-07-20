@@ -51,9 +51,6 @@ const createReview = asyncHandler(async (req, res) => ok(res, await userService.
 const updateReview = asyncHandler(async (req, res) => ok(res, await userService.updateReview(req.user.sub, req.params.id, req.body, getMeta(req), req.files || []), "Review updated"));
 const deleteReview = asyncHandler(async (req, res) => ok(res, await userService.deleteReview(req.user.sub, req.params.id, getMeta(req)), "Review deleted"));
 
-const listNotifications = asyncHandler(async (req, res) => ok(res, await userService.listNotifications(req.user.sub, req.query), "Notifications loaded"));
-const markNotificationRead = asyncHandler(async (req, res) => ok(res, await userService.markNotificationRead(req.user.sub, req.params.id), "Notification updated"));
-
 const listSupportTickets = asyncHandler(async (req, res) => ok(res, await userService.listSupportTickets(req.user.sub), "Support tickets loaded"));
 const createSupportTicket = asyncHandler(async (req, res) => ok(res, await userService.createSupportTicket(req.user.sub, req.body, getMeta(req)), "Support ticket created"));
 const replySupportTicket = asyncHandler(async (req, res) => ok(res, await userService.replySupportTicket(req.user.sub, req.params.id, req.body, getMeta(req)), "Support ticket updated"));
@@ -93,8 +90,6 @@ module.exports = {
   createReview,
   updateReview,
   deleteReview,
-  listNotifications,
-  markNotificationRead,
   listSupportTickets,
   createSupportTicket,
   replySupportTicket,

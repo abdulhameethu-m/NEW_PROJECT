@@ -35,7 +35,6 @@ function isAllowedPrimaryTarget(target) {
     pathname.startsWith("/addresses") ||
     pathname.startsWith("/reviews") ||
     pathname.startsWith("/support") ||
-    pathname.startsWith("/notifications") ||
     pathname.startsWith("/settings") ||
     pathname.startsWith("/cart") ||
     pathname.startsWith("/checkout")

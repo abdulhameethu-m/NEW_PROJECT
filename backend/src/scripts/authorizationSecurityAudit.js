@@ -58,10 +58,6 @@ function sourceFiles() {
 
 const REVIEWED_NON_IDOR_CONTEXTS = [
   {
-    pattern: /[\\/]controllers[\\/]adminNotification\.controller\.js$/,
-    proof: "admin notification operations are mounted behind admin workspace authorization and operate on admin-scoped notifications",
-  },
-  {
     pattern: /[\\/](controllers|services)[\\/](attribute|category|subcategory|product-module)\./,
     proof: "catalog taxonomy and product-module resources are global admin-managed configuration, not user-owned objects",
   },

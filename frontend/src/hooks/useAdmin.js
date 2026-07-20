@@ -1,6 +1,4 @@
-import { logger } from "../services/logger/logger.js";
-import { useState, useCallback, useEffect } from 'react';
-import { adminService } from '../services/adminService';
+import { useState, useCallback } from 'react';
 
 /**
  * Hook for managing admin data operations
@@ -102,52 +100,6 @@ export function useBulkOperation(operationFn) {
 }
 
 /**
- * Hook for managing admin notifications
- */
-export function useAdminNotifications(pollingInterval = 30000) {
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const fetchNotifications = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const result = await adminService.getNotifications(1, 10);
-      setNotifications(result?.notifications || []);
-      setUnreadCount(result?.unreadCount || 0);
-    } catch (error) {
-      logger.error("Failed to fetch notifications:", { error: error });
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const markAsRead = useCallback(async (notificationId) => {
-    try {
-      await adminService.markAsRead(notificationId);
-      fetchNotifications();
-    } catch (error) {
-      logger.error("Failed to mark as read:", { error: error });
-    }
-  }, [fetchNotifications]);
-
-  // Start polling
-  useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, pollingInterval);
-    return () => clearInterval(interval);
-  }, [fetchNotifications, pollingInterval]);
-
-  return {
-    notifications,
-    unreadCount,
-    isLoading,
-    markAsRead,
-    refetch: fetchNotifications,
-  };
-}
-
-/**
  * Hook for managing admin actions with confirmation
  */
 export function useAdminAction(actionFn, onSuccess, onError) {
@@ -176,6 +128,5 @@ export function useAdminAction(actionFn, onSuccess, onError) {
 export default {
   useAdminData,
   useBulkOperation,
-  useAdminNotifications,
   useAdminAction,
 };

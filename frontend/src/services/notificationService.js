@@ -1,28 +1,4 @@
-import { api } from "./api";
-
 let handlers = null;
-
-export async function getNotificationSummary(role) {
-  const { data } = await api.get("/api/notifications/summary", {
-    params: role ? { role } : undefined,
-  });
-  return data;
-}
-
-export async function getNotifications(role, params = {}) {
-  const { data } = await api.get("/api/notifications", {
-    params: { ...(role ? { role } : {}), ...params },
-  });
-  return data;
-}
-
-export async function markNotificationsRead(role, payload = {}) {
-  const { data } = await api.post("/api/notifications/read", {
-    ...(role ? { role } : {}),
-    ...payload,
-  });
-  return data;
-}
 
 export function registerNotificationHandlers(nextHandlers) {
   handlers = nextHandlers;

@@ -135,6 +135,7 @@ export function ProductEditor({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState(getInitialForm);
+  const [productStatus, setProductStatus] = useState("");
   const [subcategories, setSubcategories] = useState([]);
   const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
   const [attributeGroups, setAttributeGroups] = useState({});
@@ -187,6 +188,7 @@ export function ProductEditor({
         const response = await fetchProduct(productId);
         const product = response?.data;
         if (!product || cancelled) return;
+        setProductStatus(product.status || "");
 
         setFormData({
           name: product.name || "",
@@ -481,6 +483,89 @@ export function ProductEditor({
     });
   }
 
+  function buildProductPayload({ draft = false } = {}) {
+    const processedImages = buildImagePayload(formData.images, formData.name || "Product image");
+    const normalizedVariantRows = !draft && variantDefs.length
+      ? normalizeVariantPayloadRows(variantRows, formData.name)
+      : [];
+    const parsedWeight = Number(formData.weight);
+
+    return {
+      ...(draft ? { status: "DRAFT" } : productStatus === "DRAFT" ? { status: isAdmin ? "APPROVED" : "PENDING" } : {}),
+      name: formData.name,
+      description: formData.description,
+      shortDescription: formData.shortDescription,
+      category: formData.category,
+      categoryId: formData.categoryId,
+      subCategory: formData.subCategory,
+      subCategoryId: formData.subCategoryId,
+      price: Number(formData.price || 0),
+      ...(formData.discountPrice !== "" ? { discountPrice: Number(formData.discountPrice || 0) } : {}),
+      stock: Number(formData.stock || 0),
+      SKU: formData.productNumber.toUpperCase(),
+      productNumber: formData.productNumber.toUpperCase(),
+      modulesData: formData.modulesData || {},
+      attributes: Object.fromEntries(
+        Object.entries(formData.attributes || {}).filter(([, value]) =>
+          !(
+            value === undefined ||
+            value === null ||
+            value === "" ||
+            (Array.isArray(value) && value.length === 0)
+          )
+        )
+      ),
+      variants: normalizedVariantRows,
+      lowStockThreshold: Number(formData.lowStockThreshold || 10),
+      images: processedImages,
+      tags: formData.tags
+        .split(",")
+        .map((tag) => tag.trim().toLowerCase())
+        .filter(Boolean),
+      ...(Number.isFinite(parsedWeight) && parsedWeight > 0
+        ? {
+            weight: {
+              value: parsedWeight,
+              unit: "kg",
+            },
+          }
+        : {}),
+      returnPolicy: formData.returnPolicy,
+      metaDescription: formData.metaDescription,
+      metaKeywords: formData.metaKeywords
+        .split(",")
+        .map((key) => key.trim())
+        .filter(Boolean),
+      displaySettings: {
+        cardType: formData.displaySettings?.cardType || "scroll",
+        enableImageScroll: Boolean(formData.displaySettings?.enableImageScroll),
+        imageScrollSpeed: Number(formData.displaySettings?.imageScrollSpeed || 800),
+      },
+    };
+  }
+
+  async function handleSaveDraft() {
+    setError("");
+    if (formData.images.some((image) => image?.status === "uploading")) {
+      return setError("Wait for product image uploads to finish");
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = buildProductPayload({ draft: true });
+      if (isEditing) {
+        await updateProduct(productId, payload);
+      } else {
+        await createProduct(payload);
+      }
+      navigate(listPath);
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
@@ -535,55 +620,7 @@ export function ProductEditor({
     setSubmitting(true);
 
     try {
-      const processedImages = buildImagePayload(formData.images, formData.name || "Product image");
-
-      const payload = {
-        name: formData.name,
-        description: formData.description,
-        shortDescription: formData.shortDescription,
-        category: formData.category,
-        categoryId: formData.categoryId,
-        subCategory: formData.subCategory,
-        subCategoryId: formData.subCategoryId,
-        price: Number(formData.price || 0),
-        ...(formData.discountPrice !== "" ? { discountPrice: Number(formData.discountPrice || 0) } : {}),
-        stock: Number(formData.stock || 0),
-        SKU: formData.productNumber.toUpperCase(),
-        productNumber: formData.productNumber.toUpperCase(),
-        modulesData: formData.modulesData || {},
-        attributes: Object.fromEntries(
-          Object.entries(formData.attributes || {}).filter(([, value]) =>
-            !(
-              value === undefined ||
-              value === null ||
-              value === "" ||
-              (Array.isArray(value) && value.length === 0)
-            )
-          )
-        ),
-        variants: normalizedVariantRows,
-        lowStockThreshold: Number(formData.lowStockThreshold || 10),
-        images: processedImages,
-        tags: formData.tags
-          .split(",")
-          .map((tag) => tag.trim().toLowerCase())
-          .filter(Boolean),
-        weight: {
-          value: Number(formData.weight),
-          unit: "kg",
-        },
-        returnPolicy: formData.returnPolicy,
-        metaDescription: formData.metaDescription,
-        metaKeywords: formData.metaKeywords
-          .split(",")
-          .map((key) => key.trim())
-          .filter(Boolean),
-        displaySettings: {
-          cardType: formData.displaySettings?.cardType || "scroll",
-          enableImageScroll: Boolean(formData.displaySettings?.enableImageScroll),
-          imageScrollSpeed: Number(formData.displaySettings?.imageScrollSpeed || 800),
-        },
-      };
+      const payload = buildProductPayload();
 
       if (isEditing) {
         await updateProduct(productId, payload);
@@ -980,6 +1017,9 @@ export function ProductEditor({
         <div className="flex flex-col gap-3 sm:flex-row">
           <button type="submit" disabled={submitting} className="rounded-2xl bg-[color:var(--commerce-accent)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">
             {submitting ? "Saving..." : isEditing ? updateLabel : createLabel}
+          </button>
+          <button type="button" disabled={submitting} onClick={handleSaveDraft} className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800 disabled:opacity-60 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+            {submitting ? "Saving..." : "Save Draft"}
           </button>
           <button type="button" onClick={() => navigate(listPath)} className="rounded-2xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">
             Cancel
