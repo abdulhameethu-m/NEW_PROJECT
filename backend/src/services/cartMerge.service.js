@@ -83,25 +83,37 @@ class CartMergeService {
           // Validate merged quantity doesn't exceed stock
           // Re-validate to get latest stock from DB
           try {
-            const enriched = await guestCartService.validateAndEnrichItem(
+            const enrichedResponse = await guestCartService.validateAndEnrichItem(
               guestItem.productId,
               newQty,
-              guestItem.variantId
+              guestItem.variantId,
+              userCart.items
             );
-
-            userCart.items[existingIdx].quantity = newQty;
-            userCart.items[existingIdx].price = enriched.price;
-            userCart.items[existingIdx].image = enriched.image;
-            userCart.items[existingIdx].variantSku = enriched.variantSku;
-            userCart.items[existingIdx].variantTitle = enriched.variantTitle;
-            userCart.items[existingIdx].variantAttributes = normalizeVariantAttributes(enriched.variantAttributes);
-            userCart.items[existingIdx].attribution = guestItem.attribution || userCart.items[existingIdx].attribution;
-            mergeResult.merged++;
+            
+            if (["MAXIMUM_STOCK_REACHED", "OUT_OF_STOCK", "INVALID_VARIANT"].includes(enrichedResponse.action)) {
+              mergeResult.conflicts.push({
+                productId: guestItem.productId,
+                reason: `Merged quantity (${newQty}) exceeds available stock or variant is out of stock. Kept existing quantity (${currentQty})`,
+                guestQuantity: guestItem.quantity,
+                cartQuantity: currentQty,
+              });
+            } else {
+              const enriched = enrichedResponse.addedItem;
+              userCart.items[existingIdx].quantity = newQty;
+              userCart.items[existingIdx].price = enriched.price;
+              userCart.items[existingIdx].image = enriched.image;
+              userCart.items[existingIdx].variantId = enriched.variantId;
+              userCart.items[existingIdx].variantSku = enriched.variantSku;
+              userCart.items[existingIdx].variantTitle = enriched.variantTitle;
+              userCart.items[existingIdx].variantAttributes = normalizeVariantAttributes(enriched.variantAttributes);
+              userCart.items[existingIdx].attribution = guestItem.attribution || userCart.items[existingIdx].attribution;
+              mergeResult.merged++;
+            }
           } catch (validationError) {
-            // Quantity too high, keep user's current quantity but report conflict
+            // Unexpected error
             mergeResult.conflicts.push({
               productId: guestItem.productId,
-              reason: `Merged quantity (${newQty}) exceeds available stock. Kept existing quantity (${currentQty})`,
+              reason: `Error validating merge for quantity (${newQty}). Kept existing quantity (${currentQty})`,
               guestQuantity: guestItem.quantity,
               cartQuantity: currentQty,
             });

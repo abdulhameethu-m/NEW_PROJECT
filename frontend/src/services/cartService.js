@@ -94,11 +94,12 @@ export async function clearCart() {
  * @param {string} variantId
  * @returns {Promise<Object>} Enriched item with price, image, vendor info
  */
-export async function validateItem(productId, quantity = 1, variantId = "") {
+export async function validateItem(productId, quantity = 1, variantId = "", cartItems = []) {
   const payload = {
     productId,
     quantity,
     variantId,
+    cartItems
   };
   const { data } = await cartRequest("POST /api/cart/validate-item", payload, () => api.post("/api/cart/validate-item", payload, { timeout: CART_TIMEOUT_MS, headers: guestCartHeaders() }));
   return data?.data || data;

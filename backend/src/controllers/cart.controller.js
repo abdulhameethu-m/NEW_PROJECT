@@ -53,8 +53,8 @@ const add = asyncHandler(async (req, res) => {
   };
 
   const result = await withinCartDeadline(() => cartService.addItem(req.user.sub, itemPayload));
-  const responsePayload = result && result.cart ? { ...result.cart, addedItem: result.addedItem } : result;
-  return ok(res, responsePayload, "Added to cart");
+  const responsePayload = result && result.cart ? result : { ...result };
+  return ok(res, responsePayload, result?.message || "Added to cart");
 });
 
 const update = asyncHandler(async (req, res) => {
@@ -101,10 +101,11 @@ const clear = asyncHandler(async (req, res) => {
  */
 
 const validateItem = asyncHandler(async (req, res) => {
-  const { productId, quantity = 1, variantId = "" } = req.body || {};
+  const { productId, quantity = 1, variantId = "", cartItems = [] } = req.body || {};
 
-  const enrichedItem = await guestCartService.validateAndEnrichItem(productId, quantity, variantId);
-  return ok(res, enrichedItem, "Item validated");
+  const enrichedItem = await guestCartService.validateAndEnrichItem(productId, quantity, variantId, cartItems);
+  // Pass the exact same structure as the logged-in add to cart endpoint
+  return ok(res, enrichedItem, enrichedItem?.message || "Item validated");
 });
 
 const validateCart = asyncHandler(async (req, res) => {

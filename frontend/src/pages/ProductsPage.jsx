@@ -9,7 +9,7 @@ import { useCategories } from "../hooks/useCategories";
 import { getSubcategoriesByCategory } from "../services/subcategoryService";
 import * as productService from "../services/productService";
 import { formatCurrency } from "../utils/formatCurrency";
-import { extractProductId, getAvailableProductVariant } from "../utils/cartState";
+import { extractProductId } from "../utils/cartState";
 import { useCart } from "../hooks/useCart";
 import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useWishlist } from "../hooks/useWishlist";
@@ -962,10 +962,8 @@ const ProductCard = memo(function ProductCard({ product }) {
     };
   }, [productId, checkWishlistStatus]);
 
-  const { selectedVariant, hasAvailableVariants, availableStock } = useMemo(
-    () => getAvailableProductVariant(product, cart?.items),
-    [cart?.items, product]
-  );
+  const hasAvailableVariants = product?.isActive !== false && product?.status !== "REJECTED";
+  const availableStock = 999;
 
   const discountPercent = product.discountPrice
     ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
@@ -1003,7 +1001,7 @@ const ProductCard = memo(function ProductCard({ product }) {
         await removeWishlistItem(productId);
         setIsInWishlist(false);
       } else {
-        await addWishlistItem(productId, selectedVariant?.variantId || "");
+        await addWishlistItem(productId, "");
         setIsInWishlist(true);
       }
     } catch (err) {
@@ -1020,11 +1018,13 @@ const ProductCard = memo(function ProductCard({ product }) {
 
     try {
       setIsSubmitting(true);
-      const { selectedVariant: nextSelectedVariant } = getAvailableProductVariant(product, cart?.items);
-      const variantId = nextSelectedVariant?.variantId || "";
-      const added = await addCartItem(productId, 1, variantId);
-      if (added) {
-        openDrawer(product, nextSelectedVariant || added?.variant || added || null, added?.quantity || 1);
+      const result = await addCartItem(productId, 1, "");
+      if (result) {
+        if (result.message && typeof showToast === "function") {
+          showToast(result.message, result.action === "NEXT_VARIANT_ALLOCATED" ? "info" : "success");
+        }
+        const allocatedVariant = result.addedItem?.variant || result.addedItem || null;
+        openDrawer(product, allocatedVariant, result.addedItem?.quantity || 1);
       }
     } catch (err) {
       logger.error("Failed to add to cart:", { error: err });

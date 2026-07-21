@@ -2,6 +2,11 @@ export function getCartErrorMessage(error, fallback = "Something went wrong with
   const code = error?.response?.data?.code || error?.response?.data?.errorCode || "";
   const message = error?.response?.data?.message || error?.message || "";
 
+  // Preserve custom messages from the smart cart allocation engine
+  if (error?.action && ["MAXIMUM_STOCK_REACHED", "OUT_OF_STOCK", "INVALID_VARIANT"].includes(error.action)) {
+    return message;
+  }
+
   if (
     code === "OUT_OF_STOCK" ||
     code === "INSUFFICIENT_STOCK" ||

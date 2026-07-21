@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronRight, Check, X, Trash2 } from "lucide-react";
+import { ChevronRight, Check, X, Trash2, Minus, Plus } from "lucide-react";
 import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useCart } from "../hooks/useCart";
 import { formatCurrency } from "../utils/formatCurrency";
@@ -32,11 +32,12 @@ export function CartDrawer() {
     clearToast,
     clearLastAddedItem,
   } = useCartDrawer();
-  const { cart, removeItem } = useCart();
+  const { cart, removeItem, updateItem } = useCart();
   const [recommendations, setRecommendations] = useState([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [deletingItems, setDeletingItems] = useState(new Set());
+  const [updatingItems, setUpdatingItems] = useState(new Set());
 
   useEffect(() => {
     if (!isRendered || !lastAddedProduct?._id) return undefined;
@@ -172,6 +173,26 @@ export function CartDrawer() {
     }
   };
 
+  const handleUpdateQuantity = async (productId, variantId, newQuantity) => {
+    if (!productId || newQuantity < 1) return;
+    
+    const itemKey = getCartItemKey(productId, variantId);
+    if (updatingItems.has(itemKey) || deletingItems.has(itemKey)) return;
+
+    setUpdatingItems((prev) => new Set(prev).add(itemKey));
+    try {
+      await updateItem(productId, newQuantity, variantId);
+    } catch (error) {
+      showToast(error?.response?.data?.message || error?.message || "Failed to update quantity.");
+    } finally {
+      setUpdatingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(itemKey);
+        return next;
+      });
+    }
+  };
+
   if (!isRendered) return null;
 
   return (
@@ -236,6 +257,7 @@ export function CartDrawer() {
                     const variantId = extractVariantId(item);
                     const itemKey = getCartItemKey(productId, variantId);
                     const isDeleting = deletingItems.has(itemKey);
+                    const isUpdating = updatingItems.has(itemKey);
                     const itemName = product?.name || item?.name || "Product";
                     const rawImage =
                       (typeof item?.image === "string" ? item.image : item?.image?.url) ||
@@ -281,8 +303,28 @@ export function CartDrawer() {
                             </p>
                           ) : null}
                           <div className="flex items-center justify-between gap-2">
-                            <div className="flex flex-col">
-                              <p className="text-xs text-slate-500 dark:text-slate-400">Qty: {item.quantity}</p>
+                            <div className="flex flex-col gap-1.5">
+                                <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-700 w-fit">
+                                  <button
+                                    onClick={() => handleUpdateQuantity(productId, variantId, Number(item.quantity) - 1)}
+                                    disabled={isDeleting || isUpdating || Number(item.quantity) <= 1}
+                                    className="flex h-6 w-6 items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
+                                    aria-label="Decrease quantity"
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </button>
+                                  <span className="flex h-6 min-w-[1.5rem] items-center justify-center px-1 text-xs font-medium text-slate-900 dark:text-white">
+                                    {item.quantity}
+                                  </span>
+                                  <button
+                                    onClick={() => handleUpdateQuantity(productId, variantId, Number(item.quantity) + 1)}
+                                    disabled={isDeleting || isUpdating}
+                                    className="flex h-6 w-6 items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
+                                    aria-label="Increase quantity"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </button>
+                                </div>
                               <p className="text-xs font-semibold text-slate-900 dark:text-white sm:text-sm">
                                 {formatCurrency(itemPrice * Number(item.quantity || 0))}
                               </p>

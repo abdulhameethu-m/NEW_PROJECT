@@ -3,6 +3,7 @@ const { AppError } = require("../utils/AppError");
 const productRepo = require("../repositories/product.repository");
 const vendorRepo = require("../repositories/vendor.repository");
 const { resolveBestVariant } = require("./variantResolver.service");
+const cartAllocationService = require("./cartAllocation.service");
 
 /**
  * Guest Cart Service
@@ -80,7 +81,7 @@ class GuestCartService {
    * Validate and enrich an item being added to guest cart
    * Returns product details needed for cart (without modifying actual cart)
    */
-  async validateAndEnrichItem(productId, quantity = 1, variantId = "") {
+  async validateAndEnrichItem(productId, quantity = 1, variantId = "", cartItems = []) {
     asObjectId(productId, "productId");
     const qty = Number(quantity || 1);
     if (!Number.isFinite(qty) || qty < 1) throw new AppError("Quantity must be >= 1", 400, "VALIDATION_ERROR");
@@ -91,27 +92,25 @@ class GuestCartService {
       throw new AppError("Product not available", 400, "NOT_AVAILABLE");
     }
 
-    const variant = getVariantForProduct(product, variantId);
-    const availableStock = variant
-      ? getVariantAvailableQuantity(product, variant, 0)
-      : getAvailableLegacyQuantity(product, 0);
-
-    if (!variant && Array.isArray(product?.variants) && product.variants.length && variantId) {
-      throw new AppError("Selected variant is not available", 400, "NOT_AVAILABLE");
-    }
-    if (availableStock === 0) {
-      throw new AppError("Product is out of stock", 400, "OUT_OF_STOCK");
-    }
-    if (availableStock < qty) {
-      throw new AppError(`Only ${availableStock} item${availableStock === 1 ? "" : "s"} available`, 400, "INSUFFICIENT_STOCK");
+    const allocationResult = cartAllocationService.allocate(product, cartItems, qty, variantId);
+    
+    if (["MAXIMUM_STOCK_REACHED", "OUT_OF_STOCK", "INVALID_VARIANT"].includes(allocationResult.action)) {
+      return {
+        action: allocationResult.action,
+        message: allocationResult.message,
+        allocatedVariant: null,
+        originalVariant: variantId ? { id: variantId } : null,
+        addedItem: null
+      };
     }
 
+    const variant = allocationResult.variant;
     const resolvedSellerId = await resolveSellerIdForProduct(product);
     if (!resolvedSellerId) throw new AppError("Seller not found for product", 400, "INVALID_PRODUCT");
 
     const unitPrice = Number(variant?.discountPrice || variant?.price || product.discountPrice || product.price || 0);
 
-    return {
+    const enrichedItem = {
       productId,
       vendorId: resolvedSellerId,
       quantity: qty,
@@ -123,11 +122,19 @@ class GuestCartService {
         product.images?.find((image) => image.isPrimary)?.url ||
         product.images?.[0]?.url ||
         "",
-      stock: availableStock,
+      stock: allocationResult.availableStock,
       variantId: variant?.variantId || "",
       variantSku: variant?.sku || "",
       variantTitle: variant?.title || "",
       variantAttributes: normalizeVariantAttributes(variant?.attributes),
+    };
+
+    return {
+      action: allocationResult.action,
+      message: allocationResult.message,
+      allocatedVariant: variant ? { id: variant.variantId, name: variant.title } : null,
+      originalVariant: variantId ? { id: variantId } : null,
+      addedItem: enrichedItem
     };
   }
 

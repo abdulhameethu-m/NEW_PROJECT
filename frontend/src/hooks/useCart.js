@@ -117,26 +117,33 @@ export const useCart = () => {
       const request = (async () => {
         if (isGuest) {
           try {
-            const existingItem = guestCart.items.find(
-              (item) =>
-                String(item.productId) === String(productId) &&
-                String(item.variantId || "") === String(variantId || "")
-            );
+            const currentGuestItems = guestCart.items;
             const addQuantity = Number(quantity || 1);
-            const totalQuantity = (existingItem?.quantity || 0) + addQuantity;
-            const enrichedItem = await cartService.validateItem(productId, totalQuantity, variantId);
+            const allocationResponse = await cartService.validateItem(productId, addQuantity, variantId, currentGuestItems);
+            
+            if (["MAXIMUM_STOCK_REACHED", "OUT_OF_STOCK", "INVALID_VARIANT"].includes(allocationResponse.action)) {
+              // We pass the specific message for UI error formatting
+              const error = new Error(allocationResponse.message);
+              error.action = allocationResponse.action;
+              throw error;
+            }
+
+            const enrichedItem = allocationResponse.addedItem;
             guestCart.addItem({
               ...enrichedItem,
               quantity: addQuantity,
               attribution,
             });
             return {
-              ...enrichedItem,
-              variant: {
-                variantId: enrichedItem.variantId || "",
-                title: enrichedItem.variantTitle || "",
-                selectedAttributes: enrichedItem.variantAttributes || {},
-              },
+              ...allocationResponse,
+              addedItem: {
+                ...enrichedItem,
+                variant: {
+                  variantId: enrichedItem.variantId || "",
+                  title: enrichedItem.variantTitle || "",
+                  selectedAttributes: enrichedItem.variantAttributes || {},
+                },
+              }
             };
           } catch (err) {
             setError(err.message);
@@ -147,15 +154,25 @@ export const useCart = () => {
         try {
           setLoading(true);
           const result = await cartService.addToCart(productId, quantity, variantId, attribution);
+          
+          if (["MAXIMUM_STOCK_REACHED", "OUT_OF_STOCK", "INVALID_VARIANT"].includes(result.action)) {
+             const error = new Error(result.message);
+             error.action = result.action;
+             throw error;
+          }
+
           const normalized = normalizeCartPayload(result?.cart || result);
           setAuthCart(normalized);
           const addedItem = result?.addedItem || normalized;
           return {
-            ...addedItem,
-            variant: addedItem?.variant || {
-              variantId: addedItem?.variantId || "",
-              title: addedItem?.variantTitle || "",
-              selectedAttributes: addedItem?.variantAttributes || {},
+            ...result,
+            addedItem: {
+              ...addedItem,
+              variant: addedItem?.variant || {
+                variantId: addedItem?.variantId || "",
+                title: addedItem?.variantTitle || "",
+                selectedAttributes: addedItem?.variantAttributes || {},
+              }
             },
             cart: normalized,
           };

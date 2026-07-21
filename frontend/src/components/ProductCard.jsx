@@ -9,7 +9,7 @@ import { useCart } from "../hooks/useCart";
 import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useWishlist } from "../hooks/useWishlist";
 import { getCartErrorMessage } from "../utils/cartErrors";
-import { extractProductId, getAvailableProductVariant } from "../utils/cartState";
+import { extractProductId } from "../utils/cartState";
 
 function reportProductCardError(message, details = {}) {
   const payload = {
@@ -62,10 +62,8 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
     return () => clearInterval(interval);
   }, [isHovering, hasMultipleImages, shouldScroll, allImages.length, scrollSpeed]);
 
-  const { selectedVariant, hasAvailableVariants, availableStock } = useMemo(
-    () => getAvailableProductVariant(product, cart?.items),
-    [cart?.items, product]
-  );
+  const hasAvailableVariants = product?.isActive !== false && product?.status !== "REJECTED";
+  const availableStock = 999; // Frontend no longer calculates exact inventory
 
   const discountPercent = product?.discountPrice && product?.price
     ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
@@ -109,7 +107,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         await removeWishlistItem(productId);
         setIsInWishlist(false);
       } else {
-        await addWishlistItem(productId, selectedVariant?.variantId || "");
+        await addWishlistItem(productId, "");
         setIsInWishlist(true);
       }
     } catch (err) {
@@ -127,11 +125,13 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
 
     try {
       setIsSubmitting(true);
-      const { selectedVariant: nextSelectedVariant } = getAvailableProductVariant(product, cart?.items);
-      const variantId = nextSelectedVariant?.variantId || "";
-      const added = await addCartItem(productId, 1, variantId);
-      if (added) {
-        openDrawer(product, nextSelectedVariant || added?.variant || added || null, added?.quantity || 1);
+      const result = await addCartItem(productId, 1, ""); // Let backend auto-allocate
+      if (result) {
+        if (result.message && typeof showToast === "function") {
+          showToast(result.message, result.action === "NEXT_VARIANT_ALLOCATED" ? "info" : "success");
+        }
+        const allocatedVariant = result.addedItem?.variant || result.addedItem || null;
+        openDrawer(product, allocatedVariant, result.addedItem?.quantity || 1);
       }
     } catch (err) {
       reportProductCardError("Failed to add product to cart.", { productId, error: err });
