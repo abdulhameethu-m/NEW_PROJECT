@@ -67,6 +67,7 @@ export function ProductsPage() {
   const [error, setError] = useState("");
   const [pagination, setPagination] = useState({ total: 0, pages: 1 });
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [isDesktopFilterOpen, setIsDesktopFilterOpen] = useState(false);
   const [filterDefs, setFilterDefs] = useState([]);
   const [facetMap, setFacetMap] = useState({});
   const [subcategories, setSubcategories] = useState([]);
@@ -319,7 +320,15 @@ export function ProductsPage() {
           <button
             type="button"
             onClick={() => setFilterSheetOpen(true)}
-            className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-200"
+            className="lg:hidden inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-200"
+          >
+            <SlidersHorizontal size={16} />
+            Filters
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsDesktopFilterOpen(prev => !prev)}
+            className="hidden lg:inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-200"
           >
             <SlidersHorizontal size={16} />
             Filters
@@ -550,29 +559,31 @@ export function ProductsPage() {
         </FilterBottomSheet>
 
         <div className="mt-4 lg:flex lg:items-start lg:gap-6">
-          <div className="hidden lg:block lg:w-80">
-            <FilterSidebar
-              categories={categories}
-              categoryId={categoryId}
-              subCategoryId={subCategoryId}
-              subcategories={subcategories}
-              search={search}
-              minPrice={minPrice}
-              maxPrice={maxPrice}
-              sortBy={sortBy}
-              filterDefs={filterDefs}
-              facetMap={facetMap}
-              searchParams={searchParams}
-              onCategoryChange={onCategoryChange}
-              onSubcategoryChange={onSubcategoryChange}
-              onSearchChange={onSearchChange}
-              onPriceChange={onPriceChange}
-              onSortChange={onSortChange}
-              onFilterChange={onFilterChange}
-            />
-          </div>
+          {isDesktopFilterOpen && (
+            <div className="hidden lg:block lg:w-80 shrink-0">
+              <FilterSidebar
+                categories={categories}
+                categoryId={categoryId}
+                subCategoryId={subCategoryId}
+                subcategories={subcategories}
+                search={search}
+                minPrice={minPrice}
+                maxPrice={maxPrice}
+                sortBy={sortBy}
+                filterDefs={filterDefs}
+                facetMap={facetMap}
+                searchParams={searchParams}
+                onCategoryChange={onCategoryChange}
+                onSubcategoryChange={onSubcategoryChange}
+                onSearchChange={onSearchChange}
+                onPriceChange={onPriceChange}
+                onSortChange={onSortChange}
+                onFilterChange={onFilterChange}
+              />
+            </div>
+          )}
 
-          <div className="flex-1 grid gap-3 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-8 xl:grid-cols-8">
+          <div className={`flex-1 grid gap-3 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${isDesktopFilterOpen ? "lg:grid-cols-4 xl:grid-cols-4" : "lg:grid-cols-8 xl:grid-cols-8"}`}>
             {loading && !products.length
               ? Array.from({ length: 8 }).map((_, index) => (
                   <div key={index} className="animate-pulse rounded-3xl bg-white p-4 shadow-sm dark:bg-slate-900">
@@ -1077,26 +1088,16 @@ const ProductCard = memo(function ProductCard({ product }) {
             </button>
           </>
         )}
-
-        {discountPercent > 0 ? (
-          <div className="absolute top-1.5 right-1.5 transform transition-all duration-200 group-hover:scale-110">
-            <div className="flex flex-col items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-2 py-1.5 shadow-lg shadow-orange-500/40">
-              <div className="text-xs font-black text-white leading-none">{discountPercent}%</div>
-              <div className="text-[9px] font-bold text-white leading-none">OFF</div>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="absolute top-2 right-2 z-10 flex flex-col gap-2 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 ease-out">
+        <div className="absolute top-2 right-2 z-10 flex flex-col gap-2 opacity-100 translate-y-0 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0 transition-all duration-300 ease-out">
           <button
             onClick={handleWishlist}
             disabled={isSubmitting}
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
             aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
           >
             <Heart
-              size={18}
+              size={13}
               strokeWidth={1.5}
               className={`transition-all duration-300 ${
                 isInWishlist
@@ -1109,20 +1110,27 @@ const ProductCard = memo(function ProductCard({ product }) {
           <button
             onClick={handleAddToCart}
             disabled={isSubmitting || !hasAvailableVariants || availableStock <= 0}
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             title={hasAvailableVariants ? "Add to cart" : "Out of stock"}
             aria-label="Add to cart"
           >
-            <ShoppingCart size={18} strokeWidth={2} />
+            <ShoppingCart size={12} strokeWidth={2} />
           </button>
         </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-2 sm:p-2.5">
         <div className="flex-1">
-          <h3 className="line-clamp-2 text-xs font-medium text-slate-900 dark:text-slate-100 sm:text-xs leading-tight">
-            {product.name}
-          </h3>
+          <div className="flex items-start justify-between gap-1.5">
+            <h3 className="line-clamp-2 text-xs font-medium text-slate-900 dark:text-slate-100 sm:text-xs leading-tight flex-1">
+              {product.name}
+            </h3>
+            {discountPercent > 0 ? (
+              <div className="shrink-0 rounded bg-gradient-to-br from-orange-500 to-red-500 px-1 py-0.5 shadow-sm mt-0.5">
+                <div className="text-[9px] font-bold text-white leading-none tracking-wider">{discountPercent}% OFF</div>
+              </div>
+            ) : null}
+          </div>
           <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
             {product.category}
           </p>

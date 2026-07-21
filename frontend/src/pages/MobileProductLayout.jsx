@@ -188,20 +188,7 @@ export function MobileProductLayout({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-[100px] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      {/* Sticky Header */}
-      <header className={`fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between px-2 transition-all duration-200 ${isScrolled ? "bg-white/80 shadow-sm backdrop-blur-lg dark:bg-slate-900/80" : "bg-transparent"}`}>
-        <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-transform active:scale-95 dark:bg-slate-800/90 dark:text-white">
-          <ChevronLeft className="h-6 w-6" />
-        </button>
-        <div className="flex items-center gap-2">
-          <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-transform active:scale-95 dark:bg-slate-800/90 dark:text-white">
-            <Search className="h-5 w-5" />
-          </button>
-          <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-transform active:scale-95 dark:bg-slate-800/90 dark:text-white" onClick={() => navigate('/cart')}>
-            <ShoppingCart className="h-5 w-5" />
-          </button>
-        </div>
-      </header>
+
 
       {/* Gallery Section */}
       <section className="bg-white pb-4 dark:bg-slate-900">
@@ -310,48 +297,7 @@ export function MobileProductLayout({
         </section>
       )}
 
-      {/* Delivery & Offers */}
-      <section className="mt-2 space-y-2">
-        <div className="bg-white p-4 dark:bg-slate-900">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-              <Truck className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900 dark:text-white">Delivery Options</h3>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Enter pincode to check estimated delivery time and available shipping methods.</p>
-              <div className="mt-3 flex overflow-hidden rounded-xl border border-slate-200 focus-within:border-[color:var(--commerce-accent)] dark:border-slate-700">
-                <input type="text" placeholder="Enter Pincode" className="w-full bg-transparent px-4 py-3 text-sm outline-none dark:text-white" />
-                <button className="bg-slate-100 px-4 py-3 text-sm font-bold text-[color:var(--commerce-accent)] dark:bg-slate-800">Check</button>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white p-4 dark:bg-slate-900">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-500">
-              <Tag className="h-5 w-5" />
-            </div>
-            <div className="w-full">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-slate-900 dark:text-white">Available Offers</h3>
-                <span className="text-sm font-bold text-[color:var(--commerce-accent)]">View All</span>
-              </div>
-              <ul className="mt-3 space-y-2">
-                <li className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
-                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                  <span><strong>Bank Offer:</strong> 10% Instant Discount on HDFC Bank Credit Cards</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
-                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                  <span><strong>Coupon:</strong> Get extra 5% off with code EXTRA5</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Description & Specs Accordion */}
       <section className="mt-2 bg-white px-4 py-2 dark:bg-slate-900">

@@ -561,25 +561,23 @@ export function ProductDetailsPage() {
   }
 
   async function handleWishlistToggle() {
-    setWishlistLoading(true);
+    const previousState = wishlistSaved;
+    setWishlistSaved(!previousState);
     setError("");
     try {
-      if (wishlistSaved) {
+      if (previousState) {
         await removeWishlistItem(product._id);
-        setWishlistSaved(false);
       } else {
         await addWishlistItem(
           product._id,
           activeVariant?.variantId || "",
           selectedAttributes
         );
-        setWishlistSaved(true);
         await trackCurrentAffiliateEvent("wishlist", { variantId: activeVariant?.variantId || "" });
       }
     } catch (err) {
+      setWishlistSaved(previousState);
       setError(err?.response?.data?.message || "Failed to update wishlist");
-    } finally {
-      setWishlistLoading(false);
     }
   }
 

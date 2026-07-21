@@ -242,13 +242,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 via-transparent to-white/5 opacity-40 transition duration-500 group-hover:opacity-60" />
 
-        {/* Discount Badge */}
-        {discountPercent > 0 && (
-          <div className="absolute top-2 left-2 sm:top-3 sm:left-3 rounded-md sm:rounded-lg bg-gradient-to-br from-orange-500 to-red-500 px-1.5 py-1 sm:px-2.5 sm:py-1.5 shadow-lg">
-            <div className="text-[10px] sm:text-xs font-bold text-white">{discountPercent}%</div>
-            <div className="hidden sm:block text-[9px] sm:text-[10px] font-semibold text-white">OFF</div>
-          </div>
-        )}
+        {/* Discount Badge Moved */}
 
         {/* Image Navigation - Visible on Hover */}
         {hasMultipleImages && isHovering && shouldScroll && (
@@ -284,12 +278,12 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
           <button
             onClick={handleWishlist}
             disabled={isSubmitting}
-            className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60"
+            className="flex items-center justify-center w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60"
             title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
             aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
           >
             <Heart
-              size={16}
+              size={13}
               strokeWidth={1.5}
               className={`transition-all duration-300 ${
                 isInWishlist
@@ -303,11 +297,11 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
           <button
             onClick={handleAddToCart}
             disabled={isSubmitting || !productId || !inStock}
-            className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center justify-center w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             title={inStock ? `Add ${selectedVariant?.title || "item"} to cart` : "Out of stock"}
             aria-label={inStock ? `Add ${selectedVariant?.title || "item"} to cart` : "Out of stock"}
           >
-            <ShoppingCart size={15} strokeWidth={2} />
+            <ShoppingCart size={12} strokeWidth={2} />
           </button>
         </div>
       </div>
@@ -318,7 +312,14 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         <p className={categoryTextClass}>{product.category || "Featured"}</p>
 
         {/* Product Name */}
-          <h3 className={`${titleTextClass} min-h-[2.5rem]`}>{product.name}</h3>
+        <div className="flex items-start justify-between gap-1.5">
+          <h3 className={`${titleTextClass} min-h-[2.5rem] flex-1`}>{product.name}</h3>
+          {discountPercent > 0 && (
+            <div className="shrink-0 rounded bg-gradient-to-br from-orange-500 to-red-500 px-1 py-0.5 shadow-sm mt-0.5">
+              <div className="text-[9px] font-bold text-white leading-none tracking-wider">{discountPercent}% OFF</div>
+            </div>
+          )}
+        </div>
 
         <div className={`text-[10px] sm:text-xs font-semibold ${inStock ? stockClass : stockOutClass}`}>
           {inStock ? `${availableStock} in stock` : "Out of stock"}
