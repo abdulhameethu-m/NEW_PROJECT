@@ -1,20 +1,12 @@
-const { AppError } = require("../../../utils/AppError");
-const { Role } = require("../models/Role");
-const { Staff } = require("../models/Staff");
-const { logger } = require("../../../utils/logger");
 
-function countGrantedPermissions(permissions = {}) {
-  return Object.values(permissions).reduce(
-    (total, actions) => total + Object.values(actions || {}).filter(Boolean).length,
-    0
-  );
-}
+const { Role } = require("../models/Role");
+
+
 const {
   STAFF_PERMISSION_CATALOG,
-  createEmptyPermissions,
+  
   normalizePermissions,
 } = require("../permissions");
-
 const PREDEFINED_ROLES = [
   {
     name: "Admin",
@@ -61,7 +53,6 @@ const PREDEFINED_ROLES = [
     }),
   },
 ];
-
 async function ensurePredefinedStaffRoles() {
   await Role.bulkWrite(
     PREDEFINED_ROLES.map((role) => ({
@@ -79,92 +70,6 @@ async function ensurePredefinedStaffRoles() {
   );
 }
 
-async function listRoles() {
-  await ensurePredefinedStaffRoles();
-  return Role.find().sort({ isSystem: -1, name: 1 }).lean();
-}
-
-async function getRoleById(roleId) {
-  const role = await Role.findById(roleId).lean();
-  if (!role) throw new AppError("Role not found", 404, "NOT_FOUND");
-  return role;
-}
-
-async function createRole(payload) {
-  const exists = await Role.findOne({ name: payload.name.trim() });
-  if (exists) throw new AppError("Role name already exists", 409, "ROLE_EXISTS");
-
-  return Role.create({
-    name: payload.name.trim(),
-    description: payload.description || "",
-    permissions: normalizePermissions(payload.permissions),
-  });
-}
-
-async function updateRole(roleId, payload) {
-  const role = await Role.findById(roleId);
-  if (!role) throw new AppError("Role not found", 404, "NOT_FOUND");
-
-  if (payload.name && payload.name.trim() !== role.name) {
-    if (role.isSystem) {
-      throw new AppError("System role names cannot be changed", 400, "INVALID_OPERATION");
-    }
-    const exists = await Role.findOne({ name: payload.name.trim(), _id: { $ne: roleId } });
-    if (exists) throw new AppError("Role name already exists", 409, "ROLE_EXISTS");
-    role.name = payload.name.trim();
-  }
-
-  if (payload.description !== undefined) role.description = payload.description || "";
-  
-  const oldPermissions = role.permissions ? JSON.parse(JSON.stringify(role.permissions)) : {};
-  
-  if (payload.permissions) {
-    role.permissions = normalizePermissions(payload.permissions);
-  }
-
-  await role.save();
-  
-  logger.security("Role permissions updated", {
-    source: "role.service",
-    event: "permission_invalidation",
-    roleId: String(roleId),
-    roleName: role.name,
-    oldPermissionCount: countGrantedPermissions(oldPermissions),
-    newPermissionCount: countGrantedPermissions(role.permissions),
-    moduleCount: Object.keys(role.permissions || {}).length,
-  });
-  
-  return role;
-}
-
-async function deleteRole(roleId) {
-  const role = await Role.findById(roleId);
-  if (!role) throw new AppError("Role not found", 404, "NOT_FOUND");
-  if (role.isSystem) {
-    throw new AppError("System roles cannot be deleted", 400, "INVALID_OPERATION");
-  }
-  const assignedStaff = await Staff.exists({ roleId });
-  if (assignedStaff) {
-    throw new AppError("Role is assigned to staff accounts and cannot be deleted", 400, "ROLE_IN_USE");
-  }
-  await role.deleteOne();
-  return { _id: roleId };
-}
-
-function getPermissionCatalog() {
-  return {
-    catalog: STAFF_PERMISSION_CATALOG,
-    emptyPermissions: createEmptyPermissions(),
-  };
-}
-
 module.exports = {
-  PREDEFINED_ROLES,
   ensurePredefinedStaffRoles,
-  listRoles,
-  getRoleById,
-  createRole,
-  updateRole,
-  deleteRole,
-  getPermissionCatalog,
-};
+};

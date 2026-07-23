@@ -10,7 +10,6 @@ const inventoryWriteAuth = [authRequired, requireRole("vendor", "admin"), requir
 /**
  * Product Inventory Routes
  */
-
 // Get product inventory overview (all variants)
 router.get("/product/:productId", inventoryReadAuth, inventoryController.getProductInventory);
 
@@ -26,7 +25,6 @@ router.get("/product/:productId/variant/:variantId/ledger", inventoryReadAuth, i
 /**
  * Seller Inventory Management Routes (Protected)
  */
-
 // Get seller's inventory summary
 router.get("/seller/summary", inventoryReadAuth, inventoryController.getSellerInventorySummary);
 
@@ -36,7 +34,6 @@ router.get("/seller/low-stock", inventoryReadAuth, inventoryController.getSeller
 /**
  * Inventory Adjustment Routes (Protected - Admin/Seller)
  */
-
 // Manual stock adjustment
 router.post("/product/:productId/variant/:variantId/adjust", inventoryWriteAuth, inventoryController.adjustStock);
 
@@ -46,8 +43,7 @@ router.patch("/product/:productId/variant/:variantId/threshold", inventoryWriteA
 /**
  * Export Routes (Protected)
  */
-
 // Export product inventory as CSV
 router.get("/product/:productId/export/csv", inventoryReadAuth, inventoryController.exportInventoryCSV);
 
-module.exports = router;
+module.exports = router;

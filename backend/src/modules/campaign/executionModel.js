@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-
 const DELIVERABLE_STATUSES = [
   "pending",
   "uploaded",
@@ -18,7 +17,6 @@ const DELIVERABLE_STATUSES = [
 const SUBMISSION_STATUSES = ["uploaded", "under_review", "approved", "revision_requested", "rejected"];
 const REVIEW_DECISIONS = ["approve", "reject", "revision_requested"];
 const PAYOUT_STATUSES = ["not_eligible", "eligible", "generated", "released", "cancelled"];
-
 const campaignDeliverableSchema = new mongoose.Schema(
   {
     campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", required: true, index: true },
@@ -74,7 +72,6 @@ const campaignDeliverableSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "campaign_deliverables" }
 );
-
 campaignDeliverableSchema.index({ campaignId: 1, influencerId: 1, deliverableType: 1 });
 campaignDeliverableSchema.index({ status: 1, dueDate: 1 });
 campaignDeliverableSchema.index({ status: 1, scheduledPublishAt: 1 });
@@ -109,9 +106,7 @@ const deliverableSubmissionSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "deliverable_submissions" }
 );
-
 deliverableSubmissionSchema.index({ deliverableId: 1, version: -1 });
-
 const deliverableReviewSchema = new mongoose.Schema(
   {
     submissionId: { type: mongoose.Schema.Types.ObjectId, ref: "DeliverableSubmission", required: true, index: true },
@@ -125,7 +120,6 @@ const deliverableReviewSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "deliverable_reviews" }
 );
-
 const deliverablePayoutSchema = new mongoose.Schema(
   {
     deliverableId: { type: mongoose.Schema.Types.ObjectId, ref: "CampaignDeliverable", required: true, index: true },
@@ -141,9 +135,7 @@ const deliverablePayoutSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "deliverable_payouts" }
 );
-
 deliverablePayoutSchema.index({ deliverableId: 1, influencerId: 1 }, { unique: true });
-
 const campaignExecutionAuditSchema = new mongoose.Schema(
   {
     campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", index: true },
@@ -158,7 +150,6 @@ const campaignExecutionAuditSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "campaign_execution_audit_logs" }
 );
-
 module.exports = {
   CampaignDeliverable: mongoose.models.CampaignDeliverable || mongoose.model("CampaignDeliverable", campaignDeliverableSchema),
   DeliverableSubmission: mongoose.models.DeliverableSubmission || mongoose.model("DeliverableSubmission", deliverableSubmissionSchema),
@@ -169,4 +160,4 @@ module.exports = {
   SUBMISSION_STATUSES,
   REVIEW_DECISIONS,
   PAYOUT_STATUSES,
-};
+};

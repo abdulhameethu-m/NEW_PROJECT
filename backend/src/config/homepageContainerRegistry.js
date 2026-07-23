@@ -56,13 +56,11 @@ const SORT_OPTIONS = [
   "MOST_POPULAR",
   "CUSTOM_ORDER",
 ];
-
 const PRODUCT_FIELD = {
   type: "async-multiselect",
   source: "products",
   searchable: true,
 };
-
 const FIELD_LIBRARY = {
   autoSlide: { type: "boolean", defaultValue: true },
   slideSpeed: { type: "number", min: 1000, max: 20000, defaultValue: 3500 },
@@ -437,7 +435,6 @@ const FIELD_LIBRARY = {
     defaultValue: "TOP",
   },
 };
-
 function field(name, overrides = {}) {
   return {
     name,
@@ -448,7 +445,6 @@ function field(name, overrides = {}) {
     ...overrides,
   };
 }
-
 const PRODUCT_TYPE_DEFAULTS = {
   supportsProducts: true,
   supportsManualSelection: true,
@@ -860,16 +856,13 @@ const REGISTRY = {
     fields: [field("videoUpload"), field("autoplay"), field("mute"), field("videoPosition")],
   },
 };
-
 const TYPE_ALIASES = {
   PRODUCT_CAROUSEL: "CAROUSEL",
 };
-
 function normalizeContainerType(type) {
   const normalized = String(type || "CAROUSEL").trim().toUpperCase();
   return TYPE_ALIASES[normalized] || normalized;
 }
-
 const COMMON_FIELDS = [
   { name: "title", label: "Container Name", type: "text", required: true },
   { name: "slug", label: "Slug", type: "text", required: true },
@@ -893,7 +886,6 @@ const COMMON_FIELDS = [
   { name: "containerHeight", label: "Container Height", type: "text", defaultValue: "auto" },
   { name: "containerTheme", label: "Container Theme", type: "select", options: ["DEFAULT", "LIGHT", "DARK", "BRAND"], defaultValue: "DEFAULT" },
 ];
-
 const PRODUCT_FILTER_FIELDS = [
   { name: "vendorIds", label: "Vendors", type: "async-multiselect", source: "vendors", searchable: true },
   { name: "categoryIds", label: "Categories", type: "async-multiselect", source: "categories", searchable: true },
@@ -910,15 +902,12 @@ const PRODUCT_FILTER_FIELDS = [
   { name: "productSelectionMode", label: "Product Selection Mode", type: "select", options: PRODUCT_SELECTION_MODES, defaultValue: "AUTO" },
   { name: "manualProductIds", label: "Manual Products", type: "async-multiselect", source: "products", searchable: true },
 ];
-
 function getContainerTypeConfig(type) {
   return REGISTRY[normalizeContainerType(type)] || REGISTRY.CAROUSEL;
 }
-
 function getContainerTypeSchema(type) {
   const normalizedType = normalizeContainerType(type);
   const typeConfig = getContainerTypeConfig(normalizedType);
-
   return {
     type: normalizedType,
     label: typeConfig.label,
@@ -931,24 +920,20 @@ function getContainerTypeSchema(type) {
     typeFields: typeConfig.fields || [],
   };
 }
-
 function listContainerTypeSchemas() {
   return CONTAINER_TYPES.map((type) => getContainerTypeSchema(type));
 }
-
 module.exports = {
   CONTAINER_TYPES,
   CONTAINER_STATUS,
   PRODUCT_SELECTION_MODES,
-  STOREFRONT_SELECTION_MODES,
+
   VENDOR_STOREFRONT_TYPES,
   INFLUENCER_STOREFRONT_TYPES,
-  STOREFRONT_CONTAINER_TYPES,
+
   SORT_OPTIONS,
-  COMMON_FIELDS,
-  PRODUCT_FILTER_FIELDS,
+
   normalizeContainerType,
-  getContainerTypeConfig,
   getContainerTypeSchema,
   listContainerTypeSchemas,
-};
+};

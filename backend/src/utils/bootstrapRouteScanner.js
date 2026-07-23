@@ -45,7 +45,6 @@ function assertNoProductionBootstrapRoutes({
 }
 
 module.exports = {
-  DANGEROUS_ROUTE_PATTERNS,
-  stripJavaScriptComments,
+
   assertNoProductionBootstrapRoutes,
 };

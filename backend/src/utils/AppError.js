@@ -6,6 +6,4 @@ class AppError extends Error {
     this.details = details;
   }
 }
-
-module.exports = { AppError };
-
+module.exports = { AppError };

@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-
 const staffLoginHistorySchema = new mongoose.Schema(
   {
     staffId: {
@@ -30,7 +29,6 @@ const staffLoginHistorySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 module.exports = {
   StaffLoginHistory: mongoose.model("StaffLoginHistory", staffLoginHistorySchema),
-};
+};

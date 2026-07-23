@@ -1,5 +1,4 @@
 const Joi = require("joi");
-
 const gmailPattern = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
 const phonePattern = /^[0-9]{10}$/;
 const passwordSchema = Joi.string()
@@ -28,7 +27,6 @@ const registerSchema = Joi.object({
   }
   return value;
 }, "Role-based register rules");
-
 const loginSchema = Joi.object({
   identifier: Joi.string()
     .trim()
@@ -48,7 +46,6 @@ const loginSchema = Joi.object({
     .required(),
   password: Joi.string().min(1).max(128).required(),
 });
-
 const passwordResetRequestSchema = Joi.object({
   identifier: Joi.string()
     .trim()
@@ -67,12 +64,10 @@ const passwordResetRequestSchema = Joi.object({
     })
     .required(),
 });
-
 const passwordResetSchema = Joi.object({
   token: Joi.string().trim().required(),
   password: passwordSchema.required(),
 });
-
 const findUserForRecoverySchema = Joi.object({
   identifier: Joi.string()
     .trim()
@@ -91,7 +86,6 @@ const findUserForRecoverySchema = Joi.object({
     })
     .required(),
 });
-
 const verifyPasswordResetOTPSchema = Joi.object({
   email: Joi.string()
     .trim()
@@ -114,7 +108,6 @@ const verifyPasswordResetOTPSchema = Joi.object({
     "string.max": "OTP must be 6 digits",
   }),
 });
-
 module.exports = { 
   registerSchema, 
   loginSchema, 
@@ -122,5 +115,4 @@ module.exports = {
   passwordResetSchema, 
   findUserForRecoverySchema,
   verifyPasswordResetOTPSchema,
-};
-
+};

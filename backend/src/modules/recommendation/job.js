@@ -2,11 +2,7 @@ const Queue = require("bull");
 const cron = require("node-cron");
 const { logger } = require("../../utils/logger");
 const recommendationService = require("./service");
-
 let recommendationQueue = null;
-let analyticsCronTask = null;
-let rebuildCronTask = null;
-let cacheRefreshCronTask = null;
 
 async function runRecommendationJob(jobId, actor = { sub: "system", role: "system" }) {
   const job = await recommendationService.updateJob(jobId, {
@@ -78,7 +74,6 @@ function createQueue() {
         enableReadyCheck: false,
       },
     });
-
     queue.process(async (job) => runRecommendationJob(job.data.jobId, job.data.actor || { sub: "system", role: "system" }));
 
     return queue;
@@ -97,8 +92,7 @@ async function enqueueRecommendationJob(jobType, actor) {
 async function initializeRecommendationJobs() {
   const settings = await recommendationService.getSettings();
   recommendationQueue = createQueue();
-
-  rebuildCronTask = cron.schedule(settings.scheduling.rebuildCron || "0 */6 * * *", async () => {
+//   rebuildCronTask = cron.schedule(settings.scheduling.rebuildCron || "0 */6 * * *", async () => {
     try {
       if (recommendationQueue) {
         await enqueueRecommendationJob("rebuild", { sub: "system", role: "system" });
@@ -109,31 +103,27 @@ async function initializeRecommendationJobs() {
     } catch (error) {
       logger.error("Recommendation rebuild job failed", { error: error?.message });
     }
-  });
-
-  analyticsCronTask = cron.schedule(settings.scheduling.analyticsCron || "*/30 * * * *", async () => {
+//   });
+//   analyticsCronTask = cron.schedule(settings.scheduling.analyticsCron || "*/30 * * * *", async () => {
     try {
       await recommendationService.getAnalyticsSummary({ days: 30 });
     } catch (error) {
       logger.error("Recommendation analytics aggregation failed", { error: error?.message });
     }
-  });
-
-  cacheRefreshCronTask = cron.schedule(settings.scheduling.cacheRefreshCron || "0 * * * *", async () => {
+//   });
+//   cacheRefreshCronTask = cron.schedule(settings.scheduling.cacheRefreshCron || "0 * * * *", async () => {
     try {
       await recommendationService.getTrendingProducts({ skipCache: true });
     } catch (error) {
       logger.error("Recommendation cache refresh failed", { error: error?.message });
     }
-  });
-
+//   });
   logger.info("Recommendation jobs initialized", {
     queueEnabled: Boolean(recommendationQueue),
   });
 }
-
 module.exports = {
   initializeRecommendationJobs,
   enqueueRecommendationJob,
-  runRecommendationJob,
+
 };

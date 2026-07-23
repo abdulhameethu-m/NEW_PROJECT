@@ -14,12 +14,9 @@ const uploadReviewMedia = multer({
     files: 11,
   },
 });
-
 const adminRoles = ["admin", "super_admin", "support_admin"];
-
 router.get("/summary", reviewController.getReviewSummaries);
 router.get("/product/:id", reviewController.listProductReviews);
-
 router.post("/", authRequired, requireRole("user"), uploadReviewMedia.array("media", 11), reviewController.createReview);
 router.get("/vendor", vendorAuth, reviewController.listVendorReviews);
 router.get("/admin", authRequired, requireRole(...adminRoles), reviewController.listAdminReviews);
@@ -30,5 +27,4 @@ router.delete("/:id", authRequired, reviewController.deleteReview);
 router.post("/:id/reply", vendorAuth, reviewController.replyToReview);
 router.post("/:id/vote", authRequired, requireRole("user"), reviewController.voteReview);
 router.post("/:id/report", authRequired, requireRole("user"), reviewController.reportReview);
-
-module.exports = router;
+module.exports = router;

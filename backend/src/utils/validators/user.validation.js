@@ -1,6 +1,5 @@
 const Joi = require("joi");
 const phonePattern = /^[0-9]{10}$/;
-
 const profileSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120),
   email: Joi.string().trim().email().allow("", null),
@@ -12,12 +11,10 @@ const profileSchema = Joi.object({
     promotions: Joi.boolean(),
   }),
 });
-
 const changePasswordSchema = Joi.object({
   currentPassword: Joi.string().min(6).max(128).required(),
   newPassword: Joi.string().min(6).max(128).required(),
 });
-
 const addressSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120).required(),
   phone: Joi.string().trim().pattern(phonePattern).required(),
@@ -29,7 +26,6 @@ const addressSchema = Joi.object({
   country: Joi.string().trim().min(2).max(120).required(),
   isDefault: Joi.boolean().default(false),
 });
-
 const addressUpdateSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120),
   phone: Joi.string().trim().pattern(phonePattern),
@@ -41,11 +37,9 @@ const addressUpdateSchema = Joi.object({
   country: Joi.string().trim().min(2).max(120),
   isDefault: Joi.boolean(),
 }).min(1);
-
 const returnRequestSchema = Joi.object({
   reason: Joi.string().trim().min(5).max(1000).required(),
 });
-
 const reviewSchema = Joi.object({
   productId: Joi.string().required(),
   orderId: Joi.string().allow("", null),
@@ -53,24 +47,20 @@ const reviewSchema = Joi.object({
   title: Joi.string().trim().max(160).allow("", null),
   comment: Joi.string().trim().max(2000).allow("", null),
 });
-
 const reviewUpdateSchema = Joi.object({
   rating: Joi.number().integer().min(1).max(5),
   title: Joi.string().trim().max(160).allow("", null),
   comment: Joi.string().trim().max(2000).allow("", null),
 }).min(1);
-
 const supportTicketSchema = Joi.object({
   subject: Joi.string().trim().min(3).max(160).required(),
   category: Joi.string().trim().max(80).allow("", null),
   priority: Joi.string().valid("low", "medium", "high").default("medium"),
   message: Joi.string().trim().min(5).max(2000).required(),
 });
-
 const supportReplySchema = Joi.object({
   message: Joi.string().trim().min(1).max(2000).required(),
 });
-
 module.exports = {
   profileSchema,
   changePasswordSchema,
@@ -81,4 +71,4 @@ module.exports = {
   reviewUpdateSchema,
   supportTicketSchema,
   supportReplySchema,
-};
+};

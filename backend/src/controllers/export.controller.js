@@ -8,7 +8,7 @@ const downloadReport = asyncHandler(async (req, res) => {
   });
 
   res.setHeader("Content-Type", result.contentType);
-  res.setHeader("Content-Disposition", `attachment; filename=\"${result.filename}\"`);
+  res.setHeader("Content-Disposition", `attachment; filename="${result.filename}"`);
   res.send(result.buffer);
 });
 

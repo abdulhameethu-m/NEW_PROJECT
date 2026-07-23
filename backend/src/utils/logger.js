@@ -65,5 +65,4 @@ const requestLoggerStream = {
   write: (message) => logger.info(message.trim(), { source: "morgan" }),
 };
 
-module.exports = { logger, requestLoggerStream, redact };
-
+module.exports = { logger, requestLoggerStream,  };

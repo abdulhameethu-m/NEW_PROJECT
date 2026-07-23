@@ -241,7 +241,6 @@ const campaignSchema = new mongoose.Schema(
     collection: "campaigns",
   }
 );
-
 campaignSchema.index({ vendorId: 1, state: 1, createdAt: -1 });
 campaignSchema.index({ influencerId: 1, state: 1, createdAt: -1 });
 campaignSchema.index({ "marketplace.public": 1, state: 1, createdAt: -1 });
@@ -270,7 +269,6 @@ const campaignInvitationSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "campaign_invitations" }
 );
-
 campaignInvitationSchema.index({ campaignId: 1, influencerId: 1 }, { unique: true });
 campaignInvitationSchema.index({ influencerId: 1, status: 1, invitedAt: -1 });
 campaignInvitationSchema.index({ influencerId: 1, status: 1, deadline: 1 });
@@ -286,10 +284,8 @@ const campaignAcceptanceSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "campaign_acceptances" }
 );
-
 campaignAcceptanceSchema.index({ campaignId: 1, influencerId: 1 }, { unique: true });
 campaignAcceptanceSchema.index({ influencerId: 1, status: 1, acceptedAt: -1 });
-
 const campaignStatusHistorySchema = new mongoose.Schema(
   {
     campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", required: true, index: true },
@@ -303,9 +299,7 @@ const campaignStatusHistorySchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "campaign_status_history" }
 );
-
 campaignStatusHistorySchema.index({ campaignId: 1, changedAt: -1 });
-
 module.exports = {
   Campaign: mongoose.models.Campaign || mongoose.model("Campaign", campaignSchema),
   CampaignInvitation: mongoose.models.CampaignInvitation || mongoose.model("CampaignInvitation", campaignInvitationSchema),

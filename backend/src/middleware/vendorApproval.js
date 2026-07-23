@@ -71,6 +71,6 @@ function requireApprovedVendor(req, res, next) {
 
 module.exports = {
   ensureApprovedVendorForRequest,
-  getVendorApprovalRedirect,
+
   requireApprovedVendor,
 };

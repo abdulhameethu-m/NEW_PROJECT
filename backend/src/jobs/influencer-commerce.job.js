@@ -13,7 +13,6 @@ const campaignRefundService = require("../services/campaign-refund.service");
 const campaignExecutionService = require("../modules/campaign/executionService");
 
 let tasks = [];
-
 async function aggregateInfluencerMetrics() {
   const profiles = await InfluencerProfile.find({}).lean();
   for (const profile of profiles) {
@@ -22,18 +21,15 @@ async function aggregateInfluencerMetrics() {
       TrackingSession.find({ influencerId: profile._id }).lean(),
       Order.find({ "attribution.influencerId": profile._id, status: "Delivered", paymentStatus: "Paid" }).lean(),
     ]);
-
     const nextStats = {
       views: reels.reduce((sum, reel) => sum + Number(reel.metrics?.views || 0), 0),
       clicks: reels.reduce((sum, reel) => sum + Number(reel.metrics?.clicks || 0), 0) + sessions.length,
       sales: orders.length,
       revenue: orders.reduce((sum, order) => sum + Number(order.attribution?.commission?.influencerShare || 0), 0),
     };
-
     await InfluencerProfile.updateOne({ _id: profile._id }, { $set: { stats: nextStats } });
   }
 }
-
 function schedule(cronExpression, taskName, handler) {
   const task = cron.schedule(cronExpression, async () => {
     try {
@@ -49,7 +45,6 @@ function schedule(cronExpression, taskName, handler) {
   });
   tasks.push(task);
 }
-
 async function initializeInfluencerCommerceJobs() {
   commissionService.registerEventHandlers();
   analyticsAggregator.registerEventHandlers();
@@ -57,7 +52,6 @@ async function initializeInfluencerCommerceJobs() {
   schedule(process.env.INFLUENCER_SETTLEMENT_SCHEDULE || "15 2 * * *", "commission-settlement", async () => {
     await commissionService.settleEligibleOrders();
   });
-
   schedule(process.env.INFLUENCER_TRACKING_CLEANUP_SCHEDULE || "0 * * * *", "tracking-cleanup", async () => {
     await trackingService.cleanupExpiredSessions();
   });
@@ -113,15 +107,13 @@ async function initializeInfluencerCommerceJobs() {
     taskCount: tasks.length,
   };
 }
-
 async function shutdownInfluencerCommerceJobs() {
   for (const task of tasks) {
     task.stop();
   }
   tasks = [];
 }
-
 module.exports = {
   initializeInfluencerCommerceJobs,
   shutdownInfluencerCommerceJobs,
-};
+};

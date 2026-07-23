@@ -27,7 +27,6 @@ function buildIdentityQuery({ userId, anonymousId }) {
   if (!anonymousId) throw new AppError("anonymousId is required for guest tracking", 400, "VALIDATION_ERROR");
   return { userId: null, anonymousId };
 }
-
 async function resolveStorefrontContext({ reelId, storefrontId, collectionId, postId, influencerId, trackingCode }) {
   if (reelId) {
     const reel = await Reel.findById(reelId).populate("campaignId");
@@ -123,7 +122,6 @@ class TrackingService {
     if (!(await isInfluencerCommerceEnabled())) {
       throw new AppError("Influencer commerce is disabled", 403, "INFLUENCER_COMMERCE_DISABLED");
     }
-
     const product = await Product.findById(productId);
     if (!product) throw new AppError("Product not found", 404, "NOT_FOUND");
     const context = await resolveStorefrontContext({ reelId, storefrontId, collectionId, postId, influencerId, trackingCode });
@@ -146,7 +144,6 @@ class TrackingService {
         throw new AppError("Self-attribution is not allowed", 400, "SELF_ATTRIBUTION_BLOCKED");
       }
     }
-
     const attributionHours = await attributionHoursForCampaign(context.campaignId);
     const attributionExpiry = nowPlusHours(attributionHours);
     const expiresAt = context.affiliateLink?.expiresAt && new Date(context.affiliateLink.expiresAt).getTime() < attributionExpiry.getTime()
@@ -156,12 +153,10 @@ class TrackingService {
       userId: user?.sub || null,
       anonymousId: anonymousId || `anon_${crypto.randomBytes(8).toString("hex")}`,
     });
-
     await TrackingSession.deleteMany({
       ...identity,
       productId,
     });
-
     const signed = signTrackingToken({
       sub: user?.sub || null,
       anon: identity.anonymousId,
@@ -243,7 +238,6 @@ class TrackingService {
       anonymousId: identity.anonymousId,
     };
   }
-
   async validateTrackingToken(token, userId = null) {
     if (!(await isInfluencerCommerceEnabled())) {
       return null;
@@ -312,5 +306,4 @@ class TrackingService {
     };
   }
 }
-
-module.exports = new TrackingService();
+module.exports = new TrackingService();

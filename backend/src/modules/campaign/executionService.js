@@ -19,7 +19,6 @@ const {
   DeliverablePayout,
   CampaignExecutionAudit,
 } = require("./executionModel");
-
 const ACTIVE_STATES = [
   "accepted",
   "content_creation",
@@ -62,7 +61,6 @@ function money(value) {
   const number = Number(value || 0);
   return Number.isFinite(number) ? Number(number.toFixed(2)) : 0;
 }
-
 function objectId(value) {
   if (!value || !mongoose.Types.ObjectId.isValid(value)) return null;
   return new mongoose.Types.ObjectId(value);
@@ -79,7 +77,6 @@ function assertObjectId(value, field = "id") {
 function titleize(value = "") {
   return String(value || "Deliverable").replace(/[_-]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
-
 function serviceRows(campaign = {}) {
   const payment = campaign.paymentModelSnapshot || {};
   const rate = campaign.influencerRateSnapshot || {};
@@ -92,7 +89,6 @@ function serviceRows(campaign = {}) {
     ...(Array.isArray(contract.influencerRateCard?.selectedServices) ? contract.influencerRateCard.selectedServices : []),
   ];
 }
-
 function fallbackDeliverables(campaign = {}) {
   const required = campaign.marketplace?.requiredDeliverables || [];
   return required.map((name) => ({
@@ -106,7 +102,6 @@ function fallbackDeliverables(campaign = {}) {
     snapshot: { name },
   }));
 }
-
 function normalizeServiceDeliverable(row = {}, campaign = {}) {
   const packageQuantity = Math.max(1, Number(row.packageQuantity || row.snapshot?.package?.packageQuantity || 1));
   const packageCount = Math.max(1, Number(row.quantity || row.units || 1));
@@ -129,7 +124,6 @@ function normalizeServiceDeliverable(row = {}, campaign = {}) {
     snapshot: row,
   };
 }
-
 function dedupeDeliverables(rows = []) {
   const map = new Map();
   rows.forEach((row) => {
@@ -138,13 +132,11 @@ function dedupeDeliverables(rows = []) {
   });
   return [...map.values()];
 }
-
 function deriveDeliverables(campaign = {}) {
   const rows = dedupeDeliverables(serviceRows(campaign).map((row) => normalizeServiceDeliverable(row, campaign)));
   if (rows.length) return rows;
   return fallbackDeliverables(campaign);
 }
-
 function progress(deliverables = []) {
   const total = deliverables.length;
   const completed = deliverables.filter((row) => row.completionStatus === "completed" || row.status === "completed").length;
@@ -414,7 +406,6 @@ async function audit({ actorId, role, action, campaignId, deliverableId = null, 
     metadata: { campaignId, deliverableId, submissionId, oldValue, newValue, ...metadata },
   }).catch(() => {});
 }
-
 class CampaignExecutionService {
   async ensureDeliverables(campaign) {
     const existing = await CampaignDeliverable.find({ campaignId: campaign._id }).sort({ createdAt: 1 });
@@ -445,7 +436,6 @@ class CampaignExecutionService {
     }
     return created;
   }
-
   async influencerExecution(userId, campaignId) {
     const campaignObjectId = assertObjectId(campaignId, "campaignId");
     const profile = await influencerService.getProfile(userId);
@@ -467,7 +457,6 @@ class CampaignExecutionService {
     const deliverables = await this.ensureDeliverables(campaign);
     return this.presentExecution(campaign, deliverables, campaign.influencerId?._id || campaign.influencerId);
   }
-
   async presentExecution(campaign, deliverables, influencerId) {
     const deliverableIds = deliverables.map((row) => row._id);
     const [submissions, reviews, payouts, fundings, commissions, affiliateLinks] = await Promise.all([
@@ -910,7 +899,6 @@ class CampaignExecutionService {
     await audit({ actorId: userId, role: "vendor", action: decision === "approve" ? "deliverable_approved" : decision === "reject" ? "deliverable_rejected" : "revision_requested", campaignId, deliverableId, submissionId: submission._id, oldValue, newValue: { status: deliverable.status, approvalStatus: deliverable.approvalStatus } });
     return this.vendorExecution(userId, campaignId);
   }
-
   async refreshCampaignStatus(campaignId, actorId) {
     const campaign = await Campaign.findById(campaignId);
     if (!campaign) return null;
@@ -925,7 +913,7 @@ class CampaignExecutionService {
     if (current.total > 0 && current.completed === current.total) nextStatus = deliverables.some((row) => row.scheduledPublishAt) ? "publish_scheduled" : "ready_for_publish";
     else if (current.completed > 0) nextStatus = "partially_completed";
     else if (deliverables.some((row) => row.status === "under_review")) nextStatus = "under_review";
-    
+
     if (nextStatus !== campaign.state) {
       await CampaignStatusHistory.create({ campaignId, oldStatus: campaign.state, newStatus: nextStatus, changedBy: actorId, changedByRole: "system", reason: "Deliverable execution progress updated" });
       const nextLifecycle = nextStatus === "under_review"
@@ -943,7 +931,6 @@ class CampaignExecutionService {
     }
     return campaign;
   }
-
   async reviewQueue(userId, query = {}) {
     const vendor = await vendorRepo.findByUserId(userId);
     if (!vendor) throw new AppError("Vendor profile not found", 404, "VENDOR_NOT_FOUND");
@@ -997,26 +984,24 @@ class CampaignExecutionService {
     const campaignObjectId = assertObjectId(campaignId, "campaignId");
     // Get profile to verify influencer
     const profile = await influencerService.getProfile(userId);
-    
+
     // Get campaign and verify it belongs to influencer
     const campaign = await Campaign.findById(campaignObjectId);
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
     if (String(campaign.influencerId || "") !== String(profile._id)) throw new AppError("Forbidden", 403, "FORBIDDEN");
-    
     // Get all deliverables for campaign
     const deliverables = await CampaignDeliverable.find({ campaignId: campaignObjectId }).lean();
     if (!deliverables.length) return { success: false, message: "No deliverables found" };
-    
     // Check if all deliverables have associated published content
     const publishedContent = await Reel.find({
       campaignId: campaignObjectId,
       visibility: "published"
     }).lean().catch(() => []);
-    
+
     const publishedCount = publishedContent.length;
     const publication = allDeliverablesPublished(deliverables, publishedCount);
     const totalDeliverables = publication.requiredCount;
-    
+
     if (publication.complete && campaign.currentLifecycleStatus !== LIFECYCLE.LIVE && campaign.currentLifecycleStatus !== LIFECYCLE.COMPLETED) {
       const now = new Date();
       const durationDays = Number(campaign.campaignDurationDays || campaign.lifecycleConfig?.campaignDurationDays || 30);
@@ -1029,7 +1014,7 @@ class CampaignExecutionService {
         changedByRole: "influencer",
         reason: "All approved deliverables published; campaign is live"
       });
-      
+
       campaign.state = "live";
       campaign.currentLifecycleStatus = LIFECYCLE.LIVE;
       campaign.publishedAt = campaign.publishedAt || now;
@@ -1064,10 +1049,10 @@ class CampaignExecutionService {
         campaignId: campaignObjectId,
         metadata: { reason: "All deliverables published", publishedCount, totalDeliverables }
       });
-      
+
       return { success: true, message: "Campaign is live", campaignState: "live", campaignEndDate };
     }
-    
+
     return { 
       success: false, 
       message: `Not all deliverables are published. ${publishedCount}/${totalDeliverables} published`,
@@ -1389,4 +1374,3 @@ class CampaignExecutionService {
 }
 
 module.exports = new CampaignExecutionService();
-module.exports.__private__ = { deriveDeliverables, progress, money, requiredPublishedContentCount, allDeliverablesPublished };

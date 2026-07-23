@@ -6,4 +6,4 @@ class ApiError extends AppError {
   }
 }
 
-module.exports = { ApiError };
+module.exports = { ApiError };

@@ -1,5 +1,4 @@
 const Joi = require("joi");
-
 const invoiceSettingsSchema = Joi.object({
   organizationName: Joi.string().trim().allow("").max(160),
   legalCompanyName: Joi.string().trim().allow("").max(160),
@@ -24,7 +23,6 @@ const invoiceSettingsSchema = Joi.object({
     upiId: Joi.string().trim().allow("").max(120),
   }).default({}),
 });
-
 const invoiceMetadataSchema = Joi.object({
   customNotes: Joi.string().trim().allow("").max(1200),
   footerText: Joi.string().trim().allow("").max(1200),
@@ -41,8 +39,7 @@ const invoiceMetadataSchema = Joi.object({
     registeredAddress: Joi.string().trim().allow("").max(500),
   }).default({}),
 });
-
 module.exports = {
   invoiceSettingsSchema,
   invoiceMetadataSchema,
-};
+};

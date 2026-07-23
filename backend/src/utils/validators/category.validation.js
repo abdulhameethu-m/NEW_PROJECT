@@ -1,5 +1,4 @@
 const Joi = require("joi");
-
 const categoryPayload = {
   name: Joi.string().trim().max(120),
   code: Joi.string().trim().max(10).allow(""),
@@ -10,7 +9,6 @@ const categoryPayload = {
   isActive: Joi.boolean(),
   order: Joi.number().integer().min(0),
 };
-
 const createCategorySchema = Joi.object({
   name: categoryPayload.name.required().messages({
     "any.required": "Category name is required",
@@ -24,15 +22,12 @@ const createCategorySchema = Joi.object({
   isActive: categoryPayload.isActive,
   order: categoryPayload.order,
 });
-
 const updateCategorySchema = Joi.object(categoryPayload).min(1);
-
 const toggleCategorySchema = Joi.object({
   isActive: Joi.boolean().required(),
 });
-
 module.exports = {
   createCategorySchema,
   updateCategorySchema,
   toggleCategorySchema,
-};
+};

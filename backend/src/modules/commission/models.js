@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 const { COMMISSION_STATES } = require("../shared/constants");
-
 const RULE_TYPES = [
   "global",
   "category",
@@ -12,7 +11,6 @@ const RULE_TYPES = [
   "affiliate",
   "custom_formula",
 ];
-
 const COMMISSION_METHODS = [
   "percentage",
   "fixed",
@@ -22,7 +20,6 @@ const COMMISSION_METHODS = [
   "revenue_share",
   "custom_formula",
 ];
-
 const RULE_STATUSES = ["draft", "pending_approval", "active", "inactive", "expired", "rejected", "archived"];
 const LEDGER_STATES = ["PENDING", "APPROVED", "SETTLED", "PAID", "REVERSED"];
 const LEDGER_ENTRY_TYPES = ["COMMISSION", "PERFORMANCE_BONUS", "CAMPAIGN_BONUS", "MANUAL_ADJUSTMENT", "REVERSAL", "PENALTY", "REFUND_ADJUSTMENT"];
@@ -51,7 +48,6 @@ const commissionRuleConditionSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "commission_rule_conditions" }
 );
-
 const commissionRuleVersionSchema = new mongoose.Schema(
   {
     ruleId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerCommissionRule", required: true, index: true },
@@ -64,9 +60,7 @@ const commissionRuleVersionSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "commission_rule_versions" }
 );
-
 commissionRuleVersionSchema.index({ ruleId: 1, version: -1 }, { unique: true });
-
 const commissionRuleSchema = new mongoose.Schema(
   {
     ruleName: { type: String, required: true, trim: true, maxlength: 180 },
@@ -98,10 +92,8 @@ const commissionRuleSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "influencer_commission_rules" }
 );
-
 commissionRuleSchema.index({ status: 1, ruleType: 1, priority: -1, effectiveDate: 1, expiryDate: 1 });
 commissionRuleSchema.index({ productId: 1, campaignId: 1, influencerId: 1, categoryId: 1, trafficSource: 1 });
-
 const commissionSnapshotSchema = new mongoose.Schema(
   {
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true, unique: true, index: true },
@@ -129,7 +121,6 @@ const commissionSnapshotSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "commission_snapshots" }
 );
-
 const commissionLedgerSchema = new mongoose.Schema(
   {
     influencerId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerProfile", required: true, index: true },
@@ -148,10 +139,8 @@ const commissionLedgerSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "commission_ledgers" }
 );
-
 commissionLedgerSchema.index({ influencerId: 1, state: 1, createdAt: -1 });
 commissionLedgerSchema.index({ orderId: 1, entryType: 1 });
-
 const commissionAdjustmentSchema = new mongoose.Schema(
   {
     influencerId: { type: mongoose.Schema.Types.ObjectId, ref: "InfluencerProfile", required: true, index: true },
@@ -166,7 +155,6 @@ const commissionAdjustmentSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "commission_adjustments" }
 );
-
 const commissionReversalSchema = new mongoose.Schema(
   {
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true, index: true },
@@ -180,7 +168,6 @@ const commissionReversalSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "commission_reversals" }
 );
-
 const commissionSettlementSchema = new mongoose.Schema(
   {
     cycle: { type: String, enum: ["daily", "weekly", "bi_weekly", "monthly"], required: true, index: true },
@@ -195,7 +182,6 @@ const commissionSettlementSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "commission_settlements" }
 );
-
 const commissionPayoutBatchSchema = new mongoose.Schema(
   {
     settlementId: { type: mongoose.Schema.Types.ObjectId, ref: "CommissionSettlement", index: true },
@@ -209,7 +195,6 @@ const commissionPayoutBatchSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "commission_payout_batches" }
 );
-
 const commissionAuditLogSchema = new mongoose.Schema(
   {
     action: { type: String, required: true, trim: true, index: true },
@@ -225,7 +210,6 @@ const commissionAuditLogSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "commission_audit_logs" }
 );
-
 const influencerWalletSchema = new mongoose.Schema(
   {
     influencerId: {
@@ -251,7 +235,6 @@ const influencerWalletSchema = new mongoose.Schema(
     collection: "influencer_wallets",
   }
 );
-
 const influencerLedgerSchema = new mongoose.Schema(
   {
     influencerId: {
@@ -293,10 +276,8 @@ const influencerLedgerSchema = new mongoose.Schema(
     collection: "influencer_ledgers",
   }
 );
-
 influencerLedgerSchema.index({ influencerId: 1, createdAt: -1 });
 influencerLedgerSchema.index({ orderId: 1, source: 1 });
-
 const influencerPayoutAccountSchema = new mongoose.Schema(
   {
     influencerId: {
@@ -338,7 +319,6 @@ const influencerPayoutAccountSchema = new mongoose.Schema(
     collection: "influencer_payout_accounts",
   }
 );
-
 influencerPayoutAccountSchema.index({ influencerId: 1, isActive: 1, createdAt: -1 });
 influencerPayoutAccountSchema.index({ influencerId: 1, isDefault: 1 });
 
@@ -708,7 +688,6 @@ const commissionRecordSchema = new mongoose.Schema(
     collection: "commission_records",
   }
 );
-
 module.exports = {
   InfluencerCommissionRule:
     mongoose.models.InfluencerCommissionRule ||

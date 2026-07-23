@@ -4,13 +4,10 @@ const { requireApprovedVendor } = require("../middleware/vendorApproval");
 const orderController = require("../controllers/order.controller");
 
 const router = express.Router();
-
 router.use(authRequired);
-
 // User flows
 router.post("/create", orderController.create);
 router.get("/user", orderController.listUser);
-
 // Seller/Admin flows
 router.get("/seller/me", requireRole("vendor", "admin"), requireApprovedVendor, orderController.listSeller);
 router.patch("/:id/status", requireRole("vendor", "admin"), requireApprovedVendor, orderController.updateStatus);
@@ -22,5 +19,4 @@ router.post("/:id/cancel", express.json(), orderController.cancel);
 router.patch("/:id/cancel", orderController.cancel);
 router.patch("/:id/return", orderController.requestReturn);
 
-module.exports = router;
-
+module.exports = router;

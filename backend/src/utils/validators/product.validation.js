@@ -1,12 +1,10 @@
 const Joi = require("joi");
 const objectId = Joi.string().hex().length(24);
-
 const relativeOrAbsoluteUrlSchema = Joi.string()
   .trim()
   .custom((value, helpers) => {
     if (!value) return helpers.error("string.empty");
     if (value.startsWith("/")) return value;
-
     try {
       const parsed = new URL(value);
       if (parsed.protocol === "http:" || parsed.protocol === "https:") {
@@ -15,17 +13,14 @@ const relativeOrAbsoluteUrlSchema = Joi.string()
     } catch {
       // fall through
     }
-
     return helpers.error("string.uri");
   }, "relative or absolute URL validation");
-
 const productImageSchema = Joi.object({
   url: relativeOrAbsoluteUrlSchema.required(),
   altText: Joi.string().trim().max(255).allow(""),
   isPrimary: Joi.boolean(),
   sortOrder: Joi.number().integer().min(0),
 });
-
 const productVariantSchema = Joi.object({
   variantId: Joi.string().trim().required(),
   title: Joi.string().trim().allow(""),
@@ -51,7 +46,6 @@ const productVariantSchema = Joi.object({
   isDefault: Joi.boolean().default(false),
   isActive: Joi.boolean().default(true),
 });
-
 const weightSchema = Joi.object({
   value: Joi.number().greater(0).required().messages({
     "number.base": "Weight must be a number",
@@ -70,15 +64,12 @@ const productSchema = Joi.object({
     "string.min": "Product name must be at least 3 characters",
     "string.max": "Product name cannot exceed 255 characters",
   }),
-
   description: Joi.string().required().trim().min(10).max(5000).messages({
     "string.empty": "Product description is required",
     "string.min": "Product description must be at least 10 characters",
     "string.max": "Product description cannot exceed 5000 characters",
   }),
-
   shortDescription: Joi.string().trim().max(500),
-
   category: Joi.string().required().trim().messages({
     "string.empty": "Category is required",
   }),
@@ -86,39 +77,30 @@ const productSchema = Joi.object({
     "string.length": "Category is invalid",
     "any.required": "Category is required",
   }),
-
   subCategory: Joi.string().trim().allow("", null),
   subCategoryId: objectId.required().messages({
     "string.length": "Subcategory is invalid",
     "any.required": "Subcategory is required",
   }),
-
   tags: Joi.array().items(Joi.string().trim()).max(10),
-
   price: Joi.number().required().min(0).messages({
     "number.base": "Price must be a number",
     "number.min": "Price cannot be negative",
   }),
-
   discountPrice: Joi.number().min(0).messages({
     "number.base": "Discount price must be a number",
     "number.min": "Discount price cannot be negative",
   }),
-
   currency: Joi.string()
     .valid("USD", "EUR", "INR", "GBP")
     .default("INR"),
-
   stock: Joi.number().required().integer().min(0).messages({
     "number.base": "Stock must be a number",
     "number.min": "Stock cannot be negative",
   }),
-
   SKU: Joi.string().trim().uppercase().regex(/^[A-Z0-9-]+$/).allow(""),
   productNumber: Joi.string().trim().uppercase().regex(/^[A-Z0-9]+$/).allow(""),
-
   lowStockThreshold: Joi.number().integer().min(0).default(10),
-
   images: Joi.array()
     .items(productImageSchema)
     .min(1)
@@ -135,23 +117,17 @@ const productSchema = Joi.object({
       "array.min": "At least one generic image is required",
       "array.max": "Maximum 10 generic images allowed",
     }),
-
   thumbnail: Joi.string().uri(),
-
   variantConfig: Joi.array().items(Joi.string().trim().lowercase().pattern(/^[a-z][a-z0-9_]*$/)).default([]),
   variants: Joi.array().items(productVariantSchema).default([]),
-
   metaDescription: Joi.string().trim().max(160),
   metaKeywords: Joi.array().items(Joi.string().trim()).max(10),
-
   weight: weightSchema.required(),
-
   dimensions: Joi.object({
     length: Joi.number().min(0),
     width: Joi.number().min(0),
     height: Joi.number().min(0),
   }),
-
   returnPolicy: Joi.string().trim().max(1000),
   modulesData: Joi.object().pattern(
     Joi.string(),
@@ -292,8 +268,6 @@ const updateProductSchema = Joi.alternatives().conditional(
 );
 
 // Schema for admin approval
-const approveProductSchema = Joi.object({}).unknown(true);
-
 // Schema for rejecting product
 const rejectProductSchema = Joi.object({
   rejectionReason: Joi.string().required().trim().min(10).max(1000).messages({
@@ -302,11 +276,8 @@ const rejectProductSchema = Joi.object({
     "string.max": "Rejection reason cannot exceed 1000 characters",
   }),
 });
-
 module.exports = {
-  productSchema,
   createProductSchema,
   updateProductSchema,
-  approveProductSchema,
   rejectProductSchema,
-};
+};

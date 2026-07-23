@@ -6,7 +6,6 @@ const { StaffSession } = require("../modules/staff/models/StaffSession");
 const { hasStaffPermission } = require("../modules/staff/permissions");
 const { logger } = require("../utils/logger");
 const vendorModuleService = require("../services/vendorModule.service");
-
 function getTokenFromReq(req) {
   const header = req.headers.authorization || "";
   if (header.startsWith("Bearer ")) {
@@ -28,7 +27,6 @@ async function adminWorkspaceAuthRequired(req, res, next) {
     logger.warn("Auth request without token", { path: req.path, method: req.method });
     return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
   }
-
   try {
     const payload = verifyAccessToken(token);
     if (ADMIN_ROLES.includes(normalizeRole(payload.role))) {
@@ -41,7 +39,6 @@ async function adminWorkspaceAuthRequired(req, res, next) {
     logger.debug("Legacy admin token verification failed", { error: error.message });
     // Staff tokens are validated below.
   }
-
   try {
     const payload = verifyStaffAccessToken(token);
     const session = await StaffSession.findById(payload.sid);
@@ -49,13 +46,11 @@ async function adminWorkspaceAuthRequired(req, res, next) {
       logger.warn("Staff session expired or revoked", { staffId: payload.sub, path: req.path });
       return next(new AppError("Session expired", 401, "UNAUTHORIZED"));
     }
-
     const staff = await Staff.findById(payload.sub).populate("roleId");
     if (!staff || staff.status !== "active") {
       logger.warn("Staff account unavailable", { staffId: payload.sub, status: staff?.status });
       return next(new AppError("Staff account unavailable", 401, "UNAUTHORIZED"));
     }
-
     const issuedAt = payload.iat ? new Date(payload.iat * 1000) : null;
     if (
       issuedAt &&
@@ -65,7 +60,6 @@ async function adminWorkspaceAuthRequired(req, res, next) {
       logger.warn("Staff session invalidated due to password/logout", { staffId: payload.sub });
       return next(new AppError("Session expired", 401, "UNAUTHORIZED"));
     }
-
     req.staff = {
       _id: staff._id,
       name: staff.name,
@@ -91,56 +85,46 @@ async function adminWorkspaceAuthRequired(req, res, next) {
     return next(new AppError("Invalid or expired token", 401, "UNAUTHORIZED"));
   }
 }
-
 function requireWorkspacePermission(permission, options = {}) {
   const legacyPermission = options.legacyPermission || permission;
-
   return async (req, res, next) => {
     try {
       if (!req.user || !req.authContext) {
         return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
       }
-
       if (req.authContext.type === "legacy_admin") {
         if (!hasPermission(req.user.role, legacyPermission)) {
           return next(new AppError("Forbidden", 403, "FORBIDDEN"));
         }
         return next();
       }
-
       if (!hasStaffPermission(req.user.permissions, permission)) {
         return next(new AppError("Access denied", 403, "FORBIDDEN"));
       }
-
       const [moduleName] = String(permission || "").split(".");
       const isGloballyEnabled = await vendorModuleService.isModuleGloballyEnabled(moduleName);
       if (!isGloballyEnabled) {
         return next(new AppError("Module is disabled globally", 403, "MODULE_DISABLED"));
       }
-
       return next();
     } catch (error) {
       return next(error);
     }
   };
 }
-
 function requireLegacyAdminPermission(permission) {
   return (req, res, next) => {
     if (!req.user || req.authContext?.type !== "legacy_admin") {
       return next(new AppError("Forbidden", 403, "FORBIDDEN"));
     }
-
     if (!hasPermission(req.user.role, permission)) {
       return next(new AppError("Forbidden", 403, "FORBIDDEN"));
     }
-
     return next();
   };
 }
-
 module.exports = {
   adminWorkspaceAuthRequired,
   requireWorkspacePermission,
   requireLegacyAdminPermission,
-};
+};

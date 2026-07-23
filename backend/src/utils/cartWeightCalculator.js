@@ -5,7 +5,6 @@ const { logger } = require("./logger");
  * Cart Weight Calculation Utilities
  * Handles weight aggregation for shipping calculations
  */
-
 /**
  * Calculate total weight from cart items
  * @param {Array} cartItems - Array of cart items with product data
@@ -15,16 +14,13 @@ function calculateCartWeight(cartItems) {
   if (!Array.isArray(cartItems) || cartItems.length === 0) {
     return 0;
   }
-
   try {
     let totalWeight = 0;
-
     for (const item of cartItems) {
       const productWeight = getItemWeight(item);
       const itemTotalWeight = productWeight * (item.quantity || 1);
       totalWeight += itemTotalWeight;
     }
-
     // Preserve gram-level precision in kg values.
     return Math.round(totalWeight * 1000) / 1000;
   } catch (error) {
@@ -35,7 +31,6 @@ function calculateCartWeight(cartItems) {
     );
   }
 }
-
 /**
  * Get weight of a single item
  * @param {Object} item - Cart item object
@@ -48,9 +43,7 @@ function getItemWeight(item) {
       return snapshotWeight;
     }
   }
-
   const product = item.product || item;
-
   // Try structured weight field first
   if (product.weight && typeof product.weight === "object") {
     const weight = product.weight.value;
@@ -58,12 +51,10 @@ function getItemWeight(item) {
       return weight;
     }
   }
-
   // Fallback for legacy weight field (number)
   if (typeof product.weight === "number" && product.weight > 0) {
     return product.weight;
   }
-
   // Default weight for products without weight specified (0.5kg)
   logger.warn("Product weight missing; using default shipment weight", {
     source: "cartWeightCalculator",
@@ -84,35 +75,8 @@ function validateAllItemsHaveWeight(cartItems) {
   }
 }
 
-/**
- * Get weight breakdown by item
- * Useful for debugging and detailed calculations
- * @param {Array} cartItems - Array of cart items
- * @returns {Array} Array of {itemName, quantity, weight, totalWeight}
- */
-function getWeightBreakdown(cartItems) {
-  if (!Array.isArray(cartItems)) {
-    return [];
-  }
-
-  return cartItems.map((item) => {
-    const product = item.product || item;
-    const itemWeight = getItemWeight(item);
-    const quantity = item.quantity || 1;
-
-    return {
-      productId: product._id || product.id,
-      productName: product.name || "Unknown",
-      quantity,
-      weightPerUnit: itemWeight,
-      totalWeight: Math.round(itemWeight * quantity * 1000) / 1000,
-    };
-  });
-}
-
 module.exports = {
   calculateCartWeight,
   getItemWeight,
   validateAllItemsHaveWeight,
-  getWeightBreakdown,
-};
+};

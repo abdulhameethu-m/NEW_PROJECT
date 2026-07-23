@@ -1,9 +1,7 @@
 const Queue = require("bull");
-const redis = require("redis");
 const cron = require("node-cron");
 const { logger } = require("../utils/logger");
 const settlementService = require("../services/settlement.service");
-
 /**
  * Settlement Job Scheduler
  *
@@ -18,10 +16,8 @@ const settlementService = require("../services/settlement.service");
  * - Failure notifications
  * - Manual trigger via HTTP endpoint
  */
-
 let settlementQueue = null;
 let cronTask = null;
-
 /**
  * Initialize Bull Queue
  * @returns {Queue.Queue} Bull queue instance
@@ -38,17 +34,14 @@ function initializeBullQueue() {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
   };
-
   try {
     const queue = new Queue("settlement", redisConfig);
-
     // Process jobs from the queue
     queue.process(async (job) => {
       logger.info("🔄 Processing settlement job from Bull queue", {
         jobId: job.id,
         data: job.data,
       });
-
       try {
         const startTime = Date.now();
         const result = await settlementService.processEligibleSettlements({
@@ -56,15 +49,12 @@ function initializeBullQueue() {
           maxRetries: job.data.maxRetries || 3,
           vendorId: job.data.vendorId || null,
         });
-
         const duration = Date.now() - startTime;
-
         logger.info("✅ Settlement job completed successfully", {
           jobId: job.id,
           result,
           duration: `${(duration / 1000).toFixed(2)}s`,
         });
-
         return {
           success: true,
           ...result,
@@ -76,11 +66,9 @@ function initializeBullQueue() {
           error: error?.message || String(error),
           stack: error?.stack,
         });
-
         throw error;
       }
     });
-
     // Event handlers
     queue.on("completed", (job, result) => {
       logger.info("📊 Settlement job completed", {
@@ -89,7 +77,6 @@ function initializeBullQueue() {
         settledAmount: result.settledAmount,
       });
     });
-
     queue.on("failed", (job, err) => {
       logger.error("⚠️ Settlement job failed after retries", {
         jobId: job.id,
@@ -97,19 +84,16 @@ function initializeBullQueue() {
         error: err?.message,
       });
     });
-
     queue.on("error", (err) => {
       logger.error("💥 Bull queue error", {
         error: err?.message,
         code: err?.code,
       });
     });
-
     logger.info("✅ Bull Queue initialized for settlement jobs", {
       redisHost: redisConfig.host,
       redisPort: redisConfig.port,
     });
-
     return queue;
   } catch (error) {
     logger.error("⚠️ Failed to initialize Bull Queue, falling back to node-cron", {
@@ -118,26 +102,22 @@ function initializeBullQueue() {
     return null;
   }
 }
-
 /**
  * Initialize Node-Cron Scheduler (Fallback)
  */
 function initializeCronScheduler() {
   const schedule = process.env.SETTLEMENT_JOB_SCHEDULE || "0 2 * * *"; // Default: 2 AM daily
-
   try {
     cronTask = cron.schedule(schedule, async () => {
       logger.info("🔄 Cron settlement job triggered", {
         schedule,
         timestamp: new Date().toISOString(),
       });
-
       try {
         const result = await settlementService.processEligibleSettlements({
           batchSize: Number(process.env.SETTLEMENT_BATCH_SIZE || 50),
           maxRetries: Number(process.env.SETTLEMENT_MAX_RETRIES || 3),
         });
-
         logger.info("✅ Cron settlement job completed", {
           processedOrders: result.processedOrders,
           settledAmount: result.settledAmount,
@@ -148,12 +128,10 @@ function initializeCronScheduler() {
         });
       }
     });
-
     logger.info("✅ Node-Cron scheduler initialized for settlement jobs", {
       schedule,
       description: "Settlement job will run on this cron schedule",
     });
-
     return cronTask;
   } catch (error) {
     logger.error("💥 Failed to initialize Node-Cron scheduler", {
@@ -162,7 +140,6 @@ function initializeCronScheduler() {
     throw error;
   }
 }
-
 /**
  * Initialize settlement scheduler
  *
@@ -175,12 +152,10 @@ function initializeCronScheduler() {
  */
 async function initializeSettlementScheduler() {
   const mode = (process.env.SETTLEMENT_SCHEDULER_MODE || "auto").toLowerCase();
-
   logger.info("🚀 Initializing Settlement Scheduler", {
     mode,
     schedule: process.env.SETTLEMENT_JOB_SCHEDULE || "0 2 * * * (daily at 2 AM)",
   });
-
   if (mode === "cron" || mode === "development") {
     // Force node-cron mode
     initializeCronScheduler();
@@ -190,23 +165,19 @@ async function initializeSettlementScheduler() {
       message: "Using Node-Cron scheduler",
     };
   }
-
   // Try Bull first, fallback to Cron
   settlementQueue = initializeBullQueue();
-
   if (settlementQueue) {
     // Also schedule with cron for manual triggers
     if (process.env.SETTLEMENT_ENABLE_CRON_FALLBACK !== "false") {
       initializeCronScheduler();
     }
-
     return {
       mode: "bull",
       status: "initialized",
       message: "Using Bull Queue scheduler with Redis",
     };
   }
-
   // Fallback to Cron
   initializeCronScheduler();
   return {
@@ -215,7 +186,6 @@ async function initializeSettlementScheduler() {
     message: "Bull Queue unavailable, using Node-Cron scheduler",
   };
 }
-
 /**
  * Queue a manual settlement job
  * Useful for admin endpoints to trigger settlement manually
@@ -230,20 +200,17 @@ async function queueSettlementJob(options = {}) {
     vendorId = null,
     priority = "normal",
   } = options;
-
   if (!settlementQueue) {
     // If Bull not available, run synchronously
     logger.warn("⚠️ Bull Queue not available, running settlement synchronously", {
       options,
     });
-
     return await settlementService.processEligibleSettlements({
       batchSize,
       maxRetries,
       vendorId,
     });
   }
-
   // Add to Bull queue
   const job = await settlementQueue.add(
     {
@@ -263,19 +230,16 @@ async function queueSettlementJob(options = {}) {
       jobId: `settlement-${Date.now()}`,
     }
   );
-
   logger.info("📋 Settlement job queued", {
     jobId: job.id,
     options,
   });
-
   return {
     queued: true,
     jobId: job.id,
     message: "Settlement job added to queue",
   };
 }
-
 /**
  * Get queue status
  * @returns {Promise<Object>} Queue status
@@ -288,10 +252,8 @@ async function getQueueStatus() {
       message: "Bull Queue not available",
     };
   }
-
   const counts = await settlementQueue.getJobCounts();
   const workers = await settlementQueue.getWorkers();
-
   return {
     available: true,
     mode: "bull",
@@ -300,7 +262,6 @@ async function getQueueStatus() {
     isPaused: settlementQueue.isPaused(),
   };
 }
-
 /**
  * Pause settlement jobs
  * @returns {Promise<void>}
@@ -315,7 +276,6 @@ async function pauseSettlementJobs() {
     logger.info("⏸️  Cron task paused");
   }
 }
-
 /**
  * Resume settlement jobs
  * @returns {Promise<void>}
@@ -330,22 +290,18 @@ async function resumeSettlementJobs() {
     logger.info("▶️  Cron task resumed");
   }
 }
-
 /**
  * Clear all queued jobs (development only)
  * @returns {Promise<void>}
  */
 async function clearQueue() {
   if (!settlementQueue) return;
-
   if (process.env.NODE_ENV === "production") {
     throw new Error("Cannot clear queue in production");
   }
-
   await settlementQueue.clean(0);
   logger.warn("🗑️  Settlement queue cleared (development only)");
 }
-
 /**
  * Get recent job history
  * @param {number} limit - Number of recent jobs to fetch
@@ -353,10 +309,8 @@ async function clearQueue() {
  */
 async function getRecentJobs(limit = 20) {
   if (!settlementQueue) return [];
-
   const completed = await settlementQueue.getCompleted(0, limit);
   const failed = await settlementQueue.getFailed(0, limit);
-
   return {
     completed: completed.map((job) => ({
       id: job.id,
@@ -373,25 +327,20 @@ async function getRecentJobs(limit = 20) {
     })),
   };
 }
-
 /**
  * Graceful shutdown
  * @returns {Promise<void>}
  */
 async function shutdown() {
   logger.info("🛑 Shutting down settlement scheduler");
-
   if (cronTask) {
     cronTask.stop();
   }
-
   if (settlementQueue) {
     await settlementQueue.close();
   }
-
   logger.info("✅ Settlement scheduler shut down");
 }
-
 module.exports = {
   initializeSettlementScheduler,
   queueSettlementJob,
@@ -401,4 +350,4 @@ module.exports = {
   clearQueue,
   getRecentJobs,
   shutdown,
-};
+};

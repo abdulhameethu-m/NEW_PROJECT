@@ -20,7 +20,6 @@ function requireVendorModule(moduleKey) {
     if (!req.user || req.user.role !== "vendor") {
       return next();
     }
-
     try {
       await ensureApprovedVendorForRequest(req);
       const hasAccess = await vendorModuleService.canVendorPerformAction(moduleKey, "read", req.user);
@@ -41,7 +40,6 @@ function requireVendorModule(moduleKey) {
           )
         );
       }
-
       // Store module info in request for later use
       req.module = { key: moduleKey };
       next();
@@ -50,18 +48,15 @@ function requireVendorModule(moduleKey) {
     }
   };
 }
-
 function requireVendorPermission(permission) {
   return async (req, res, next) => {
     if (!req.user || req.user.role !== "vendor") {
       return next();
     }
-
     const [moduleKey] = String(permission || "").split(".");
     if (!moduleKey) {
       return next(new AppError("Invalid vendor permission format", 500, "INVALID_VENDOR_PERMISSION"));
     }
-
     try {
       await ensureApprovedVendorForRequest(req);
       const allowed = await vendorModuleService.canVendorAccessModule(moduleKey, req.user);
@@ -83,7 +78,6 @@ function requireVendorPermission(permission) {
           )
         );
       }
-
       req.module = { key: moduleKey, action: "module_access" };
       return next();
     } catch (error) {
@@ -92,44 +86,7 @@ function requireVendorPermission(permission) {
   };
 }
 
-/**
- * Batch check module access
- * Validates array of module keys
- */
-function requireVendorModules(moduleKeys) {
-  return async (req, res, next) => {
-    // Skip check if not a vendor
-    if (!req.user || req.user.role !== "vendor") {
-      return next();
-    }
-
-    try {
-      await ensureApprovedVendorForRequest(req);
-      const access = await vendorModuleService.canVendorAccessModules(moduleKeys, req.user);
-
-      // Check if all modules are accessible
-      const inaccessibleModules = Object.keys(access).filter((key) => !access[key]);
-
-      if (inaccessibleModules.length > 0) {
-        return next(
-          new AppError(
-            `Modules not accessible: ${inaccessibleModules.join(", ")}`,
-            403,
-            "MODULES_DISABLED_FOR_VENDORS"
-          )
-        );
-      }
-
-      req.modules = access;
-      next();
-    } catch (error) {
-      next(error);
-    }
-  };
-}
-
 module.exports = {
   requireVendorModule,
-  requireVendorModules,
   requireVendorPermission,
-};
+};

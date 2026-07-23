@@ -3,7 +3,7 @@ const { Product } = require("../../models/Product");
 const { Order } = require("../../models/Order");
 const { Cart } = require("../../models/Cart");
 const { Wishlist } = require("../../models/Wishlist");
-const { Review } = require("../../models/Review");
+
 const { AppError } = require("../../utils/AppError");
 const auditService = require("../../services/audit.service");
 const {
@@ -18,7 +18,6 @@ const {
   RecommendationJob,
 } = require("./models");
 const cache = require("./cache");
-
 const DEFAULT_SETTINGS_KEY = "default";
 const PUBLIC_PRODUCT_QUERY = { status: "APPROVED", isActive: true };
 const CACHE_PREFIXES = ["related:product:", "bundle:product:", "crosssell:product:", "upsell:product:", "trending", "featured", "personalized:user:"];
@@ -31,7 +30,6 @@ function normalizeObjectId(value) {
     return null;
   }
 }
-
 function getBrandValue(product = {}) {
   return String(
     product?.attributes?.brand ||
@@ -44,7 +42,6 @@ function getBrandValue(product = {}) {
     .trim()
     .toLowerCase();
 }
-
 function getNormalizedAttributes(product = {}) {
   const source = product?.attributes && typeof product.attributes.toObject === "function"
     ? product.attributes.toObject()
@@ -53,23 +50,19 @@ function getNormalizedAttributes(product = {}) {
     Object.entries(source).map(([key, value]) => [String(key).toLowerCase(), String(value || "").trim().toLowerCase()])
   );
 }
-
 function normalizeWeightMap(map = {}) {
   const entries = Object.entries(map || {}).map(([key, value]) => [key, Math.max(0, Number(value || 0))]);
   const total = entries.reduce((sum, [, value]) => sum + value, 0);
   if (!total) return Object.fromEntries(entries);
   return Object.fromEntries(entries.map(([key, value]) => [key, value / total]));
 }
-
 function getProductPrice(product = {}) {
   return Number(product.discountPrice || product.price || 0);
 }
-
 function getPriceSimilarity(baseProduct, candidateProduct, settings) {
   const basePrice = getProductPrice(baseProduct);
   const candidatePrice = getProductPrice(candidateProduct);
   if (!basePrice || !candidatePrice) return 0;
-
   const mode = settings?.priceSimilarity?.mode || "PERCENT";
   const rangeValue = Number(settings?.priceSimilarity?.rangeValue || 20);
   const delta = Math.abs(basePrice - candidatePrice);
@@ -77,7 +70,6 @@ function getPriceSimilarity(baseProduct, candidateProduct, settings) {
   if (!allowedDelta) return 0;
   return Math.max(0, 1 - delta / allowedDelta);
 }
-
 function calculatePopularityScore(product, weights) {
   const normalizedWeights = normalizeWeightMap(weights);
   const views = Number(product?.analytics?.views || 0);
@@ -87,7 +79,6 @@ function calculatePopularityScore(product, weights) {
   const reviewCount = Number(product?.ratings?.totalReviews || 0);
   const rating = Math.min(5, Number(product?.ratings?.averageRating || 0)) / 5;
   const conversionRate = Math.min(1, Number(product?.recommendationSignals?.conversionRate || 0));
-
   return (
     Math.log10(views + 1) * (normalizedWeights.views || 0) +
     Math.log10(sales + 1) * (normalizedWeights.sales || 0) +
@@ -98,13 +89,11 @@ function calculatePopularityScore(product, weights) {
     conversionRate * (normalizedWeights.conversionRate || 0)
   );
 }
-
 function applyRuleConditions(product, rules = []) {
   return rules.every((rule) => {
     const candidateValue = rule.field.includes(".")
       ? rule.field.split(".").reduce((acc, key) => acc?.[key], product)
       : product?.[rule.field] ?? product?.attributes?.[rule.field];
-
     switch (rule.operator) {
       case "eq":
         return String(candidateValue || "").toLowerCase() === String(rule.value || "").toLowerCase();
@@ -123,7 +112,6 @@ function applyRuleConditions(product, rules = []) {
     }
   });
 }
-
 class RecommendationService {
   async getSettings() {
     let settings = await RecommendationSettings.findOne({ singletonKey: DEFAULT_SETTINGS_KEY });
@@ -132,7 +120,6 @@ class RecommendationService {
     }
     return settings;
   }
-
   async updateSettings(payload = {}, actor) {
     const settings = await this.getSettings();
     Object.assign(settings, payload || {});
@@ -143,11 +130,9 @@ class RecommendationService {
       Number(settings.weights.price || 0) +
       Number(settings.weights.sales || 0) +
       Number(settings.weights.rating || 0);
-
     if (totalWeight !== 100) {
       throw new AppError("Recommendation weights must total 100", 400, "INVALID_RECOMMENDATION_WEIGHTS");
     }
-
     await settings.save();
     await auditService.log({
       actor,
@@ -158,7 +143,6 @@ class RecommendationService {
     });
     return settings;
   }
-
   async enrichProductsWithSignals(products = []) {
     if (!products.length) return [];
     const productIds = products.map((product) => product._id);
@@ -176,14 +160,11 @@ class RecommendationService {
         { $group: { _id: "$items.productId", count: { $sum: 1 } } },
       ]),
     ]);
-
     const wishlistMap = new Map(wishlistCounts.map((item) => [String(item._id), Number(item.count || 0)]));
     const cartMap = new Map(cartCounts.map((item) => [String(item._id), Number(item.count || 0)]));
     const orderMap = new Map(paidOrderCounts.map((item) => [String(item._id), Number(item.count || 0)]));
-
     return products.map((product) => {
       const views = Number(product?.analytics?.views || 0);
-      const sales = Number(product?.analytics?.salesCount || 0);
       const paidOrders = orderMap.get(String(product._id)) || 0;
       const conversionRate = views > 0 ? Math.min(1, paidOrders / views) : 0;
       return {
@@ -196,18 +177,15 @@ class RecommendationService {
       };
     });
   }
-
   buildRelatedScore(baseProduct, candidate, settings, overrideWeights = null) {
     const weights = normalizeWeightMap(overrideWeights || settings?.weights || {});
     const reasons = [];
     let score = 0;
-
     const sameCategory = String(candidate.categoryId || candidate.category) === String(baseProduct.categoryId || baseProduct.category);
     if (sameCategory) {
       score += 1 * (weights.category || 0);
       reasons.push("Category match");
     }
-
     const baseBrand = getBrandValue(baseProduct);
     const candidateBrand = getBrandValue(candidate);
     const sameBrand = baseBrand && candidateBrand && baseBrand === candidateBrand;
@@ -215,7 +193,6 @@ class RecommendationService {
       score += 1 * (weights.brand || 0);
       reasons.push("Brand match");
     }
-
     const baseAttributes = getNormalizedAttributes(baseProduct);
     const candidateAttributes = getNormalizedAttributes(candidate);
     const configuredKeys = Array.isArray(settings?.attributeKeys) ? settings.attributeKeys : [];
@@ -225,23 +202,19 @@ class RecommendationService {
       score += attributeScore * (weights.attribute || 0);
       reasons.push(`Attribute match (${attributeMatches.join(", ")})`);
     }
-
     const priceScore = getPriceSimilarity(baseProduct, candidate, settings);
     if (priceScore > 0) {
       score += priceScore * (weights.price || 0);
       reasons.push("Price similarity");
     }
-
     const salesRatio = Math.min(1, Number(candidate?.analytics?.salesCount || 0) / Math.max(1, Number(baseProduct?.analytics?.salesCount || 1)));
     if (salesRatio > 0) {
       score += salesRatio * (weights.sales || 0);
     }
-
     const ratingScore = Math.min(1, Number(candidate?.ratings?.averageRating || 0) / 5);
     if (ratingScore > 0) {
       score += ratingScore * (weights.rating || 0);
     }
-
     return {
       score,
       reasons,
@@ -255,13 +228,11 @@ class RecommendationService {
       },
     };
   }
-
   async getBaseCandidates(baseProductId, limit = 50) {
     const baseProduct = await Product.findById(baseProductId).lean();
     if (!baseProduct) {
       throw new AppError("Product not found", 404, "PRODUCT_NOT_FOUND");
     }
-
     const candidateQuery = {
       ...PUBLIC_PRODUCT_QUERY,
       _id: { $ne: baseProduct._id },
@@ -271,18 +242,15 @@ class RecommendationService {
         { sellerId: baseProduct.sellerId || null },
       ],
     };
-
     const rawCandidates = await Product.find(candidateQuery)
       .sort({ "analytics.salesCount": -1, "ratings.averageRating": -1, createdAt: -1 })
       .limit(Math.max(limit, 20))
       .lean();
-
     return {
       baseProduct,
       candidates: await this.enrichProductsWithSignals(rawCandidates),
     };
   }
-
   async getRelatedProducts(productId, options = {}) {
     const settings = await this.getSettings();
     if (!settings.enabled.related) return { items: [], scoreBreakdown: {} };
@@ -290,7 +258,6 @@ class RecommendationService {
     const cacheKey = `related:product:${productId}:limit:${limit}`;
     const cached = await cache.getJson(cacheKey);
     if (cached && !options.skipCache) return cached;
-
     const { baseProduct, candidates } = await this.getBaseCandidates(productId, limit * 6);
     const scored = candidates
       .map((candidate) => ({
@@ -300,7 +267,6 @@ class RecommendationService {
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
-
     const payload = {
       items: scored.map((item) => ({ ...item.product, recommendationScore: item.score, recommendationReasons: item.reasons })),
       scoreBreakdown: Object.fromEntries(scored.map((item) => [String(item.product._id), item.breakdown])),
@@ -325,7 +291,6 @@ class RecommendationService {
     );
     return payload;
   }
-
   async getSimilarProducts(productId, options = {}) {
     const settings = await this.getSettings();
     if (!settings.enabled.similar) return { items: [], scoreBreakdown: {} };
@@ -353,12 +318,10 @@ class RecommendationService {
       scoreBreakdown: Object.fromEntries(scored.map((item) => [String(item.product._id), item.breakdown])),
     };
   }
-
   async rebuildBundleRelationships() {
     const orders = await Order.find({ isActive: true, paymentStatus: "Paid", "items.1": { $exists: true } })
       .select("items totalAmount createdAt")
       .lean();
-
     const stats = new Map();
     for (const order of orders) {
       const items = (order.items || []).map((item) => ({ ...item, productId: String(item.productId) }));
@@ -382,7 +345,6 @@ class RecommendationService {
         }
       }
     }
-
     const operations = [...stats.values()].map((item) => ({
       updateOne: {
         filter: {
@@ -403,16 +365,13 @@ class RecommendationService {
         upsert: true,
       },
     }));
-
     if (operations.length) {
       await BundleRelationship.bulkWrite(operations);
     }
-
     return {
       rebuiltRelationships: operations.length,
     };
   }
-
   async getFrequentlyBoughtTogether(productId, options = {}) {
     const settings = await this.getSettings();
     if (!settings.enabled.frequentlyBoughtTogether) return { items: [], bundleTotal: 0 };
@@ -420,7 +379,6 @@ class RecommendationService {
     const cacheKey = `bundle:product:${productId}:limit:${limit}`;
     const cached = await cache.getJson(cacheKey);
     if (cached && !options.skipCache) return cached;
-
     let relationships = await BundleRelationship.find({ baseProductId: productId })
       .sort({ relationshipStrength: -1, frequencyScore: -1 })
       .limit(limit)
@@ -445,13 +403,11 @@ class RecommendationService {
         };
       })
       .filter(Boolean);
-
     const bundleTotal = items.reduce((sum, item) => sum + getProductPrice(item), 0);
     const payload = { items, bundleTotal };
     await cache.setJson(cacheKey, payload, settings.cacheTtlSeconds.bundle || 3600);
     return payload;
   }
-
   async getCrossSellProducts(context = {}, options = {}) {
     const settings = await this.getSettings();
     if (!settings.enabled.crossSell) return { items: [] };
@@ -462,7 +418,6 @@ class RecommendationService {
     const sourceBrands = [...new Set(sourceProducts.map(getBrandValue).filter(Boolean))];
     const sourceCategories = sourceProducts.map((product) => product.categoryId).filter(Boolean);
     const manualRules = await CrossSellRule.find({ enabled: true }).sort({ priority: 1, updatedAt: -1 }).lean();
-
     const manualProductIds = new Set();
     for (const rule of manualRules) {
       const matchesProduct = rule.sourceProductIds?.some((id) => productIds.includes(String(id)));
@@ -472,13 +427,11 @@ class RecommendationService {
         (rule.targetProductIds || []).forEach((id) => manualProductIds.add(String(id)));
       }
     }
-
     const bundleSuggestions = await BundleRelationship.find({ baseProductId: { $in: productIds } })
       .sort({ relationshipStrength: -1 })
       .limit(limit * 2)
       .lean();
     bundleSuggestions.forEach((item) => manualProductIds.add(String(item.associatedProductId)));
-
     const items = await Product.find({
       ...PUBLIC_PRODUCT_QUERY,
       _id: { $in: [...manualProductIds].filter((id) => !productIds.includes(id)) },
@@ -487,7 +440,6 @@ class RecommendationService {
       .lean();
     return { items };
   }
-
   async getUpsellProducts(productId, options = {}) {
     const settings = await this.getSettings();
     if (!settings.enabled.upsell) return { items: [] };
@@ -495,14 +447,12 @@ class RecommendationService {
     const cacheKey = `upsell:product:${productId}:limit:${limit}`;
     const cached = await cache.getJson(cacheKey);
     if (cached && !options.skipCache) return cached;
-
     const baseProduct = await Product.findById(productId).lean();
     if (!baseProduct) throw new AppError("Product not found", 404, "PRODUCT_NOT_FOUND");
     const basePrice = getProductPrice(baseProduct);
     const minPrice = basePrice * (1 + Number(settings.upsellRules.minUpgradePercent || 5) / 100);
     const maxPrice = basePrice * (1 + Number(settings.upsellRules.maxUpgradePercent || 35) / 100);
     const brand = getBrandValue(baseProduct);
-
     let query = {
       ...PUBLIC_PRODUCT_QUERY,
       _id: { $ne: baseProduct._id },
@@ -512,19 +462,16 @@ class RecommendationService {
       query.categoryId = baseProduct.categoryId || undefined;
       query.category = query.categoryId ? undefined : baseProduct.category;
     }
-
     let candidates = await Product.find(query)
       .sort({ price: 1, "ratings.averageRating": -1, "analytics.salesCount": -1 })
       .limit(limit * 5)
       .lean();
-
     if (settings.upsellRules.requireBrandMatch && brand) {
       candidates = candidates.filter((item) => getBrandValue(item) === brand);
     }
     if (settings.upsellRules.requireInventory) {
       candidates = candidates.filter((item) => Number(item.stock || 0) > 0);
     }
-
     const rules = await UpsellRule.find({ enabled: true }).sort({ priority: 1 }).lean();
     const ruleMatches = rules
       .filter((rule) => !rule.sourceProductIds.length || rule.sourceProductIds.some((id) => String(id) === String(productId)))
@@ -533,7 +480,6 @@ class RecommendationService {
       const manual = await Product.find({ ...PUBLIC_PRODUCT_QUERY, _id: { $in: ruleMatches } }).lean();
       candidates = [...manual, ...candidates];
     }
-
     const unique = [];
     const seen = new Set();
     for (const product of candidates) {
@@ -543,12 +489,10 @@ class RecommendationService {
       unique.push(product);
       if (unique.length >= limit) break;
     }
-
     const payload = { items: unique };
     await cache.setJson(cacheKey, payload, settings.cacheTtlSeconds.upsell || 3600);
     return payload;
   }
-
   async recordRecentlyViewed(userId, productId) {
     const settings = await this.getSettings();
     if (!settings.enabled.recentlyViewed || !userId) return null;
@@ -566,7 +510,6 @@ class RecommendationService {
     }
     return true;
   }
-
   async getRecentlyViewed(userId, options = {}) {
     const settings = await this.getSettings();
     if (!settings.enabled.recentlyViewed || !userId) return { items: [] };
@@ -578,14 +521,12 @@ class RecommendationService {
       items: rows.map((row) => map.get(String(row.productId))).filter(Boolean),
     };
   }
-
   async getTrendingProducts(options = {}) {
     const settings = await this.getSettings();
     if (!settings.enabled.trending) return { items: [] };
     const limit = Number(options.limit || settings.limits.trending || 12);
     const cached = await cache.getJson(`trending:limit:${limit}`);
     if (cached && !options.skipCache) return cached;
-
     const products = await Product.find(PUBLIC_PRODUCT_QUERY)
       .sort({ "analytics.salesCount": -1, "analytics.views": -1, createdAt: -1 })
       .limit(limit * 6)
@@ -598,12 +539,10 @@ class RecommendationService {
       }))
       .sort((a, b) => b.trendingScore - a.trendingScore)
       .slice(0, limit);
-
     const payload = { items };
     await cache.setJson(`trending:limit:${limit}`, payload, settings.cacheTtlSeconds.trending || 900);
     return payload;
   }
-
   async getPersonalizedRecommendations(userId, options = {}) {
     const settings = await this.getSettings();
     if (!settings.enabled.personalized || !userId) return { items: [] };
@@ -611,21 +550,18 @@ class RecommendationService {
     const cacheKey = `personalized:user:${userId}:limit:${limit}`;
     const cached = await cache.getJson(cacheKey);
     if (cached && !options.skipCache) return cached;
-
     const [recent, wishlist, orders, cart] = await Promise.all([
       RecentlyViewed.find({ userId }).sort({ lastViewedAt: -1 }).limit(20).lean(),
       Wishlist.find({ userId }).sort({ updatedAt: -1 }).limit(20).lean(),
       Order.find({ userId, isActive: true }).sort({ createdAt: -1 }).limit(20).lean(),
       Cart.findOne({ userId }).lean(),
     ]);
-
     const interestProductIds = [
       ...recent.map((item) => item.productId),
       ...wishlist.map((item) => item.productId),
       ...(orders.flatMap((order) => order.items || []).map((item) => item.productId)),
       ...((cart?.items || []).map((item) => item.productId)),
     ];
-
     const seedProducts = await Product.find({ _id: { $in: interestProductIds } }).lean();
     const categoryScores = new Map();
     const brandScores = new Map();
@@ -635,7 +571,6 @@ class RecommendationService {
       if (categoryKey) categoryScores.set(categoryKey, (categoryScores.get(categoryKey) || 0) + 1);
       if (brandKey) brandScores.set(brandKey, (brandScores.get(brandKey) || 0) + 1);
     }
-
     const candidates = await Product.find(PUBLIC_PRODUCT_QUERY)
       .sort({ "analytics.salesCount": -1, "ratings.averageRating": -1, createdAt: -1 })
       .limit(limit * 8)
@@ -654,26 +589,22 @@ class RecommendationService {
       })
       .sort((a, b) => b.personalizedScore - a.personalizedScore)
       .slice(0, limit);
-
     const payload = { items };
     await cache.setJson(cacheKey, payload, settings.cacheTtlSeconds.personalized || 1800);
     return payload;
   }
-
   async getHomeRecommendations(userId, options = {}) {
     const [trending, personalized, recentlyViewed] = await Promise.all([
       this.getTrendingProducts({ limit: options.trendingLimit }),
       userId ? this.getPersonalizedRecommendations(userId, { limit: options.personalizedLimit }) : { items: [] },
       userId ? this.getRecentlyViewed(userId, { limit: options.recentlyViewedLimit }) : { items: [] },
     ]);
-
     return {
       trending: trending.items || [],
       personalized: personalized.items || [],
       recentlyViewed: recentlyViewed.items || [],
     };
   }
-
   async getProductPageRecommendations(productId, userId, options = {}) {
     const limit = Number(options.limit || 20);
     const [related, bundles, similar, personalized, recentlyViewed, upsell, trending, featured] = await Promise.all([
@@ -739,13 +670,11 @@ class RecommendationService {
         },
       ]),
     ]);
-
     return {
       rows: analyticsRows,
       eventSummary: logSummary,
     };
   }
-
   async logEvent({ recommendationType, surface, eventType, userId, productId, recommendedProductId, orderId, metadata = {} }) {
     const log = await RecommendationLog.create({
       recommendationType,
@@ -757,7 +686,6 @@ class RecommendationService {
       orderId: normalizeObjectId(orderId),
       metadata,
     });
-
     const dateKey = new Date().toISOString().slice(0, 10);
     const update = {};
     if (eventType === "VIEW") update.views = 1;
@@ -767,7 +695,6 @@ class RecommendationService {
       update.revenue = Number(metadata.revenue || 0);
       update.bundleRevenue = Number(metadata.bundleRevenue || 0);
     }
-
     const analytics = await RecommendationAnalytics.findOneAndUpdate(
       { dateKey, recommendationType, surface },
       { $inc: update, $setOnInsert: { dateKey, recommendationType, surface } },
@@ -778,7 +705,6 @@ class RecommendationService {
     await analytics.save();
     return log;
   }
-
   async preview(productId, userId) {
     const recommendations = await this.getProductPageRecommendations(productId, userId, {
       relatedLimit: 6,
@@ -789,7 +715,6 @@ class RecommendationService {
     });
     return recommendations;
   }
-
   async rebuildAll(actor, progress = async () => {}) {
     const settings = await this.getSettings();
     await progress(25);
@@ -846,5 +771,4 @@ class RecommendationService {
     return RecommendationJob.findByIdAndUpdate(jobId, { $set: patch }, { returnDocument: "after" });
   }
 }
-
-module.exports = new RecommendationService();
+module.exports = new RecommendationService();

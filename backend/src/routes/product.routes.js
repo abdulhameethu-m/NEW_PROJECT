@@ -9,27 +9,22 @@ const {
   updateProductSchema,
   rejectProductSchema,
 } = require("../utils/validators/product.validation");
-
 const router = express.Router();
-
 /**
  * ==========================================
  * PUBLIC ROUTES (No auth required)
  * ==========================================
  */
-
 /**
  * GET /products/public
  * Get all approved and active products (PUBLIC STOREFRONT)
  */
 router.get("/public", productController.getPublicProducts);
-
 /**
  * GET /products/filters
  * Get dynamic storefront filters for a category/subcategory
  */
 router.get("/filters", productController.getProductFilters);
-
 /**
  * GET /products/generate-number
  * Preview next product number for category + subcategory
@@ -49,13 +44,11 @@ router.post(
  * (Anyone can view approved products)
  */
 router.get("/:id", productController.getProductById);
-
 /**
  * ==========================================
  * USER ROUTES (All authenticated users)
  * ==========================================
  */
-
 /**
  * GET /products
  * List products with filtering
@@ -64,13 +57,11 @@ router.get("/:id", productController.getProductById);
  * - Admins: see all
  */
 router.get("/", authRequired, requireVendorPermission("products.read"), productController.getProducts);
-
 /**
  * ==========================================
  * SELLER ROUTES
  * ==========================================
  */
-
 /**
  * POST /products
  * Create a new product
@@ -84,7 +75,6 @@ router.post(
   validate(createProductSchema),
   productController.createProduct
 );
-
 /**
  * PATCH /products/:id
  * Update product
@@ -98,7 +88,6 @@ router.patch(
   validate(updateProductSchema),
   productController.updateProduct
 );
-
 /**
  * DELETE /products/:id
  * Delete product (soft delete)
@@ -106,13 +95,11 @@ router.patch(
  * Admins: any product
  */
 router.delete("/:id", authRequired, requireVendorPermission("products.delete"), productController.deleteProduct);
-
 /**
  * ==========================================
  * ADMIN ROUTES
  * ==========================================
  */
-
 /**
  * GET /admin/products/pending
  * Get all pending products for approval
@@ -124,7 +111,6 @@ router.get(
   requireRole("admin"),
   productController.getPendingProducts
 );
-
 /**
  * PATCH /admin/products/:id/approve
  * Approve a product
@@ -136,7 +122,6 @@ router.patch(
   requireRole("admin"),
   productController.approveProduct
 );
-
 /**
  * PATCH /admin/products/:id/reject
  * Reject a product with reason
@@ -149,7 +134,6 @@ router.patch(
   validate(rejectProductSchema),
   productController.rejectProduct
 );
-
 /**
  * GET /admin/products/stats
  * Get product statistics
@@ -161,5 +145,4 @@ router.get(
   requireRole("admin"),
   productController.getProductStats
 );
-
-module.exports = router;
+module.exports = router;

@@ -2,7 +2,6 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const multer = require("multer");
-
 const REEL_MAX_BYTES = Number(process.env.REEL_MAX_UPLOAD_BYTES || 100 * 1024 * 1024);
 const REEL_UPLOAD_DIR = path.join(process.cwd(), "uploads", "public", "reels");
 
@@ -23,7 +22,6 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${crypto.randomBytes(8).toString("hex")}${ext}`);
   },
 });
-
 const reelVideoUpload = multer({
   storage,
   limits: { fileSize: REEL_MAX_BYTES },

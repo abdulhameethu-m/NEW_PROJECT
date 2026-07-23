@@ -2,7 +2,6 @@
  * Permission Audit & Verification Service
  * Tracks and validates permission state across staff accounts
  */
-
 const { Staff } = require("../models/Staff");
 const { Role } = require("../models/Role");
 const { logger } = require("../../../utils/logger");
@@ -31,9 +30,7 @@ async function verifyStaffPermissions(staffId) {
       staffId,
     };
   }
-
   const currentPermissions = staff.roleId?.permissions || {};
-  
   // Verify role exists and is accessible
   if (!staff.roleId) {
     return {
@@ -47,11 +44,9 @@ async function verifyStaffPermissions(staffId) {
       },
     };
   }
-
   // Check for any discrepancies
   const discrepancies = [];
   const rolePermissions = currentPermissions;
-
   logger.audit("Staff permissions verified", {
     source: "permission-audit.service",
     event: "permission_verification",
@@ -77,7 +72,6 @@ async function verifyStaffPermissions(staffId) {
     lastVerified: new Date(),
   };
 }
-
 /**
  * Verify all staff members with a specific role
  * @param {string} roleId - Role ID
@@ -85,18 +79,16 @@ async function verifyStaffPermissions(staffId) {
  */
 async function verifyRoleStaff(roleId) {
   const staffList = await Staff.find({ roleId }).select("_id name email status");
-  
   logger.audit("Role staff permission verification started", {
     source: "permission-audit.service",
     event: "role_staff_permission_verification",
     roleId: String(roleId),
     staffCount: staffList.length,
   });
-  
+
   const results = await Promise.all(
     staffList.map((staff) => verifyStaffPermissions(staff._id))
   );
-
   return {
     roleId,
     total: staffList.length,
@@ -104,7 +96,6 @@ async function verifyRoleStaff(roleId) {
     verified: new Date(),
   };
 }
-
 /**
  * Generate permission sync report
  * @returns {Promise<object>}
@@ -114,10 +105,8 @@ async function generatePermissionReport() {
     Staff.countDocuments(),
     Role.countDocuments(),
   ]);
-
   const staffWithoutRole = await Staff.countDocuments({ roleId: null });
   const suspendedStaff = await Staff.countDocuments({ status: "suspended" });
-
   logger.audit("Permission report generated", {
     source: "permission-audit.service",
     event: "permission_report",
@@ -127,7 +116,6 @@ async function generatePermissionReport() {
     suspendedStaff,
     activeStaff: staffCount - suspendedStaff,
   });
-
   return {
     timestamp: new Date(),
     summary: {
@@ -139,9 +127,8 @@ async function generatePermissionReport() {
     },
   };
 }
-
 module.exports = {
   verifyStaffPermissions,
   verifyRoleStaff,
   generatePermissionReport,
-};
+};

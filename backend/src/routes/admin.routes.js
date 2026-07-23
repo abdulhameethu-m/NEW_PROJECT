@@ -62,7 +62,6 @@ const { validateBrandingFiles } = require("../utils/validators/company-branding.
 const adminInfluencerCommerceRoutes = require("../modules/adminInfluencerCommerce/routes");
 
 const router = express.Router();
-
 const brandingUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 7 },
@@ -82,7 +81,6 @@ const brandingUpload = multer({
     return cb(null, true);
   },
 });
-
 router.use(adminWorkspaceAuthRequired);
 router.use(
   "/influencer-commerce",
@@ -108,29 +106,24 @@ router.post(
   express.json(),
   adminController.resetPlatformData
 );
-
 router.get("/users", requireWorkspacePermission("users.read"), adminController.listUsers);
 router.post("/users", requireWorkspacePermission("users.create"), adminController.createUser);
 router.patch("/users/:id/block", requireWorkspacePermission("users.update"), adminController.toggleUserBlocked);
 router.delete("/users/:id", requireWorkspacePermission("users.delete"), adminController.deleteUser);
-
 // Backward-compatible user status endpoint
 router.put("/user/:id/status", requireWorkspacePermission("users.update"), adminController.setUserStatus);
-
 router.get("/sellers", requireLegacyAdminPermission("vendors:read"), adminController.listVendors);
 router.get("/sellers/:id/store-analytics", requireLegacyAdminPermission("vendors:read"), vendorStorefrontController.adminStoreAnalytics);
 router.patch("/sellers/:id/store-moderation", requireLegacyAdminPermission("vendors:approve"), express.json(), vendorStorefrontController.adminModerateStore);
 router.patch("/sellers/:id/approve", requireLegacyAdminPermission("vendors:approve"), adminController.approveVendor);
 router.patch("/sellers/:id/reject", requireLegacyAdminPermission("vendors:reject"), express.json(), adminController.rejectVendor);
 router.get("/sellers/:id", requireLegacyAdminPermission("vendors:read"), adminController.getVendorDetails);
-
 // Backward-compatible vendor routes
 router.get("/vendors", requireLegacyAdminPermission("vendors:read"), adminController.listVendors);
 router.get("/vendor/:id", requireLegacyAdminPermission("vendors:read"), adminController.getVendorDetails);
 router.put("/vendor/:id/approve", requireLegacyAdminPermission("vendors:approve"), adminController.approveVendor);
 router.put("/vendor/:id/reject", requireLegacyAdminPermission("vendors:reject"), express.json(), adminController.rejectVendor);
 router.delete("/vendor/:id", requireLegacyAdminPermission("vendors:delete"), adminController.removeVendor);
-
 router.get("/orders", requireWorkspacePermission("orders.read"), adminController.listOrders);
 router.get("/inventory", requireWorkspacePermission("products.read"), adminController.getAdminInventorySummary);
 router.get("/inventory/:id", requireWorkspacePermission("products.read"), adminController.getAdminInventoryProduct);
@@ -196,7 +189,6 @@ router.post("/payout-accounts/:accountId/reject", requireWorkspacePermission("pa
 router.post("/orders", requireLegacyAdminPermission("orders:create"), validate(createAdminOrderSchema), adminController.createOrder);
 router.patch("/orders/:id", requireWorkspacePermission("orders.update"), validate(updateAdminOrderSchema), adminController.updateOrder);
 router.delete("/orders/:id", requireLegacyAdminPermission("orders:delete"), adminController.deleteOrder);
-
 // Products routes - IMPORTANT: Specific routes must come before parameter routes
 router.get("/products", requireWorkspacePermission("products.read"), productController.getProducts);
 router.get("/products/stats", requireWorkspacePermission("products.read"), productController.getProductStats);
@@ -206,14 +198,12 @@ router.post("/products/media", requireWorkspacePermission("products.create"), up
 router.post("/products", requireWorkspacePermission("products.create"), validate(createProductSchema), productController.createProduct);
 router.get("/reviews", requireWorkspacePermission("reviews.read"), adminController.listReviews);
 router.delete("/reviews/:id", requireWorkspacePermission("reviews.delete"), adminController.deleteReview);
-
 // Parameter-based product routes (after specific routes)
 router.get("/products/:id", requireWorkspacePermission("products.read"), productController.getProductById);
 router.patch("/products/:id", requireWorkspacePermission("products.update"), validate(updateProductSchema), productController.updateProduct);
 router.delete("/products/:id", requireWorkspacePermission("products.delete"), productController.deleteProduct);
 router.patch("/products/:id/approve", requireLegacyAdminPermission("products:approve"), productController.approveProduct);
 router.patch("/products/:id/reject", requireLegacyAdminPermission("products:reject"), validate(rejectProductSchema), productController.rejectProduct);
-
 router.get(
   "/categories",
   requireWorkspacePermission("products.read", { legacyPermission: "categories:read" }),
@@ -227,7 +217,6 @@ router.patch(
   validate(toggleCategorySchema),
   categoryController.toggleCategory
 );
-
 router.get("/subcategories", requireLegacyAdminPermission("categories:read"), subcategoryController.getAdminSubcategories);
 router.post(
   "/subcategories",
@@ -248,7 +237,6 @@ router.patch(
   validate(updateSubcategoryStatusSchema),
   subcategoryController.updateSubcategoryStatus
 );
-
 router.get("/attributes", requireLegacyAdminPermission("categories:read"), attributeController.getAdminAttributes);
 router.post(
   "/attributes",
@@ -263,7 +251,6 @@ router.put(
   attributeController.updateAttribute
 );
 router.delete("/attributes/:id", requireLegacyAdminPermission("categories:update"), attributeController.deleteAttribute);
-
 router.get("/product-modules", requireLegacyAdminPermission("categories:read"), productModuleController.getAdminProductModules);
 router.post(
   "/product-modules",
@@ -282,7 +269,6 @@ router.delete(
   requireLegacyAdminPermission("categories:update"),
   productModuleController.deleteProductModule
 );
-
 // Role management routes
 router.get("/permissions/catalog", requireWorkspacePermission("roles.read"), roleController.getPermissionCatalog);
 router.get("/roles", requireWorkspacePermission("roles.read"), roleController.listRoles);
@@ -290,7 +276,6 @@ router.get("/roles/:id", requireWorkspacePermission("roles.read"), roleControlle
 router.post("/roles", requireWorkspacePermission("roles.create"), validate(roleSchema), roleController.createRole);
 router.patch("/roles/:id", requireWorkspacePermission("roles.update"), validate(roleSchema), roleController.updateRole);
 router.delete("/roles/:id", requireWorkspacePermission("roles.delete"), roleController.deleteRole);
-
 // Pricing configuration routes
 router.get(
   "/pricing",
@@ -345,7 +330,6 @@ router.post(
   requireWorkspacePermission("settings.create", { legacyPermission: "settings:update" }),
   pricingController.initializePricingConfig
 );
-
 // Dynamic Pricing Rules endpoints (NEW)
 router.get(
   "/pricing-rules",
@@ -386,7 +370,6 @@ router.patch(
   express.json(),
   pricingController.toggleMultipleRulesActive
 );
-
 router.get(
   "/company-branding",
   requireWorkspacePermission("branding.view", { legacyPermission: "branding:view" }),
@@ -452,13 +435,11 @@ router.post(
   requireWorkspacePermission("branding.update", { legacyPermission: "branding:update" }),
   companyBrandingController.rollback
 );
-
 router.get(
   "/pricing-categories",
   requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
   pricingController.getPricingCategories
 );
-
 router.get(
   "/commission/rules",
   requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
@@ -509,8 +490,6 @@ router.delete(
   requireWorkspacePermission("settings.delete", { legacyPermission: "settings:update" }),
   pricingController.deletePricingCategory
 );
-
 // Shipping Configuration routes
 router.use("/shipping-config", shippingConfigRoutes);
-
-module.exports = router;
+module.exports = router;

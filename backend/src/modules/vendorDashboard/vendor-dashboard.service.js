@@ -18,16 +18,14 @@ const inventoryService = require("../../services/inventory.service");
 const {
   assertVendorCanUseShippingMode,
   buildVendorShippingSettingsPayload,
-  normalizeShippingMode,
+  
   resolveVendorShippingModes,
 } = require("../../services/shipping.service");
 const notificationService = require("../../services/notification.service");
 const productAnalyticsService = require("../../services/product-analytics.service");
 const analyticsAggregator = require("../analytics/service");
 const pricingBreakdownEngine = require("../../services/pricing-breakdown-engine.service");
-
 const VENDOR_ORDER_FLOW = ["Placed", "Packed", "Shipped", "Delivered", "Cancelled"];
-
 function normalizePickupLocationEntry(location = {}, { fallbackDefault = false } = {}) {
   const latitude = Number(location.latitude);
   const longitude = Number(location.longitude);
@@ -44,93 +42,74 @@ function normalizePickupLocationEntry(location = {}, { fallbackDefault = false }
     longitude: Number.isFinite(longitude) ? longitude : undefined,
     isDefault: location.isDefault === true || fallbackDefault,
   };
-
   const hasAnyValue = ["name", "phone", "addressLine1", "addressLine2", "city", "state", "pincode", "country"]
     .some((field) => Boolean(normalized[field]))
     || Number.isFinite(normalized.latitude)
     || Number.isFinite(normalized.longitude);
-
   return hasAnyValue ? normalized : null;
 }
-
 function normalizePickupLocationPayload(payload = {}, vendor = null) {
   const rawLocations = Array.isArray(payload.pickupLocations)
     ? payload.pickupLocations
     : (vendor?.pickupLocations?.toObject?.() || vendor?.pickupLocations || []);
-
   let pickupLocations = rawLocations
     .map((location, index) => normalizePickupLocationEntry(location, { fallbackDefault: index === 0 && rawLocations.length === 1 }))
     .filter(Boolean);
-
   const payloadPickupAddress = payload.pickupAddress !== undefined ? payload.pickupAddress : vendor?.pickupAddress;
   const normalizedPickupAddress = normalizePickupLocationEntry(payloadPickupAddress || {}, {
     fallbackDefault: pickupLocations.length === 0,
   });
-
   if (normalizedPickupAddress && pickupLocations.length === 0) {
     pickupLocations = [{ ...normalizedPickupAddress, isDefault: true }];
   }
-
   if (pickupLocations.length > 0 && !pickupLocations.some((location) => location.isDefault)) {
     pickupLocations[0].isDefault = true;
   }
-
   const defaultPickupLocation = pickupLocations.find((location) => location.isDefault) || pickupLocations[0] || normalizedPickupAddress || null;
-
   return {
     pickupAddress: defaultPickupLocation,
     pickupLocations,
   };
 }
-
 function normalizePagination(query = {}) {
   return {
     page: Math.max(Number(query.page) || 1, 1),
     limit: Math.min(Math.max(Number(query.limit) || 10, 1), 100),
   };
 }
-
 function startOfToday() {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
   return date;
 }
-
 function endOfToday() {
   const date = new Date();
   date.setHours(23, 59, 59, 999);
   return date;
 }
-
 class VendorDashboardService {
   async resolveOwnedProductIds(vendorId, productIds = []) {
     if (!Array.isArray(productIds) || productIds.length === 0) {
       return [];
     }
-
     const normalizedIds = [...new Set(productIds.map((id) => String(id)).filter(Boolean))];
     const products = await Product.find({
       _id: { $in: normalizedIds },
       sellerId: vendorId,
     }).select("_id").lean();
-
     if (products.length !== normalizedIds.length) {
       throw new AppError("Offers can include only this vendor's products", 400, "INVALID_PRODUCT_SCOPE");
     }
-
     return products.map((product) => product._id);
   }
-
   async getVendorContext(userId) {
     const vendor = await vendorRepo.findByUserId(userId);
     if (!vendor) {
       throw new AppError("Vendor profile not found", 404, "VENDOR_NOT_FOUND");
     }
-
     await vendorRepo.updateById(vendor._id, { lastActiveAt: new Date() });
     return vendor;
   }
-
   async createNotification(vendorId, payload) {
     return null;
   }
@@ -146,7 +125,6 @@ class VendorDashboardService {
     const todayMatch = dashboardDateRange || query.startDate || query.endDate
       ? orderMatch
       : { sellerId: vendor._id, createdAt: { $gte: startOfToday(), $lte: endOfToday() } };
-
     const [todayOrders, pendingOrders, shippedOrders, revenueAggregate, lowStockProducts] = await Promise.all([
       Order.countDocuments(todayMatch),
       Order.countDocuments({ ...orderMatch, status: { $in: ["Pending", "Placed", "Packed"] } }),
@@ -172,7 +150,6 @@ class VendorDashboardService {
         .limit(5)
         .select("name status stock analytics price discountPrice"),
     ]);
-
       return {
         vendor: {
           id: vendor._id,
@@ -194,7 +171,6 @@ class VendorDashboardService {
       topProducts,
     };
   }
-
   async listProducts(userId, query) {
     const vendor = await this.getVendorContext(userId);
     const { page, limit } = normalizePagination(query);
@@ -211,7 +187,6 @@ class VendorDashboardService {
       endDate: query.endDate,
     });
   }
-
   async createProduct(userId, payload) {
     const vendor = await this.getVendorContext(userId);
     const product = await productService.createProduct(payload, userId, "seller", vendor._id);
@@ -227,7 +202,6 @@ class VendorDashboardService {
     });
     return product;
   }
-
   async updateProduct(userId, productId, payload) {
     const vendor = await this.getVendorContext(userId);
     const product = await productService.updateProduct(productId, payload, userId, "seller", vendor._id);
@@ -243,12 +217,10 @@ class VendorDashboardService {
     });
     return product;
   }
-
   async deleteProduct(userId, productId) {
     const vendor = await this.getVendorContext(userId);
     return await productService.deleteProduct(productId, userId, "seller", vendor._id);
   }
-
   async listOrders(userId, query) {
     const vendor = await this.getVendorContext(userId);
     const { page, limit } = normalizePagination(query);
@@ -266,32 +238,26 @@ class VendorDashboardService {
       endDate: query.endDate,
     });
   }
-
   async getOrderById(userId, orderId) {
     const vendor = await this.getVendorContext(userId);
     const order = await Order.findOne({ _id: orderId, sellerId: vendor._id })
       .populate("userId", "name email phone")
       .populate("items.productId", "name")
       .lean();
-
     if (!order) {
       throw new AppError("Order not found", 404, "NOT_FOUND");
     }
-
     return pricingBreakdownEngine.attachToOrder(order);
   }
-
   async updateOrderStatus(userId, orderId, status) {
     const vendor = await this.getVendorContext(userId);
     if (!VENDOR_ORDER_FLOW.includes(status)) {
       throw new AppError("Invalid vendor order status", 400, "VALIDATION_ERROR");
     }
-
     const order = await Order.findById(orderId);
     if (!order || String(order.sellerId) !== String(vendor._id)) {
       throw new AppError("Order not found", 404, "NOT_FOUND");
     }
-
     const allowedTransitions = {
       Pending: ["Placed", "Packed", "Cancelled"],
       Placed: ["Packed", "Cancelled"],
@@ -300,12 +266,10 @@ class VendorDashboardService {
       Delivered: [],
       Cancelled: [],
     };
-
     const nextAllowed = allowedTransitions[order.status] || [];
     if (!nextAllowed.includes(status)) {
       throw new AppError(`Cannot change order from ${order.status} to ${status}`, 400, "INVALID_STATUS_TRANSITION");
     }
-
     if (status === "Shipped") {
       order.shippingStatus = "SHIPPED";
       if (!order.inventoryCommittedAt) {
@@ -315,12 +279,10 @@ class VendorDashboardService {
         });
       }
     }
-
     if (status === "Delivered") {
       order.shippingStatus = "DELIVERED";
       order.deliveredAt = new Date();
     }
-
     order.status = status;
     order.timeline = Array.isArray(order.timeline) ? order.timeline : [];
     order.timeline.push({
@@ -328,14 +290,11 @@ class VendorDashboardService {
       note: `Order moved to ${status} by vendor`,
       changedAt: new Date(),
     });
-
     const updated = await order.save();
     await productAnalyticsService.refreshForOrder(orderId);
-
     if (status === "Delivered") {
       await payoutService.markOrderDelivered(updated._id);
     }
-
     await this.createNotification(vendor._id, {
       type: "ORDER",
       title: "Order status updated",
@@ -359,17 +318,14 @@ class VendorDashboardService {
       },
       "orders.read"
     );
-
     return updated;
   }
-
   async markOrderSelfShipped(userId, orderId, payload = {}) {
     const vendor = await this.getVendorContext(userId);
     const order = await Order.findOne({ _id: orderId, sellerId: vendor._id });
     if (!order) {
       throw new AppError("Order not found", 404, "NOT_FOUND");
     }
-
     const { mode } = await assertVendorCanUseShippingMode(vendor, payload.shippingMode || order.shippingMode);
     if (mode !== "SELF") {
       throw new AppError("Self shipping is not enabled for this vendor", 400, "SHIPPING_MODE_DISABLED");
@@ -377,15 +333,12 @@ class VendorDashboardService {
     if (!["Placed", "Packed"].includes(order.status)) {
       throw new AppError("Order cannot be marked as self shipped at this stage", 400, "INVALID_STATUS_TRANSITION");
     }
-
     const update = deliveryService.buildSelfShippingUpdate(payload);
     update.courierAssignedByRole = "VENDOR";
     update.courierAssignedById = vendor._id;
     update.timeline = undefined;
-
     return await orderRepo.updateById(orderId, update);
   }
-
   async requestOrderPickup(userId, orderId, payload = {}) {
     const vendor = await this.getVendorContext(userId);
     const order = await Order.findOne({ _id: orderId, sellerId: vendor._id })
@@ -393,7 +346,6 @@ class VendorDashboardService {
     if (!order) {
       throw new AppError("Order not found", 404, "NOT_FOUND");
     }
-
     const { mode } = await assertVendorCanUseShippingMode(vendor, payload.shippingMode || order.shippingMode);
     if (mode !== "PLATFORM") {
       throw new AppError("Platform shipping is not enabled for this vendor", 400, "SHIPPING_MODE_DISABLED");
@@ -404,15 +356,12 @@ class VendorDashboardService {
     if (!["Placed", "Packed"].includes(order.status)) {
       throw new AppError("Shipment can only be created for packed orders", 400, "INVALID_STATUS_TRANSITION");
     }
-
     const shipment = await deliveryService.createShipment(order, vendor);
     const update = deliveryService.buildPlatformShippingUpdate(order, shipment);
     update.courierAssignedByRole = "VENDOR";
     update.courierAssignedById = vendor._id;
-
     return await orderRepo.updateById(orderId, update);
   }
-
   async getInventory(userId, query) {
     const vendor = await this.getVendorContext(userId);
     const { page, limit } = normalizePagination(query);
@@ -426,7 +375,6 @@ class VendorDashboardService {
       startDate: query.startDate,
       endDate: query.endDate,
     });
-
     return {
       ...result,
       products: result.products.map((product) => ({
@@ -435,14 +383,12 @@ class VendorDashboardService {
       })),
     };
   }
-
   async updateInventory(userId, productId, payload) {
     const vendor = await this.getVendorContext(userId);
     const product = await Product.findOne({ _id: productId, sellerId: vendor._id });
     if (!product) {
       throw new AppError("Product not found", 404, "NOT_FOUND");
     }
-
     const activeVariants = Array.isArray(product.variants)
       ? product.variants.filter((variant) => variant?.isActive !== false)
       : [];
@@ -452,7 +398,6 @@ class VendorDashboardService {
       : activeVariants.length === 1
         ? activeVariants[0].variantId
         : "");
-
     if (payload.stock != null) {
       if (!targetVariantId) {
         throw new AppError("Select a variant before adjusting stock for a product with multiple variants", 400, "VARIANT_REQUIRED");
@@ -476,7 +421,6 @@ class VendorDashboardService {
         );
       }
     }
-
     if (payload.lowStockThreshold != null) {
       const nextThreshold = Number(payload.lowStockThreshold);
       if (!Number.isFinite(nextThreshold) || nextThreshold < 0) {
@@ -494,9 +438,7 @@ class VendorDashboardService {
           : undefined
       );
     }
-
     const updatedProduct = await Product.findOne({ _id: productId, sellerId: vendor._id });
-
     if (updatedProduct.stock <= updatedProduct.lowStockThreshold) {
       await this.createNotification(vendor._id, {
         type: "PRODUCT",
@@ -515,10 +457,8 @@ class VendorDashboardService {
         referenceId: updatedProduct._id,
       });
     }
-
     return updatedProduct;
   }
-
   async getAnalytics(userId, query = {}) {
     const [productAnalytics, unified] = await Promise.all([
       productAnalyticsService.getVendorDashboard(userId, query),
@@ -526,14 +466,12 @@ class VendorDashboardService {
     ]);
     return { ...productAnalytics, unified };
   }
-
   async getProductAnalyticsDetail(userId, productId, query = {}) {
     return await productAnalyticsService.getProductDetail(productId, query, {
       vendorScoped: true,
       userId,
     });
   }
-
   async getPayouts(userId, query = {}) {
     const vendor = await this.getVendorContext(userId);
     const dateRange = normalizeDateRange({
@@ -556,7 +494,6 @@ class VendorDashboardService {
         },
       ]),
     ]);
-
     const earnings = aggregates.reduce(
       (acc, item) => {
         acc[item._id.toLowerCase()] = item.amount;
@@ -564,7 +501,6 @@ class VendorDashboardService {
       },
       { pending: 0, paid: 0, failed: 0 }
     );
-
     return {
       overview: {
         totalEarnings: (earnings.pending || 0) + (earnings.paid || 0),
@@ -576,7 +512,6 @@ class VendorDashboardService {
       history,
     };
   }
-
   async getDelivery(userId, query) {
     const vendor = await this.getVendorContext(userId);
     const { page, limit } = normalizePagination(query);
@@ -585,7 +520,6 @@ class VendorDashboardService {
     if (query.deliveryStatus) filter.deliveryStatus = query.deliveryStatus;
     if (query.shippingMode) filter.shippingMode = query.shippingMode;
     if (query.pickupStatus) filter.pickupStatus = query.pickupStatus;
-
     const [shipments, total] = await Promise.all([
       Order.find(filter)
         .sort({ createdAt: -1 })
@@ -594,7 +528,6 @@ class VendorDashboardService {
         .select("orderNumber status shippingMode shippingStatus pickupStatus pickupScheduled pickupBatchId courierName deliveryPartner trackingId trackingUrl deliveryStatus createdAt shippingAddress courierAssignedByRole courierAssignedAt shipmentId"),
       Order.countDocuments(filter),
     ]);
-
     return {
       shipments,
       pagination: {
@@ -605,18 +538,15 @@ class VendorDashboardService {
       },
     };
   }
-
   async updateDelivery(userId, orderId, payload) {
     const vendor = await this.getVendorContext(userId);
     const order = await Order.findOne({ _id: orderId, sellerId: vendor._id });
     if (!order) {
       throw new AppError("Order not found", 404, "NOT_FOUND");
     }
-
     if (order.courierAssignedByRole === "ADMIN") {
       throw new AppError("Courier assignment was locked by admin", 403, "COURIER_LOCKED");
     }
-
     if (payload.deliveryPartner) order.deliveryPartner = payload.deliveryPartner;
     if (payload.trackingId) order.trackingId = payload.trackingId;
     if (payload.trackingUrl) order.trackingUrl = payload.trackingUrl;
@@ -632,7 +562,6 @@ class VendorDashboardService {
     await order.save();
     return order;
   }
-
   async getSettings(userId) {
     const vendor = await this.getVendorContext(userId);
     const shippingModes = await resolveVendorShippingModes(vendor);
@@ -650,7 +579,6 @@ class VendorDashboardService {
       adminShippingModes: shippingModes.adminConfig,
     };
   }
-
   async updateSettings(userId, payload) {
     const vendor = await this.getVendorContext(userId);
     const vendorShippingModes = await resolveVendorShippingModes(vendor);
@@ -681,19 +609,16 @@ class VendorDashboardService {
       pickupLocations: pickupSettings.pickupLocations,
       notificationPreferences: payload.notificationPreferences,
     };
-
     if (payload.shippingSettings) {
       updatable.shippingSettings = {
         ...(vendor.shippingSettings?.toObject?.() || vendor.shippingSettings || {}),
         ...buildVendorShippingSettingsPayload(payload.shippingSettings, vendorShippingModes),
       };
     }
-
     Object.keys(updatable).forEach((key) => updatable[key] === undefined && delete updatable[key]);
     await vendorRepo.updateById(vendor._id, updatable);
     return await this.getSettings(userId);
   }
-
   async getShippingSettings(userId) {
     const vendor = await this.getVendorContext(userId);
     const shippingModes = await resolveVendorShippingModes(vendor);
@@ -709,7 +634,6 @@ class VendorDashboardService {
       adminShippingModes: shippingModes.adminConfig,
     };
   }
-
   async updateShippingSettings(userId, payload) {
     const vendor = await this.getVendorContext(userId);
     const shippingModes = await resolveVendorShippingModes(vendor);
@@ -720,7 +644,6 @@ class VendorDashboardService {
     await vendorRepo.updateById(vendor._id, { shippingSettings });
     return await this.getShippingSettings(userId);
   }
-
   async getReviews(userId, query) {
     const vendor = await this.getVendorContext(userId);
     const { page, limit } = normalizePagination(query);
@@ -728,7 +651,6 @@ class VendorDashboardService {
     const filter = { vendorId: vendor._id };
     if (query.rating) filter.rating = Number(query.rating);
     applyDateRange(filter, normalizeDateRange({ startDate: query.startDate, endDate: query.endDate }));
-
     const [reviews, total] = await Promise.all([
       Review.find(filter)
         .populate("productId", "name images")
@@ -738,7 +660,6 @@ class VendorDashboardService {
         .limit(limit),
       Review.countDocuments(filter),
     ]);
-
     return {
       reviews,
       pagination: {
@@ -749,7 +670,6 @@ class VendorDashboardService {
       },
     };
   }
-
   async respondToReview(userId, reviewId, message) {
     const vendor = await this.getVendorContext(userId);
     const review = await Review.findOneAndUpdate(
@@ -764,14 +684,11 @@ class VendorDashboardService {
       },
       { returnDocument: "after" }
     );
-
     if (!review) {
       throw new AppError("Review not found", 404, "NOT_FOUND");
     }
-
     return review;
   }
-
   async getReturns(userId, query) {
     const vendor = await this.getVendorContext(userId);
     const { page, limit } = normalizePagination(query);
@@ -779,7 +696,6 @@ class VendorDashboardService {
     const filter = { vendorId: vendor._id };
     if (query.status) filter.status = query.status;
     applyDateRange(filter, normalizeDateRange({ startDate: query.startDate, endDate: query.endDate }));
-
     const [requests, total] = await Promise.all([
       ReturnRequest.find(filter)
         .populate("orderId", "orderNumber totalAmount status")
@@ -789,7 +705,6 @@ class VendorDashboardService {
         .limit(limit),
       ReturnRequest.countDocuments(filter),
     ]);
-
     return {
       returns: requests,
       pagination: {
@@ -800,24 +715,20 @@ class VendorDashboardService {
       },
     };
   }
-
   async updateReturnStatus(userId, returnId, payload) {
     const vendor = await this.getVendorContext(userId);
     if (!RETURN_REQUEST_STATUS.includes(payload.status)) {
       throw new AppError("Invalid return status", 400, "VALIDATION_ERROR");
     }
-
     const request = await ReturnRequest.findOne({ _id: returnId, vendorId: vendor._id });
     if (!request) {
       throw new AppError("Return request not found", 404, "NOT_FOUND");
     }
-
     request.status = payload.status;
     request.resolutionNote = payload.resolutionNote;
     request.refundAmount = payload.refundAmount ?? request.refundAmount;
     request.resolvedAt = new Date();
     await request.save();
-
     if (payload.status === "REFUNDED") {
       await paymentService.processRefund({
         orderId: request.orderId,
@@ -827,9 +738,7 @@ class VendorDashboardService {
         notes: "Refund initiated from vendor return workflow.",
       });
     }
-
     await productAnalyticsService.refreshForReturn(request._id);
-
     await notificationService.notifyOperations(
       {
         module: "MANAGEMENT",
@@ -845,17 +754,14 @@ class VendorDashboardService {
       },
       "orders.read"
     );
-
     return request;
   }
-
   async getOffers(userId, query) {
     const vendor = await this.getVendorContext(userId);
     const { page, limit } = normalizePagination(query);
     const skip = (page - 1) * limit;
     const filter = { vendorId: vendor._id };
     if (query.isActive != null) filter.isActive = query.isActive === "true";
-
     const [offers, total] = await Promise.all([
       Offer.find(filter)
         .populate({ path: "productIds", select: "name", match: { sellerId: vendor._id } })
@@ -864,7 +770,6 @@ class VendorDashboardService {
         .limit(limit),
       Offer.countDocuments(filter),
     ]);
-
     return {
       offers,
       pagination: {
@@ -875,7 +780,6 @@ class VendorDashboardService {
       },
     };
   }
-
   async createOffer(userId, payload) {
     const vendor = await this.getVendorContext(userId);
     const productIds = await this.resolveOwnedProductIds(vendor._id, payload.productIds || []);
@@ -894,15 +798,12 @@ class VendorDashboardService {
       endsAt: payload.endsAt,
     });
   }
-
   async updateOffer(userId, offerId, payload) {
     const vendor = await this.getVendorContext(userId);
     const updatePayload = { ...payload };
-
     if (payload.productIds !== undefined) {
       updatePayload.productIds = await this.resolveOwnedProductIds(vendor._id, payload.productIds);
     }
-
     const offer = await Offer.findOneAndUpdate(
       { _id: offerId, vendorId: vendor._id },
       { $set: updatePayload },
@@ -913,19 +814,16 @@ class VendorDashboardService {
     }
     return offer;
   }
-
   async getSupportTickets(userId, query) {
     const vendor = await this.getVendorContext(userId);
     const { page, limit } = normalizePagination(query);
     const skip = (page - 1) * limit;
     const filter = { vendorId: vendor._id };
     if (query.status) filter.status = query.status;
-
     const [tickets, total] = await Promise.all([
       SupportTicket.find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit),
       SupportTicket.countDocuments(filter),
     ]);
-
     return {
       tickets,
       pagination: {
@@ -936,7 +834,6 @@ class VendorDashboardService {
       },
     };
   }
-
   async createSupportTicket(userId, payload) {
     const vendor = await this.getVendorContext(userId);
     return await SupportTicket.create({
@@ -952,7 +849,6 @@ class VendorDashboardService {
       ],
     });
   }
-
   async replyToSupportTicket(userId, ticketId, message) {
     const vendor = await this.getVendorContext(userId);
     const ticket = await SupportTicket.findOne({ _id: ticketId, vendorId: vendor._id });
@@ -967,5 +863,4 @@ class VendorDashboardService {
     return ticket;
   }
 }
-
-module.exports = new VendorDashboardService();
+module.exports = new VendorDashboardService();

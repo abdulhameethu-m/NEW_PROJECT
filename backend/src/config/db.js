@@ -1,11 +1,8 @@
 const mongoose = require("mongoose");
 const { logger } = require("../utils/logger");
-
 let isConnected = false;
-
 async function connectDb() {
   if (isConnected) return;
-
   const primaryUri = process.env.MONGODB_URI;
   const localFallbackEnabled = process.env.MONGODB_ENABLE_LOCAL_FALLBACK === "true";
   const fallbackUri = localFallbackEnabled
@@ -15,15 +12,12 @@ async function connectDb() {
     autoIndex: process.env.NODE_ENV !== "production",
     serverSelectionTimeoutMS: 5000,
   };
-
   mongoose.set("strictQuery", true);
-
   if (!primaryUri && !fallbackUri) {
     throw new Error(
       "Missing MONGODB_URI. Set a working Atlas URI, or enable local fallback with MONGODB_ENABLE_LOCAL_FALLBACK=true."
     );
   }
-
   const stableApiOptions = {
     serverApi: {
       version: mongoose.mongo.ServerApiVersion.v1,
@@ -31,9 +25,7 @@ async function connectDb() {
       deprecationErrors: true,
     },
   };
-
   const options = { ...connectOptions, ...stableApiOptions };
-
   try {
     const uri = primaryUri || fallbackUri;
     await mongoose.connect(uri, options);
@@ -45,7 +37,6 @@ async function connectDb() {
     if (!fallbackUri || !primaryUri || primaryUri === fallbackUri) {
       throw primaryError;
     }
-
     try {
       await mongoose.connect(fallbackUri, connectOptions);
       isConnected = true;
@@ -59,6 +50,4 @@ async function connectDb() {
     }
   }
 }
-
-module.exports = { connectDb };
-
+module.exports = { connectDb };

@@ -1,10 +1,8 @@
 const Joi = require("joi");
 const { STAFF_PERMISSION_CATALOG } = require("./permissions");
-
 const phonePattern = /^[0-9+\-\s()]{7,20}$/;
 const strongPasswordPattern =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,128}$/;
-
 const permissionSchema = Joi.object(
   Object.fromEntries(
     Object.entries(STAFF_PERMISSION_CATALOG).map(([moduleName, actions]) => [
@@ -15,13 +13,11 @@ const permissionSchema = Joi.object(
     ])
   )
 );
-
 const roleSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120).required(),
   description: Joi.string().trim().max(300).allow("").default(""),
   permissions: permissionSchema.required(),
 });
-
 const staffPasswordSchema = Joi.string()
   .pattern(strongPasswordPattern)
   .required()
@@ -29,7 +25,6 @@ const staffPasswordSchema = Joi.string()
     "string.pattern.base":
       "Password must include uppercase, lowercase, number, and special character",
   });
-
 const createStaffSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120).required(),
   email: Joi.string().trim().email().lowercase().required(),
@@ -38,7 +33,6 @@ const createStaffSchema = Joi.object({
   roleId: Joi.string().trim().required(),
   status: Joi.string().valid("active", "suspended").default("active"),
 });
-
 const updateStaffSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120),
   email: Joi.string().trim().email().lowercase(),
@@ -50,23 +44,18 @@ const updateStaffSchema = Joi.object({
   roleId: Joi.string().trim(),
   status: Joi.string().valid("active", "suspended"),
 }).min(1);
-
 const staffLoginSchema = Joi.object({
   email: Joi.string().trim().email().lowercase().required(),
   password: Joi.string().min(8).max(128).required(),
 });
-
 const staffRefreshSchema = Joi.object({}).unknown(false);
-
 const passwordResetRequestSchema = Joi.object({
   email: Joi.string().trim().email().lowercase().required(),
 });
-
 const passwordResetSchema = Joi.object({
   token: Joi.string().trim().required(),
   password: staffPasswordSchema,
 });
-
 const verifyPasswordResetOTPSchema = Joi.object({
   email: Joi.string().trim().email().lowercase().required(),
   otp: Joi.string().trim().required().min(6).max(6).messages({
@@ -74,7 +63,6 @@ const verifyPasswordResetOTPSchema = Joi.object({
     "string.max": "OTP must be 6 digits",
   }),
 });
-
 module.exports = {
   roleSchema,
   createStaffSchema,
@@ -84,4 +72,4 @@ module.exports = {
   passwordResetRequestSchema,
   passwordResetSchema,
   verifyPasswordResetOTPSchema,
-};
+};

@@ -1,5 +1,4 @@
 require("./config/env");
-
 const http = require("http");
 const { createApp } = require("./app");
 const { connectDb } = require("./config/db");
@@ -18,12 +17,10 @@ const {
 } = require("./jobs/payment-maintenance.job");
 const { initializeRecommendationJobs } = require("./modules/recommendation/job");
 const paymentService = require("./services/payment.service");
-
 function shouldVerifyRazorpayOnStartup() {
   if (process.env.NODE_ENV === "production") return true;
   return process.env.RAZORPAY_VERIFY_ON_STARTUP === "true";
 }
-
 async function start() {
   await connectDb();
   await ensurePaymentIndexes();
@@ -31,14 +28,11 @@ async function start() {
   await ensureDeliverableAffiliateIndexes();
   await ensurePredefinedStaffRoles();
   await ensureDefaultPricingCategories();
-
   const razorpayHealth = await paymentService.validateRazorpayConfiguration({
     verifyCredentials: shouldVerifyRazorpayOnStartup(),
   });
   logger.info("Razorpay configuration validated", razorpayHealth);
-
   initializeEventBus();
-
   // Initialize settlement scheduler
   try {
     const schedulerStatus = await initializeSettlementScheduler();
@@ -49,7 +43,6 @@ async function start() {
     });
     // Non-fatal error - app can continue without scheduler
   }
-
   try {
     const influencerJobs = await initializeInfluencerCommerceJobs();
     logger.info("Influencer commerce jobs initialized", influencerJobs);
@@ -58,7 +51,6 @@ async function start() {
       error: error?.message,
     });
   }
-
   try {
     const paymentJobs = await initializePaymentMaintenanceJobs();
     logger.info("Payment maintenance jobs initialized", paymentJobs);
@@ -67,7 +59,6 @@ async function start() {
       error: error?.message,
     });
   }
-
   try {
     await initializeRecommendationJobs();
   } catch (error) {
@@ -75,15 +66,12 @@ async function start() {
       error: error?.message,
     });
   }
-
   const app = createApp();
   const server = http.createServer(app);
-
   const port = Number(process.env.PORT || 5000);
   server.listen(port, () => {
     logger.info(`API listening on port ${port}`);
   });
-
   // Graceful shutdown
   process.on("SIGTERM", async () => {
     logger.info("SIGTERM received, shutting down gracefully");
@@ -95,7 +83,6 @@ async function start() {
       process.exit(0);
     });
   });
-
   process.on("SIGINT", async () => {
     logger.info("SIGINT received, shutting down gracefully");
     server.close(async () => {
@@ -107,7 +94,6 @@ async function start() {
     });
   });
 }
-
 start().catch((err) => {
   logger.error("Fatal startup error", {
     source: "server",
@@ -115,5 +101,4 @@ start().catch((err) => {
     error: err,
   });
   process.exit(1);
-});
-
+});

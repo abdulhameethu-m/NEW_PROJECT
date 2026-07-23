@@ -8,12 +8,10 @@ const { authRequired, requireRole } = require("../middleware/auth");
 const { requireApprovedVendor } = require("../middleware/vendorApproval");
 
 const router = express.Router();
-
 /**
  * 📍 /api/modules
  * Module Management Routes
  */
-
 // Public vendor routes
 router.get("/vendor/accessible", authRequired, requireRole("vendor"), requireApprovedVendor, vendorModuleController.getVendorAccessibleModules);
 router.post("/vendor/check", authRequired, requireRole("vendor"), requireApprovedVendor, vendorModuleController.checkVendorModuleAccess);
@@ -43,7 +41,6 @@ router.patch(
   requireLegacyAdminPermission("dashboard:read"),
   vendorModuleController.updateVendorModuleSettings
 );
-
 // 🔥 CRITICAL: Vendor access control
 router.patch(
   "/:key/vendor-access",
@@ -51,7 +48,6 @@ router.patch(
   requireLegacyAdminPermission("dashboard:read"),
   vendorModuleController.updateModuleVendorAccess
 );
-
 // Global status update
 router.patch(
   "/:key/status",
@@ -59,7 +55,6 @@ router.patch(
   requireLegacyAdminPermission("dashboard:read"),
   vendorModuleController.updateModuleGlobalStatus
 );
-
 // Initialize modules (run once during setup)
 router.post(
   "/init",
@@ -67,5 +62,4 @@ router.post(
   requireLegacyAdminPermission("dashboard:read"),
   vendorModuleController.initializeModules
 );
-
-module.exports = router;
+module.exports = router;

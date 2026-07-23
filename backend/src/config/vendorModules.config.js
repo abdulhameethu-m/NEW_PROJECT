@@ -2,7 +2,6 @@
  * Vendor Module Configuration
  * Defines all available modules and their properties
  */
-
 const VENDOR_MODULE_CONFIG = {
   delivery: {
     key: "delivery",
@@ -16,7 +15,6 @@ const VENDOR_MODULE_CONFIG = {
       vendorEnabled: true,
     },
   },
-
   orders: {
     key: "orders",
     name: "Orders",
@@ -29,7 +27,6 @@ const VENDOR_MODULE_CONFIG = {
       vendorEnabled: true,
     },
   },
-
   products: {
     key: "products",
     name: "Products",
@@ -42,7 +39,6 @@ const VENDOR_MODULE_CONFIG = {
       vendorEnabled: true,
     },
   },
-
   payments: {
     key: "payments",
     name: "Payments",
@@ -55,7 +51,6 @@ const VENDOR_MODULE_CONFIG = {
       vendorEnabled: true,
     },
   },
-
   analytics: {
     key: "analytics",
     name: "Analytics",
@@ -68,7 +63,6 @@ const VENDOR_MODULE_CONFIG = {
       vendorEnabled: true,
     },
   },
-
   inventory: {
     key: "inventory",
     name: "Inventory",
@@ -81,7 +75,6 @@ const VENDOR_MODULE_CONFIG = {
       vendorEnabled: true,
     },
   },
-
   returns: {
     key: "returns",
     name: "Returns",
@@ -94,7 +87,6 @@ const VENDOR_MODULE_CONFIG = {
       vendorEnabled: true,
     },
   },
-
   reviews: {
     key: "reviews",
     name: "Reviews",
@@ -117,24 +109,10 @@ function getAllModuleKeys() {
 }
 
 /**
- * Get module config by key
- */
-function getModuleConfig(key) {
-  return VENDOR_MODULE_CONFIG[key];
-}
-
-/**
  * Validate module key
  */
 function isValidModuleKey(key) {
   return key in VENDOR_MODULE_CONFIG;
-}
-
-/**
- * Get modules by category
- */
-function getModulesByCategory(category) {
-  return Object.values(VENDOR_MODULE_CONFIG).filter((m) => m.category === category);
 }
 
 function getDefaultVendorModules() {
@@ -150,12 +128,8 @@ function getDefaultVendorModules() {
     metadata: { category: module.category, beta: Boolean(module.beta) },
   }));
 }
-
 module.exports = {
-  VENDOR_MODULE_CONFIG,
   getAllModuleKeys,
   getDefaultVendorModules,
-  getModuleConfig,
   isValidModuleKey,
-  getModulesByCategory,
-};
+};

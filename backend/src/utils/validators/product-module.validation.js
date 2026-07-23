@@ -1,7 +1,5 @@
 const Joi = require("joi");
-
 const moduleFieldType = Joi.string().valid("text", "textarea", "number", "select", "multi-select", "boolean", "date");
-
 const moduleFieldSchema = Joi.object({
   name: Joi.string().trim().max(120).required(),
   key: Joi.string().trim().lowercase().pattern(/^[a-z][a-z0-9_]*$/).max(120).required(),
@@ -11,7 +9,6 @@ const moduleFieldSchema = Joi.object({
   helpText: Joi.string().trim().max(255).allow(""),
   order: Joi.number().integer().min(0).default(0),
 });
-
 const createProductModuleSchema = Joi.object({
   name: Joi.string().trim().max(120).required(),
   key: Joi.string().trim().lowercase().pattern(/^[a-z][a-z0-9_]*$/).max(120).required(),
@@ -19,7 +16,6 @@ const createProductModuleSchema = Joi.object({
   order: Joi.number().integer().min(0).default(0),
   isActive: Joi.boolean().default(true),
 });
-
 const updateProductModuleSchema = Joi.object({
   name: Joi.string().trim().max(120),
   key: Joi.string().trim().lowercase().pattern(/^[a-z][a-z0-9_]*$/).max(120),
@@ -27,8 +23,7 @@ const updateProductModuleSchema = Joi.object({
   order: Joi.number().integer().min(0),
   isActive: Joi.boolean(),
 }).min(1);
-
 module.exports = {
   createProductModuleSchema,
   updateProductModuleSchema,
-};
+};

@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-
 const staffSessionSchema = new mongoose.Schema(
   {
     staffId: {
@@ -39,9 +38,7 @@ const staffSessionSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 staffSessionSchema.index({ staffId: 1, revokedAt: 1, expiresAt: 1 });
-
 module.exports = {
   StaffSession: mongoose.model("StaffSession", staffSessionSchema),
-};
+};

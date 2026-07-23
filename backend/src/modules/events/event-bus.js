@@ -1,7 +1,6 @@
 const EventEmitter = require("events");
 const Queue = require("bull");
 const { logger } = require("../../utils/logger");
-
 const emitter = new EventEmitter();
 const handlers = new Map();
 let queue = null;
@@ -16,20 +15,17 @@ function getRedisConfig() {
     enableReadyCheck: false,
   };
 }
-
 function registerHandler(eventName, handler) {
   const existing = handlers.get(eventName) || [];
   existing.push(handler);
   handlers.set(eventName, existing);
 }
-
 async function dispatch(eventName, payload) {
   const registered = handlers.get(eventName) || [];
   for (const handler of registered) {
     await handler(payload);
   }
 }
-
 function initializeEventBus() {
   if (queue || queueUnavailable) return queue;
   if (process.env.REDIS_DISABLED === "true") {
@@ -69,18 +65,14 @@ function initializeEventBus() {
       error: error?.message,
     });
   }
-
   return queue;
 }
-
 async function emitDomainEvent(eventName, payload = {}, options = {}) {
   const eventPayload = {
     ...payload,
     emittedAt: new Date(),
   };
-
   emitter.emit(eventName, eventPayload);
-
   if (!queue || queueUnavailable) {
     await dispatch(eventName, eventPayload);
     return { queued: false };
@@ -124,9 +116,8 @@ async function shutdownEventBus() {
 }
 
 module.exports = {
-  emitter,
   initializeEventBus,
   registerHandler,
   emitDomainEvent,
   shutdownEventBus,
-};
+};

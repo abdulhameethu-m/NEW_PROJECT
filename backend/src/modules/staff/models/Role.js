@@ -4,7 +4,6 @@ const {
   createEmptyPermissions,
   normalizePermissions,
 } = require("../permissions");
-
 const permissionsSchema = new mongoose.Schema(
   Object.fromEntries(
     Object.entries(STAFF_PERMISSION_CATALOG).map(([moduleName, actions]) => [
@@ -20,7 +19,6 @@ const permissionsSchema = new mongoose.Schema(
   ),
   { _id: false }
 );
-
 const roleSchema = new mongoose.Schema(
   {
     name: {
@@ -49,11 +47,9 @@ const roleSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 roleSchema.pre("validate", function normalizeRolePermissions() {
   this.permissions = normalizePermissions(this.permissions);
 });
-
 module.exports = {
   Role: mongoose.model("Role", roleSchema),
-};
+};

@@ -1,5 +1,4 @@
 const ADMIN_ROLES = ["admin", "super_admin", "support_admin", "finance_admin"];
-
 const ALL_PERMISSIONS = [
   "dashboard:read",
   "analytics:read",
@@ -59,7 +58,6 @@ const ALL_PERMISSIONS = [
   "influencerCommerce:export",
   "influencerCommerce:settings",
 ];
-
 const ROLE_PERMISSIONS = {
   admin: ALL_PERMISSIONS,
   super_admin: ALL_PERMISSIONS,
@@ -113,19 +111,15 @@ const ROLE_PERMISSIONS = {
     "branding:view",
   ],
 };
-
 function normalizeRole(role) {
   return String(role || "").trim().toLowerCase();
 }
-
 function hasPermission(role, permission) {
   const normalized = String(permission || "").replace(/\./g, ":");
   return (ROLE_PERMISSIONS[normalizeRole(role)] || []).includes(normalized);
 }
-
 module.exports = {
   ADMIN_ROLES,
-  ROLE_PERMISSIONS,
   hasPermission,
   normalizeRole,
-};
+};

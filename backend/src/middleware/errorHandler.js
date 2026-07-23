@@ -1,6 +1,5 @@
 const { AppError } = require("../utils/AppError");
 const { logger } = require("../utils/logger");
-
 function errorHandler(err, req, res, next) {
   // Multer / upload errors normalization
   if (err && err.code === "LIMIT_FILE_SIZE") {
@@ -38,28 +37,23 @@ function errorHandler(err, req, res, next) {
       fields: Object.fromEntries(Object.entries(err.errors || {}).map(([field, issue]) => [field, issue.message])),
     });
   }
-
   const isAppError = err instanceof AppError;
   const statusCode = isAppError ? err.statusCode : 500;
-
   const message =
     statusCode === 500
       ? "Something went wrong"
       : err.message || "Request failed";
-
   const payload = {
     success: false,
     message,
     code: err.code || (isAppError ? err.code : "INTERNAL_ERROR"),
   };
-
   if (isAppError && err.details) payload.details = err.details;
   if (process.env.NODE_ENV !== "production" && !isAppError) {
     payload.debug = {
       message: err.message,
     };
   }
-
   logger.error("Request error", {
     path: req.path,
     method: req.method,
@@ -67,9 +61,6 @@ function errorHandler(err, req, res, next) {
     message: err.message,
     stack: err.stack,
   });
-
   res.status(statusCode).json(payload);
 }
-
-module.exports = { errorHandler };
-
+module.exports = { errorHandler };

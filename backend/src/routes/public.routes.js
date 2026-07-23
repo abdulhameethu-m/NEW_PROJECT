@@ -9,7 +9,6 @@ const { ProductReview } = require("../models/ProductReview");
 const { VendorFollower } = require("../models/VendorFollower");
 
 const router = express.Router();
-
 router.get(
   "/features",
   asyncHandler(async (_req, res) => {
@@ -17,10 +16,8 @@ router.get(
     return ok(res, { influencerCommerceEnabled }, "OK");
   })
 );
-
 router.get("/branding", companyBrandingController.getPublicConfig);
 router.get("/branding/manifest.webmanifest", companyBrandingController.getManifest);
-
 // Get all vendors for public stores listing
 router.get(
   "/vendors",
@@ -94,4 +91,4 @@ router.get(
   })
 );
 
-module.exports = router;
+module.exports = router;

@@ -6,13 +6,10 @@ const {
   requireWorkspacePermission,
 } = require("../middleware/adminAccess");
 const shippingConfigController = require("../controllers/shippingConfig.controller");
-
 const router = express.Router();
-
 // All routes require admin authentication
 router.use(adminWorkspaceAuthRequired);
 router.use(requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }));
-
 /**
  * POST /admin/shipping-config
  * Create a new shipping rule
@@ -54,31 +51,26 @@ router.post(
   ]),
   shippingConfigController.createShippingRule
 );
-
 /**
  * GET /admin/shipping-config
  * Get all shipping rules with filtering
  */
 router.get("/", shippingConfigController.getAllShippingRules);
-
 /**
  * GET /admin/shipping-config/options
  * Get available zones and states
  */
 router.get("/options", shippingConfigController.getShippingOptions);
-
 /**
  * GET /admin/shipping-config/summary
  * Get configuration summary
  */
 router.get("/summary", shippingConfigController.getConfigurationSummary);
-
 /**
  * GET /admin/shipping-config/validate/configuration
  * Validate shipping configuration
  */
 router.get("/validate/configuration", shippingConfigController.validateShippingConfiguration);
-
 /**
  * PATCH /admin/shipping-config/bulk/update
  * Bulk update shipping rules
@@ -93,7 +85,6 @@ router.patch(
   ]),
   shippingConfigController.bulkUpdateShippingRules
 );
-
 /**
  * POST /admin/shipping-config/calculate-preview
  * Test shipping calculation
@@ -119,7 +110,6 @@ router.post(
   ]),
   shippingConfigController.calculateShippingPreview
 );
-
 router.get("/location-config", shippingConfigController.getShippingLocationConfig);
 router.put(
   "/location-config",
@@ -130,13 +120,11 @@ router.put(
   ]),
   shippingConfigController.updateShippingLocationConfig
 );
-
 /**
  * GET /admin/shipping-config/statistics
  * Get shipping configuration statistics
  */
 router.get("/statistics", shippingConfigController.getShippingStatistics);
-
 /**
  * GET /admin/shipping-config/:ruleId
  * Get a specific shipping rule
@@ -146,7 +134,6 @@ router.get(
   validate([param("ruleId").isMongoId().withMessage("Invalid rule ID")]),
   shippingConfigController.getShippingRule
 );
-
 /**
  * PUT /admin/shipping-config/:ruleId
  * Update a shipping rule
@@ -185,7 +172,6 @@ router.put(
   ]),
   shippingConfigController.updateShippingRule
 );
-
 /**
  * DELETE /admin/shipping-config/:ruleId
  * Delete a shipping rule
@@ -195,7 +181,6 @@ router.delete(
   validate([param("ruleId").isMongoId().withMessage("Invalid rule ID")]),
   shippingConfigController.deleteShippingRule
 );
-
 /**
  * POST /admin/shipping-config/:ruleId/clone
  * Clone a shipping rule
@@ -205,5 +190,4 @@ router.post(
   validate([param("ruleId").isMongoId().withMessage("Invalid rule ID")]),
   shippingConfigController.cloneShippingRule
 );
-
-module.exports = router;
+module.exports = router;

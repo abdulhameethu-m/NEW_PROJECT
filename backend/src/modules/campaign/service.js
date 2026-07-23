@@ -20,8 +20,6 @@ const {
 } = require("./model");
 const { VendorInfluencerRelationship } = require("../influencerCommerce/model");
 const { InfluencerProductAssignment } = require("../influencer/model");
-const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
-
 const WORKFLOW = Object.freeze({
   DRAFT: "draft",
   PROPOSED: "proposed",
@@ -42,7 +40,6 @@ const WORKFLOW = Object.freeze({
   CANCELLED: "cancelled",
   EXPIRED: "expired",
 });
-
 const INVITATION_OPEN_STATES = [WORKFLOW.PROPOSED, WORKFLOW.INVITATION_SENT, WORKFLOW.PENDING_REVIEW];
 const ACCEPTED_STATES = [
   WORKFLOW.ACCEPTED,
@@ -63,7 +60,6 @@ const ACCEPTED_STATES = [
   "tracking_active",
 ];
 const TERMINAL_STATES = [WORKFLOW.COMPLETED, WORKFLOW.CANCELLED, WORKFLOW.EXPIRED, WORKFLOW.REJECTED];
-
 const LIFECYCLE = Object.freeze({
   DRAFT: "DRAFT",
   INVITATION_PENDING: "INVITATION_PENDING",
@@ -79,30 +75,25 @@ const LIFECYCLE = Object.freeze({
   REFUNDED: "REFUNDED",
   CANCELLED: "CANCELLED",
 });
-
 function addDays(date, days) {
   const next = new Date(date);
   next.setUTCDate(next.getUTCDate() + Number(days || 0));
   return next;
 }
-
 function lifecycleDays(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? Math.floor(number) : fallback;
 }
-
 function dateOnly(value) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
-
 function dateOnlyString(value) {
   const date = dateOnly(value);
   return date ? date.toISOString().slice(0, 10) : "";
 }
-
 function selectedDeliverablesFromPayload(payload = {}) {
   const rows = [
     ...(Array.isArray(payload.selectedServices) ? payload.selectedServices : []),
@@ -124,7 +115,6 @@ function selectedDeliverablesFromPayload(payload = {}) {
     return true;
   });
 }
-
 function validateDeliverableDueDates(payload, { contentStart, contentDeadline }) {
   const start = dateOnly(contentStart);
   const end = dateOnly(contentDeadline);
@@ -152,7 +142,6 @@ function validateDeliverableDueDates(payload, { contentStart, contentDeadline })
     }
   }
 }
-
 function campaignContentCreationEndDate(invitationDeadline, contentCreationDays) {
   const invitationEnd = dateOnly(invitationDeadline);
   if (!invitationEnd) return null;
@@ -182,7 +171,6 @@ function validateCampaignEndDate(campaignEndDate, { invitationDeadline, contentC
   }
   return end;
 }
-
 async function ensureVendorOwnsProducts(vendorId, productIds = []) {
   const products = await Promise.all(productIds.map((productId) => productRepo.findById(productId)));
   if (products.some((product) => !product)) {
@@ -193,15 +181,12 @@ async function ensureVendorOwnsProducts(vendorId, productIds = []) {
     throw new AppError("Campaign products must belong to the vendor", 403, "FORBIDDEN");
   }
 }
-
 function profileUserId(profile = {}) {
   return profile.userId?._id || profile.userId || null;
 }
-
 function campaignDeadline(campaign = {}) {
   return campaign.marketplace?.applicationDeadline || null;
 }
-
 function endOfInvitationDay(value) {
   if (!value) return null;
   const date = new Date(value);
@@ -209,7 +194,6 @@ function endOfInvitationDay(value) {
   date.setHours(23, 59, 59, 999);
   return date;
 }
-
 async function ensureDeadlineOpen(campaign = {}, { actorId = null, actorRole = "influencer" } = {}) {
   const deadline = campaign.invitationDeadline || campaignDeadline(campaign);
   const expiresAt = endOfInvitationDay(deadline);
@@ -244,7 +228,6 @@ async function ensureDeadlineOpen(campaign = {}, { actorId = null, actorRole = "
     throw new AppError("Campaign invitation deadline has passed", 409, "CAMPAIGN_INVITATION_EXPIRED");
   }
 }
-
 async function notifyInfluencerProfile(profile, payload) {
   const userId = profileUserId(profile);
   if (!userId) return null;
@@ -257,7 +240,6 @@ async function notifyInfluencerProfile(profile, payload) {
     ...payload,
   }).catch(() => null);
 }
-
 async function notifyVendorUser(vendorId, payload) {
   return notificationService.notifyVendorUser(vendorId, {
     module: "GROWTH",
@@ -266,7 +248,6 @@ async function notifyVendorUser(vendorId, payload) {
     ...payload,
   }).catch(() => null);
 }
-
 async function recordStatusChange({ campaign, oldStatus, newStatus, actorId, actorRole, reason = "", metadata = {} }) {
   await CampaignStatusHistory.create({
     campaignId: campaign._id,
@@ -285,7 +266,6 @@ async function recordStatusChange({ campaign, oldStatus, newStatus, actorId, act
     metadata: { oldStatus, newStatus, reason, ...metadata },
   }).catch(() => {});
 }
-
 async function createInvitationRecord({ campaign, influencerId, actorId }) {
   const now = new Date();
   const deadline = campaign.invitationDeadline || campaign.marketplace?.applicationDeadline || null;
@@ -317,7 +297,6 @@ async function createInvitationRecord({ campaign, influencerId, actorId }) {
   });
   return invitation;
 }
-
 async function ensureInfluencerCalendarOpen({ influencerId, windowStart, windowEnd, excludeCampaignId = null }) {
   if (!influencerId || !windowStart || !windowEnd) return;
   const query = {
@@ -347,7 +326,6 @@ async function ensureInfluencerCalendarOpen({ influencerId, windowStart, windowE
     });
   }
 }
-
 async function ensureAcceptedWorkflowArtifacts({ campaign, profile, userId }) {
   const now = new Date();
   await Promise.all([
@@ -400,7 +378,6 @@ async function ensureAcceptedWorkflowArtifacts({ campaign, profile, userId }) {
     metadata: { campaignId: String(campaign._id), influencerId: String(profile._id), vendorId: String(campaign.vendorId) },
   }).catch(() => {});
 }
-
 function pushHistory(state, actorId, note = "") {
   return {
     state,
@@ -409,7 +386,6 @@ function pushHistory(state, actorId, note = "") {
     changedAt: new Date(),
   };
 }
-
 async function upsertProductAssignments({ campaign, influencerId, status = "approved", source = "vendor_campaign", actorId = null }) {
   const now = new Date();
   await Promise.all((campaign.productIds || []).map((productId) => InfluencerProductAssignment.findOneAndUpdate(
@@ -431,36 +407,28 @@ async function upsertProductAssignments({ campaign, influencerId, status = "appr
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
   )));
 }
-
 function toNumber(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }
-
 function toPage(value, fallback = 1) {
   return Math.max(1, Math.floor(toNumber(value, fallback)));
 }
-
 function toLimit(value, fallback = 12) {
   return Math.min(50, Math.max(1, Math.floor(toNumber(value, fallback))));
 }
-
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-
 function vendorName(vendor = {}) {
   return vendor?.shopName || vendor?.companyName || vendor?.name || "Brand";
 }
-
 function productImage(product = {}) {
   return product?.thumbnail || product?.images?.find((image) => image?.isPrimary)?.url || product?.images?.[0]?.url || "";
 }
-
 function getApplication(campaign, profileId) {
   return (campaign.applications || []).find((application) => String(application.influencerId) === String(profileId));
 }
-
 function presentCampaign(campaign, profileId) {
   const application = profileId ? getApplication(campaign, profileId) : null;
   const products = (campaign.productIds || []).map((product) => ({
@@ -579,7 +547,6 @@ function presentCampaign(campaign, profileId) {
     updatedAt: campaign.updatedAt,
   };
 }
-
 function buildMarketplaceQuery(profileId, query = {}) {
   const tab = String(query.tab || "available").toLowerCase();
   const acceptedCampaignIds = Array.isArray(query.acceptedCampaignIds) ? query.acceptedCampaignIds : [];
@@ -593,7 +560,6 @@ function buildMarketplaceQuery(profileId, query = {}) {
     ],
   };
   and.push(scope);
-
   if (tab === "available" || tab === "recommended") {
     and.push({ "marketplace.public": true });
     and.push({ influencerId: { $ne: profileId } });
@@ -630,7 +596,6 @@ function buildMarketplaceQuery(profileId, query = {}) {
       ],
     });
   }
-
   if (query.category) and.push({ category: String(query.category) });
   if (query.campaignType) and.push({ campaignType: String(query.campaignType) });
   if (query.country) and.push({ country: String(query.country) });
@@ -645,10 +610,8 @@ function buildMarketplaceQuery(profileId, query = {}) {
     const search = new RegExp(escapeRegex(query.search), "i");
     and.push({ $or: [{ title: search }, { description: search }, { category: search }] });
   }
-
   return and.length ? { $and: and } : {};
 }
-
 function marketplaceSort(sort = "") {
   if (sort === "highest_budget") return { fixedFee: -1, createdAt: -1 };
   if (sort === "highest_commission") return { commissionPercent: -1, fixedFee: -1 };
@@ -656,14 +619,12 @@ function marketplaceSort(sort = "") {
   if (sort === "trending" || sort === "recommended") return { "analytics.revenue": -1, "analytics.clicks": -1, createdAt: -1 };
   return { createdAt: -1 };
 }
-
 class CampaignService {
   async create(userId, payload = {}) {
     const vendor = await vendorRepo.findByUserId(userId);
     if (!vendor) throw new AppError("Vendor profile not found", 404, "VENDOR_NOT_FOUND");
     const influencer = await influencerService.getProfileById(payload.influencerId);
     await influencerCommerceEngine.enforceCampaignLimit(vendor._id);
-
     await ensureVendorOwnsProducts(vendor._id, payload.productIds);
     const pricing = await influencerRateCardService.calculateCampaignPricing({
       vendorId: vendor._id,
@@ -695,7 +656,6 @@ class CampaignService {
       windowStart: createdAt,
       windowEnd: invitationDeadline,
     });
-
     const requiresFunding = ["fixed", "hybrid"].includes(pricing.paymentType);
     const initialState = WORKFLOW.INVITATION_SENT;
     const campaign = await Campaign.create({
@@ -791,7 +751,6 @@ class CampaignService {
     await influencerCommerceEngine.ensureCampaignBudgetControl(campaign, pricing.budgetValue || payload.budget || campaign.fixedFee || 0);
     return campaign;
   }
-
   async accept(userId, campaignId) {
     const profile = await influencerService.getProfile(userId);
     const campaign = await Campaign.findById(campaignId);
@@ -815,7 +774,6 @@ class CampaignService {
     if (!subscription) {
       throw new AppError("Vendor subscription must be active before accepting this campaign", 403, "SUBSCRIPTION_REQUIRED");
     }
-
     const oldStatus = campaign.state;
     const state = WORKFLOW.CONTENT_CREATION;
     const acceptedAt = new Date();
@@ -873,7 +831,6 @@ class CampaignService {
       },
       { returnDocument: "after" }
     );
-
     const acceptance = await CampaignAcceptance.findOneAndUpdate(
       { campaignId: updated._id, influencerId: profile._id },
       {
@@ -921,16 +878,13 @@ class CampaignService {
       referenceId: updated._id,
       meta: { campaignId: String(updated._id), influencerId: String(profile._id), status: state },
     });
-
     await emitDomainEvent(INFLUENCER_EVENTS.CAMPAIGN_ACTIVATED, {
       campaignId: updated._id,
       influencerId: updated.influencerId,
       vendorId: updated.vendorId,
     });
-
     return locked;
   }
-
   async reject(userId, campaignId, note = "") {
     const profile = await influencerService.getProfile(userId);
     const campaign = await Campaign.findById(campaignId);
@@ -941,7 +895,6 @@ class CampaignService {
     if (!INVITATION_OPEN_STATES.includes(campaign.state)) {
       throw new AppError("Only open campaign invitations can be declined", 400, "INVALID_STATE");
     }
-
     const oldStatus = campaign.state;
     const updated = await Campaign.findByIdAndUpdate(
       campaignId,
@@ -982,7 +935,6 @@ class CampaignService {
     });
     return updated;
   }
-
   async listForVendor(userId) {
     const vendor = await vendorRepo.findByUserId(userId);
     if (!vendor) throw new AppError("Vendor profile not found", 404, "VENDOR_NOT_FOUND");
@@ -991,7 +943,6 @@ class CampaignService {
       .populate("productIds", "name")
       .sort({ createdAt: -1 });
   }
-
   async listForInfluencer(userId) {
     const profile = await influencerService.getProfile(userId);
     return await Campaign.find({ $or: [{ influencerId: profile._id }, { "applications.influencerId": profile._id }] })
@@ -999,7 +950,6 @@ class CampaignService {
       .populate("vendorId", "shopName companyName")
       .sort({ createdAt: -1 });
   }
-
   async listMarketplace(userId, query = {}) {
     const profile = await influencerService.getProfile(userId);
     const page = toPage(query.page);
@@ -1010,7 +960,6 @@ class CampaignService {
       ? (await CampaignAcceptance.find({ influencerId: profile._id, status: { $in: [WORKFLOW.ACCEPTED, WORKFLOW.ACTIVE] } }).select("campaignId").lean()).map((row) => row.campaignId).filter(Boolean)
       : [];
     const filter = buildMarketplaceQuery(profile._id, { ...query, tab, acceptedCampaignIds });
-
     const [items, total] = await Promise.all([
       Campaign.find(filter)
         .populate({ path: "productIds", select: "name slug description category price discountPrice images thumbnail sellerId", populate: { path: "sellerId", select: "storeSlug shopName companyName" } })
@@ -1030,7 +979,6 @@ class CampaignService {
       : [[], []];
     const invitationMap = new Map(invitations.map((row) => [String(row.campaignId), row]));
     const acceptanceMap = new Map(acceptances.map((row) => [String(row.campaignId), row]));
-
     const rows = items.map((item) => {
       item.invitation = invitationMap.get(String(item._id)) || null;
       item.acceptance = acceptanceMap.get(String(item._id)) || null;
@@ -1043,13 +991,11 @@ class CampaignService {
       }
       return row;
     });
-
     return {
       items: rows,
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
   }
-
   async apply(userId, campaignId, payload = {}) {
     const profile = await influencerService.getProfile(userId);
     const campaign = await Campaign.findById(campaignId);
@@ -1057,7 +1003,6 @@ class CampaignService {
     if (["completed", "cancelled"].includes(campaign.state)) {
       throw new AppError("Campaign is not open for applications", 400, "INVALID_STATE");
     }
-
     const existing = campaign.applications.find((application) => String(application.influencerId) === String(profile._id));
     const application = {
       influencerId: profile._id,
@@ -1069,7 +1014,6 @@ class CampaignService {
       expectedEarnings: toNumber(payload.expectedEarnings, campaign.fixedFee || 0),
       submittedAt: new Date(),
     };
-
     if (existing) {
       Object.assign(existing, application);
     } else {
@@ -1079,7 +1023,6 @@ class CampaignService {
     await campaign.save();
     return presentCampaign(await Campaign.findById(campaign._id).populate("productIds", "name category price discountPrice images thumbnail").populate("vendorId", "shopName companyName logoUrl").lean(), profile._id);
   }
-
   async saveMarketplaceCampaign(userId, campaignId, saved = true) {
     const profile = await influencerService.getProfile(userId);
     const update = saved
@@ -1092,7 +1035,6 @@ class CampaignService {
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
     return presentCampaign(campaign, profile._id);
   }
-
   async submitDeliverable(userId, campaignId, payload = {}) {
     const profile = await influencerService.getProfile(userId);
     const campaign = await Campaign.findById(campaignId);
@@ -1101,7 +1043,6 @@ class CampaignService {
       String(campaign.influencerId || "") === String(profile._id) ||
       campaign.applications.some((application) => String(application.influencerId) === String(profile._id) && ["approved", "shortlisted", "submitted"].includes(application.status));
     if (!allowed) throw new AppError("Apply to the campaign before submitting deliverables", 403, "FORBIDDEN");
-
     campaign.deliverables.push({
       influencerId: profile._id,
       type: payload.type || "video",
@@ -1116,7 +1057,6 @@ class CampaignService {
     await campaign.save();
     return presentCampaign(await Campaign.findById(campaign._id).populate("productIds", "name category price discountPrice images thumbnail").populate("vendorId", "shopName companyName logoUrl").lean(), profile._id);
   }
-
   async marketplaceAnalytics(userId, query = {}) {
     const profile = await influencerService.getProfile(userId);
     const campaigns = await Campaign.find({
@@ -1138,7 +1078,6 @@ class CampaignService {
       map.set(key, current);
       return map;
     }, new Map());
-
     const rows = campaigns.map((campaign) => {
       const earned = byCampaign.get(String(campaign._id)) || {};
       const clicks = Number(campaign.analytics?.clicks || 0);
@@ -1158,7 +1097,6 @@ class CampaignService {
         createdAt: campaign.createdAt,
       };
     });
-
     const totals = rows.reduce(
       (sum, row) => ({
         revenue: sum.revenue + row.revenue,
@@ -1169,7 +1107,6 @@ class CampaignService {
       { revenue: 0, commission: 0, orders: 0, clicks: 0 }
     );
     totals.conversionRate = totals.clicks ? Number(((totals.orders / totals.clicks) * 100).toFixed(2)) : 0;
-
     return {
       totals,
       rows,
@@ -1178,7 +1115,6 @@ class CampaignService {
       },
     };
   }
-
   async listAll() {
     return await Campaign.find({})
       .populate("productIds", "name")
@@ -1187,9 +1123,4 @@ class CampaignService {
       .sort({ createdAt: -1 });
   }
 }
-
-module.exports = new CampaignService();
-module.exports.__private__ = {
-  campaignContentCreationEndDate,
-  validateCampaignEndDate,
-};
+module.exports = new CampaignService();

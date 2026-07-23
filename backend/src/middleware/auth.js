@@ -1,6 +1,6 @@
 const { AppError } = require("../utils/AppError");
 const { verifyAccessToken } = require("../utils/jwt");
-const { hasPermission } = require("../utils/adminPermissions");
+
 
 function getTokenFromReq(req) {
   if (req.cookies && req.cookies.accessToken) return req.cookies.accessToken;
@@ -25,11 +25,10 @@ function authRequired(req, res, next) {
     const payload = verifyAccessToken(token);
     req.user = payload;
     next();
-  } catch (e) {
+  } catch {
     return next(new AppError("Invalid or expired token", 401, "UNAUTHORIZED"));
   }
 }
-
 // Optional auth - doesn't throw error if token is missing
 function authOptional(req, res, next) {
   if (rejectLegacyBearer(req, res, next)) return;
@@ -39,18 +38,16 @@ function authOptional(req, res, next) {
     req.user = null;
     return next();
   }
-
   try {
     const payload = verifyAccessToken(token);
     req.user = payload;
     next();
-  } catch (e) {
+  } catch {
     // Invalid token, but continue anyway
     req.user = null;
     next();
   }
 }
-
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
@@ -62,14 +59,4 @@ function requireRole(...roles) {
   };
 }
 
-function requirePermission(permission) {
-  return (req, res, next) => {
-    if (!req.user) return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
-    if (!hasPermission(req.user.role, permission)) {
-      return next(new AppError("Forbidden", 403, "FORBIDDEN"));
-    }
-    next();
-  };
-}
-
-module.exports = { authRequired, authOptional, requireRole, requirePermission };
+module.exports = { authRequired, authOptional, requireRole,  };

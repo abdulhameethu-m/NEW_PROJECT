@@ -29,9 +29,7 @@ const influencerCommerceRoutes = require("../modules/influencerCommerce/routes")
 const campaignFinanceController = require("../modules/campaignFinance/controller");
 
 const router = express.Router();
-
 router.use(authRequired, requireRole("vendor"));
-
 router.post("/step1", validate(step1Schema), vendorController.step1);
 router.post(
   "/step2",
@@ -46,7 +44,6 @@ router.post(
   validate(step4Schema),
   vendorController.step4
 );
-
 router.get("/me", vendorController.me);
 router.use(requireApprovedVendor);
 
@@ -63,18 +60,15 @@ router.post("/products/media", requireVendorPermission("products.create"), uploa
 router.route("/products/:id")
   .patch(requireVendorPermission("products.update"), validate(updateProductSchema), vendorDashboardController.updateProduct)
   .delete(requireVendorPermission("products.delete"), vendorDashboardController.deleteProduct);
-
 // 🔥 ORDERS MODULE - Protected by vendorModuleAccess
 router.get("/orders", requireVendorModule("orders"), vendorDashboardController.listOrders);
 router.get("/orders/:id", requireVendorModule("orders"), vendorDashboardController.getOrderById);
 router.patch("/orders/:id/status", requireVendorPermission("orders.update"), vendorDashboardController.updateOrderStatus);
 router.post("/orders/:id/ship", requireVendorPermission("orders.update"), vendorDashboardController.markOrderSelfShipped);
 router.post("/orders/:id/request-pickup", requireVendorPermission("orders.update"), vendorDashboardController.requestOrderPickup);
-
 // 🔥 INVENTORY MODULE - Protected by vendorModuleAccess
 router.get("/inventory", requireVendorModule("inventory"), vendorDashboardController.getInventory);
 router.patch("/inventory/:id", requireVendorPermission("inventory.update"), vendorDashboardController.updateInventory);
-
 // 🔥 ANALYTICS MODULE - Protected by vendorModuleAccess
 router.get("/analytics", requireVendorModule("analytics"), vendorDashboardController.getAnalytics);
 router.get("/analytics/products/:id", requireVendorModule("analytics"), vendorDashboardController.getProductAnalyticsDetail);
@@ -89,11 +83,9 @@ router.get("/payout-requests", requireVendorModule("payments"), vendorPayoutCont
 router.post("/payouts/request", requireVendorPermission("payments.update"), validate(payoutRequestSchema), vendorPayoutController.requestPayout);
 router.get("/payout-account", requireVendorModule("payments"), vendorPayoutController.getPayoutAccount);
 router.put("/payout-account", requireVendorPermission("payments.update"), validate(payoutAccountSchema), vendorPayoutController.upsertPayoutAccount);
-
 // 🔥 DELIVERY MODULE - Protected by vendorModuleAccess
 router.get("/delivery", requireVendorModule("delivery"), vendorDashboardController.getDelivery);
 router.patch("/delivery/:id", requireVendorPermission("delivery.update"), vendorDashboardController.updateDelivery);
-
 router.get("/settings/shipping", vendorDashboardController.getShippingSettings);
 router.patch("/settings/shipping", vendorDashboardController.updateShippingSettings);
 router.route("/settings").get(vendorDashboardController.getSettings).patch(vendorDashboardController.updateSettings);
@@ -103,15 +95,11 @@ router.patch("/settings/storefront", vendorStorefrontController.updateVendorStor
 // 🔥 REVIEWS MODULE - Protected by vendorModuleAccess
 router.get("/reviews", requireVendorModule("reviews"), vendorDashboardController.getReviews);
 router.post("/reviews/:id/respond", requireVendorPermission("reviews.update"), vendorDashboardController.respondToReview);
-
 // 🔥 RETURNS MODULE - Protected by vendorModuleAccess
 router.get("/returns", requireVendorModule("returns"), vendorDashboardController.getReturns);
 router.patch("/returns/:id", requireVendorPermission("returns.update"), vendorDashboardController.updateReturnStatus);
-
 router.route("/offers").get(vendorDashboardController.getOffers).post(vendorDashboardController.createOffer);
 router.patch("/offers/:id", vendorDashboardController.updateOffer);
-
 router.route("/support").get(vendorDashboardController.getSupportTickets).post(vendorDashboardController.createSupportTicket);
 router.post("/support/:id/reply", vendorDashboardController.replyToSupportTicket);
-
-module.exports = router;
+module.exports = router;

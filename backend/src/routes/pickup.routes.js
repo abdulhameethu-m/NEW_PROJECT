@@ -5,9 +5,7 @@ const { validate } = require("../middleware/validate");
 const { requireVendorModule, requireVendorPermission } = require("../middleware/vendorModuleAccess");
 const { adminWorkspaceAuthRequired, requireWorkspacePermission } = require("../middleware/adminAccess");
 const pickupController = require("../controllers/pickup.controller");
-
 const router = express.Router();
-
 router.get(
   "/vendor/pickups/queue",
   authRequired,
@@ -15,7 +13,6 @@ router.get(
   requireVendorModule("delivery"),
   pickupController.getVendorPickupQueue
 );
-
 router.get(
   "/vendor/pickups",
   authRequired,
@@ -23,7 +20,6 @@ router.get(
   requireVendorModule("delivery"),
   pickupController.getVendorPickupBatches
 );
-
 router.post(
   "/vendor/pickups/schedule",
   authRequired,
@@ -41,14 +37,12 @@ router.post(
   ]),
   pickupController.scheduleVendorPickup
 );
-
 router.get(
   "/admin/pickups",
   adminWorkspaceAuthRequired,
   requireWorkspacePermission("orders.read"),
   pickupController.getAdminPickups
 );
-
 router.post(
   "/admin/pickups/schedule",
   adminWorkspaceAuthRequired,
@@ -69,5 +63,4 @@ router.post(
   ]),
   pickupController.scheduleAdminPickup
 );
-
-module.exports = router;
+module.exports = router;

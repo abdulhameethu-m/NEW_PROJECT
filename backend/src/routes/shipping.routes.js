@@ -15,7 +15,6 @@ router.get("/locations/districts", shippingConfigController.getPublicShippingDis
 /**
  * ==================== VENDOR ROUTES ====================
  */
-
 // Get available shipping modes for current vendor
 router.get("/vendor/modes", vendorAuth, shippingController.getVendorShippingModes);
 
@@ -34,7 +33,6 @@ router.patch(
   ]),
   shippingController.updateVendorShippingSettings
 );
-
 // Submit self-shipping tracking
 router.patch(
   "/vendor/orders/:orderId/self",
@@ -60,7 +58,6 @@ router.patch(
   ]),
   shippingController.submitSelfShipping
 );
-
 // Request platform pickup
 router.patch(
   "/vendor/orders/:orderId/platform",
@@ -71,10 +68,8 @@ router.patch(
 /**
  * ==================== ADMIN ROUTES ====================
  */
-
 // Get platform shipping modes configuration
 router.get("/admin/modes", authRequired, requireRole("admin"), shippingController.getShippingModesConfig);
-
 // Update platform shipping modes configuration (feature flags)
 router.patch(
   "/admin/modes",
@@ -90,7 +85,6 @@ router.patch(
   ]),
   shippingController.saveShippingModesConfig
 );
-
 // Override shipping mode for an order
 router.patch(
   "/admin/orders/:orderId/mode",
@@ -103,7 +97,6 @@ router.patch(
   ]),
   shippingController.overrideShippingMode
 );
-
 // Update order shipping status
 router.patch(
   "/admin/orders/:orderId/status",
@@ -127,10 +120,8 @@ router.patch(
   ]),
   shippingController.updateOrderShippingStatus
 );
-
 // Get vendor shipping modes (admin view)
 router.get("/admin/vendors/:vendorId", authRequired, requireRole("admin"), shippingController.getVendorShippingModesAdmin);
-
 // Update vendor allowed shipping modes (admin control)
 router.patch(
   "/admin/vendors/:vendorId",
@@ -154,19 +145,14 @@ router.patch(
   ]),
   shippingController.updateVendorShippingModesAdmin
 );
-
 /**
  * ==================== PUBLIC/USER ROUTES ====================
  */
-
 // Get order tracking (user accessible)
 router.get("/orders/:orderId/tracking", authRequired, shippingController.getOrderTracking);
-
 /**
  * ==================== WEBHOOKS ====================
  */
-
 // Shiprocket webhook handler (no auth, signature verification recommended)
 router.post("/webhooks/shiprocket", shippingController.handleShiprocketWebhook);
-
-module.exports = router;
+module.exports = router;

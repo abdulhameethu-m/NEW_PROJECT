@@ -1,5 +1,4 @@
 const Joi = require("joi");
-
 const pickupLocationObjectSchema = Joi.object({
   name: Joi.string().trim().max(120).allow("", null),
   phone: Joi.string().trim().max(30).allow("", null),
@@ -13,7 +12,6 @@ const pickupLocationObjectSchema = Joi.object({
   longitude: Joi.number().min(-180).max(180).allow(null),
   isDefault: Joi.boolean().default(false),
 });
-
 const step1Schema = Joi.object({
   name: Joi.string().trim().min(2).max(120).optional(),
   email: Joi.string().trim().email().optional(),
@@ -29,7 +27,6 @@ const step1Schema = Joi.object({
     .optional()
     .default([]),
 });
-
 const step2Schema = Joi.object({
   gstNumber: Joi.string().trim().max(30).allow("", null),
   noGst: Joi.boolean().default(false),
@@ -38,7 +35,6 @@ const step2Schema = Joi.object({
   if (!value.gstNumber) return helpers.error("any.custom", { message: "GST number required or set noGst=true" });
   return value;
 }, "GST requirement");
-
 const step3Schema = Joi.object({
   bankDetails: Joi.object({
     accountNumber: Joi.string().trim().min(6).max(40).allow("", null),
@@ -56,10 +52,7 @@ const step3Schema = Joi.object({
   }
   return value;
 }, "Bank or UPI requirement");
-
 const step4Schema = Joi.object({
   shopName: Joi.string().trim().min(2).max(160).allow("", null).optional(),
 });
-
-module.exports = { step1Schema, step2Schema, step3Schema, step4Schema };
-
+module.exports = { step1Schema, step2Schema, step3Schema, step4Schema };

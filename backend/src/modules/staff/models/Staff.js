@@ -1,7 +1,5 @@
 const mongoose = require("mongoose");
-
 const STAFF_STATUS = ["active", "suspended"];
-
 const staffSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 120 },
@@ -55,8 +53,7 @@ const staffSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 module.exports = {
   Staff: mongoose.model("Staff", staffSchema),
   STAFF_STATUS,
-};
+};

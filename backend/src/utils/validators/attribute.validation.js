@@ -1,9 +1,7 @@
 const Joi = require("joi");
-
 const objectId = Joi.string().hex().length(24);
 const attributeType = Joi.string().valid("text", "number", "select", "multi-select", "boolean", "color");
 const variantDisplayType = Joi.string().valid("button", "swatch", "image-swatch");
-
 const attributePayload = {
   name: Joi.string().trim().max(120),
   key: Joi.string().trim().lowercase().pattern(/^[a-z][a-z0-9_]*$/).max(120),
@@ -26,7 +24,6 @@ const attributePayload = {
     subCategoryId: objectId.allow(null, ""),
   }),
 };
-
 const createAttributeSchema = Joi.object({
   name: attributePayload.name.required(),
   key: attributePayload.key.required(),
@@ -41,10 +38,8 @@ const createAttributeSchema = Joi.object({
   isActive: attributePayload.isActive,
   appliesTo: attributePayload.appliesTo.required(),
 });
-
 const updateAttributeSchema = Joi.object(attributePayload).min(1);
-
 module.exports = {
   createAttributeSchema,
   updateAttributeSchema,
-};
+};

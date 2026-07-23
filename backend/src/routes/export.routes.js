@@ -4,7 +4,6 @@ const { requireApprovedVendor } = require("../middleware/vendorApproval");
 const exportController = require("../controllers/export.controller");
 
 const router = express.Router();
-
 router.get(
   "/",
   authRequired,
@@ -13,4 +12,4 @@ router.get(
   exportController.downloadReport
 );
 
-module.exports = router;
+module.exports = router;

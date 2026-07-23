@@ -10,8 +10,8 @@ const {
   InfluencerProfile,
   InfluencerApplication,
   InfluencerSocialAccount,
-  InfluencerBusinessProfile,
-  InfluencerPaymentProfile,
+  
+  
   InfluencerProductAssignment,
 } = require("../influencer/model");
 const {
@@ -27,7 +27,6 @@ const {
 } = require("../commission/models");
 const { TrackingSession } = require("../tracking/model");
 const { emitDomainEvent } = require("../events/event-bus");
-
 async function upsertProductAssignments({ campaign, influencerId, status = "approved", source = "admin_manual", actorId = null }) {
   const now = new Date();
   await Promise.all((campaign.productIds || []).map((productId) => InfluencerProductAssignment.findOneAndUpdate(
@@ -64,12 +63,10 @@ const {
   VendorSubscriptionChange,
   SubscriptionCreditWallet,
 } = require("../../models/InfluencerCommerceConfig");
-
 function oid(value) {
   if (!value || !mongoose.Types.ObjectId.isValid(value)) return null;
   return new mongoose.Types.ObjectId(value);
 }
-
 function oidList(values = []) {
   const ids = [];
   values.flat().forEach((value) => {
@@ -78,29 +75,24 @@ function oidList(values = []) {
   });
   return ids;
 }
-
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-
 function pageOptions(query = {}, fallback = 20) {
   const page = Math.max(1, Number(query.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(query.limit) || fallback));
   return { page, limit, skip: (page - 1) * limit };
 }
-
 function startOfDay(date) {
   const next = new Date(date);
   next.setUTCHours(0, 0, 0, 0);
   return next;
 }
-
 function addDays(date, days) {
   const next = new Date(date);
   next.setUTCDate(next.getUTCDate() + days);
   return next;
 }
-
 function parseRange(query = {}) {
   const now = new Date();
   let end = query.endDate ? new Date(query.endDate) : now;
@@ -112,33 +104,27 @@ function parseRange(query = {}) {
   endOfDayDate.setUTCHours(23, 59, 59, 999);
   return { start: startOfDay(start), end: endOfDayDate };
 }
-
 function money(value) {
   return Number(Number(value || 0).toFixed(2));
 }
-
 const REVENUE_MODEL_LABELS = {
   fixed: "Fixed Payment",
   commission: "Commission",
   hybrid: "Hybrid",
   free_product: "Free Product",
 };
-
 function revenueModel(value = "commission") {
   const next = String(value || "commission").toLowerCase();
   return REVENUE_MODEL_LABELS[next] ? next : "commission";
 }
-
 function selectedRevenueModel(value = "all") {
   const next = String(value || "all").toLowerCase();
   return next === "all" || REVENUE_MODEL_LABELS[next] ? next : "all";
 }
-
 function campaignBudget(campaign = {}, fallback = 0) {
   const pricing = campaign.pricing || {};
   return money(pricing.totalBudget || pricing.fixedCost || campaign.fixedFee || fallback || 0);
 }
-
 function buckets(start, end) {
   const rows = [];
   const cursor = startOfDay(start);
@@ -149,19 +135,15 @@ function buckets(start, end) {
   }
   return rows;
 }
-
 function influencerName(profile = {}) {
   return profile.displayName || profile.userId?.name || profile.userId?.email || "Influencer";
 }
-
 function vendorName(vendor = {}) {
   return vendor.shopName || vendor.companyName || vendor.userId?.name || "Vendor";
 }
-
 function productImage(product = {}) {
   return product.thumbnail || product.images?.find((image) => image?.isPrimary)?.url || product.images?.[0]?.url || "";
 }
-
 function normalizeSort(sort = "", fallback = { createdAt: -1 }) {
   const map = {
     revenue: { "analytics.revenue": -1, createdAt: -1 },
@@ -172,7 +154,6 @@ function normalizeSort(sort = "", fallback = { createdAt: -1 }) {
   };
   return map[sort] || fallback;
 }
-
 function normalizeCampaignState(payload = {}) {
   const action = String(payload.action || "").toLowerCase();
   const status = String(payload.status || "").toLowerCase();
@@ -194,21 +175,17 @@ function normalizeCampaignState(payload = {}) {
   };
   return map[requested] || "";
 }
-
 function campaignEndDate(campaign = {}) {
   return campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || campaign.termsFrozen?.deadline || null;
 }
-
 function isDateReached(value, now = new Date()) {
   if (!value) return false;
   const date = new Date(value);
   return !Number.isNaN(date.getTime()) && date.getTime() <= now.getTime();
 }
-
 function frontendBaseUrl() {
   return String(process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5173").replace(/\/+$/, "");
 }
-
 function affiliateUrl(row = {}) {
   const productId = row.productId?._id || row.productId || "";
   const trackingCode = row.trackingCode || row.trackingId || "";
@@ -219,7 +196,6 @@ function affiliateUrl(row = {}) {
   if (/^https?:\/\//i.test(path)) return path;
   return `${frontendBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
 }
-
 function linkTrackingStatus(row = {}) {
   const campaign = row.campaignId || {};
   if (row.trackingStatus) return row.trackingStatus;
@@ -229,7 +205,6 @@ function linkTrackingStatus(row = {}) {
   if (row.status === "expired" || isDateReached(row.expiresAt) || isDateReached(campaignEndDate(campaign))) return "expired";
   return "inactive";
 }
-
 function linkActionAvailability(row = {}) {
   const campaign = row.campaignId || {};
   const campaignState = String(campaign.state || "").toLowerCase();
@@ -257,7 +232,6 @@ function linkActionAvailability(row = {}) {
               : "";
   return { canActivate, canDeactivate, disabledReason, expired, blockedState };
 }
-
 function presentAffiliateLink(row = {}, metrics = {}, history = []) {
   const campaign = row.campaignId || {};
   const product = row.productId || {};
@@ -311,13 +285,11 @@ function presentAffiliateLink(row = {}, metrics = {}, history = []) {
     history,
   };
 }
-
 class AdminInfluencerCommerceService {
   dateMatch(query = {}) {
     const { start, end } = parseRange(query);
     return { createdAt: { $gte: start, $lte: end } };
   }
-
   campaignFilter(query = {}) {
     const filter = {};
     if (oid(query.vendorId)) filter.vendorId = oid(query.vendorId);
@@ -333,7 +305,6 @@ class AdminInfluencerCommerceService {
     }
     return filter;
   }
-
   commissionFilter(query = {}) {
     const filter = { ...this.dateMatch(query) };
     if (oid(query.vendorId)) filter.vendorId = oid(query.vendorId);
@@ -342,7 +313,6 @@ class AdminInfluencerCommerceService {
     if (query.status || query.state) filter.state = String(query.status || query.state).toUpperCase();
     return filter;
   }
-
   async applyCommissionSearch(filter, query = {}) {
     const search = String(query.search || "").trim();
     if (!search) return filter;
@@ -365,12 +335,10 @@ class AdminInfluencerCommerceService {
     ];
     return { $and: [filter, { $or: clauses }] };
   }
-
   async dashboard(query = {}) {
     const { start, end } = parseRange(query);
     const commissionMatch = this.commissionFilter(query);
     const campaignMatch = this.campaignFilter(query);
-
     const [
       totalInfluencers,
       activeInfluencers,
@@ -429,13 +397,11 @@ class AdminInfluencerCommerceService {
       SubscriptionCreditWallet.aggregate([{ $match: { status: "active" } }, { $group: { _id: null, balance: { $sum: "$remainingAmount" } } }]),
       VendorSubscriptionChange.aggregate([{ $match: { status: "completed", changeType: { $in: ["upgrade", "cycle_change"] } } }, { $group: { _id: "$newPlanId", upgrades: { $sum: 1 } } }, { $sort: { upgrades: -1 } }, { $limit: 10 }]),
     ]);
-
     const trendMap = new Map(buckets(start, end).map((row) => [row.date, row]));
     revenueTrendRows.forEach((row) => Object.assign(trendMap.get(row._id) || {}, { revenue: money(row.revenue), commission: money(row.commission) }));
     campaignTrendRows.forEach((row) => Object.assign(trendMap.get(row._id) || {}, { campaigns: row.campaigns }));
     influencerGrowthRows.forEach((row) => Object.assign(trendMap.get(row._id) || {}, { influencers: row.influencers }));
     vendorGrowthRows.forEach((row) => Object.assign(trendMap.get(row._id) || {}, { vendors: row.vendors }));
-
     const influencerIds = topInfluencers.map((row) => row._id).filter(Boolean);
     const vendorIds = topVendors.map((row) => row._id).filter(Boolean);
     const [influencers, vendors] = await Promise.all([
@@ -449,7 +415,6 @@ class AdminInfluencerCommerceService {
     const mostPopularPlan = planDistribution[0] || null;
     const unified = await analyticsAggregator.getAdminAnalytics(query).catch(() => null);
     const unifiedMetrics = unified?.metrics || {};
-
     return {
       kpis: {
         totalInfluencers,
@@ -495,7 +460,6 @@ class AdminInfluencerCommerceService {
       },
     };
   }
-
   async influencers(query = {}) {
     const { page, limit, skip } = pageOptions(query);
     const filter = {};
@@ -541,7 +505,6 @@ class AdminInfluencerCommerceService {
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
   }
-
   async vendors(query = {}) {
     const { page, limit, skip } = pageOptions(query);
     const filter = {};
@@ -580,7 +543,6 @@ class AdminInfluencerCommerceService {
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
   }
-
   async campaigns(query = {}) {
     const { page, limit, skip } = pageOptions(query);
     const filter = this.campaignFilter(query);
@@ -607,7 +569,6 @@ class AdminInfluencerCommerceService {
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
   }
-
   async updateCampaign(actor, campaignId, payload = {}) {
     const allowed = {};
     ["title", "description", "campaignType", "category", "country", "language", "commissionPercent", "fixedFee", "deadline"].forEach((key) => {
@@ -631,7 +592,6 @@ class AdminInfluencerCommerceService {
         throw new AppError("Campaign pricing is locked after acceptance", 409, "CAMPAIGN_PRICING_LOCKED");
       }
     }
-
     const historyState = allowed.state || payload.action || "updated";
     const campaign = await Campaign.findByIdAndUpdate(
       campaignId,
@@ -639,13 +599,11 @@ class AdminInfluencerCommerceService {
       { returnDocument: "after", runValidators: true }
     );
     if (!campaign) throw new AppError("Campaign not found", 404, "NOT_FOUND");
-
     const participantIds = [
       campaign.influencerId,
       ...(campaign.applications || []).filter((application) => application.status === "approved").map((application) => application.influencerId),
     ].filter(Boolean);
     const uniqueParticipantIds = [...new Set(participantIds.map(String))].map((id) => new mongoose.Types.ObjectId(id));
-
     if (uniqueParticipantIds.length && allowed.state === "active") {
       await Promise.all([
         VendorInfluencerRelationship.updateMany(
@@ -655,7 +613,6 @@ class AdminInfluencerCommerceService {
         Promise.all(uniqueParticipantIds.map((influencerId) => upsertProductAssignments({ campaign, influencerId, status: "active", source: "admin_manual", actorId: actor.sub || actor._id }))),
       ]);
     }
-
     if (uniqueParticipantIds.length && ["completed", "cancelled"].includes(allowed.state)) {
       const assignmentUpdate = {
         status: allowed.state === "cancelled" ? "paused" : "approved",
@@ -673,11 +630,9 @@ class AdminInfluencerCommerceService {
         ),
       ]);
     }
-
     await auditService.log({ actor, action: "admin.influencer_commerce.campaign.update", entityType: "Campaign", entityId: campaign._id, metadata: allowed }).catch(() => {});
     return campaign;
   }
-
   async matching(query = {}) {
     const [vendors, influencers, campaigns, products] = await Promise.all([
       Vendor.find({ status: "approved" }).limit(25).lean(),
@@ -712,7 +667,6 @@ class AdminInfluencerCommerceService {
     });
     return { matches, campaigns, products };
   }
-
   async affiliateLinks(query = {}) {
     await this.expireAffiliateLinks();
     const { page, limit, skip } = pageOptions(query);
@@ -768,7 +722,6 @@ class AdminInfluencerCommerceService {
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
   }
-
   async affiliateLinkMetrics(linkIds = []) {
     const ids = oidList(linkIds);
     if (!ids.length) return new Map();
@@ -833,7 +786,6 @@ class AdminInfluencerCommerceService {
     });
     return map;
   }
-
   async affiliateLinkHistory(linkId) {
     const rows = await AuditLog.find({ entityType: "AffiliateLink", entityId: oid(linkId) })
       .populate("actorId", "name email role")
@@ -849,7 +801,6 @@ class AdminInfluencerCommerceService {
       createdAt: row.createdAt,
     }));
   }
-
   async affiliateLinkDetails(linkId) {
     await this.expireAffiliateLinks();
     const row = await AffiliateLink.findById(linkId)
@@ -865,7 +816,6 @@ class AdminInfluencerCommerceService {
     ]);
     return presentAffiliateLink(row, metrics.get(String(row._id)) || {}, history);
   }
-
   async updateAffiliateLinkStatus(actor, linkId, payload = {}, meta = {}) {
     await this.expireAffiliateLinks();
     const action = String(payload.action || payload.status || "").toLowerCase();
@@ -933,7 +883,6 @@ class AdminInfluencerCommerceService {
     await this.notifyAffiliateLinkStatusChange(row, enable, reason).catch(() => null);
     return this.affiliateLinkDetails(row._id);
   }
-
   async notifyAffiliateLinkStatusChange(row, enabled, reason) {
     const title = enabled ? "Affiliate link activated" : "Affiliate link deactivated";
     const message = `${row.campaignId?.title || "Campaign"} affiliate link for ${row.productId?.name || "a product"} was ${enabled ? "activated" : "deactivated"}.`;
@@ -953,7 +902,6 @@ class AdminInfluencerCommerceService {
         : Promise.resolve(null),
     ]);
   }
-
   async expireAffiliateLinks() {
     const now = new Date();
     const expiredCampaignIds = await Campaign.find({
@@ -982,7 +930,6 @@ class AdminInfluencerCommerceService {
     }
     return { expired: ids.length };
   }
-
   async tracking(query = {}) {
     const { page, limit, skip } = pageOptions(query);
     const filter = {};
@@ -1009,7 +956,6 @@ class AdminInfluencerCommerceService {
         ...(influencerIds.length ? [{ influencerId: { $in: influencerIds } }] : []),
       ];
     }
-
     const rows = await TrackingSession.find(filter)
       .populate({ path: "influencerId", populate: { path: "userId", select: "name email" } })
       .populate({ path: "campaignId", populate: { path: "vendorId", select: "shopName companyName" } })
@@ -1017,7 +963,6 @@ class AdminInfluencerCommerceService {
       .sort({ createdAt: -1 })
       .limit(1000)
       .lean();
-
     const ids = rows.map((row) => row._id);
     const [orderRows, commissionRows] = await Promise.all([
       ids.length ? Order.find({ "attribution.trackingSessionId": { $in: ids } }).select("orderNumber totalAmount status paymentStatus attribution createdAt").lean() : [],
@@ -1034,7 +979,6 @@ class AdminInfluencerCommerceService {
       map.set(key, current);
       return map;
     }, new Map());
-
     const now = new Date();
     const items = rows.map((row) => {
       const order = orderMap.get(String(row._id));
@@ -1064,14 +1008,12 @@ class AdminInfluencerCommerceService {
       if (["high", "medium", "low"].includes(status)) return row.fraudRisk === status;
       return true;
     });
-
     const total = items.length;
     return {
       items: items.slice(skip, skip + limit),
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
   }
-
   async productPromotions(query = {}) {
     const { page, limit } = pageOptions(query);
     const campaignFilter = { productIds: { $exists: true, $ne: [] } };
@@ -1080,7 +1022,6 @@ class AdminInfluencerCommerceService {
     if (query.category) campaignFilter.category = query.category;
     if (oid(query.vendorId)) campaignFilter.vendorId = oid(query.vendorId);
     if (oid(query.campaignId)) campaignFilter._id = oid(query.campaignId);
-
     let searchProductIds = [];
     if (query.search) {
       const re = new RegExp(escapeRegex(query.search), "i");
@@ -1097,13 +1038,11 @@ class AdminInfluencerCommerceService {
         ...(productIds.length ? [{ productIds: { $in: productIds } }] : []),
       ];
     }
-
     const campaigns = await Campaign.find(campaignFilter)
       .populate("vendorId", "shopName companyName")
       .populate("productIds", "name category thumbnail images status analytics sellerId")
       .sort({ updatedAt: -1, createdAt: -1 })
       .lean();
-
     let promotionRows = campaigns.flatMap((campaign) => (campaign.productIds || []).map((product) => ({
       id: `${campaign._id}-${product?._id || "product"}`,
       campaign,
@@ -1122,7 +1061,6 @@ class AdminInfluencerCommerceService {
       createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt,
     }))).filter((row) => row.productId);
-
     if (query.category) {
       promotionRows = promotionRows.filter((row) => row.category === query.category || row.campaign?.category === query.category);
     }
@@ -1131,7 +1069,6 @@ class AdminInfluencerCommerceService {
       const hasCampaignSearch = Boolean(campaignFilter.$or?.some((condition) => !condition.productIds));
       if (!hasCampaignSearch) promotionRows = promotionRows.filter((row) => allowed.has(String(row.productId)));
     }
-
     const campaignIds = oidList(promotionRows.map((row) => row.campaignId));
     const productIds = oidList(promotionRows.map((row) => row.productId));
     const [trackingRows, commissionRows, assignmentRows] = campaignIds.length && productIds.length ? await Promise.all([
@@ -1148,7 +1085,6 @@ class AdminInfluencerCommerceService {
         { $group: { _id: { campaignId: "$campaignId", productId: "$productId" }, influencers: { $addToSet: "$influencerId" } } },
       ]).catch(() => []),
     ]) : [[], [], []];
-
     const keyOf = (campaignId, productId) => `${String(campaignId)}:${String(productId)}`;
     const trackingMap = new Map(trackingRows.map((row) => [keyOf(row._id.campaignId, row._id.productId), row]));
     const commissionMap = new Map(commissionRows.map((row) => [keyOf(row._id.campaignId, row._id.productId), row]));
@@ -1172,10 +1108,8 @@ class AdminInfluencerCommerceService {
         conversionRate: clicks ? money((orders / clicks) * 100) : 0,
       };
     });
-
     return { items, pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 } };
   }
-
   async settlements(query = {}) {
     const { page, limit, skip } = pageOptions(query);
     const filter = await this.applyCommissionSearch(this.commissionFilter({ ...query, status: query.status || "HOLD" }), query);
@@ -1194,7 +1128,6 @@ class AdminInfluencerCommerceService {
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
   }
-
   async payouts(query = {}) {
     const { page, limit, skip } = pageOptions(query);
     const requestFilter = {};
@@ -1224,7 +1157,6 @@ class AdminInfluencerCommerceService {
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
   }
-
   async revenueDashboard(query = {}) {
     const { start, end } = parseRange(query);
     const { limit } = pageOptions(query, 50);
@@ -1248,7 +1180,6 @@ class AdminInfluencerCommerceService {
       const re = new RegExp(escapeRegex(query.search), "i");
       campaignMatch.$or = [{ title: re }, { description: re }, { category: re }];
     }
-
     const now = new Date();
     const todayStart = startOfDay(now);
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -1270,7 +1201,6 @@ class AdminInfluencerCommerceService {
       }, 0);
       return money(fixedTotal + commissionTotal);
     };
-
     const [
       fixedRows,
       commissionRows,
@@ -1307,7 +1237,6 @@ class AdminInfluencerCommerceService {
       periodTotal(todayStart, now),
       periodTotal(monthStart, now),
     ]);
-
     const campaignAllows = (campaign = {}) => {
       if (!campaign || !campaign._id) return true;
       if ((query.status || query.state) && String(campaign.state || "") !== String(query.status || query.state)) return false;
@@ -1317,7 +1246,6 @@ class AdminInfluencerCommerceService {
       return haystack.includes(String(query.search).toLowerCase());
     };
     const modelAllows = (modelKey) => selectedPaymentModel === "all" || selectedPaymentModel === modelKey;
-
     const modelMap = new Map(Object.keys(REVENUE_MODEL_LABELS).map((key) => [key, {
       model: key,
       label: REVENUE_MODEL_LABELS[key],
@@ -1401,7 +1329,6 @@ class AdminInfluencerCommerceService {
       feeRow.transactionCount += 1;
       if (campaignId) feeRow.campaignIds.add(String(campaignId));
     };
-
     fixedRows.forEach((row) => {
       const campaign = row.campaignId || {};
       const modelKey = revenueModel(campaign.paymentType || row.paymentModel || "fixed");
@@ -1443,7 +1370,6 @@ class AdminInfluencerCommerceService {
         addFeeLine(line, modelKey, campaignRow.campaignId, "platform_revenue_transactions.feeConfigurationSnapshot");
       });
     });
-
     commissionRows.forEach((row) => {
       const campaign = row.campaignId || {};
       const modelKey = revenueModel(campaign.paymentType === "hybrid" ? "hybrid" : "commission");
@@ -1489,7 +1415,6 @@ class AdminInfluencerCommerceService {
         percentageValue: row.commissionPercent,
       }, modelKey, campaignRow.campaignId, "commission_records.platformFee");
     });
-
     freeProductCampaigns.forEach((campaign) => {
       const model = ensureModel("free_product");
       model.campaignIds.add(String(campaign._id));
@@ -1510,7 +1435,6 @@ class AdminInfluencerCommerceService {
         id: String(campaign._id),
       });
     });
-
     configuredFeeRows.forEach((config) => {
       const modelKey = selectedPaymentModel === "all" ? selectedRevenueModel(config.paymentModel) : selectedPaymentModel;
       const rowModel = modelKey === "all" ? "all" : revenueModel(modelKey);
@@ -1527,7 +1451,6 @@ class AdminInfluencerCommerceService {
         configured: true,
       });
     });
-
     const modelBreakdown = Array.from(modelMap.values()).map((row) => ({
       model: row.model,
       label: row.label,
@@ -1603,7 +1526,6 @@ class AdminInfluencerCommerceService {
     const totalPlatformRevenue = money(modelBreakdown.reduce((total, row) => total + row.totalPlatformRevenue, 0));
     const fixedFeeAmount = sourceBreakdown.find((s) => s.source === "platform_revenue_transactions.platformFeeAmount")?.amount || 0;
     const commissionFeeAmount = sourceBreakdown.find((s) => s.source === "commission_records.platformFee")?.amount || 0;
-
     return {
       selectedPaymentModel,
       kpis: {
@@ -1628,7 +1550,6 @@ class AdminInfluencerCommerceService {
       range: { start, end },
     };
   }
-
   async fixedRevenueDashboard(query = {}) {
     const { start, end } = parseRange(query);
     const match = {
@@ -1637,7 +1558,6 @@ class AdminInfluencerCommerceService {
     };
     if (oid(query.vendorId)) match.vendorId = oid(query.vendorId);
     if (oid(query.campaignId)) match.campaignId = oid(query.campaignId);
-
     const todayStart = startOfDay(new Date());
     const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
     const [
@@ -1699,7 +1619,6 @@ class AdminInfluencerCommerceService {
         ...(oid(query.campaignId) ? { campaignId: oid(query.campaignId) } : {}),
       }).select("campaignId vendorId amountRemaining amountReleased amountRefunded").lean(),
     ]);
-
     const summary = summaryRows[0] || {};
     const escrow = escrowRows[0] || {};
     return {
@@ -1733,12 +1652,10 @@ class AdminInfluencerCommerceService {
       range: { start, end },
     };
   }
-
   async updateWithdrawalRequest(actor, requestId, payload = {}) {
     const nextStatus = String(payload.status || payload.action || "").toUpperCase();
     const allowed = ["UNDER_REVIEW", "APPROVED", "PROCESSING", "COMPLETED", "REJECTED", "CANCELLED", "FAILED"];
     if (!allowed.includes(nextStatus)) throw new AppError("Unsupported withdrawal status", 400, "INVALID_WITHDRAWAL_STATUS");
-
     const request = await InfluencerWithdrawalRequest.findById(requestId);
     if (!request) throw new AppError("Withdrawal request not found", 404, "NOT_FOUND");
     const current = request.status;
@@ -1752,7 +1669,6 @@ class AdminInfluencerCommerceService {
     if (!transitions[current]?.includes(nextStatus)) {
       throw new AppError(`Cannot move withdrawal from ${current} to ${nextStatus}`, 409, "INVALID_WITHDRAWAL_TRANSITION");
     }
-
     const now = new Date();
     const update = {
       status: nextStatus,
@@ -1768,10 +1684,8 @@ class AdminInfluencerCommerceService {
     if (nextStatus === "APPROVED") update.approvedAt = now;
     if (nextStatus === "PROCESSING") update.processedAt = now;
     if (nextStatus === "COMPLETED") update.completedAt = now;
-
     request.set(update);
     await request.save();
-
     if (["REJECTED", "CANCELLED", "FAILED"].includes(nextStatus)) {
       const ledgerEntry = await InfluencerLedger.findOne({
         influencerId: request.influencerId,
@@ -1815,7 +1729,6 @@ class AdminInfluencerCommerceService {
         amount: request.amount,
       }).catch(() => null);
     }
-
     await auditService.log({
       actor,
       action: "admin.influencer_commerce.withdrawal.status_updated",
@@ -1823,7 +1736,6 @@ class AdminInfluencerCommerceService {
       entityId: request._id,
       metadata: { oldStatus: current, newStatus: nextStatus, amount: request.amount },
     }).catch(() => {});
-
     const influencer = await InfluencerProfile.findById(request.influencerId).select("userId").lean();
     if (influencer?.userId && ["APPROVED", "COMPLETED", "REJECTED", "FAILED"].includes(nextStatus)) {
       await notificationService.createNotification({
@@ -1838,10 +1750,8 @@ class AdminInfluencerCommerceService {
         meta: { withdrawalRequestId: String(request._id), status: nextStatus },
       }).catch(() => null);
     }
-
     return request.toObject();
   }
-
   async settings() {
     return {
       enabled: await isInfluencerCommerceEnabled(),
@@ -1857,7 +1767,6 @@ class AdminInfluencerCommerceService {
       payoutProcessingRules: { manualReviewRequired: true },
     };
   }
-
   async updateSettings(actor, payload = {}) {
     if (payload.enabled !== undefined) {
       await PlatformConfig.findOneAndUpdate(
@@ -1889,5 +1798,4 @@ class AdminInfluencerCommerceService {
     return { items, pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 } };
   }
 }
-
-module.exports = new AdminInfluencerCommerceService();
+module.exports = new AdminInfluencerCommerceService();

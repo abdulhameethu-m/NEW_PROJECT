@@ -102,10 +102,7 @@ function csrfProtection(req, res, next) {
 }
 
 module.exports = {
-  CSRF_COOKIE_NAME,
-  CSRF_HEADER_NAME,
-  createCsrfToken,
-  isValidCsrfToken,
+
   issueCsrfToken,
   csrfProtection,
 };

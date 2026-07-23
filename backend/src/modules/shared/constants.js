@@ -11,7 +11,6 @@ const INFLUENCER_CATEGORIES = [
   "sports",
   "toys",
 ];
-
 const INFLUENCER_STATES = ["draft", "submitted", "verified", "active", "suspended"];
 const CAMPAIGN_WORKFLOW_STATUSES = [
   "draft",
@@ -75,7 +74,6 @@ const FIXED_PAYMENT_WORKFLOW_STATUSES = [
 ];
 const REEL_STATES = ["uploaded", "pending_review", "approved", "published", "rejected"];
 const COMMISSION_STATES = ["HOLD", "SETTLED", "CANCELLED", "REVERSED"];
-
 const INFLUENCER_EVENTS = {
   INFLUENCER_ACTIVATED: "INFLUENCER_ACTIVATED",
   CAMPAIGN_ACTIVATED: "CAMPAIGN_ACTIVATED",
@@ -86,7 +84,6 @@ const INFLUENCER_EVENTS = {
   ORDER_ELIGIBLE_FOR_SETTLEMENT: "ORDER_ELIGIBLE_FOR_SETTLEMENT",
   COMMISSION_DISTRIBUTED: "COMMISSION_DISTRIBUTED",
 };
-
 module.exports = {
   INFLUENCER_CATEGORIES,
   INFLUENCER_STATES,
@@ -98,4 +95,4 @@ module.exports = {
   REEL_STATES,
   COMMISSION_STATES,
   INFLUENCER_EVENTS,
-};
+};

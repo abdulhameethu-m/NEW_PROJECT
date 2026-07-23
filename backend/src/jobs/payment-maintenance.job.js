@@ -3,9 +3,7 @@ const { PaymentSession } = require("../models/PaymentSession");
 const { Payment } = require("../models/Payment");
 const { Refund } = require("../models/Refund");
 const { logger } = require("../utils/logger");
-
 let cronTask = null;
-
 async function runMaintenance() {
   const now = new Date();
   const [expiredSessions, stuckPayments, pendingRefunds] = await Promise.all([
@@ -34,7 +32,6 @@ async function runMaintenance() {
       .select("_id refundId amount paymentId orderId createdAt")
       .lean(),
   ]);
-
   logger.info("Payment maintenance run completed", {
     source: "payment-maintenance.job",
     expiredSessionsUpdated: expiredSessions.modifiedCount || 0,
@@ -42,12 +39,10 @@ async function runMaintenance() {
     pendingRefunds: pendingRefunds.length,
   });
 }
-
 async function initializePaymentMaintenanceJobs() {
   if (cronTask) {
     return { scheduled: true };
   }
-
   const schedule = process.env.PAYMENT_MAINTENANCE_CRON || "*/15 * * * *";
   cronTask = cron.schedule(schedule, async () => {
     try {
@@ -59,19 +54,15 @@ async function initializePaymentMaintenanceJobs() {
       });
     }
   });
-
   return { scheduled: true, schedule };
 }
-
 async function shutdownPaymentMaintenanceJobs() {
   if (cronTask) {
     cronTask.stop();
     cronTask = null;
   }
 }
-
 module.exports = {
   initializePaymentMaintenanceJobs,
   shutdownPaymentMaintenanceJobs,
-  runMaintenance,
-};
+};

@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-
 const staffPasswordResetTokenSchema = new mongoose.Schema(
   {
     staffId: {
@@ -26,10 +25,9 @@ const staffPasswordResetTokenSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 module.exports = {
   StaffPasswordResetToken: mongoose.model(
     "StaffPasswordResetToken",
     staffPasswordResetTokenSchema
   ),
-};
+};

@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-
 const trackingSessionSchema = new mongoose.Schema(
   {
     userId: {
@@ -78,7 +77,6 @@ const trackingSessionSchema = new mongoose.Schema(
     collection: "tracking_sessions",
   }
 );
-
 trackingSessionSchema.index(
   { expiresAt: 1 },
   {
@@ -94,9 +92,8 @@ trackingSessionSchema.index(
   { anonymousId: 1, productId: 1, createdAt: -1 },
   { name: "tracking_session_anonymous_product_created_at" }
 );
-
 module.exports = {
   TrackingSession:
     mongoose.models.TrackingSession ||
     mongoose.model("TrackingSession", trackingSessionSchema),
-};
+};

@@ -13,13 +13,10 @@ const {
   getRecentJobs,
   clearQueue,
 } = require("../jobs/settlement.job");
-
 const router = express.Router();
-
 // All routes require authentication and admin access
 router.use(authRequired);
 router.use(adminWorkspaceAuthRequired);
-
 /**
  * POST /admin/settlement/run
  * Manually trigger settlement job
@@ -27,20 +24,17 @@ router.use(adminWorkspaceAuthRequired);
 router.post("/settlement/run", requireWorkspacePermission("settlements.settle"), async (req, res, next) => {
   try {
     const { batchSize = 50, vendorId = null, priority = "normal" } = req.body;
-
     logger.info("📋 Settlement job triggered manually", {
       adminId: req.user._id,
       batchSize,
       vendorId,
       priority,
     });
-
     const result = await queueSettlementJob({
       batchSize,
       vendorId,
       priority,
     });
-
     res.json({
       success: true,
       message: "Settlement job queued successfully",
@@ -50,7 +44,6 @@ router.post("/settlement/run", requireWorkspacePermission("settlements.settle"),
     next(error);
   }
 });
-
 /**
  * GET /admin/settlement/status
  * Get settlement queue and system status
@@ -59,7 +52,6 @@ router.get("/settlement/status", requireWorkspacePermission("settlements.read"),
   try {
     const queueStatus = await getQueueStatus();
     const systemStats = await settlementMetricsService.getSettlementStatistics(30);
-
     res.json({
       success: true,
       data: {
@@ -71,7 +63,6 @@ router.get("/settlement/status", requireWorkspacePermission("settlements.read"),
     next(error);
   }
 });
-
 /**
  * GET /admin/settlement/metrics
  * Get settlement metrics and history
@@ -79,7 +70,6 @@ router.get("/settlement/status", requireWorkspacePermission("settlements.read"),
 router.get("/settlement/metrics", requireWorkspacePermission("settlements.read"), async (req, res, next) => {
   try {
     const { days = 30, limit = 10 } = req.query;
-
     const metrics = await settlementMetricsService.getLatestMetrics(
       Math.min(Number(limit), 100)
     );
@@ -88,7 +78,6 @@ router.get("/settlement/metrics", requireWorkspacePermission("settlements.read")
     );
     const failures = await settlementMetricsService.getRecentFailures(7);
     const errors = await settlementMetricsService.getErrorBreakdown(7);
-
     res.json({
       success: true,
       data: {
@@ -102,7 +91,6 @@ router.get("/settlement/metrics", requireWorkspacePermission("settlements.read")
     next(error);
   }
 });
-
 /**
  * GET /admin/settlement/job/:jobId
  * Get detailed information about a specific job
@@ -110,13 +98,10 @@ router.get("/settlement/metrics", requireWorkspacePermission("settlements.read")
 router.get("/settlement/job/:jobId", requireWorkspacePermission("settlements.read"), async (req, res, next) => {
   try {
     const { jobId } = req.params;
-
     const job = await settlementMetricsService.getJobDetails(jobId);
-
     if (!job) {
       throw new AppError("Settlement job not found", 404, "JOB_NOT_FOUND");
     }
-
     res.json({
       success: true,
       data: job,
@@ -125,7 +110,6 @@ router.get("/settlement/job/:jobId", requireWorkspacePermission("settlements.rea
     next(error);
   }
 });
-
 /**
  * GET /admin/settlement/vendor/:vendorId
  * Get settlement status for a specific vendor
@@ -133,9 +117,7 @@ router.get("/settlement/job/:jobId", requireWorkspacePermission("settlements.rea
 router.get("/settlement/vendor/:vendorId", requireWorkspacePermission("settlements.read"), async (req, res, next) => {
   try {
     const { vendorId } = req.params;
-
     const status = await settlementService.getVendorSettlementStatus(vendorId);
-
     res.json({
       success: true,
       data: status,
@@ -144,7 +126,6 @@ router.get("/settlement/vendor/:vendorId", requireWorkspacePermission("settlemen
     next(error);
   }
 });
-
 /**
  * POST /admin/settlement/verify
  * Verify settlement integrity for orders
@@ -152,7 +133,6 @@ router.get("/settlement/vendor/:vendorId", requireWorkspacePermission("settlemen
 router.post("/settlement/verify", requireWorkspacePermission("settlements.read"), async (req, res, next) => {
   try {
     const { orderIds = [] } = req.body;
-
     if (!Array.isArray(orderIds) || orderIds.length === 0) {
       throw new AppError(
         "orderIds must be a non-empty array",
@@ -160,7 +140,6 @@ router.post("/settlement/verify", requireWorkspacePermission("settlements.read")
         "INVALID_INPUT"
       );
     }
-
     if (orderIds.length > 100) {
       throw new AppError(
         "Cannot verify more than 100 orders at once",
@@ -168,11 +147,9 @@ router.post("/settlement/verify", requireWorkspacePermission("settlements.read")
         "LIMIT_EXCEEDED"
       );
     }
-
     const verification = await settlementService.verifySettlementBatch(
       orderIds
     );
-
     res.json({
       success: true,
       data: verification,
@@ -181,7 +158,6 @@ router.post("/settlement/verify", requireWorkspacePermission("settlements.read")
     next(error);
   }
 });
-
 /**
  * POST /admin/settlement/pause
  * Pause settlement jobs (emergency stop)
@@ -191,9 +167,7 @@ router.post("/settlement/pause", requireWorkspacePermission("settlements.hold"),
     logger.warn("⏸️  Settlement jobs paused by admin", {
       adminId: req.user._id,
     });
-
     await pauseSettlementJobs();
-
     res.json({
       success: true,
       message: "Settlement jobs paused successfully",
@@ -202,7 +176,6 @@ router.post("/settlement/pause", requireWorkspacePermission("settlements.hold"),
     next(error);
   }
 });
-
 /**
  * POST /admin/settlement/resume
  * Resume settlement jobs
@@ -212,9 +185,7 @@ router.post("/settlement/resume", requireWorkspacePermission("settlements.releas
     logger.info("▶️  Settlement jobs resumed by admin", {
       adminId: req.user._id,
     });
-
     await resumeSettlementJobs();
-
     res.json({
       success: true,
       message: "Settlement jobs resumed successfully",
@@ -223,7 +194,6 @@ router.post("/settlement/resume", requireWorkspacePermission("settlements.releas
     next(error);
   }
 });
-
 /**
  * GET /admin/settlement/queue
  * Get queue jobs (Bull queue only)
@@ -231,9 +201,7 @@ router.post("/settlement/resume", requireWorkspacePermission("settlements.releas
 router.get("/settlement/queue", requireWorkspacePermission("settlements.read"), async (req, res, next) => {
   try {
     const { limit = 20 } = req.query;
-
     const jobs = await getRecentJobs(Math.min(Number(limit), 100));
-
     res.json({
       success: true,
       data: jobs,
@@ -242,7 +210,6 @@ router.get("/settlement/queue", requireWorkspacePermission("settlements.read"), 
     next(error);
   }
 });
-
 /**
  * DELETE /admin/settlement/queue (development only)
  * Clear all queued jobs
@@ -256,13 +223,10 @@ router.delete("/settlement/queue", requireWorkspacePermission("settlements.rever
         "FORBIDDEN"
       );
     }
-
     logger.warn("🗑️  Settlement queue cleared by admin", {
       adminId: req.user._id,
     });
-
     await clearQueue();
-
     res.json({
       success: true,
       message: "Settlement queue cleared",
@@ -271,7 +235,6 @@ router.delete("/settlement/queue", requireWorkspacePermission("settlements.rever
     next(error);
   }
 });
-
 /**
  * POST /admin/settlement/cleanup-metrics
  * Clean old metrics (keep last N days)
@@ -279,7 +242,6 @@ router.delete("/settlement/queue", requireWorkspacePermission("settlements.rever
 router.post("/settlement/cleanup-metrics", requireWorkspacePermission("settlements.reverse"), async (req, res, next) => {
   try {
     const { daysToKeep = 90 } = req.body;
-
     if (!Number.isInteger(daysToKeep) || daysToKeep < 1) {
       throw new AppError(
         "daysToKeep must be a positive integer",
@@ -287,14 +249,11 @@ router.post("/settlement/cleanup-metrics", requireWorkspacePermission("settlemen
         "INVALID_INPUT"
       );
     }
-
     logger.info("🗑️  Cleaning old settlement metrics", {
       adminId: req.user._id,
       daysToKeep,
     });
-
     const result = await settlementMetricsService.cleanOldMetrics(daysToKeep);
-
     res.json({
       success: true,
       message: "Old metrics cleaned",
@@ -307,5 +266,4 @@ router.post("/settlement/cleanup-metrics", requireWorkspacePermission("settlemen
     next(error);
   }
 });
-
-module.exports = router;
+module.exports = router;

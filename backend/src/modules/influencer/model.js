@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 const { INFLUENCER_CATEGORIES, INFLUENCER_STATES } = require("../shared/constants");
-
 const influencerProfileSchema = new mongoose.Schema(
   {
     userId: {

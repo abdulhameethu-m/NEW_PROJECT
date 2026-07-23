@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-
 const recommendationWeightSchema = new mongoose.Schema(
   {
     category: { type: Number, default: 40, min: 0, max: 100 },
@@ -11,7 +10,6 @@ const recommendationWeightSchema = new mongoose.Schema(
   },
   { _id: false }
 );
-
 const metricWeightSchema = new mongoose.Schema(
   {
     sales: { type: Number, default: 25, min: 0, max: 100 },
@@ -24,7 +22,6 @@ const metricWeightSchema = new mongoose.Schema(
   },
   { _id: false }
 );
-
 const bundleWeightSchema = new mongoose.Schema(
   {
     frequency: { type: Number, default: 50, min: 0, max: 100 },
@@ -34,7 +31,6 @@ const bundleWeightSchema = new mongoose.Schema(
   },
   { _id: false }
 );
-
 const recommendationSettingsSchema = new mongoose.Schema(
   {
     singletonKey: { type: String, required: true, unique: true, default: "default" },
@@ -136,7 +132,6 @@ const recommendationSettingsSchema = new mongoose.Schema(
     collection: "recommendation_settings",
   }
 );
-
 const relatedProductCacheSchema = new mongoose.Schema(
   {
     recommendationType: {
@@ -176,12 +171,10 @@ const relatedProductCacheSchema = new mongoose.Schema(
     collection: "related_product_cache",
   }
 );
-
 relatedProductCacheSchema.index(
   { recommendationType: 1, productId: 1, userId: 1 },
   { unique: true, partialFilterExpression: { productId: { $exists: true } } }
 );
-
 const bundleRelationshipSchema = new mongoose.Schema(
   {
     baseProductId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true, index: true },
@@ -199,9 +192,7 @@ const bundleRelationshipSchema = new mongoose.Schema(
     collection: "bundle_relationships",
   }
 );
-
 bundleRelationshipSchema.index({ baseProductId: 1, associatedProductId: 1 }, { unique: true });
-
 const ruleConditionSchema = new mongoose.Schema(
   {
     field: { type: String, required: true, trim: true },
@@ -210,7 +201,6 @@ const ruleConditionSchema = new mongoose.Schema(
   },
   { _id: false }
 );
-
 const crossSellRuleSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -232,7 +222,6 @@ const crossSellRuleSchema = new mongoose.Schema(
     collection: "cross_sell_rules",
   }
 );
-
 const upsellRuleSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -253,7 +242,6 @@ const upsellRuleSchema = new mongoose.Schema(
     collection: "upsell_rules",
   }
 );
-
 const recentlyViewedSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
@@ -266,9 +254,7 @@ const recentlyViewedSchema = new mongoose.Schema(
     collection: "recently_viewed",
   }
 );
-
 recentlyViewedSchema.index({ userId: 1, productId: 1 }, { unique: true });
-
 const recommendationAnalyticsSchema = new mongoose.Schema(
   {
     dateKey: { type: String, required: true, index: true },
@@ -289,9 +275,7 @@ const recommendationAnalyticsSchema = new mongoose.Schema(
     collection: "recommendation_analytics",
   }
 );
-
 recommendationAnalyticsSchema.index({ dateKey: 1, recommendationType: 1, surface: 1 }, { unique: true });
-
 const recommendationLogSchema = new mongoose.Schema(
   {
     recommendationType: { type: String, required: true, index: true },

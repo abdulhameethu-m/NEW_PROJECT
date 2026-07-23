@@ -1,9 +1,7 @@
 const Joi = require("joi");
-
 const payoutRequestSchema = Joi.object({
   amount: Joi.number().positive().precision(2).required(),
 }).required();
-
 const payoutAccountSchema = Joi.object({
   accountHolderName: Joi.string().trim().max(160).allow("", null),
   accountNumber: Joi.string().trim().max(40).allow("", null),
@@ -23,15 +21,12 @@ const payoutAccountSchema = Joi.object({
     "any.invalid": "Provide either bank account details or a UPI id",
   })
   .required();
-
 const payoutApprovalSchema = Joi.object({
   adminNote: Joi.string().trim().max(1000).allow("", null),
 }).required();
-
 const payoutRejectionSchema = Joi.object({
   adminNote: Joi.string().trim().max(1000).required(),
 }).required();
-
 const payoutPaymentSchema = Joi.object({
   transactionId: Joi.string().trim().max(120).when("mode", {
     is: "MANUAL",
@@ -41,7 +36,6 @@ const payoutPaymentSchema = Joi.object({
   mode: Joi.string().valid("MANUAL", "RAZORPAY").default("MANUAL"),
   adminNote: Joi.string().trim().max(1000).allow("", null),
 }).required();
-
 /**
  * Schema for rejecting vendor payout account
  */
@@ -52,7 +46,6 @@ const accountRejectionSchema = Joi.object({
     "any.required": "Rejection reason is required",
   }),
 }).required();
-
 module.exports = {
   payoutRequestSchema,
   payoutAccountSchema,
@@ -60,4 +53,4 @@ module.exports = {
   payoutRejectionSchema,
   payoutPaymentSchema,
   accountRejectionSchema,
-};
+};

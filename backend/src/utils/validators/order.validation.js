@@ -1,5 +1,4 @@
 const Joi = require("joi");
-
 const addressSchema = Joi.object({
   fullName: Joi.string().trim().min(2).max(160).required(),
   phone: Joi.string().trim().pattern(/^[0-9]{10}$/).required(),
@@ -10,21 +9,17 @@ const addressSchema = Joi.object({
   postalCode: Joi.string().trim().pattern(/^[0-9]{6}$/).required(),
   country: Joi.string().trim().min(2).max(120).required(),
 }).required();
-
 const orderItemSchema = Joi.object({
   productId: Joi.string().required(),
   quantity: Joi.number().integer().min(1).required(),
 }).required();
-
 const deliveryDetailsSchema = Joi.object({
   trackingId: Joi.string().trim().max(120).allow("", null),
   partner: Joi.string().trim().max(120).allow("", null),
   courierName: Joi.string().trim().max(120).allow("", null),
   trackingUrl: Joi.string().trim().uri({ scheme: ["http", "https"] }).max(500).allow("", null),
 });
-
 const shippingModeSchema = Joi.string().valid("SELF", "PLATFORM");
-
 const createAdminOrderSchema = Joi.object({
   userId: Joi.string().required(),
   items: Joi.array().items(orderItemSchema).min(1).required(),
@@ -54,7 +49,6 @@ const createAdminOrderSchema = Joi.object({
   address: addressSchema,
   deliveryDetails: deliveryDetailsSchema,
 }).required();
-
 const updateAdminOrderSchema = Joi.object({
   orderStatus: Joi.string().valid(
     "PLACED",
@@ -75,9 +69,7 @@ const updateAdminOrderSchema = Joi.object({
   shippingMode: shippingModeSchema,
   deliveryDetails: deliveryDetailsSchema,
 }).min(1);
-
 module.exports = {
   createAdminOrderSchema,
   updateAdminOrderSchema,
-};
-
+};

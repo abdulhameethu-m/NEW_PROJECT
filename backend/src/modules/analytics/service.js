@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const { Order } = require("../../models/Order");
 const { Vendor } = require("../../models/Vendor");
-const { User } = require("../../models/User");
+
 const { Campaign } = require("../campaign/model");
 const CampaignEscrowWallet = require("../../models/CampaignEscrowWallet");
 const CampaignPaymentRelease = require("../../models/CampaignPaymentRelease");
@@ -38,7 +38,6 @@ const {
 const ACTIVE_CAMPAIGN_STATES = new Set(["active", "product_shipped", "content_in_progress", "content_submitted", "under_review", "approved", "published", "tracking_active", "partially_completed"]);
 const COMPLETED_CAMPAIGN_STATES = new Set(["completed", "fully_released"]);
 const REVENUE_ORDER_STATUSES = new Set(["Placed", "Packed", "Shipped", "Out for Delivery", "Delivered"]);
-const PAID_COMMISSION_STATES = new Set(["APPROVED", "PAID"]);
 
 function money(value = 0) {
   const number = Number(value || 0);
@@ -563,4 +562,3 @@ class AnalyticsAggregator {
 }
 
 module.exports = new AnalyticsAggregator();
-module.exports.__private__ = { money, pct, totalsFromCampaignMetrics, dateRange };

@@ -3,12 +3,10 @@ const fs = require("fs");
 const crypto = require("crypto");
 const { configureCloudinary } = require("../config/cloudinary");
 const { AppError } = require("./AppError");
-
 const PUBLIC_UPLOAD_DIR = path.join(process.cwd(), "uploads", "public");
 const PRIVATE_UPLOAD_DIR = path.join(process.cwd(), "uploads", "private");
 const MAX_FILE_SIZE = Number(process.env.MAX_FILE_SIZE_BYTES || 5 * 1024 * 1024); // 5MB
 const MAX_VIDEO_FILE_SIZE = Number(process.env.MAX_VIDEO_FILE_SIZE_BYTES || 50 * 1024 * 1024); // 50MB
-
 const ALLOWED_MIME = new Set([
   "image/jpeg",
   "image/png",
@@ -18,15 +16,12 @@ const ALLOWED_MIME = new Set([
   "video/quicktime",
   "application/pdf",
 ]);
-
 function ensureUploadDir(uploadDir) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
-
 function isPrivateFolder(folder = "") {
   return /(^|[-_/])(kyc|identity|bank|tax|verification|finance|document|documents)([-_/]|$)/i.test(String(folder || ""));
 }
-
 function validateFiles(files) {
   for (const f of files) {
     if (!ALLOWED_MIME.has(f.mimetype)) {
@@ -38,17 +33,14 @@ function validateFiles(files) {
     }
   }
 }
-
 function randomName(originalName) {
   const ext = path.extname(originalName || "");
   const id = crypto.randomBytes(16).toString("hex");
   return `${Date.now()}-${id}${ext}`;
 }
-
 async function uploadToCloudinary(files, folder) {
   const { enabled, cloudinary } = configureCloudinary();
   if (!enabled) return null;
-
   const results = [];
   for (const file of files) {
     // cloudinary upload_stream for buffer
@@ -62,7 +54,6 @@ async function uploadToCloudinary(files, folder) {
       );
       stream.end(file.buffer);
     });
-
     results.push({
       url: uploaded.secure_url,
       publicId: uploaded.public_id,
@@ -71,10 +62,8 @@ async function uploadToCloudinary(files, folder) {
       size: file.size,
     });
   }
-
   return results;
 }
-
 async function uploadToLocal(files, { folder = "uploads", visibility = "public" } = {}) {
   const privateAsset = visibility === "private" || isPrivateFolder(folder);
   const uploadDir = privateAsset ? PRIVATE_UPLOAD_DIR : PUBLIC_UPLOAD_DIR;
@@ -84,7 +73,6 @@ async function uploadToLocal(files, { folder = "uploads", visibility = "public" 
     const filename = randomName(file.originalname);
     const fullPath = path.join(uploadDir, filename);
     await fs.promises.writeFile(fullPath, file.buffer);
-
     results.push({
       url: privateAsset ? "" : `/uploads/${filename}`,
       storage: privateAsset ? "private" : "public",
@@ -98,17 +86,11 @@ async function uploadToLocal(files, { folder = "uploads", visibility = "public" 
   }
   return results;
 }
-
 async function uploadMany(files, { folder } = {}) {
   if (!files || !files.length) return [];
-
   validateFiles(files);
-
   const cloud = await uploadToCloudinary(files, folder || "uploads");
   if (cloud) return cloud;
-
   return await uploadToLocal(files, { folder, visibility: isPrivateFolder(folder) ? "private" : "public" });
 }
-
-module.exports = { uploadMany, validateFiles, ALLOWED_MIME, MAX_FILE_SIZE, MAX_VIDEO_FILE_SIZE, PUBLIC_UPLOAD_DIR, PRIVATE_UPLOAD_DIR, isPrivateFolder };
-
+module.exports = { uploadMany, ALLOWED_MIME, MAX_FILE_SIZE, MAX_VIDEO_FILE_SIZE, PRIVATE_UPLOAD_DIR,  };

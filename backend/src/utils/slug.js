@@ -8,7 +8,6 @@ function generateSlug(text, separator = "-") {
   if (!text || typeof text !== "string") {
     return "";
   }
-
   return text
     .trim()
     .toLowerCase()
@@ -16,7 +15,6 @@ function generateSlug(text, separator = "-") {
     .replace(new RegExp(`${separator}+`, "g"), separator) // Replace multiple separators with single separator
     .replace(new RegExp(`^${separator}|${separator}$`, "g"), ""); // Remove separator from start and end
 }
-
 /**
  * Generate unique slug by appending random suffix if needed
  * @param {String} baseSlug - Base slug
@@ -26,8 +24,7 @@ function generateUniqueSlug(baseSlug) {
   const randomSuffix = Math.random().toString(36).substring(2, 8);
   return `${baseSlug}-${randomSuffix}`;
 }
-
 module.exports = {
   generateSlug,
   generateUniqueSlug,
-};
+};

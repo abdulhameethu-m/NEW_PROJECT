@@ -57,5 +57,4 @@ router.patch("/refunds/:id", adminWorkspaceAuthRequired, requireWorkspacePermiss
 router.get("/refund-status/:id", authRequired, paymentController.getRefundStatus);
 router.get("/:id", adminWorkspaceAuthRequired, requireWorkspacePermission("payments.read"), paymentController.getPaymentDetails);
 
-module.exports = router;
-
+module.exports = router;

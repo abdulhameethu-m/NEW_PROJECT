@@ -15,22 +15,16 @@ const {
   supportTicketSchema,
   supportReplySchema,
 } = require("../utils/validators/user.validation");
-
 const router = express.Router();
-
 router.use(authRequired, requireRole("user"));
-
 router.get("/dashboard", userController.getDashboard);
-
 router.get("/profile", userController.getProfile);
 router.patch("/profile", upload.single("avatar"), validate(profileSchema), userController.updateProfile);
 router.post("/security/change-password", validate(changePasswordSchema), userController.changePassword);
-
 router.get("/addresses", userController.listAddresses);
 router.post("/addresses", validate(addressSchema), userController.createAddress);
 router.patch("/addresses/:id", validate(addressUpdateSchema), userController.updateAddress);
 router.delete("/addresses/:id", userController.deleteAddress);
-
 router.get("/orders", userController.listOrders);
 router.get("/orders/:id", userController.getOrder);
 router.get("/orders/:id/tracking", userController.getOrderTracking);
@@ -42,7 +36,6 @@ router.post("/orders/:id/return", validate(returnRequestSchema), userController.
 router.get("/cart", userController.getCart);
 router.patch("/cart/items/:productId", userController.updateCartItem);
 router.delete("/cart/items/:productId", userController.removeCartItem);
-
 router.get("/wishlist", userController.getWishlist);
 router.post("/wishlist/:productId", userController.addToWishlist);
 router.delete("/wishlist/:productId", userController.removeFromWishlist);
@@ -62,11 +55,8 @@ router.delete("/reviews/:id", userController.deleteReview);
 router.get("/support", userController.listSupportTickets);
 router.post("/support", validate(supportTicketSchema), userController.createSupportTicket);
 router.post("/support/:id/reply", validate(supportReplySchema), userController.replySupportTicket);
-
 router.get("/security/sessions", userController.listSessions);
 router.delete("/security/sessions/:id", userController.revokeSession);
 router.post("/security/logout-all", userController.logoutAllDevices);
-
 router.get("/activity", userController.getActivity);
-
-module.exports = router;
+module.exports = router;

@@ -1,6 +1,5 @@
 const Joi = require("joi");
 const { shippingAddressSchema } = require("./checkout.validation");
-
 const createRazorpayOrderSchema = Joi.object({
   cartId: Joi.alternatives().try(Joi.string().trim(), Joi.valid(null)).optional(),
   shippingAddress: shippingAddressSchema.required(),
@@ -54,7 +53,6 @@ const refundPaymentSchema = Joi.object({
   reason: Joi.string().trim().max(500).required(),
   notes: Joi.string().trim().allow("").max(500).optional(),
 }).or("orderId", "paymentId");
-
 const razorpaySettingsSchema = Joi.object({
   isEnabled: Joi.boolean().optional(),
   gatewayFeePercentage: Joi.number().min(0).max(100).optional(),

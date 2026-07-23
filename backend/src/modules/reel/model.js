@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 const { REEL_STATES } = require("../shared/constants");
-
 const reelSchema = new mongoose.Schema(
   {
     influencerId: {

@@ -1,5 +1,4 @@
 const { AppError } = require("../AppError");
-
 const ALLOWED_EXTENSIONS = new Set([".png", ".svg", ".webp", ".ico"]);
 const ALLOWED_MIME_TYPES = new Set([
   "image/png",
@@ -9,13 +8,11 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/vnd.microsoft.icon",
 ]);
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-
 function getExtension(name = "") {
   const normalized = String(name || "").trim().toLowerCase();
   const lastDot = normalized.lastIndexOf(".");
   return lastDot >= 0 ? normalized.slice(lastDot) : "";
 }
-
 function validateBrandingFiles(files = {}) {
   const allFiles = Object.values(files).flat().filter(Boolean);
   for (const file of allFiles) {
@@ -32,10 +29,6 @@ function validateBrandingFiles(files = {}) {
     }
   }
 }
-
 module.exports = {
-  ALLOWED_EXTENSIONS,
-  ALLOWED_MIME_TYPES,
-  MAX_FILE_SIZE,
   validateBrandingFiles,
-};
+};
