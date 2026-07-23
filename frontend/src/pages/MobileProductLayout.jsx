@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, Search, Heart, Share2, ShoppingCart, ChevronDown, ChevronUp, Star, Truck, ShieldCheck, Tag, Minus, Plus } from "lucide-react";
+// eslint-disable-next-line no-unused-vars
+import { motion, AnimatePresence } from "framer-motion";
 import { formatCurrency } from "../utils/formatCurrency";
 import { SellerNameLink, StoreRatingDisplay, SellerCard } from "../components/seller/SellerNavigation";
 import { RecommendationSection } from "../components/RecommendationSection";
@@ -187,8 +189,20 @@ export function MobileProductLayout({
   const soldCount = product?.salesCount || 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-[100px] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div className="min-h-screen bg-slate-50 pb-[100px] text-slate-900 dark:bg-slate-950 dark:text-slate-100 relative">
 
+      <AnimatePresence>
+        {error ? (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed left-1/2 top-4 z-50 w-[90%] max-w-sm -translate-x-1/2 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-medium text-rose-800 shadow-xl"
+          >
+            {error}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {/* Gallery Section */}
       <section className="bg-white pb-4 dark:bg-slate-900">

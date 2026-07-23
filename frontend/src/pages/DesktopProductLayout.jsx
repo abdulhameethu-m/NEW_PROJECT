@@ -34,6 +34,9 @@ function isVisualSwatchGroup(group, displayType) {
   return displayType === "swatch" || displayType === "image-swatch" || key.includes("color") || name.includes("color");
 }
 
+// eslint-disable-next-line no-unused-vars
+import { motion, AnimatePresence } from "framer-motion";
+
 export function DesktopProductLayout({
   loading,
   error,
@@ -80,7 +83,20 @@ export function DesktopProductLayout({
   }
 
   return (
-    <div className="space-y-8 pb-28 lg:pb-0">
+    <div className="space-y-8 pb-28 lg:pb-0 relative">
+      <AnimatePresence>
+        {error ? (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed left-1/2 top-24 z-50 w-[90%] max-w-2xl -translate-x-1/2 rounded-2xl border border-rose-200 bg-rose-50 px-6 py-4 text-sm font-medium text-rose-800 shadow-xl"
+          >
+            {error}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
@@ -94,8 +110,6 @@ export function DesktopProductLayout({
         </div>
         <BackButton fallbackTo="/shop" />
       </div>
-
-      {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div> : null}
 
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.95fr)]">
         <div className="space-y-8">

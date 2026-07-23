@@ -230,7 +230,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
-            className="h-full w-full object-cover object-center transition-all duration-300 group-hover:scale-110"
+            className="h-full w-full object-contain object-center transition-all duration-300 group-hover:scale-110"
             loading="lazy"
           />
         ) : (
@@ -298,8 +298,8 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
             onClick={handleAddToCart}
             disabled={isSubmitting || !productId || !inStock}
             className="flex items-center justify-center w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-            title={inStock ? `Add ${selectedVariant?.title || "item"} to cart` : "Out of stock"}
-            aria-label={inStock ? `Add ${selectedVariant?.title || "item"} to cart` : "Out of stock"}
+            title={inStock ? `Add ${product?.name || product?.title || "item"} to cart` : "Out of stock"}
+            aria-label={inStock ? `Add ${product?.name || product?.title || "item"} to cart` : "Out of stock"}
           >
             <ShoppingCart size={12} strokeWidth={2} />
           </button>

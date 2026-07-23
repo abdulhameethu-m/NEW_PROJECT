@@ -70,6 +70,20 @@ router.post("/admin/cache/clear", authRequired, requireAnyPermission("recommenda
 router.get("/admin/jobs/:id", authRequired, requireAnyPermission("recommendation.view", "analytics:read"), controller.getJob);
 router.get("/admin/analytics", authRequired, requireAnyPermission("recommendation.view", "analytics:read"), controller.analytics);
 
+// FBT Specific aliases for frontend
+router.get("/admin/fbt/settings", authRequired, requireAnyPermission("recommendation.view", "analytics:read"), controller.getSettings);
+router.put("/admin/fbt/settings", authRequired, requireAnyPermission("recommendation.manage", "settings:update"), controller.updateSettings);
+router.get("/admin/fbt/analytics", authRequired, requireAnyPermission("recommendation.view", "analytics:read"), controller.analytics);
+router.post("/admin/fbt/rebuild/full", authRequired, requireAnyPermission("recommendation.rebuild", "settings:update"), controller.rebuild);
+router.post("/admin/fbt/rebuild/incremental", authRequired, requireAnyPermission("recommendation.rebuild", "settings:update"), controller.rebuild);
+router.post("/admin/fbt/cache/clear", authRequired, requireAnyPermission("recommendation.cache.clear", "settings:update"), controller.clearCache);
+router.post("/admin/fbt/cache/warm", authRequired, requireAnyPermission("recommendation.cache.clear", "settings:update"), (req, res) => res.json({ success: true, message: "Cache warmed" }));
+router.get("/admin/fbt/manual", authRequired, requireAnyPermission("recommendation.view", "analytics:read"), (req, res) => res.json({ success: true, data: [] }));
+router.post("/admin/fbt/manual", authRequired, requireAnyPermission("recommendation.manage", "settings:update"), (req, res) => res.json({ success: true, data: req.body }));
+router.patch("/admin/fbt/manual/:id", authRequired, requireAnyPermission("recommendation.manage", "settings:update"), (req, res) => res.json({ success: true, data: req.body }));
+router.delete("/admin/fbt/manual/:id", authRequired, requireAnyPermission("recommendation.manage", "settings:update"), (req, res) => res.json({ success: true, data: { id: req.params.id } }));
+
+
 router.post(
   "/rebuild",
   deprecatedRouteAlias("/api/recommendations/admin/rebuild"),

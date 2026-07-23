@@ -163,6 +163,13 @@ export function ProductDetailsPage() {
   const [wishlistSaved, setWishlistSaved] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("description");
+
+  useEffect(() => {
+    if (error && product) {
+      const timer = setTimeout(() => setError(""), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, product]);
   const [attributeDefs, setAttributeDefs] = useState([]);
   const [attributeGroups, setAttributeGroups] = useState({});
   const [productModules, setProductModules] = useState([]);
