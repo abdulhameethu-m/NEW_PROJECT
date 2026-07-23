@@ -349,4 +349,4 @@ export function PricingCategoriesManager() {
   );
 }
 
-export default PricingCategoriesManager;
+

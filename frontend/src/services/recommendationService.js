@@ -13,11 +13,6 @@ function readGuestRecentlyViewedRaw() {
   }
 }
 
-export async function getProductRecommendations(productId, params = {}) {
-  const response = await api.get(`/api/recommendations/product/${productId}`, { params });
-  return response.data;
-}
-
 export async function getFbtRecommendations(productId, params = {}) {
   const response = await api.get(`/api/recommendations/fbt/${productId}`, { params });
   return response.data;
@@ -67,11 +62,6 @@ export async function getCheckoutRecommendations(productIds = [], params = {}) {
   return response.data;
 }
 
-export async function getHomeRecommendations() {
-  const response = await api.get("/api/recommendations/home");
-  return response.data;
-}
-
 export async function trackRecentlyViewed(productId) {
   const response = await api.post("/api/recommendations/recently-viewed", { productId });
   return response.data;
@@ -99,10 +89,6 @@ export function trackGuestRecentlyViewed(product) {
     return next;
   }
   return next;
-}
-
-export function getGuestRecentlyViewed() {
-  return readGuestRecentlyViewedRaw();
 }
 
 export async function trackRecommendationEvent(payload) {
@@ -162,16 +148,6 @@ export async function getFbtManualRules(params = {}) {
 
 export async function saveFbtManualRule(payload) {
   const response = await adminHttp.post("/api/recommendations/admin/fbt/manual", payload);
-  return response.data;
-}
-
-export async function updateFbtManualRule(id, payload) {
-  const response = await adminHttp.patch(`/api/recommendations/admin/fbt/manual/${id}`, payload);
-  return response.data;
-}
-
-export async function deleteFbtManualRule(id) {
-  const response = await adminHttp.delete(`/api/recommendations/admin/fbt/manual/${id}`);
   return response.data;
 }
 

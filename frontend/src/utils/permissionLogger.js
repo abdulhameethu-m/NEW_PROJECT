@@ -42,20 +42,6 @@ function log(level, context, message, data = {}) {
   }
 }
 
-export function logLogin(email, roleId, permissions) {
-  log(LOG_LEVELS.INFO, "AUTH_LOGIN", "Staff logged in", {
-    email,
-    roleId,
-    permissionSummary: summarizePermissions(permissions),
-  });
-}
-
-export function logLogout(email) {
-  log(LOG_LEVELS.INFO, "AUTH_LOGOUT", "Staff logged out", {
-    email,
-  });
-}
-
 export function logPermissionSyncStart() {
   log(LOG_LEVELS.DEBUG, "PERMISSION_SYNC", "Starting permission sync...");
 }
@@ -92,69 +78,9 @@ export function logPermissionCheck(permission, granted, availablePermissions) {
   );
 }
 
-export function logModuleAccess(moduleName, permission, granted) {
-  log(
-    granted ? LOG_LEVELS.DEBUG : LOG_LEVELS.WARN,
-    "MODULE_ACCESS",
-    `Module access: ${moduleName} - ${granted ? "ALLOWED" : "DENIED"}`,
-    {
-      moduleName,
-      permission,
-      granted,
-    }
-  );
-}
-
-export function logRouteNavigation(route, permission, allowed) {
-  log(
-    allowed ? LOG_LEVELS.DEBUG : LOG_LEVELS.WARN,
-    "ROUTE_NAVIGATION",
-    `Navigation to ${route} - ${allowed ? "ALLOWED" : "BLOCKED"}`,
-    {
-      route,
-      permission,
-      allowed,
-    }
-  );
-}
-
 export function logUnauthorizedAccess(route, permission) {
   log(LOG_LEVELS.WARN, "UNAUTHORIZED_ACCESS", `Attempted access to ${route} without permission`, {
     route,
     permission,
   });
-}
-
-export function logStateUpdate(stateName, oldValue, newValue) {
-  const changed = JSON.stringify(oldValue) !== JSON.stringify(newValue);
-  if (changed) {
-    log(LOG_LEVELS.DEBUG, "STATE_UPDATE", `Auth state updated - ${stateName}`, {
-      stateName,
-      oldValue: typeof oldValue === "object" ? Object.keys(oldValue || {}) : oldValue,
-      newValue: typeof newValue === "object" ? Object.keys(newValue || {}) : newValue,
-    });
-  }
-}
-
-export function logAuthError(error, context = "") {
-  log(LOG_LEVELS.ERROR, "AUTH_ERROR", `Authentication error ${context}`, {
-    error: error?.message || String(error),
-    status: error?.response?.status,
-  });
-}
-
-export function logPermissionError(error, context = "") {
-  log(LOG_LEVELS.ERROR, "PERMISSION_ERROR", `Permission error ${context}`, {
-    error: error?.message || String(error),
-  });
-}
-
-export function logSyncPerformance(duration, status) {
-  log(LOG_LEVELS.DEBUG, "PERFORMANCE", `Permission sync completed in ${duration}ms - ${status}`);
-}
-
-export function logSlowSync(duration) {
-  if (duration > 3000) {
-    log(LOG_LEVELS.WARN, "PERFORMANCE", `Slow permission sync detected: ${duration}ms`);
-  }
 }

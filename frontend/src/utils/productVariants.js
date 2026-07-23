@@ -6,14 +6,14 @@ function slugifyPart(value = "") {
     .replace(/^-+|-+$/g, "");
 }
 
-export function buildVariantId(attributes = {}) {
+function buildVariantId(attributes = {}) {
   return Object.entries(attributes)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${slugifyPart(key)}-${slugifyPart(value)}`)
     .join("__");
 }
 
-export function buildVariantTitle(options = []) {
+function buildVariantTitle(options = []) {
   return options.map((item) => item.value).filter(Boolean).join(" / ");
 }
 
@@ -160,14 +160,6 @@ export function getVariantGroups(product) {
     const bIndex = configKeys.indexOf(b.key);
     return (aIndex < 0 ? 999 : aIndex) - (bIndex < 0 ? 999 : bIndex) || a.name.localeCompare(b.name);
   });
-}
-
-export function findMatchingVariant(variants = [], selectedAttributes = {}) {
-  return (
-    variants.find((variant) =>
-      Object.entries(selectedAttributes).every(([key, value]) => variant?.attributes?.[key] === value)
-    ) || null
-  );
 }
 
 export function getDefaultVariant(product) {

@@ -34,11 +34,6 @@ export async function logout() {
   return data;
 }
 
-export async function logoutAll() {
-  const { data } = await api.post("/api/auth/logout-all");
-  return data;
-}
-
 export async function updateThemePreference(theme) {
   const { data } = await api.patch("/api/auth/preferences/theme", { theme });
   return data;
@@ -55,19 +50,6 @@ export async function mergeGuestData(guestCartItems = [], guestWishlistItems = [
   const { data } = await api.post("/api/auth/merge-guest-data", {
     guestCartItems,
     guestWishlistItems,
-  });
-  return data?.data || data;
-}
-
-/**
- * Request password reset
- * Sends a password reset token to the user's email/phone
- * @param {string} identifier - Email or phone number
- * @returns {Promise<Object>} {requested: true, resetToken?: string}
- */
-export async function requestPasswordReset(identifier) {
-  const { data } = await api.post("/api/auth/password-reset/request", {
-    identifier,
   });
   return data?.data || data;
 }

@@ -1,21 +1,18 @@
+/* eslint-disable no-unused-vars */
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { confirmAction } from "../services/notificationService";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Bookmark,
   Compass,
-  Eye,
   Heart,
   Home,
-  Menu,
   MessageCircle,
   MoreHorizontal,
   Share2,
   Search,
-  Star,
   Store,
   TrendingUp,
-  UserPlus,
   UserRound,
   Users,
   Video,

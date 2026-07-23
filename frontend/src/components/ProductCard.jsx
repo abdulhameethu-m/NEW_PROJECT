@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { logger } from "../services/logger/logger.js";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";

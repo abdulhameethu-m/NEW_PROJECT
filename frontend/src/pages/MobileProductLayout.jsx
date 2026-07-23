@@ -1,12 +1,12 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, Search, Heart, Share2, ShoppingCart, ChevronDown, ChevronUp, Star, Truck, ShieldCheck, Tag, Minus, Plus } from "lucide-react";
-// eslint-disable-next-line no-unused-vars
+/* eslint-disable no-unused-vars */
+import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Heart, ChevronDown, ChevronUp, Star } from "lucide-react";
+ 
 import { motion, AnimatePresence } from "framer-motion";
 import { formatCurrency } from "../utils/formatCurrency";
-import { SellerNameLink, StoreRatingDisplay, SellerCard } from "../components/seller/SellerNavigation";
+import { SellerCard } from "../components/seller/SellerNavigation";
 import { RecommendationSection } from "../components/RecommendationSection";
-import { ProductReviewsSection } from "../components/ProductReviewsSection";
 
 function formatFieldValue(value) {
   if (Array.isArray(value)) return value.join(", ");

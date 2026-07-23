@@ -19,7 +19,6 @@ import {
   ChevronUp,
   Copy,
   Eye,
-  EyeOff,
   GripVertical,
   History,
   LayoutDashboard,

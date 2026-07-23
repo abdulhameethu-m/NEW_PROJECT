@@ -117,20 +117,3 @@ export function consumeRedirectAfterLogin() {
     return null;
   }
 }
-
-/**
- * Clear any stored redirect URL
- */
-export function clearRedirectAfterLogin() {
-  if (typeof window === "undefined") return;
-  
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-    window.sessionStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    // Silently fail
-    if (isDev) {
-      logger.debug("Failed to clear redirect URL:", { value: error });
-    }
-  }
-}

@@ -57,11 +57,6 @@ export async function getUserOrderTracking(id) {
   return data;
 }
 
-export async function cancelUserOrder(id) {
-  const { data } = await api.patch(`/api/user/orders/${id}/cancel`);
-  return data;
-}
-
 export async function previewUserOrderCancellation(id, payload = {}) {
   const { data } = await api.post(`/api/user/orders/${id}/cancel`, { ...payload, previewOnly: true });
   return data;
@@ -74,11 +69,6 @@ export async function confirmUserOrderCancellation(id, payload = {}) {
 
 export async function requestUserReturn(id, payload) {
   const { data } = await api.post(`/api/user/orders/${id}/return`, payload);
-  return data;
-}
-
-export async function getRefundStatus(id) {
-  const { data } = await api.get(`/api/payments/refund-status/${id}`);
   return data;
 }
 
@@ -102,53 +92,8 @@ export async function downloadUserInvoice(id) {
   window.URL.revokeObjectURL(downloadUrl);
 }
 
-export function getUserInvoiceUrl(id) {
-  const base = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
-  return `${base}/api/user/orders/${id}/invoice`;
-}
-
-export async function getUserCart() {
-  const { data } = await api.get("/api/user/cart");
-  return data;
-}
-
-export async function updateUserCartItem(productId, quantity) {
-  const { data } = await api.patch(`/api/user/cart/items/${productId}`, { quantity });
-  return data;
-}
-
-export async function removeUserCartItem(productId) {
-  const { data } = await api.delete(`/api/user/cart/items/${productId}`);
-  return data;
-}
-
-export async function getUserWishlist() {
-  const { data } = await api.get("/api/user/wishlist");
-  return data;
-}
-
-export async function addUserWishlist(productId) {
-  const { data } = await api.post(`/api/user/wishlist/${productId}`);
-  return data;
-}
-
-export async function removeUserWishlist(productId) {
-  const { data } = await api.delete(`/api/user/wishlist/${productId}`);
-  return data;
-}
-
-export async function moveWishlistItemToCart(productId) {
-  const { data } = await api.post(`/api/user/wishlist/${productId}/move-to-cart`);
-  return data;
-}
-
 export async function getUserBilling(params = {}) {
   const { data } = await api.get("/api/user/billing", { params });
-  return data;
-}
-
-export async function getUserReturns() {
-  const { data } = await api.get("/api/user/returns");
   return data;
 }
 

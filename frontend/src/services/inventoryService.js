@@ -9,22 +9,6 @@ export async function getProductInventory(productId) {
 }
 
 /**
- * Get specific variant inventory details
- */
-export async function getVariantInventory(productId, variantId) {
-  const { data } = await api.get(`/api/inventory/product/${productId}/variant/${variantId}`);
-  return data;
-}
-
-/**
- * Get available stock for a variant
- */
-export async function getAvailableStock(productId, variantId) {
-  const { data } = await api.get(`/api/inventory/product/${productId}/variant/${variantId}/available`);
-  return data;
-}
-
-/**
  * Get inventory transaction ledger for a variant
  */
 export async function getVariantLedger(productId, variantId, limit = 100, offset = 0) {
@@ -40,16 +24,6 @@ export async function getVariantLedger(productId, variantId, limit = 100, offset
  */
 export async function getSellerInventorySummary() {
   const { data } = await api.get("/api/inventory/seller/summary");
-  return data;
-}
-
-/**
- * Get seller's low stock variants
- */
-export async function getSellersLowStockVariants(limit = 50, offset = 0) {
-  const { data } = await api.get("/api/inventory/seller/low-stock", {
-    params: { limit, offset },
-  });
   return data;
 }
 

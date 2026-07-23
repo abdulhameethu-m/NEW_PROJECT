@@ -5,13 +5,10 @@ import {
   Archive,
   BarChart3,
   Boxes,
-  CalendarClock,
   Check,
-  Eye,
   Image,
   LayoutGrid,
   Megaphone,
-  PackagePlus,
   Plus,
   Search,
   Settings2,
@@ -51,15 +48,6 @@ const TYPE_OPTIONS = [
   ["trending_products", "Trending"],
   ["bundle", "Bundle"],
   ["brand", "Brand"],
-];
-
-const TABS = [
-  ["create", "Create Collection", Plus],
-  ["featured", "Featured Collections", Star],
-  ["seasonal", "Seasonal Collections", CalendarClock],
-  ["assignment", "Product Assignment", PackagePlus],
-  ["analytics", "Collection Analytics", BarChart3],
-  ["visibility", "Collection Visibility", Eye],
 ];
 
 function EmptyState({ title }) {

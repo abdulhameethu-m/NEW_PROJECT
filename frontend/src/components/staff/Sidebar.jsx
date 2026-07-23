@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { STAFF_MODULES, SIDEBAR_SECTIONS, getAccessibleModules } from "../../config/staffModules";
+import { SIDEBAR_SECTIONS, getAccessibleModules } from "../../config/staffModules";
 
 const ICON_MAP = {
   LayoutDashboard: DashboardIcon,

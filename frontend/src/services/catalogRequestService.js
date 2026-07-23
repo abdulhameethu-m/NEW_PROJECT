@@ -15,11 +15,6 @@ export async function createCatalogRequest(payload) {
   return data;
 }
 
-export async function cancelCatalogRequest(requestId) {
-  const { data } = await api.put(`/api/catalog/request/${requestId}/cancel`);
-  return data;
-}
-
 export async function listAdminCatalogRequests(params = {}) {
   const { data } = await api.get("/api/catalog/admin/requests", { params });
   return data;

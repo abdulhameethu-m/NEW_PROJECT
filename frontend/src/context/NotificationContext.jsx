@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Info, Loader2, ShieldAlert, TriangleAlert, X } from "lucide-react";
 import { registerNotificationHandlers } from "../services/notificationService";
 
@@ -231,8 +231,4 @@ export function NotificationProvider({ children }) {
       ) : null}
     </NotificationContext.Provider>
   );
-}
-
-export function useNotification() {
-  return useContext(NotificationContext);
 }

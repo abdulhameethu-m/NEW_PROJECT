@@ -14,53 +14,6 @@ export async function getPricingConfig() {
 }
 
 /**
- * Get all active pricing rules (for checkout display)
- */
-export async function getActivePricingRules(paymentMethod) {
-  const { data } = await api.get("/api/pricing-rules", {
-    params: paymentMethod ? { paymentMethod } : {},
-  });
-  return data;
-}
-
-/**
- * Get pricing summary (breakdown by category)
- */
-export async function getPricingSummary(paymentMethod) {
-  const { data } = await api.get("/api/pricing/summary", {
-    params: paymentMethod ? { paymentMethod } : {},
-  });
-  return data;
-}
-
-/**
- * Calculate order total with current pricing rules
- * @param {number} subtotal - Order subtotal
- * @param {number} itemCount - Total items in order
- * @returns {Object} Pricing breakdown with charges
- */
-export async function calculateOrderTotal(subtotal, itemCount = 1, paymentMethod) {
-  const { data } = await api.get("/api/pricing/calculate", {
-    params: { subtotal, itemCount, ...(paymentMethod ? { paymentMethod } : {}) },
-  });
-  return data;
-}
-
-/**
- * Preview the impact of a specific pricing rule
- * @param {string} ruleId - Rule ID or key
- * @param {number} subtotal - Amount to calculate on
- * @returns {Object} Rule details and calculated impact
- */
-export async function previewRuleImpact(ruleId, subtotal) {
-  const { data } = await api.post("/api/pricing/preview-rule", {
-    ruleId,
-    subtotal,
-  });
-  return data;
-}
-
-/**
  * ADMIN APIs - Admin authentication required
  */
 
@@ -89,17 +42,6 @@ export async function initializePricingConfig() {
 }
 
 // ============ Marketplace Settlement Rules ============
-
-export async function getSettlementRules() {
-  const { data } = await adminHttp.get("/api/admin/settlement-rules");
-  return data;
-}
-
-export async function updateSettlementRules(rules) {
-  const { data } = await adminHttp.put("/api/admin/settlement-rules", rules);
-  return data;
-}
-
 // ============ Dynamic Pricing Rules APIs ============
 
 /**
@@ -116,16 +58,6 @@ export async function getAllPricingRules(options = {}) {
   if (options.categoryId) params.categoryId = options.categoryId;
 
   const { data } = await adminHttp.get("/api/admin/pricing-rules", { params });
-  return data;
-}
-
-/**
- * Get a specific pricing rule (admin)
- * @param {string} ruleId - Rule ID
- * @returns {Object} Pricing rule
- */
-export async function getPricingRule(ruleId) {
-  const { data } = await adminHttp.get(`/api/admin/pricing-rules/${ruleId}`);
   return data;
 }
 
@@ -167,20 +99,6 @@ export async function togglePricingRuleActive(ruleId, isActive) {
  */
 export async function deletePricingRule(ruleId) {
   const { data } = await adminHttp.delete(`/api/admin/pricing-rules/${ruleId}`);
-  return data;
-}
-
-/**
- * Toggle active status for multiple rules (admin)
- * @param {Array} ruleIds - Array of rule IDs
- * @param {boolean} isActive - New active status
- * @returns {Object} Result
- */
-export async function toggleMultipleRulesActive(ruleIds, isActive) {
-  const { data } = await adminHttp.patch(
-    "/api/admin/pricing-rules/batch/toggle-active",
-    { ruleIds, isActive }
-  );
   return data;
 }
 

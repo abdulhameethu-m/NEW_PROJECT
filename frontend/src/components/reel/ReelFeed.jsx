@@ -1,21 +1,16 @@
-import { createElement, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { confirmAction } from "../../services/notificationService";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
   Flag,
   Heart,
-  Home,
   MessageCircle,
-  Play,
-  Search,
   Send,
   Share2,
   Star,
   UserPlus,
-  UserRound,
-  Users,
   Volume2,
   VolumeX,
   X,
@@ -933,45 +928,6 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
       {/* Next preview removed: keep UI immersive. */}
 
     </div>
-  );
-}
-
-function MobileInfluencerBottomNav() {
-  const { pathname } = useLocation();
-  const isActive = (href) => href === "/" ? pathname === "/" : pathname.startsWith(href);
-  const items = [
-    { label: "Home", icon: Home, href: "/" },
-    { label: "Shop", icon: Search, href: "/shop" },
-    { label: "Creators", icon: Users, href: "/influencers" },
-    { label: "Wishlist", icon: Heart, href: "/wishlist" },
-    { label: "Account", icon: UserRound, href: "/profile" },
-  ];
-  return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-slate-800 bg-slate-950/100 shadow-[0_-10px_30px_rgba(0,0,0,0.55)] backdrop-blur-md lg:hidden"
-      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
-      aria-label="Bottom navigation"
-    >
-      {items.map(({ label, icon, href }) => {
-        const active = isActive(href);
-        return (
-          <Link
-            key={href}
-            to={href}
-            className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-3 text-[10px] font-semibold transition-colors ${
-              active ? "text-white" : "text-slate-400 hover:text-slate-100"
-            }`}
-            aria-label={label}
-          >
-            {createElement(icon, {
-              className: "h-[22px] w-[22px]",
-              strokeWidth: active ? 2.25 : 1.5,
-            })}
-            {label}
-          </Link>
-        );
-      })}
-    </nav>
   );
 }
 

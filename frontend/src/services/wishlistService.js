@@ -22,7 +22,7 @@ export async function checkWishlistStatus(productId) {
 }
 
 // Legacy name for backward compatibility
-export async function getWishlistStatus(productId) {
+async function getWishlistStatus(productId) {
   return checkWishlistStatus(productId);
 }
 
@@ -64,7 +64,7 @@ export async function validateProduct(productId, variantId = "") {
  * @param {string} productId
  * @returns {Promise<Object>} {exists, isAvailable, price, image}
  */
-export async function getProductStatus(productId) {
+async function getProductStatus(productId) {
   const { data } = await api.get(`/api/wishlist/${productId}/check`);
   return data?.data || data;
 }

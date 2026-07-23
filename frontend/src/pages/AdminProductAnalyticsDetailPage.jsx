@@ -16,7 +16,6 @@ import { ReportingToolbar } from "../components/ReportingToolbar";
 import { useReporting } from "../hooks/useReporting";
 import { formatCurrency } from "../utils/formatCurrency";
 import { StatusBadge } from "../components/StatusBadge";
-import { InlineToast } from "../components/commerce/InlineToast";
 
 function normalizeError(error) {
   return error?.response?.data?.message || error?.message || "Failed to load product detail analytics.";

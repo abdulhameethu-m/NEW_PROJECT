@@ -1,4 +1,4 @@
-import { Megaphone, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { formatCurrency } from "../../utils/formatCurrency";
 import { influencerRowId, Pagination, percentValue, ResponsiveTable, Section, StatusBadge } from "./VendorInfluencerShared";
 

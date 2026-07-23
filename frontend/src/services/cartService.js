@@ -120,7 +120,7 @@ export async function validateCart(items = []) {
  * @param {Array} items - Array of cart items
  * @returns {Promise<Object>} Cart summary
  */
-export async function getCartSummary(items = []) {
+async function getCartSummary(items = []) {
   const { data } = await api.post("/api/cart/summary", { items });
   return data?.data || data;
 }
@@ -145,7 +145,7 @@ export async function mergeGuestCart(guestCartItems = []) {
  * @param {Array} guestCartItems - Items from guest localStorage
  * @returns {Promise<Object>} Merge summary
  */
-export async function getMergeSummary(guestCartItems = []) {
+async function getMergeSummary(guestCartItems = []) {
   const { data } = await api.post("/api/cart/merge-summary", { guestCartItems });
   return data?.data || data;
 }

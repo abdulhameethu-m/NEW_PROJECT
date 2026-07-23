@@ -12,7 +12,7 @@ const PENDING_ACTION_KEY = "pending_checkout_action";
 const PENDING_ACTION_EXPIRY_KEY = "pending_action_expiry";
 const ACTION_EXPIRY_TIME = 30 * 60 * 1000; // 30 minutes
 
-export const pendingActionManager = {
+const pendingActionManager = {
   /**
    * Save pending action to sessionStorage
    * @param {string} type - Type of action ('buy_now', 'checkout', etc)

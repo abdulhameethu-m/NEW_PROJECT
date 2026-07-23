@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { logger } from "../services/logger/logger.js";
 import React, { useState } from "react";
 import { useVendorModules } from "../hooks/useVendorModules";

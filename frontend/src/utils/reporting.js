@@ -1,4 +1,4 @@
-export function toApiDate(value) {
+function toApiDate(value) {
   if (!value) return "";
   const year = value.getFullYear();
   const month = String(value.getMonth() + 1).padStart(2, "0");

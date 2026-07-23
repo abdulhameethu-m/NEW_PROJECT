@@ -5,7 +5,7 @@ function formatAddressParts(parts) {
   return [city, state, country].filter(Boolean).join(", ");
 }
 
-export function getCurrentPosition(options = {}) {
+function getCurrentPosition(options = {}) {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     return Promise.reject(new Error("geolocation_unsupported"));
   }

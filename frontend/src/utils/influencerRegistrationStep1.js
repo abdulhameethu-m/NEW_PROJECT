@@ -1,5 +1,5 @@
-export const INFLUENCER_STEP_ONE_STORAGE_KEY = "grm_influencer_register_step_1";
-export const INFLUENCER_STEP_ONE_SESSION_KEY = "grm_influencer_register_step_1_session";
+const INFLUENCER_STEP_ONE_STORAGE_KEY = "grm_influencer_register_step_1";
+const INFLUENCER_STEP_ONE_SESSION_KEY = "grm_influencer_register_step_1_session";
 
 export const influencerWizardSteps = [
   "Account Information",

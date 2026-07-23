@@ -1,9 +1,6 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { BackButton } from "../components/BackButton";
-import { ProductImageGallery } from "../components/ProductImageGallery";
-import { ProductReviewsSection } from "../components/ProductReviewsSection";
-import { RecommendationSection } from "../components/RecommendationSection";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import * as productService from "../services/productService";
 import { getAttributes } from "../services/attributeService";
 import { getProductModules } from "../services/productModuleService";
@@ -16,7 +13,6 @@ import {
   trackRecentlyViewed,
 } from "../services/recommendationService";
 import { useAuthStore } from "../context/authStore";
-import { formatCurrency } from "../utils/formatCurrency";
 import { getDefaultVariant, getVariantGroups } from "../utils/productVariants";
 import { saveRedirectAfterLogin } from "../utils/loginRedirect";
 import { getFormattedWeight } from "../utils/weight";
@@ -27,7 +23,6 @@ import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useWishlist } from "../hooks/useWishlist";
 import pendingActionManager from "../utils/pendingActionManager";
 import { getCartErrorMessage } from "../utils/cartErrors";
-import { SellerCard, SellerNameLink, StoreRatingDisplay } from "../components/seller/SellerNavigation";
 import { clickTracking, trackAffiliateEvent } from "../services/influencerCommerceService";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { DesktopProductLayout } from "./DesktopProductLayout";
@@ -59,12 +54,6 @@ function buildVariantMatch(variants = [], selectedAttributes = {}) {
       Object.entries(selectedAttributes).every(([key, value]) => variant?.attributes?.[key] === value)
     ) || null
   );
-}
-
-function formatFieldValue(value) {
-  if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  return String(value ?? "");
 }
 
 function flattenAttributeGroups(groups = {}) {
@@ -103,43 +92,6 @@ function buildModulesData(product, moduleSections = []) {
     }
   }
   return next;
-}
-
-function resolveSwatchColor(value = "") {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (!normalized) return null;
-  if (normalized.startsWith("#")) return normalized;
-
-  const swatchMap = {
-    black: "#111827",
-    white: "#f8fafc",
-    red: "#dc2626",
-    blue: "#2563eb",
-    green: "#16a34a",
-    yellow: "#facc15",
-    orange: "#f97316",
-    purple: "#7c3aed",
-    violet: "#8b5cf6",
-    pink: "#ec4899",
-    gray: "#6b7280",
-    grey: "#6b7280",
-    silver: "#cbd5e1",
-    gold: "#d4af37",
-    navy: "#1e3a8a",
-    brown: "#92400e",
-    beige: "#d6d3d1",
-    cream: "#f5f5dc",
-    maroon: "#7f1d1d",
-    teal: "#0f766e",
-  };
-
-  return swatchMap[normalized] || null;
-}
-
-function isVisualSwatchGroup(group, displayType) {
-  const key = String(group?.key || "").toLowerCase();
-  const name = String(group?.name || "").toLowerCase();
-  return displayType === "swatch" || displayType === "image-swatch" || key.includes("color") || name.includes("color");
 }
 
 export function ProductDetailsPage() {

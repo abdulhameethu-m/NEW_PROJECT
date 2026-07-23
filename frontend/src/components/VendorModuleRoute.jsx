@@ -66,16 +66,3 @@ export function VendorPermissionGate({ permission, fallback = null, children }) 
   const { can } = useModuleAccess();
   return can(permission) ? children : fallback;
 }
-
-/**
- * HOC for protecting vendor pages
- */
-export function withVendorModule(Component, moduleKey, action = "read") {
-  return function ProtectedComponent(props) {
-    return (
-      <VendorModuleRoute moduleKey={moduleKey} action={action}>
-        <Component {...props} />
-      </VendorModuleRoute>
-    );
-  };
-}

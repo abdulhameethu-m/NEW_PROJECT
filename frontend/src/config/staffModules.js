@@ -143,27 +143,6 @@ export function getAccessibleModules(permissions, enabledModules = {}) {
   }).sort((left, right) => left.order - right.order);
 }
 
-export function canAccessModule(permissions, moduleId, enabledModules = {}) {
-  const module = STAFF_MODULES.find((item) => item.key === moduleId);
-  if (!module) return false;
-  if (!module.permission) return true;
-  if (enabledModules?.[module.key] === false) return false;
-
-  const [moduleName, action] = module.permission.split(".");
-  return permissions?.[moduleName]?.[action] === true;
-}
-
-export function hasPermission(permissions, permissionKey) {
-  if (!permissions || !permissionKey) return false;
-  const [moduleName, action] = permissionKey.split(".");
-  return permissions?.[moduleName]?.[action] === true;
-}
-
-export function getModuleActions(permissions, moduleName) {
-  if (!permissions?.[moduleName]) return [];
-  return Object.keys(permissions[moduleName]).filter((action) => permissions[moduleName][action]);
-}
-
 export function getDefaultStaffRoute(permissions, enabledModules = {}) {
   return getAccessibleModules(permissions, enabledModules)[0]?.route || "/staff/dashboard";
 }

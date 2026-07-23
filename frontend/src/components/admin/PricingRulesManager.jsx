@@ -608,4 +608,4 @@ export function PricingRulesManager() {
   );
 }
 
-export default PricingRulesManager;
+

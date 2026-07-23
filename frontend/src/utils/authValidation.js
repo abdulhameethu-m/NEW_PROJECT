@@ -2,15 +2,15 @@ const PHONE_REGEX = /^[0-9]{10}$/;
 const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
-export function isValidPhone(phone) {
+function isValidPhone(phone) {
   return PHONE_REGEX.test(String(phone || "").trim());
 }
 
-export function isValidGmail(email) {
+function isValidGmail(email) {
   return GMAIL_REGEX.test(String(email || "").trim());
 }
 
-export function isValidEmail(email) {
+function isValidEmail(email) {
   return EMAIL_REGEX.test(String(email || "").trim());
 }
 

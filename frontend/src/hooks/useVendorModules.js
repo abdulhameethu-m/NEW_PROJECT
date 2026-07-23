@@ -162,40 +162,6 @@ export const useVendorModules = () => {
     initModules,
   };
 };
-
-/**
- * Hook to check vendor module access
- */
-export const useVendorModuleAccess = () => {
-  const [accessMap, setAccessMap] = useState({});
-  const [loading, setLoading] = useState(false);
-
-  const checkAccess = useCallback(async (moduleKeys) => {
-    try {
-      setLoading(true);
-      const data = await vendorModuleService.checkModuleAccess(moduleKeys);
-      setAccessMap(data);
-      return data;
-    } catch (err) {
-      logger.error("Error checking module access:", { error: err });
-      return {};
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const hasAccess = useCallback((moduleKey) => {
-    return accessMap[moduleKey] === true;
-  }, [accessMap]);
-
-  return {
-    accessMap,
-    loading,
-    checkAccess,
-    hasAccess,
-  };
-};
-
 /**
  * Hook to get vendor-accessible modules
  * ✅ Fetches only enabled modules for vendors

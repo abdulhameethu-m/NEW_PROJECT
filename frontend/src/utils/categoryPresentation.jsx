@@ -98,15 +98,15 @@ function getHashIndex(value, size) {
   return size > 0 ? hash % size : 0;
 }
 
-export function getCategoryColor(category) {
+function getCategoryColor(category) {
   return categoryColorClasses[getHashIndex(category?.slug || category?.name, categoryColorClasses.length)];
 }
 
-export function getCategoryIconBackground(category) {
+function getCategoryIconBackground(category) {
   return categoryIconBgClasses[getHashIndex(category?.slug || category?.name, categoryIconBgClasses.length)];
 }
 
-export function getCategoryIconComponent(category) {
+function getCategoryIconComponent(category) {
   // If category has a logo, use it as an image instead of icon
   if (category?.logo?.trim()) {
     const logoUrl = category.logo.startsWith("data:") 

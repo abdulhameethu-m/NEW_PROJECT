@@ -78,4 +78,4 @@ export const logger = {
   security: (event, context) => emit("warn", event, { type: "security", ...context }),
 };
 
-export { redact };
+;

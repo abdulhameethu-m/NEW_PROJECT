@@ -37,14 +37,6 @@ export async function getRelatedProducts(productId, limit = 4, categoryId = "") 
   };
 }
 
-/**
- * Get products list (authenticated - role-based)
- */
-export async function getProducts(params = {}) {
-  const response = await api.get("/api/products", { params });
-  return response.data;
-}
-
 export async function generateProductNumber(params = {}) {
   const response = await api.get("/api/products/generate-number", { params });
   return response.data;
@@ -68,46 +60,4 @@ export async function updateProduct(id, updateData) {
 
 export async function uploadProductImages(files, metadata = {}, onUploadProgress) {
   return uploadMarketplaceProductImages(files, metadata, onUploadProgress);
-}
-
-/**
- * Delete product (soft delete)
- */
-export async function deleteProduct(id) {
-  const response = await api.delete(`/api/products/${id}`);
-  return response.data;
-}
-
-/**
- * Get pending products for admin review
- */
-export async function getPendingProducts(params = {}) {
-  const response = await api.get("/api/products/admin/pending", { params });
-  return response.data;
-}
-
-/**
- * Approve product (admin only)
- */
-export async function approveProduct(id) {
-  const response = await api.patch(`/api/products/admin/${id}/approve`);
-  return response.data;
-}
-
-/**
- * Reject product (admin only)
- */
-export async function rejectProduct(id, rejectionReason) {
-  const response = await api.patch(`/api/products/admin/${id}/reject`, {
-    rejectionReason,
-  });
-  return response.data;
-}
-
-/**
- * Get product statistics (admin only)
- */
-export async function getProductStats() {
-  const response = await api.get("/api/products/admin/stats");
-  return response.data;
 }

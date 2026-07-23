@@ -38,16 +38,6 @@ export async function inspectCheckoutOrder(razorpayOrderId) {
   return data?.data || data;
 }
 
-export async function checkCodAvailability(payload) {
-  const { data } = await api.post("/api/payments/cod/check", payload);
-  return data?.data || data;
-}
-
-export async function collectCodPayment(payload) {
-  const { data } = await adminHttp.post("/api/payments/cod/collect", payload);
-  return data?.data || data;
-}
-
 export async function listPayments(params = {}) {
   const { data } = await adminHttp.get("/api/payments", { params });
   return data?.data || data;
@@ -58,18 +48,8 @@ export async function getPaymentDetails(id) {
   return data?.data || data;
 }
 
-export async function listRefunds(params = {}) {
-  const { data } = await adminHttp.get("/api/payments/refunds", { params });
-  return data?.data || data;
-}
-
 export async function createRefund(payload) {
   const { data } = await adminHttp.post("/api/payments/refund", payload);
-  return data?.data || data;
-}
-
-export async function reviewRefund(id, payload) {
-  const { data } = await adminHttp.patch(`/api/payments/refunds/${id}`, payload);
   return data?.data || data;
 }
 

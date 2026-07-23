@@ -1,35 +1,35 @@
 export {
-  getDashboard,
-  getAnalytics,
-  getDailyRevenue,
-  listUsers,
-  toggleUserBlock,
-  deleteUser,
-  listSellers as listVendors,
-  getSellerDetails as getVendorDetails,
-  approveSeller as approveVendor,
-  rejectSeller as rejectVendor,
-  removeSeller as removeVendor,
-  listProducts,
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   getProductById,
   generateAdminProductNumber,
   createProduct,
   updateProduct,
   uploadAdminProductImages,
-  deleteProduct,
-  approveProduct,
-  rejectProduct,
-  getProductStats,
-  listCategories,
-  createCategory as createAdminCategory,
-  updateCategory as updateAdminCategory,
-  toggleCategory as toggleAdminCategory,
-  listOrders,
-  updateOrderStatus,
-  getAuditLogs,
-  getStaffPermissionCatalog,
-  listStaffRoles,
-  createStaffRole,
-  updateStaffRole,
-  deleteStaffRole,
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 } from "./adminApi";

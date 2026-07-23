@@ -1,5 +1,5 @@
-export const INFLUENCER_STEP_FOUR_STORAGE_KEY = "grm_influencer_register_step_4";
-export const INFLUENCER_STEP_FIVE_STORAGE_KEY = "grm_influencer_register_step_5";
+const INFLUENCER_STEP_FOUR_STORAGE_KEY = "grm_influencer_register_step_4";
+const INFLUENCER_STEP_FIVE_STORAGE_KEY = "grm_influencer_register_step_5";
 
 export const businessTypes = [
   { value: "individual_creator", label: "Individual Creator" },
@@ -102,23 +102,23 @@ export function loadInfluencerPaymentDraft(storage) {
   return loadDraft(INFLUENCER_STEP_FIVE_STORAGE_KEY, storage);
 }
 
-export function validateGst(value = "") {
+function validateGst(value = "") {
   return !value || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(String(value).trim().toUpperCase());
 }
 
-export function validatePan(value = "") {
+function validatePan(value = "") {
   return /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(String(value).trim().toUpperCase());
 }
 
-export function validateUpi(value = "") {
+function validateUpi(value = "") {
   return /^[\w.-]+@[\w.-]+$/.test(String(value).trim());
 }
 
-export function validateEmail(value = "") {
+function validateEmail(value = "") {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim());
 }
 
-export function validateIfsc(value = "") {
+function validateIfsc(value = "") {
   return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(String(value).trim().toUpperCase());
 }
 

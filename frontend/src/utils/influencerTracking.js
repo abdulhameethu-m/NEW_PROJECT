@@ -6,7 +6,7 @@ function decodeBase64Url(value) {
   return atob(padded);
 }
 
-export function isValidTrackingToken(token) {
+function isValidTrackingToken(token) {
   if (typeof token !== "string" || token.split(".").length !== 3) return false;
   if (typeof window === "undefined") return true;
 
@@ -48,7 +48,7 @@ export function loadTrackingContext() {
   }
 }
 
-export function clearTrackingContext() {
+function clearTrackingContext() {
   if (typeof window === "undefined") return;
   window.sessionStorage.removeItem(TRACKING_STORAGE_KEY);
   window.localStorage.removeItem(TRACKING_STORAGE_KEY);

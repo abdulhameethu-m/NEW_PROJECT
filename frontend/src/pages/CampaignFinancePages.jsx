@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useState } from "react";
 import { Filter, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { FinanceTabs } from "../components/finance/FinanceComponents";

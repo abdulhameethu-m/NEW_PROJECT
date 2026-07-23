@@ -9,7 +9,7 @@ function safeParse(value) {
   }
 }
 
-export const pendingCheckoutManager = {
+const pendingCheckoutManager = {
   set(payload = {}) {
     const record = {
       ...payload,

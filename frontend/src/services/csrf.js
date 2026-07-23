@@ -19,7 +19,7 @@ function readCookie(name) {
 
 let csrfPromise = null;
 
-export function isUnsafeMethod(method = "get") {
+function isUnsafeMethod(method = "get") {
   return !SAFE_METHODS.has(String(method || "get").toLowerCase());
 }
 

@@ -1,8 +1,8 @@
-export function normalizeVendorStatus(status) {
+function normalizeVendorStatus(status) {
   return String(status || "").trim().toLowerCase();
 }
 
-export function getVendorStepCompleted(vendor) {
+function getVendorStepCompleted(vendor) {
   const value = Number(vendor?.stepCompleted || 0);
   return Number.isFinite(value) ? value : 0;
 }
@@ -35,12 +35,12 @@ export function getPathnameFromTarget(target) {
   }
 }
 
-export function isVendorWorkspaceTarget(target) {
+function isVendorWorkspaceTarget(target) {
   const pathname = getPathnameFromTarget(target);
   return pathname === "/dashboard/vendor" || pathname === "/vendor" || pathname.startsWith("/vendor/");
 }
 
-export function getApprovedVendorDestination(target) {
+function getApprovedVendorDestination(target) {
   const pathname = getPathnameFromTarget(target);
   if (pathname === "/vendor/onboarding" || pathname === "/vendor/status" || pathname === "/vendor") {
     return "/vendor/dashboard";

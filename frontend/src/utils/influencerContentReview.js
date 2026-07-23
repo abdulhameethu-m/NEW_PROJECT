@@ -1,4 +1,4 @@
-export const INFLUENCER_STEP_SIX_STORAGE_KEY = "grm_influencer_register_step_6";
+const INFLUENCER_STEP_SIX_STORAGE_KEY = "grm_influencer_register_step_6";
 
 export const contentNiches = ["Technology", "Fashion", "Gaming", "Beauty", "Fitness", "Education", "Lifestyle", "Travel", "Food", "Business", "Other"];
 
@@ -44,12 +44,4 @@ export function validateContentReview(values = {}, files = {}, existingDocuments
   }
   if (String(values.portfolioDescription || "").length > 1000) errors.portfolioDescription = "Portfolio description must be 1000 characters or fewer.";
   return errors;
-}
-
-export function getScoreLevel(score = 0) {
-  const value = Number(score || 0);
-  if (value >= 80) return "Gold Creator";
-  if (value >= 60) return "Silver Creator";
-  if (value >= 40) return "Rising Creator";
-  return "Starter Creator";
 }

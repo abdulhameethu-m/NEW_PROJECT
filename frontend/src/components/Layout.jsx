@@ -110,7 +110,6 @@ export function Layout() {
     }
     return false;
   });
-  const isProductRoute = location.pathname.startsWith("/product/");
   const hideShopChrome = isAdminRoute || isVendorWorkspace || isStaffWorkspace || isInfluencerWorkspace;
   const isPublicInfluencerPage =
     location.pathname.startsWith("/influencers") ||

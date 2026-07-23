@@ -1,6 +1,6 @@
 export const LEGACY_ADMIN_ROLES = ["admin", "super_admin", "support_admin", "finance_admin"];
 
-export const LEGACY_ROLE_PERMISSIONS = {
+const LEGACY_ROLE_PERMISSIONS = {
   admin: ["all"],
   super_admin: ["all"],
   support_admin: [

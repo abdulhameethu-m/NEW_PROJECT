@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { confirmAction } from "../services/notificationService";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -8,19 +9,13 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Copy,
-  ExternalLink,
-  Flag,
   Grid2X2,
   Heart,
   Home,
   Eye,
   LayoutGrid,
   ListFilter,
-  Mail,
   MapPin,
-  MoreHorizontal,
-  Package,
   Percent,
   Play,
   Search,
@@ -29,7 +24,6 @@ import {
   ShieldCheck,
   ShoppingBag,
   ShoppingCart,
-  Star,
   TrendingUp,
   Truck,
   UserMinus,
@@ -631,64 +625,6 @@ function Sidebar({ data, following, followBusy = false, onFollow, onShare, canEd
         </form>
       </section>
     </aside>
-  );
-}
-
-function ProfileHeader({ data, following, followBusy = false, onFollow, onShare, onCopy, onReport, onBlock, onMore, moreOpen, canEdit, actionStatus = "" }) {
-  const location = [data.profile.location?.city, data.profile.location?.state, data.profile.location?.country].filter(Boolean).join(", ");
-  return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="relative h-[300px] bg-slate-200 dark:bg-slate-800">
-        {resolveApiAssetUrl(data.storefront.banner || data.profile.coverBanner) ? <img src={resolveApiAssetUrl(data.storefront.banner || data.profile.coverBanner)} alt="" className="h-full w-full object-cover" /> : null}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/20 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="flex min-w-0 gap-4">
-              <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-lg">
-                {resolveApiAssetUrl(data.profile.avatarUrl) ? <img src={resolveApiAssetUrl(data.profile.avatarUrl)} alt={data.profile.name} className="h-full w-full object-cover" /> : null}
-              </div>
-              <div className="min-w-0 pt-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-3xl font-black">{data.profile.name}</h1>
-                  {data.badge || data.profile.verified ? <BadgeCheck className="h-6 w-6 fill-sky-500 text-white" aria-label="Verified creator" /> : null}
-                </div>
-                <p className="mt-1 text-sm font-bold text-white/85">@{data.profile.username}</p>
-                <p className="mt-2 line-clamp-2 max-w-3xl text-sm text-white/90">{data.profile.shortBio || data.storefront.tagline || data.storefront.description}</p>
-                <div className="mt-2 flex flex-wrap gap-3 text-xs font-semibold text-white/85">
-                  {location ? <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {location}</span> : null}
-                  {data.profile.email ? <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {data.profile.email}</span> : null}
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {canEdit ? (
-                <Link to="/influencer/dashboard" className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-black text-white">Creator Dashboard</Link>
-              ) : (
-                <button onClick={onFollow} disabled={followBusy} className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-black ${following ? "bg-white text-slate-950" : "bg-indigo-600 text-white"}`}>{following ? <UserMinus className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}{followBusy ? (following ? "Unfollowing..." : "Following...") : following ? "Following" : "Follow"}</button>
-              )}
-              <button onClick={onShare} className="inline-flex items-center gap-2 rounded-md bg-white/95 px-4 py-2 text-sm font-black text-slate-950"><Share2 className="h-4 w-4" /> Share</button>
-              <div className="relative">
-                <button onClick={onMore} className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-white/95 text-slate-950" aria-label="More profile actions"><MoreHorizontal className="h-5 w-5" /></button>
-                {moreOpen ? (
-                  <div className="absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 text-sm font-bold text-slate-700 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
-                    <button onClick={onReport} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800"><Flag className="h-4 w-4" /> Report Profile</button>
-                    <button onClick={onCopy} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800"><Copy className="h-4 w-4" /> Copy Profile URL</button>
-                    <button onClick={onBlock} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800"><X className="h-4 w-4" /> Block User</button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            {actionStatus ? <p className="mt-2 text-xs font-bold text-white/90">{actionStatus}</p> : null}
-          </div>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-2 border-t border-slate-200 p-4 dark:border-slate-800 md:grid-cols-4">
-        <Metric label="Followers" value={compact(data.stats.followers)} />
-        <Metric label="Following" value={compact(data.stats.following)} />
-        <Metric label="Total Likes" value={compact(data.stats.totalLikes)} />
-        <Metric label="Orders Generated" value={compact(data.stats.ordersGenerated)} />
-      </div>
-    </section>
   );
 }
 

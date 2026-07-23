@@ -2,7 +2,7 @@ function normalizeContainerType(type) {
   return String(type || "").trim().toUpperCase();
 }
 
-export function isVendorStorefrontContainerType(type) {
+function isVendorStorefrontContainerType(type) {
   const next = normalizeContainerType(type);
   return next.startsWith("VENDOR_") && (next.includes("STOREFRONT") || next.endsWith("_STORES"));
 }

@@ -1,8 +1,8 @@
+/* eslint-disable no-unused-vars */
 import { logger } from "../services/logger/logger.js";
 import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ChevronDown, Heart, ShoppingCart, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown } from "lucide-react";
-import { BackButton } from "../components/BackButton";
+import { ChevronDown, Heart, ShoppingCart, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { CategoryChips } from "../components/shop/CategoryChips";
 import { FilterBottomSheet } from "../components/shop/FilterBottomSheet";
 import { useCategories } from "../hooks/useCategories";

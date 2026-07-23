@@ -233,4 +233,4 @@ export function AdminDataTable({
   );
 }
 
-export default AdminDataTable;
+

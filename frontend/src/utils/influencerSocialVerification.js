@@ -1,4 +1,4 @@
-export const INFLUENCER_STEP_TWO_STORAGE_KEY = "grm_influencer_register_step_2";
+const INFLUENCER_STEP_TWO_STORAGE_KEY = "grm_influencer_register_step_2";
 
 export const socialPlatforms = [
   { key: "instagram", label: "Instagram", required: true, urlLabel: "Instagram Profile URL", minFollowers: 1000 },
@@ -51,7 +51,7 @@ export function generateOwnershipCode() {
   return `INFLUENCER-GRM-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
-export function normalizePlatformKey(value = "") {
+function normalizePlatformKey(value = "") {
   return String(value || "").trim().toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_");
 }
 

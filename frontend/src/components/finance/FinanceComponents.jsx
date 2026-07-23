@@ -134,31 +134,11 @@ export function FinancePagination({ pagination, disabled = false, onPageChange }
   );
 }
 
-export function FinanceEmptyState({ title, description }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-12 text-center dark:border-slate-700">
-      <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{title}</div>
-      {description ? <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</div> : null}
-    </div>
-  );
-}
-
 export function maskAccountNumber(value) {
   const digits = String(value || "").replace(/\s+/g, "");
   if (!digits) return "Not added";
   if (digits.length <= 4) return digits;
   return `${"*".repeat(Math.max(digits.length - 4, 4))}${digits.slice(-4)}`;
-}
-
-export function formatFinanceDate(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 export function formatFinanceDateTime(value) {

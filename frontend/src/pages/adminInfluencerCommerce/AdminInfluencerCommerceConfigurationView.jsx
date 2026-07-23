@@ -1,8 +1,9 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BarChart3, Calculator, CheckCircle2, Package, Pencil, ShieldCheck, SlidersHorizontal, Trash2, WalletCards, Power, PowerOff, XCircle } from "lucide-react";
+import { AlertTriangle, BarChart3, Calculator, CheckCircle2, Package, Pencil, ShieldCheck, SlidersHorizontal, Trash2, WalletCards, XCircle } from "lucide-react";
 import { createInfluencerCommerceConfig, deleteInfluencerCommerceConfig, updateInfluencerCommerceConfig } from "../../services/adminInfluencerCommerceService";
 import { formatCurrency } from "../../utils/formatCurrency";
-import { ActionButton, FieldShell, numberValue, Pagination, ResponsiveTable, Section, shortText, StatusBadge } from "./AdminInfluencerCommerceShared";
+import { ActionButton, numberValue, ResponsiveTable, Section, shortText, StatusBadge } from "./AdminInfluencerCommerceShared";
 
 const defaultScoreForm = {
   followersWeight: 30,

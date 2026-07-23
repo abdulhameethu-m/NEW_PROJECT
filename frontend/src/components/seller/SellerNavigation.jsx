@@ -6,7 +6,7 @@ import { useAuthStore } from "../../context/authStore";
 import { followVendorStore, getVendorStorefront, getMyFollowedStores, trackVendorStoreEvent, unfollowVendorStore } from "../../services/vendorStorefrontService";
 import { resolveApiAssetUrl } from "../../utils/resolveUrl";
 
-export function normalizeSeller(source = {}) {
+function normalizeSeller(source = {}) {
   const seller = source?.sellerId || source?.seller || source?.vendor || source;
   if (!seller) return null;
   const slug = seller.storeSlug || seller.slug || "";
@@ -23,18 +23,6 @@ export function normalizeSeller(source = {}) {
     productsCount: seller.productsCount ?? 0,
     storeUrl: slug ? `/vendor/${slug}` : "",
   };
-}
-
-export function SellerBadge({ seller, compact = false }) {
-  const normalized = normalizeSeller(seller);
-  if (!normalized) return null;
-  return (
-    <span className="inline-flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
-      <Store className="h-3.5 w-3.5 text-blue-600" />
-      <span className={compact ? "text-xs font-semibold" : "text-sm font-semibold"}>{normalized.name}</span>
-      {normalized.verified ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-label="Verified seller" /> : null}
-    </span>
-  );
 }
 
 export function SellerNameLink({ seller, className = "", showPrefix = true, preview = true, disableLink = false }) {
@@ -248,7 +236,7 @@ export function SellerCard({ seller, compact = false }) {
   );
 }
 
-export function SellerPreviewPopover({ seller }) {
+function SellerPreviewPopover({ seller }) {
   const normalized = normalizeSeller(seller);
   const [store, setStore] = useState(null);
   const [loaded, setLoaded] = useState(false);

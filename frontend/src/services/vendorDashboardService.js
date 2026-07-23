@@ -70,16 +70,6 @@ export async function scheduleVendorPickup(payload) {
   return data;
 }
 
-export async function getVendorInventory(params) {
-  const { data } = await api.get("/api/vendor/inventory", { params });
-  return data;
-}
-
-export async function updateVendorInventory(id, payload) {
-  const { data } = await api.patch(`/api/vendor/inventory/${id}`, payload);
-  return data;
-}
-
 export async function getVendorAnalytics(params = {}) {
   const { data } = await api.get("/api/vendor/analytics", { params });
   return data;
@@ -140,11 +130,6 @@ export async function getVendorDelivery(params) {
   return data;
 }
 
-export async function updateVendorDelivery(id, payload) {
-  const { data } = await api.patch(`/api/vendor/delivery/${id}`, payload);
-  return data;
-}
-
 export async function getVendorSettings() {
   const { data } = await api.get("/api/vendor/settings");
   return data;
@@ -167,11 +152,6 @@ export async function uploadVendorStoreMedia(file, context = "logo") {
 
 export async function getVendorShippingSettings() {
   const { data } = await api.get("/api/vendor/settings/shipping");
-  return data;
-}
-
-export async function updateVendorShippingSettings(payload) {
-  const { data } = await api.patch("/api/vendor/settings/shipping", payload);
   return data;
 }
 

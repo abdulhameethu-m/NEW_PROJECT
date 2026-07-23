@@ -60,11 +60,6 @@ export async function requestInfluencerWithdrawal(payload = {}) {
   return data;
 }
 
-export async function getInfluencerStorefront(params = {}) {
-  const { data } = await api.get("/api/influencer/storefront", { params });
-  return data;
-}
-
 export async function getPublicInfluencerStorefront(username, tab = "storefront", params = {}) {
   const cleanTab = tab && tab !== "storefront" ? `/${tab}` : "";
   const { data } = await api.get(`/api/influencer/public/${encodeURIComponent(username)}${cleanTab}`, { params });
@@ -111,11 +106,6 @@ export async function listInfluencerCollections(params = {}) {
   return data;
 }
 
-export async function getInfluencerCollection(id) {
-  const { data } = await api.get(`/api/influencer/collections/${id}`);
-  return data;
-}
-
 export async function saveInfluencerCollection(payload, id = "") {
   const { data } = id
     ? await api.put(`/api/influencer/collections/${id}`, payload)
@@ -152,11 +142,6 @@ export async function listInfluencerCollectionProducts(params = {}) {
 
 export async function getInfluencerCollectionAnalytics(params = {}) {
   const { data } = await api.get("/api/influencer/collections/analytics", { params: compactParams(params) });
-  return data;
-}
-
-export async function registerInfluencer(payload) {
-  const { data } = await api.post("/api/influencer/register", payload);
   return data;
 }
 
@@ -205,11 +190,6 @@ export async function reviewInfluencerApplication(applicationId, payload) {
   return data;
 }
 
-export async function createCampaign(payload) {
-  const { data } = await api.post("/api/campaign/create", payload);
-  return data;
-}
-
 export async function acceptCampaign(campaignId) {
   const { data } = await api.post("/api/campaign/accept", { campaignId });
   return data;
@@ -217,11 +197,6 @@ export async function acceptCampaign(campaignId) {
 
 export async function rejectCampaign(campaignId, note = "") {
   const { data } = await api.post("/api/campaign/reject", { campaignId, note });
-  return data;
-}
-
-export async function getVendorCampaigns() {
-  const { data } = await api.get("/api/campaign/vendor");
   return data;
 }
 
@@ -282,12 +257,6 @@ export async function getVendorInfluencerEscrowRefunds(params = {}) {
 
 export async function getVendorInfluencerEscrowRefundDeliverables(campaignId) {
   const { data } = await api.get(`/api/vendor/influencer-commerce/escrow-refunds/${campaignId}/deliverables`);
-  return data;
-}
-
-export async function activateVendorInfluencerSubscription(payload = {}) {
-  const { data } = await api.post("/api/vendor/influencer-commerce/subscription", payload);
-  clearVendorInfluencerSubscriptionPlansCache();
   return data;
 }
 
@@ -389,31 +358,6 @@ export async function deleteVendorInfluencerCampaign(campaignId) {
   return data;
 }
 
-export async function getVendorCampaignShipping(campaignId) {
-  const { data } = await api.get(`/api/vendor/influencer-commerce/campaigns/${campaignId}/shipping`);
-  return data;
-}
-
-export async function saveVendorCampaignShipping(campaignId, payload = {}) {
-  const { data } = await api.put(`/api/vendor/influencer-commerce/campaigns/${campaignId}/shipping`, payload);
-  return data;
-}
-
-export async function dispatchVendorCampaignProduct(campaignId, payload = {}) {
-  const { data } = await api.post(`/api/vendor/influencer-commerce/campaigns/${campaignId}/dispatch`, payload);
-  return data;
-}
-
-export async function updateVendorCampaignReturn(campaignId, payload = {}) {
-  const { data } = await api.post(`/api/vendor/influencer-commerce/campaigns/${campaignId}/return`, payload);
-  return data;
-}
-
-export async function getVendorCampaignTracking(campaignId) {
-  const { data } = await api.get(`/api/vendor/influencer-commerce/campaigns/${campaignId}/tracking`);
-  return data;
-}
-
 export async function getVendorPromotionProducts(params = {}) {
   const { data } = await api.get("/api/vendor/influencer-commerce/products", { params });
   return data;
@@ -429,11 +373,6 @@ export async function getVendorMediaLibrary(params = {}) {
   return data;
 }
 
-export async function getVendorMediaDashboard(params = {}) {
-  const { data } = await api.get("/api/vendor/influencer-commerce/media/dashboard", { params: compactParams(params) });
-  return data;
-}
-
 export async function getVendorMediaDetails(mediaId) {
   const { data } = await api.get(`/api/vendor/influencer-commerce/media/${mediaId}`);
   return data;
@@ -446,11 +385,6 @@ export async function reviewVendorInfluencerContent(reelId, payload = {}) {
 
 export async function getVendorInfluencerPerformance(params = {}) {
   const { data } = await api.get("/api/vendor/influencer-commerce/performance", { params });
-  return data;
-}
-
-export async function getInfluencerCampaigns() {
-  const { data } = await api.get("/api/campaign/influencer");
   return data;
 }
 
@@ -474,11 +408,6 @@ export async function saveCampaignMarketplace(campaignId, saved = true) {
   return data;
 }
 
-export async function submitCampaignDeliverable(campaignId, payload = {}) {
-  const { data } = await api.post(`/api/campaign/marketplace/${campaignId}/deliverables`, payload);
-  return data;
-}
-
 export async function getCampaignExecution(campaignId) {
   const { data } = await api.get(`/api/campaign/influencer/${campaignId}/execution`);
   return data;
@@ -486,11 +415,6 @@ export async function getCampaignExecution(campaignId) {
 
 export async function submitCampaignExecutionDeliverable(campaignId, deliverableId, payload = {}) {
   const { data } = await api.post(`/api/campaign/influencer/${campaignId}/deliverables/${deliverableId}/submissions`, payload);
-  return data;
-}
-
-export async function updateCampaignExecutionSubmissionDetails(campaignId, deliverableId, payload = {}) {
-  const { data } = await api.patch(`/api/campaign/influencer/${campaignId}/deliverables/${deliverableId}/submission-details`, payload);
   return data;
 }
 
@@ -506,16 +430,6 @@ export async function confirmInfluencerProductDelivery(campaignId, payload = {})
 
 export async function requestInfluencerProductReturn(campaignId, payload = {}) {
   const { data } = await api.post(`/api/campaign/influencer/${campaignId}/request-return`, payload);
-  return data;
-}
-
-export async function confirmInfluencerProductReturn(campaignId, payload = {}) {
-  const { data } = await api.post(`/api/campaign/influencer/${campaignId}/confirm-return`, payload);
-  return data;
-}
-
-export async function getVendorCampaignExecution(campaignId) {
-  const { data } = await api.get(`/api/campaign/vendor/${campaignId}/execution`);
   return data;
 }
 
@@ -539,20 +453,10 @@ export async function uploadReel(payload) {
   return data;
 }
 
-export async function uploadReelMultipart(formData) {
-  const { data } = await api.post("/api/reel/upload", formData);
-  return data;
-}
-
 export async function uploadInfluencerContentMedia(formData) {
   const { data } = await api.post("/api/reel/media", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  return data;
-}
-
-export async function publishReel(payload) {
-  const { data } = await api.post("/api/reel/publish", payload);
   return data;
 }
 
@@ -568,11 +472,6 @@ export async function getReel(id) {
 
 export async function getAdjacentReels(id) {
   const { data } = await api.get(`/api/reel/${id}/adjacent`);
-  return data;
-}
-
-export async function getReelEngagement(id) {
-  const { data } = await api.get(`/api/reel/${id}/engagement`);
   return data;
 }
 
@@ -603,11 +502,6 @@ export async function createReelCommentReply(id, commentId, payload = {}) {
 
 export async function toggleReelCommentLike(id, commentId) {
   const { data } = await api.post(`/api/reel/${id}/comments/${commentId}/like`);
-  return data;
-}
-
-export async function reportReelComment(id, commentId, payload = {}) {
-  const { data } = await api.post(`/api/reel/${id}/comments/${commentId}/report`, payload);
   return data;
 }
 

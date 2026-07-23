@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CreditCard, Eye, Megaphone, Search, Send, ShieldCheck, Star } from "lucide-react";
+import { Eye, Search, Send, ShieldCheck, Star } from "lucide-react";
 import { formatCurrency } from "../../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../../utils/resolveUrl";
 import { PremiumSubscriptionPlans } from "./SubscriptionTab";

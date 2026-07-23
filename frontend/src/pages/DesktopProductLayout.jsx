@@ -34,7 +34,7 @@ function isVisualSwatchGroup(group, displayType) {
   return displayType === "swatch" || displayType === "image-swatch" || key.includes("color") || name.includes("color");
 }
 
-// eslint-disable-next-line no-unused-vars
+ 
 import { motion, AnimatePresence } from "framer-motion";
 
 export function DesktopProductLayout({

@@ -263,5 +263,12 @@ export default defineConfig(({ mode }) => {
         "zustand",
       ],
     },
+    
+    // Testing configuration
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      setupFiles: './vitest.setup.js',
+    },
   };
 });

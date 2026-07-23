@@ -1,4 +1,4 @@
-export const INFLUENCER_STEP_THREE_STORAGE_KEY = "grm_influencer_register_step_3";
+const INFLUENCER_STEP_THREE_STORAGE_KEY = "grm_influencer_register_step_3";
 
 export const defaultLanguages = ["English", "Tamil", "Hindi", "Arabic", "French", "German", "Spanish"];
 export const defaultContentNiches = [

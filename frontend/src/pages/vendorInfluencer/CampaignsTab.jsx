@@ -1,6 +1,7 @@
+/* eslint-disable no-unused-vars */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { confirmAction } from "../../services/notificationService";
-import { CheckCircle2, Megaphone, Package, Plus, Send, XCircle } from "lucide-react";
+import { CheckCircle2, Megaphone, Package, Send, XCircle } from "lucide-react";
 import { getVendorInfluencerProfile, previewVendorInfluencerCampaign } from "../../services/influencerCommerceService";
 import { BudgetSummaryPanel } from "../../components/campaign/BudgetSummaryPanel";
 import { CampaignLifecycleTimeline } from "../../components/campaign/CampaignLifecycleTimeline";

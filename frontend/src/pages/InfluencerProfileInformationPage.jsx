@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Camera, Check, Image as ImageIcon, Loader2, RotateCw, ShieldCheck, Upload, X } from "lucide-react";

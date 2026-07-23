@@ -88,15 +88,6 @@ export function validateAddressForm(form) {
   return errors;
 }
 
-export function isAddressFormValid(form) {
-  const errors = validateAddressForm(form);
-  // Ensure name is not empty
-  if (!form?.name || String(form.name || "").trim().length === 0) {
-    return false;
-  }
-  return Object.keys(errors).length === 0;
-}
-
 export function getDefaultAddress(addresses = []) {
   if (!Array.isArray(addresses) || addresses.length === 0) return null;
   return addresses.find((address) => address?.isDefault) || addresses[0] || null;
@@ -150,93 +141,4 @@ export function buildPriceBreakdown(summary) {
     totalSavings: discount,
     itemCount: items.reduce((sum, item) => sum + Number(item?.quantity || 0), 0),
   };
-}
-
-export function getProductPricing(product) {
-  const price = Number(product?.price || 0);
-  const salePrice = Number(product?.discountPrice || price || 0);
-  const hasDiscount = salePrice > 0 && price > salePrice;
-  const discountPercent = hasDiscount ? Math.round(((price - salePrice) / price) * 100) : 0;
-
-  return {
-    price,
-    salePrice,
-    hasDiscount,
-    discountPercent,
-    amountSaved: hasDiscount ? price - salePrice : 0,
-  };
-}
-
-export function getProductMedia(product) {
-  const images = Array.isArray(product?.images)
-    ? product.images
-        .map((image) => ({
-          type: "image",
-          url: image?.url || "",
-          altText: image?.altText || product?.name || "Product image",
-        }))
-        .filter((media) => Boolean(media.url))
-    : [];
-
-  const videos = [product?.videoUrl, product?.video?.url, product?.demoVideo]
-    .filter(Boolean)
-    .map((url) => ({
-      type: "video",
-      url,
-      altText: `${product?.name || "Product"} video`,
-    }));
-
-  return [...images, ...videos];
-}
-
-export function getProductHighlights(product) {
-  const variants = Array.isArray(product?.variants) ? product.variants : [];
-  const highlights = [
-    product?.shortDescription,
-    product?.warranty ? `Warranty: ${product.warranty}` : "",
-    product?.returnPolicy ? `Returns: ${product.returnPolicy}` : "",
-    product?.stock > 0 ? `${product.stock} units in stock` : "Currently out of stock",
-    variants.length ? `${variants.length} selectable variant groups` : "",
-  ]
-    .filter(Boolean)
-    .slice(0, 5);
-
-  if (highlights.length > 0) return highlights;
-
-  return [
-    "Assured availability from verified sellers.",
-    "Secure checkout with COD and Razorpay.",
-    "Fresh price validation before order placement.",
-  ];
-}
-
-export function getProductSpecifications(product) {
-  const productWeight =
-    product?.weight && typeof product.weight === "object"
-      ? product.weight.value
-      : product?.weight;
-
-  const specs = [
-    ["Category", product?.category],
-    ["Sub-category", product?.subCategory],
-    ["SKU", product?.SKU],
-    ["Weight", productWeight ? `${productWeight} kg` : ""],
-    [
-      "Dimensions",
-      product?.dimensions
-        ? [product.dimensions.length, product.dimensions.width, product.dimensions.height]
-            .filter((value) => value !== undefined && value !== null && value !== "")
-            .join(" x ")
-        : "",
-    ],
-    ["Tags", Array.isArray(product?.tags) ? product.tags.join(", ") : ""],
-  ].filter(([, value]) => Boolean(value));
-
-  const variantSpecs = Array.isArray(product?.variants)
-    ? product.variants
-        .filter((variant) => variant?.name && Array.isArray(variant?.values) && variant.values.length > 0)
-        .map((variant) => [variant.name, variant.values.join(", ")])
-    : [];
-
-  return [...specs, ...variantSpecs];
 }

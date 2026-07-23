@@ -246,14 +246,6 @@ function normalizePaymentConfig(row = {}) {
   return { ...row, key, slug: key, label: configLabel(row), name: configLabel(row), displayOrder: Number(row.displayOrder || 0) };
 }
 
-function splitLines(value = "") {
-  if (Array.isArray(value)) return value;
-  return String(value || "")
-    .split(/\r?\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 function Section({ title, icon: Icon, action, children }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -512,18 +504,6 @@ function VendorFinanceMetric({ label, value, hint, icon: Icon = CreditCard }) {
   );
 }
 
-function VendorEscrowStatusBadge({ value }) {
-  const label = String(value || "unknown").replace(/_/g, " ");
-  const key = label.toLowerCase();
-  const tone = key.includes("completed") || key.includes("released") || key.includes("paid")
-    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-    : key.includes("failed") || key.includes("rejected")
-      ? "border-rose-200 bg-rose-50 text-rose-700"
-      : key.includes("refund") || key.includes("pending")
-        ? "border-amber-200 bg-amber-50 text-amber-700"
-        : "border-sky-200 bg-sky-50 text-sky-700";
-  return <span className={`inline-flex rounded-2xl border px-2.5 py-1 text-xs font-semibold capitalize leading-snug ${tone}`}>{label}</span>;
-}
 function ResponsiveTable({ headers, rows, renderRow }) {
   return (
     <div className="overflow-x-auto">
@@ -558,7 +538,7 @@ export {
   statusText,
   clampPercent,
   loadRazorpayScript,
-  getId,
+  
   arrayValue,
   shortText,
   servicePackages,
@@ -568,18 +548,18 @@ export {
   selectedPackageQuantity,
   serviceStartingPrice,
   packageKey,
-  productRow,
+  
   productRowId,
   influencerRowId,
   influencerRowName,
   influencerRowUsername,
-  influencerRateCard,
+  
   normalizeInfluencerOption,
   mergeInfluencerOptions,
   configKey,
   configLabel,
   normalizePaymentConfig,
-  splitLines,
+  
   Section,
   Metric,
   StatusBadge,

@@ -15,25 +15,13 @@ export async function refreshSession() {
   return data;
 }
 
-export async function me() {
+async function me() {
   const { data } = await staffHttp.get("/api/staff/auth/me");
   return data;
 }
 
 // Alias for consistency
 export const getMe = me;
-
-/**
- * Request password reset for staff
- * @param {string} email - Staff email
- * @returns {Promise<Object>} {requested: true, resetToken?: string}
- */
-export async function requestPasswordReset(email) {
-  const { data } = await staffHttp.post("/api/staff/auth/password-reset/request", {
-    email,
-  });
-  return data?.data || data;
-}
 
 /**
  * Reset staff password with token

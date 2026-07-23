@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState, forwardRef, useEffect } from "react";
 
 /**
@@ -334,84 +335,10 @@ export const PayoutAccountForm = forwardRef(function PayoutAccountForm(
 });
 
 /**
- * PayoutAccountDisplay Component
- * Shows masked payout account details
- */
-export function PayoutAccountDisplay({ account, loading = false }) {
-  if (loading) {
-    return (
-      <div className="text-sm text-slate-500">Loading payout account...</div>
-    );
-  }
-
-  if (!account) {
-    return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-        No payout account added yet. Add account details to receive payouts.
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3 text-sm">
-      <div className="grid gap-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Account Details
-        </div>
-        <div className="grid gap-2 md:grid-cols-2">
-          <div>
-            <span className="text-slate-600">Account Holder:</span>
-            <div className="font-semibold text-slate-900">
-              {account.accountHolderName || "—"}
-            </div>
-          </div>
-          <div>
-            <span className="text-slate-600">Bank Name:</span>
-            <div className="font-semibold text-slate-900">
-              {account.bankName || "—"}
-            </div>
-          </div>
-          <div>
-            <span className="text-slate-600">Account Number:</span>
-            <div className="font-mono font-semibold text-slate-900">
-              {account.accountNumber || "XXXX****"}
-            </div>
-          </div>
-          <div>
-            <span className="text-slate-600">IFSC Code:</span>
-            <div className="font-mono font-semibold text-slate-900">
-              {account.ifscCode || "—"}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {account.upiId && (
-        <div>
-          <span className="text-slate-600 text-xs font-semibold uppercase">
-            UPI ID:
-          </span>
-          <div className="font-mono font-semibold text-slate-900">
-            {account.upiId}
-          </div>
-        </div>
-      )}
-
-      <div className="pt-2 border-t border-slate-200">
-        <VerificationStatus
-          status={account.verificationStatus}
-          verifiedAt={account.verifiedAt}
-        />
-      </div>
-    </div>
-  );
-}
-
-/**
  * VerificationStatus Component
  * Shows account verification status badge and details
  */
-export function VerificationStatus({ status = "PENDING", verifiedAt = null }) {
+function VerificationStatus({ status = "PENDING", verifiedAt = null }) {
   const statusConfig = {
     PENDING: {
       label: "Pending Verification",

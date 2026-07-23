@@ -103,13 +103,3 @@ export function useStaffUser() {
     status: user?.status || "active",
   };
 }
-
-export function useStaffAuthLoading() {
-  const { user, isAuthenticated } = useStaffAuthStore();
-  return !isAuthenticated || !user;
-}
-
-export function PermissionGate({ permission, children, fallback = null }) {
-  const { hasPermission } = useStaffPermission();
-  return !permission || hasPermission(permission) ? children : fallback;
-}

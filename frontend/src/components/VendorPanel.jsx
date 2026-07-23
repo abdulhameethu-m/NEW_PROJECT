@@ -1,4 +1,3 @@
-import { StatusBadge } from "./StatusBadge";
 
 export function VendorSection({ title, description, action, children }) {
   return (
@@ -86,16 +85,4 @@ export function VendorList({ items, renderItem, emptyMessage = "Nothing here yet
   }
 
   return <div className="space-y-3">{items.map(renderItem)}</div>;
-}
-
-export function VendorEntityHeader({ title, subtitle, badge }) {
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div>
-        <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
-        {subtitle ? <div className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</div> : null}
-      </div>
-      {badge ? <StatusBadge value={badge} /> : null}
-    </div>
-  );
 }
