@@ -100,6 +100,17 @@ function createApp() {
   // Mount API Routes
   app.use("/api", apiRoutes);
 
+  // Serve static frontend files
+  app.use(express.static(path.join(process.cwd(), "public")));
+
+  // Handle SPA routing - send all non-API and non-upload requests to index.html
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/") || req.path.startsWith("/uploads/")) {
+      return next();
+    }
+    res.sendFile(path.join(process.cwd(), "public", "index.html"));
+  });
+
   // Error Handling
   app.use(notFound);
   app.use(errorHandler);
