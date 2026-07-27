@@ -21,21 +21,27 @@ const categorySchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
-    icon: {
-      type: String,
-      trim: true,
-      default: "",
-    },
     logo: {
       type: String,
       trim: true,
       default: "",
     },
-    color: {
-      type: String,
-      trim: true,
-      default: "",
-    },
+    banners: [
+      {
+        image: {
+          type: String,
+          required: true,
+        },
+        title: {
+          type: String,
+          trim: true,
+        },
+        link: {
+          type: String,
+          trim: true,
+        },
+      }
+    ],
     isActive: {
       type: Boolean,
       default: true,

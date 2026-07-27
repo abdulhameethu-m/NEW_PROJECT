@@ -92,6 +92,7 @@ export function Layout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileHeaderMinimized, setIsMobileHeaderMinimized] = useState(false);
   const location = useLocation();
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
@@ -247,9 +248,7 @@ export function Layout() {
                 <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap">
                   <Link
                     to="/"
-                    className={`inline-flex min-w-fit items-center gap-2 rounded-lg border border-white/60 bg-white/75 px-3 py-2 font-semibold tracking-[-0.03em] text-slate-950 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-slate-900/70 dark:text-white transition hover:shadow-lg ${
-                      isScrolled ? "opacity-0 w-0 pointer-events-none" : "opacity-100"
-                    }`}
+                    className="inline-flex min-w-fit flex-shrink-0 items-center transition-opacity hover:opacity-80 mr-2"
                   >
                     <BrandLogo
                       showName={false}
@@ -462,14 +461,16 @@ export function Layout() {
                   )}
                 </div>
               </div>
-
+              
               {/* Mobile Full-width Search Bar */}
-              <div className="px-3 pb-2 pt-0.5 border-b border-slate-100 dark:border-white/5">
-                <SearchBar className="!max-w-none h-10" />
+              <div className={`overflow-hidden transition-all duration-300 ${isMobileHeaderMinimized ? 'max-h-0 opacity-0' : 'max-h-20 opacity-100'}`}>
+                <div className="px-3 pb-2 pt-0.5 border-b border-slate-100 dark:border-white/5">
+                  <SearchBar className="!max-w-none h-10" />
+                </div>
               </div>
 
               {/* Mobile Compact Delivery Location Row */}
-              <div className="bg-slate-50/50 dark:bg-slate-900/30">
+              <div className={`overflow-hidden transition-all duration-300 ${isMobileHeaderMinimized ? 'max-h-0 opacity-0' : 'max-h-20 opacity-100 bg-slate-50/50 dark:bg-slate-900/30'}`}>
                 <LocationSelector variant="compact" />
               </div>
             </header>
@@ -567,6 +568,8 @@ export function Layout() {
       {!hideShopChrome && !(isMobile && location.pathname.startsWith("/influencers/reels")) ? (
         <CategoryNavigation 
           categories={presentedCategories}
+          isMinimized={isMobileHeaderMinimized}
+          onToggleMinimize={() => setIsMobileHeaderMinimized(!isMobileHeaderMinimized)}
           onSelect={(item) => {
             setSelectedCategory(item);
             // Check if it's a subcategory or category based on presence of categoryId property

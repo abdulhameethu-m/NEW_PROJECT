@@ -160,7 +160,7 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
           ...themeStyles,
           background: resolveContainerBackground(layout, themeStyles),
           color: container?.presentation?.textColor || themeStyles.color,
-          padding: `${layout.padding}px`,
+          padding: 0,
           marginTop: `${layout.marginTop}px`,
           marginBottom: `${layout.marginBottom}px`,
           marginLeft: `${layout.marginLeft}px`,
@@ -323,7 +323,7 @@ function resolveContainerLayout(container) {
     alignment: layout.alignment || "center",
     positionX: Number(layout.positionX || String(container?.presentation?.containerOffsetX || "0").replace(/[^\d.-]/g, "") || 0),
     positionY: Number(layout.positionY || String(container?.presentation?.containerOffsetY || "0").replace(/[^\d.-]/g, "") || 0),
-    padding: Number(layout.padding || String(container?.presentation?.padding || "24").replace(/[^\d.-]/g, "") || 24),
+    padding: Number(layout.padding || 0),
     marginTop: Number(layout.marginTop ?? legacyMargins.top ?? 16),
     marginBottom: Number(layout.marginBottom ?? legacyMargins.bottom ?? 16),
     marginLeft: Number(layout.marginLeft ?? legacyMargins.left ?? 0),
@@ -870,7 +870,7 @@ function FeaturedProductsContainer({ container, renderContext }) {
     backgroundSize: config.featuredBackgroundImage ? "cover" : undefined,
     backgroundPosition: config.featuredBackgroundImage ? "center" : undefined,
     borderRadius: `${Number(config.borderRadius ?? 24)}px`,
-    padding: `${Number(config.containerPadding ?? 32)}px`,
+    padding: `${Number(config.containerPadding ?? 0)}px`,
     margin: `${Number(config.containerMargin ?? 0)}px`,
     color: config.bodyTextColor || undefined,
   };
@@ -1204,7 +1204,7 @@ function DealsStripContainer({ container, renderContext }) {
     color: config.dealTextColor || "#ffffff",
     margin: `${Number(config.dealMargin ?? 0)}px`,
     minHeight: Number(config.dealHeight || configuredHeight || 0) > 0 ? `${Number(config.dealHeight || configuredHeight)}px` : undefined,
-    padding: `${Number(padding ?? config.dealPadding ?? 28)}px`,
+    padding: `${Number(padding ?? config.dealPadding ?? 0)}px`,
   };
   const contentClass = resolveDealAlignment(config.dealAlignment);
   const promoItems = buildDealPromoItems(config);

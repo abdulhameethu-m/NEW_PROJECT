@@ -388,6 +388,11 @@ export async function toggleCategory(id, isActive) {
   return data;
 }
 
+export async function deleteCategory(id) {
+  const { data } = await adminHttp.delete(`/api/admin/categories/${id}`);
+  return data;
+}
+
 export async function listSubcategories() {
   const { data } = await adminHttp.get("/api/admin/subcategories");
   return data;

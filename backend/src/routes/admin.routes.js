@@ -217,6 +217,7 @@ router.patch(
   validate(toggleCategorySchema),
   categoryController.toggleCategory
 );
+router.delete("/categories/:id", requireLegacyAdminPermission("categories:update"), categoryController.deleteCategory);
 router.get("/subcategories", requireLegacyAdminPermission("categories:read"), subcategoryController.getAdminSubcategories);
 router.post(
   "/subcategories",

@@ -26,6 +26,8 @@ export function AdminSubcategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [codeModified, setCodeModified] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [form, setForm] = useState(initialForm);
 
@@ -54,16 +56,17 @@ export function AdminSubcategoriesPage() {
   function resetForm() {
     setEditingId("");
     setForm(initialForm);
+    setCodeModified(false);
+    setCodeError("");
   }
 
   function onNameChange(value) {
     setForm((current) => {
       const nextName = value;
-      const shouldAutoFillCode = !current.code || current.code === (current.name || "").charAt(0).toUpperCase();
       return {
         ...current,
         name: nextName,
-        code: shouldAutoFillCode ? nextName.charAt(0).toUpperCase() : current.code,
+        code: codeModified ? current.code : (nextName || "").charAt(0).toUpperCase(),
       };
     });
   }
@@ -77,6 +80,20 @@ export function AdminSubcategoriesPage() {
 
     setSaving(true);
     setError("");
+    setCodeError("");
+
+    const codeToCheck = form.code.trim();
+    if (codeToCheck) {
+      const isSubDup = subcategories.some(s => s.code === codeToCheck && s._id !== editingId);
+      const isCatDup = categories.some(c => c.code === codeToCheck);
+      
+      if (isCatDup || isSubDup) {
+        setCodeError("This code is already in use by a category or subcategory. Please choose a unique code.");
+        setSaving(false);
+        return;
+      }
+    }
+
     try {
       const payload = {
         name: form.name,
@@ -120,6 +137,8 @@ export function AdminSubcategoriesPage() {
 
   function startEdit(item) {
     setEditingId(item._id);
+    setCodeModified(!!item.code);
+    setCodeError("");
     setForm({
       name: item.name || "",
       code: item.code || "",
@@ -248,10 +267,15 @@ export function AdminSubcategoriesPage() {
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Code</span>
             <input
               value={form.code}
-              onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-sm uppercase dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              placeholder="Auto-generated from first letter"
+              onChange={(event) => {
+                setCodeModified(true);
+                setCodeError("");
+                setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }));
+              }}
+              className={`rounded-xl border ${codeError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 dark:border-slate-700'} px-4 py-3 text-sm uppercase dark:bg-slate-950 dark:text-white`}
+              placeholder="E"
             />
+            {codeError && <span className="text-xs text-red-500 mt-1">{codeError}</span>}
           </label>
 
           <label className="grid gap-2">

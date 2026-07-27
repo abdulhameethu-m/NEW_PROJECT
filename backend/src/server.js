@@ -22,56 +22,69 @@ function shouldVerifyRazorpayOnStartup() {
   return process.env.RAZORPAY_VERIFY_ON_STARTUP === "true";
 }
 async function start() {
-  await connectDb();
-  await ensurePaymentIndexes();
-  await ensureCampaignPaymentReleaseIndexes();
-  await ensureDeliverableAffiliateIndexes();
-  await ensurePredefinedStaffRoles();
-  await ensureDefaultPricingCategories();
-  const razorpayHealth = await paymentService.validateRazorpayConfiguration({
-    verifyCredentials: shouldVerifyRazorpayOnStartup(),
-  });
-  logger.info("Razorpay configuration validated", razorpayHealth);
-  initializeEventBus();
-  // Initialize settlement scheduler
-  try {
-    const schedulerStatus = await initializeSettlementScheduler();
-    logger.info("Settlement scheduler initialized", schedulerStatus);
-  } catch (error) {
-    logger.error("Failed to initialize settlement scheduler", {
-      error: error?.message,
-    });
-    // Non-fatal error - app can continue without scheduler
-  }
-  try {
-    const influencerJobs = await initializeInfluencerCommerceJobs();
-    logger.info("Influencer commerce jobs initialized", influencerJobs);
-  } catch (error) {
-    logger.error("Failed to initialize influencer commerce jobs", {
-      error: error?.message,
-    });
-  }
-  try {
-    const paymentJobs = await initializePaymentMaintenanceJobs();
-    logger.info("Payment maintenance jobs initialized", paymentJobs);
-  } catch (error) {
-    logger.error("Failed to initialize payment maintenance jobs", {
-      error: error?.message,
-    });
-  }
-  try {
-    await initializeRecommendationJobs();
-  } catch (error) {
-    logger.error("Failed to initialize recommendation jobs", {
-      error: error?.message,
-    });
-  }
   const app = createApp();
   const server = http.createServer(app);
   const port = Number(process.env.PORT || 5000);
+  
   server.listen(port, () => {
     logger.info(`API listening on port ${port}`);
   });
+
+  try {
+    await connectDb();
+    await ensurePaymentIndexes();
+    await ensureCampaignPaymentReleaseIndexes();
+    await ensureDeliverableAffiliateIndexes();
+    await ensurePredefinedStaffRoles();
+    await ensureDefaultPricingCategories();
+    
+    const razorpayHealth = await paymentService.validateRazorpayConfiguration({
+      verifyCredentials: shouldVerifyRazorpayOnStartup(),
+    });
+    logger.info("Razorpay configuration validated", razorpayHealth);
+    
+    initializeEventBus();
+    
+    // Initialize settlement scheduler
+    try {
+      const schedulerStatus = await initializeSettlementScheduler();
+      logger.info("Settlement scheduler initialized", schedulerStatus);
+    } catch (error) {
+      logger.error("Failed to initialize settlement scheduler", {
+        error: error?.message,
+      });
+      // Non-fatal error - app can continue without scheduler
+    }
+    
+    try {
+      const influencerJobs = await initializeInfluencerCommerceJobs();
+      logger.info("Influencer commerce jobs initialized", influencerJobs);
+    } catch (error) {
+      logger.error("Failed to initialize influencer commerce jobs", {
+        error: error?.message,
+      });
+    }
+    
+    try {
+      const paymentJobs = await initializePaymentMaintenanceJobs();
+      logger.info("Payment maintenance jobs initialized", paymentJobs);
+    } catch (error) {
+      logger.error("Failed to initialize payment maintenance jobs", {
+        error: error?.message,
+      });
+    }
+    
+    try {
+      await initializeRecommendationJobs();
+    } catch (error) {
+      logger.error("Failed to initialize recommendation jobs", {
+        error: error?.message,
+      });
+    }
+  } catch (err) {
+    logger.error("Fatal startup error during initialization", { error: err });
+  }
+
   // Graceful shutdown
   process.on("SIGTERM", async () => {
     logger.info("SIGTERM received, shutting down gracefully");

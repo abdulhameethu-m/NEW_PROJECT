@@ -5,6 +5,13 @@ const categoryPayload = {
   slug: Joi.string().trim().max(120).allow(""),
   icon: Joi.string().trim().max(120).allow(""),
   logo: Joi.string().trim().allow(""),
+  banners: Joi.array().items(
+    Joi.object({
+      image: Joi.string().required(),
+      title: Joi.string().trim().allow(""),
+      link: Joi.string().trim().allow(""),
+    })
+  ).max(2).optional(),
   color: Joi.string().trim().max(120).allow(""),
   isActive: Joi.boolean(),
   order: Joi.number().integer().min(0),
@@ -18,6 +25,7 @@ const createCategorySchema = Joi.object({
   code: categoryPayload.code,
   icon: categoryPayload.icon,
   logo: categoryPayload.logo,
+  banners: categoryPayload.banners,
   color: categoryPayload.color,
   isActive: categoryPayload.isActive,
   order: categoryPayload.order,

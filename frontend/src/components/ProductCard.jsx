@@ -313,18 +313,15 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         <p className={categoryTextClass}>{product.category || "Featured"}</p>
 
         {/* Product Name */}
-        <div className="flex items-start justify-between gap-1.5">
-          <h3 className={`${titleTextClass} min-h-[2.5rem] flex-1`}>{product.name}</h3>
-          {discountPercent > 0 && (
-            <div className="shrink-0 rounded bg-gradient-to-br from-orange-500 to-red-500 px-1 py-0.5 shadow-sm mt-0.5">
-              <div className="text-[9px] font-bold text-white leading-none tracking-wider">{discountPercent}% OFF</div>
-            </div>
-          )}
+        <div className="min-h-[2.5rem]">
+          <h3 className={titleTextClass} title={product.name}>{product.name}</h3>
         </div>
 
-        <div className={`text-[10px] sm:text-xs font-semibold ${inStock ? stockClass : stockOutClass}`}>
-          {inStock ? `${availableStock} in stock` : "Out of stock"}
-        </div>
+        {!inStock && (
+          <div className={`text-[10px] sm:text-xs font-semibold ${stockOutClass}`}>
+            Out of stock
+          </div>
+        )}
 
         {/* Spacer */}
         <div className="flex-grow" />
@@ -349,6 +346,11 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
               <span className={priceOriginalClass}>
                 {formatCurrency(product.price)}
               </span>
+            )}
+            {discountPercent > 0 && (
+              <div className="shrink-0 rounded bg-gradient-to-br from-orange-500 to-red-500 px-1 py-0.5 shadow-sm">
+                <div className="text-[9px] font-bold text-white leading-none tracking-wider">{discountPercent}% OFF</div>
+              </div>
             )}
           </div>
         </div>

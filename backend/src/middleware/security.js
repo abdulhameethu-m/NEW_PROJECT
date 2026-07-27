@@ -72,6 +72,7 @@ const corsMiddleware = cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
     if (
+      allowedOrigins.has("*") ||
       allowedOrigins.has(origin) ||
       (isDevelopment && (developmentOrigins.has(origin) || isDevelopmentLanOrigin(origin)))
     ) {
@@ -79,7 +80,7 @@ const corsMiddleware = cors({
       return callback(null, true);
     }
     logger.warn("CORS origin blocked", { origin });
-    return callback(new Error("CORS origin is not allowed"));
+    return callback(null, false);
   },
   credentials: true,
 });

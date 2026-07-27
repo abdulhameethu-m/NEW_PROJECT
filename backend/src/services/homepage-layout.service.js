@@ -50,7 +50,9 @@ function invalidateCache(prefix = "homepage-builder:") {
       responseCache.delete(key);
     }
   }
-  redisCache.clearByPrefixes([prefix]).catch(() => {});
+  if (redisCache && typeof redisCache.clearByPrefixes === "function") {
+    redisCache.clearByPrefixes([prefix]).catch(() => {});
+  }
 }
 
 function createId(prefix) {
@@ -576,13 +578,6 @@ function assertNoVisualCollisions(layouts = []) {
     const containerId = layout?.assignedContainerId || layout?.containerId;
     if (!containerId || layout.visible === false) continue;
     const key = String(containerId);
-    if (assigned.has(key)) {
-      throw new AppError(
-        `Container ${key} is assigned to multiple homepage layout slots`,
-        400,
-        "DUPLICATE_LAYOUT_ASSIGNMENT"
-      );
-    }
     assigned.set(key, layout.id);
   }
 

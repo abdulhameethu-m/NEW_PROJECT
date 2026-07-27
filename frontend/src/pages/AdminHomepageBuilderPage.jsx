@@ -235,24 +235,6 @@ function normalizeLayout(layout = {}, index = 0) {
   };
 }
 
-function dedupeContainerAssignments(layouts = []) {
-  const assigned = new Set();
-  return layouts.map((layout) => {
-    const containerId = layout.assignedContainerId ? String(layout.assignedContainerId) : "";
-    if (!containerId || layout.visible === false) return layout;
-    if (assigned.has(containerId)) {
-      return {
-        ...layout,
-        assignedContainerId: null,
-        containerSettings: {},
-        updatedAt: new Date().toISOString(),
-      };
-    }
-    assigned.add(containerId);
-    return layout;
-  });
-}
-
 function normalizeDraft(input, fallbackName = "Homepage Layout") {
   const base = createEmptyDraft(input?.name || fallbackName);
   const layouts = Array.isArray(input?.layouts) ? input.layouts : [];
@@ -278,7 +260,7 @@ function normalizeDraft(input, fallbackName = "Homepage Layout") {
         mobile: { ...base.builder.canvas.mobile, ...(input?.builder?.canvas?.mobile || {}) },
       },
     },
-    layouts: dedupeContainerAssignments(normalizedLayouts),
+    layouts: normalizedLayouts,
   };
 }
 
@@ -598,7 +580,14 @@ export function AdminHomepageBuilderPage() {
 
   const handleCreateLayoutDocument = useCallback(async () => {
     if (!canEdit) return;
-    const name = `Homepage Layout ${layouts.length + 1}`;
+    
+    let index = layouts.length + 1;
+    let name = `Homepage Layout ${index}`;
+    while (layouts.some(l => l.name === name || l.slug === slugify(name))) {
+      index++;
+      name = `Homepage Layout ${index}`;
+    }
+
     setLayoutLoading(true);
     setError("");
     try {
@@ -655,14 +644,6 @@ export function AdminHomepageBuilderPage() {
               ...slot,
               assignedContainerId: containerId,
               containerSettings: slot.assignedContainerId === containerId ? slot.containerSettings : {},
-              updatedAt: new Date().toISOString(),
-            };
-          }
-          if (String(slot.assignedContainerId || "") === String(containerId || "")) {
-            return {
-              ...slot,
-              assignedContainerId: null,
-              containerSettings: {},
               updatedAt: new Date().toISOString(),
             };
           }

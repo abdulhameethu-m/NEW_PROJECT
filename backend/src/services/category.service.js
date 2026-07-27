@@ -1,4 +1,5 @@
 const { Category } = require("../models/Category");
+const { Subcategory } = require("../models/Subcategory");
 const { AppError } = require("../utils/AppError");
 const { generateSlug } = require("../utils/slug");
 
@@ -20,6 +21,7 @@ function sanitizeCategoryPayload(payload = {}) {
     color,
     order,
     isActive: payload.isActive !== false,
+    banners: Array.isArray(payload.banners) ? payload.banners : undefined,
   };
 }
 
@@ -90,6 +92,10 @@ async function updateCategory(categoryId, payload) {
   existing.order = nextValues.order;
   existing.isActive = nextValues.isActive;
 
+  if (nextValues.banners !== undefined) {
+    existing.banners = nextValues.banners;
+  }
+
   await existing.save();
   return existing;
 }
@@ -105,10 +111,25 @@ async function toggleCategory(categoryId, isActive) {
   return category;
 }
 
+async function deleteCategory(categoryId) {
+  const category = await Category.findById(categoryId);
+  if (!category) {
+    throw new AppError("Category not found", 404, "NOT_FOUND");
+  }
+
+  // Delete all subcategories associated with this category
+  await Subcategory.deleteMany({ categoryId });
+
+  // Delete the category itself
+  await Category.findByIdAndDelete(categoryId);
+  return { success: true };
+}
+
 module.exports = {
   listActiveCategories,
   listAllCategories,
   createCategory,
   updateCategory,
   toggleCategory,
+  deleteCategory,
 };

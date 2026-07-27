@@ -4,8 +4,10 @@ import {
   listCategories,
   toggleCategory,
   updateCategory,
+  deleteCategory,
 } from "../services/adminApi";
 import * as categoryService from "../services/categoryService";
+import { listAdminSubcategories } from "../services/subcategoryService";
 
 const initialForm = {
   name: "",
@@ -24,9 +26,12 @@ function normalizeError(error) {
 
 export function AdminCategoriesPage() {
   const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [codeModified, setCodeModified] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState("");
 
@@ -39,15 +44,25 @@ export function AdminCategoriesPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await listCategories();
-      setCategories(response?.data || []);
-    } catch {
-      try {
-        const fallback = await categoryService.getCategories();
-        setCategories(fallback?.data || []);
-        setError("");
-      } catch (fallbackError) {
-        setError(normalizeError(fallbackError));
+      const [response, subRes] = await Promise.all([
+        listCategories().catch(() => null),
+        listAdminSubcategories().catch(() => null)
+      ]);
+      
+      if (response?.data) {
+        setCategories(response.data);
+      } else {
+        try {
+          const fallback = await categoryService.getCategories();
+          setCategories(fallback?.data || []);
+          setError("");
+        } catch (fallbackError) {
+          setError(normalizeError(fallbackError));
+        }
+      }
+      
+      if (subRes?.data) {
+        setSubcategories(subRes.data);
       }
     } finally {
       setLoading(false);
@@ -61,6 +76,36 @@ export function AdminCategoriesPage() {
   function resetForm() {
     setEditingId("");
     setForm(initialForm);
+    setCodeModified(false);
+    setCodeError("");
+  }
+
+  async function handleBannerUpload(index, event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Banner must be less than 2MB");
+      return;
+    }
+
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (error) => reject(error);
+      });
+
+      setForm((current) => {
+        const banners = [...(current.banners || [])];
+        banners[index] = { ...banners[index], image: base64 };
+        return { ...current, banners };
+      });
+      setError("");
+    } catch (err) {
+      setError("Failed to read file");
+    }
   }
 
   function handleLogoUpload(event) {
@@ -79,6 +124,20 @@ export function AdminCategoriesPage() {
     event.preventDefault();
     setSaving(true);
     setError("");
+    setCodeError("");
+
+    const codeToCheck = form.code.trim();
+    if (codeToCheck) {
+      const isCatDup = categories.some(c => c.code === codeToCheck && c._id !== editingId);
+      const isSubDup = subcategories.some(s => s.code === codeToCheck);
+      
+      if (isCatDup || isSubDup) {
+        setCodeError("This code is already in use by a category or subcategory. Please choose a unique code.");
+        setSaving(false);
+        return;
+      }
+    }
+
     try {
       if (editingId) {
         await updateCategory(editingId, form);
@@ -105,6 +164,8 @@ export function AdminCategoriesPage() {
 
   function startEditing(category) {
     setEditingId(category._id);
+    setCodeModified(!!category.code);
+    setCodeError("");
     setForm({
       name: category.name || "",
       code: category.code || "",
@@ -114,6 +175,7 @@ export function AdminCategoriesPage() {
       color: category.color || "",
       order: category.order || 0,
       isActive: category.isActive !== false,
+      banners: category.banners || [],
     });
   }
 
@@ -143,7 +205,7 @@ export function AdminCategoriesPage() {
           ) : sortedCategories.length ? (
             <div className="divide-y divide-slate-200 dark:divide-slate-800">
               {sortedCategories.map((category) => (
-                <div key={category._id} className="grid gap-3 px-4 py-4 lg:grid-cols-[1.2fr_.8fr_.7fr_auto] lg:items-center">
+                <div key={category._id} className="grid gap-3 px-4 py-4 lg:grid-cols-[1.5fr_1fr_auto] lg:items-center">
                   <div className="min-w-0">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-lg dark:bg-slate-800 overflow-hidden">
@@ -161,7 +223,6 @@ export function AdminCategoriesPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-300">{category.color || "Auto palette"}</div>
                   <div className="text-sm text-slate-600 dark:text-slate-300">Order {category.order ?? 0}</div>
                   <div className="flex flex-wrap gap-2 lg:justify-end">
                     <button
@@ -182,6 +243,21 @@ export function AdminCategoriesPage() {
                     >
                       {category.isActive ? "Disable" : "Enable"}
                     </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm("Delete this category? All its subcategories will also be deleted.")) return;
+                        try {
+                          await deleteCategory(category._id);
+                          await refresh();
+                        } catch (err) {
+                          setError(normalizeError(err));
+                        }
+                      }}
+                      className="rounded-xl border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -199,7 +275,14 @@ export function AdminCategoriesPage() {
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Name</span>
             <input
               value={form.name}
-              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+              onChange={(event) => {
+                const newName = event.target.value;
+                setForm((current) => ({
+                  ...current,
+                  name: newName,
+                  code: codeModified ? current.code : newName.charAt(0).toUpperCase(),
+                }));
+              }}
               className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               required
             />
@@ -209,10 +292,15 @@ export function AdminCategoriesPage() {
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Code</span>
             <input
               value={form.code}
-              onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-sm uppercase dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              onChange={(event) => {
+                setCodeModified(true);
+                setCodeError("");
+                setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }));
+              }}
+              className={`rounded-xl border ${codeError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 dark:border-slate-700'} px-4 py-3 text-sm uppercase dark:bg-slate-950 dark:text-white`}
               placeholder="E"
             />
+            {codeError && <span className="text-xs text-red-500 mt-1">{codeError}</span>}
           </label>
 
           <label className="grid gap-2">
@@ -226,16 +314,6 @@ export function AdminCategoriesPage() {
           </label>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Icon override</span>
-              <input
-                value={form.icon}
-                onChange={(event) => setForm((current) => ({ ...current, icon: event.target.value }))}
-                className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                placeholder="Optional"
-              />
-            </label>
-
             <label className="grid gap-2">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Order</span>
               <input
@@ -260,19 +338,9 @@ export function AdminCategoriesPage() {
                 type="file"
                 accept="image/*"
                 onChange={handleLogoUpload}
-                className="flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                className="flex-1 min-w-0 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               />
             </div>
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Gradient classes</span>
-            <input
-              value={form.color}
-              onChange={(event) => setForm((current) => ({ ...current, color: event.target.value }))}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              placeholder="Optional, e.g. from-blue-500 to-cyan-500"
-            />
           </label>
 
           <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
@@ -284,6 +352,67 @@ export function AdminCategoriesPage() {
             />
             <span className="text-sm text-slate-700 dark:text-slate-300">Visible on storefront</span>
           </label>
+
+          <div className="border-t border-slate-200 dark:border-slate-800 pt-6 mt-4 mb-6">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Promotional Banners (Max 2)</h3>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {[0, 1].map((index) => {
+                const banner = form.banners?.[index] || { image: "", title: "", link: "" };
+                return (
+                  <div key={index} className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
+                    <label className="grid gap-2 mb-3">
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Banner {index + 1} Image</span>
+                      <div className="flex items-center gap-3">
+                        {banner.image ? (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950 overflow-hidden shrink-0">
+                            <img src={banner.image.startsWith('http') ? banner.image : (banner.image.startsWith('data:') ? banner.image : 'http://localhost:5000' + banner.image)} alt="Preview" className="h-full w-full object-cover" />
+                          </div>
+                        ) : null}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleBannerUpload(index, e)}
+                          className="flex-1 min-w-0 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                        />
+                      </div>
+                    </label>
+                    <label className="grid gap-2 mb-3">
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Title</span>
+                      <input
+                        value={banner.title || ""}
+                        onChange={(e) => {
+                          const newTitle = e.target.value;
+                          setForm((current) => {
+                            const banners = [...(current.banners || [])];
+                            banners[index] = { ...banners[index], title: newTitle };
+                            return { ...current, banners };
+                          });
+                        }}
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                        placeholder="e.g. Top Picks"
+                      />
+                    </label>
+                    <label className="grid gap-2">
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Redirect Link</span>
+                      <input
+                        value={banner.link || ""}
+                        onChange={(e) => {
+                          const newLink = e.target.value;
+                          setForm((current) => {
+                            const banners = [...(current.banners || [])];
+                            banners[index] = { ...banners[index], link: newLink };
+                            return { ...current, banners };
+                          });
+                        }}
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                        placeholder="e.g. /products?category=123"
+                      />
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <button

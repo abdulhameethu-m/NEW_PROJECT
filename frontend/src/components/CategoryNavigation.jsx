@@ -1,15 +1,17 @@
 import { logger } from "../services/logger/logger.js";
 import { memo, useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { Link } from "react-router-dom";
 import * as subcategoryService from "../services/subcategoryService";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
+import { usePresentedCategories } from "../utils/categoryPresentation";
 
 /**
  * CategoryNavigation Component
  * Premium marketplace-style horizontal category navigation navbar.
- * Inspired by Noon, Amazon, and Flipkart category navigation.
+ * Matches Image 2 UI with icons above text, blue background and underline for selected items.
  */
-function CategoryNavigationComponent({ categories = [], onSelect, selectedCategory }) {
+function CategoryNavigationComponent({ categories = [], onSelect, selectedCategory, isMinimized, onToggleMinimize }) {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [hoveredCategoryId, setHoveredCategoryId] = useState(null);
@@ -18,6 +20,13 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
   const scrollContainerRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
   const dropdownTimeoutRef = useRef(null);
+  const [localMinimized, setLocalMinimized] = useState(false);
+  
+  const minimized = isMinimized !== undefined ? isMinimized : localMinimized;
+  const toggleMinimized = onToggleMinimize || (() => setLocalMinimized(!localMinimized));
+
+  const presentedCategories = usePresentedCategories(categories);
+  const categoryList = Array.isArray(presentedCategories) ? presentedCategories : [];
 
   // Check scroll position for arrow visibility
   const checkScroll = () => {
@@ -32,7 +41,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
     checkScroll();
     window.addEventListener("resize", checkScroll);
     return () => window.removeEventListener("resize", checkScroll);
-  }, [categories]);
+  }, [categoryList]);
 
   // Smooth horizontal scroll
   const scroll = (direction) => {
@@ -42,7 +51,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
         left: direction === "left" ? -scrollAmount : scrollAmount,
         behavior: "smooth",
       });
-      
+
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
@@ -58,7 +67,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
   // Lazy load subcategories on hover
   const handleCategoryHover = async (categoryId) => {
     setHoveredCategoryId(categoryId);
-    
+
     if (dropdownTimeoutRef.current) {
       clearTimeout(dropdownTimeoutRef.current);
     }
@@ -85,7 +94,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
     }, 150);
   };
 
-  const categoryList = Array.isArray(categories) ? categories : [];
+  const hoveredCategory = categoryList.find(c => c.id === hoveredCategoryId || c._id === hoveredCategoryId);
 
   if (categoryList.length === 0) {
     return null;
@@ -95,8 +104,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
     <>
       {/* Desktop Category Navigation */}
       <nav
-        className="hidden lg:flex sticky top-16 z-30 border-b border-slate-200/40 bg-white/95 backdrop-blur-md will-change-none dark:border-slate-800/50 dark:bg-slate-950/95"
-        style={{ height: "48px" }}
+        className="hidden lg:flex sticky top-16 z-30 border-b border-slate-200/40 bg-white/95 backdrop-blur-md will-change-none dark:border-slate-800/50 dark:bg-slate-950/95 py-3"
       >
         <div className="w-full px-2 lg:px-4 h-full flex items-center relative">
           {/* Left Arrow */}
@@ -107,7 +115,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
               className="hidden lg:flex absolute left-0 z-10 h-full w-12 items-center justify-center bg-gradient-to-r from-white to-transparent dark:from-slate-950 hover:from-slate-50 dark:hover:from-slate-900 transition-colors duration-200 flex-shrink-0"
               aria-label="Scroll categories left"
             >
-              <ChevronLeft className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+              <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
             </button>
           )}
 
@@ -118,10 +126,11 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
             className="flex-1 overflow-x-auto scrollbar-hide flex items-center"
             style={{ scrollBehavior: "smooth", msOverflowStyle: "none" }}
           >
-            <div className="flex items-center gap-1 px-2 h-full whitespace-nowrap lg:px-12">
+            <div className="flex items-start gap-2 sm:gap-4 px-2 h-full whitespace-nowrap lg:px-12">
               {categoryList.map((category) => {
                 const isSelected = selectedCategory?.id === category.id || selectedCategory?.slug === category.slug;
-                
+                const IconComponent = category.IconComponent;
+
                 return (
                   <div
                     key={category.id}
@@ -132,63 +141,32 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
                     <button
                       type="button"
                       onClick={() => handleCategorySelect(category)}
-                      className={`flex items-center gap-2 px-3 py-2 h-full text-xs sm:text-sm font-medium transition-all duration-200 relative group/btn ${
-                        isSelected
-                          ? "text-slate-900 dark:text-white"
-                          : "text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-                      }`}
+                      className="flex flex-row items-center justify-start gap-2 px-3 py-1.5 h-full transition-all duration-200 relative group/btn focus:outline-none"
                     >
-                      <span className="flex-shrink-0">{category.name}</span>
+                      <div className={`h-[36px] w-[36px] rounded-[12px] flex items-center justify-center overflow-hidden transition-all duration-200 flex-shrink-0 ${isSelected
+                          ? "bg-[#e0f0ff] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                          : "bg-transparent text-slate-800 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                        }`}>
+                        {IconComponent ? (
+                          <div className="w-5 h-5">
+                            <IconComponent />
+                          </div>
+                        ) : (
+                          <span className="text-base font-bold">{String(category.name).charAt(0)}</span>
+                        )}
+                      </div>
+
+                      <span className={`text-[13px] sm:text-sm whitespace-nowrap leading-tight tracking-tight ${isSelected
+                          ? "font-bold text-slate-900 dark:text-white"
+                          : "font-medium text-slate-700 dark:text-slate-300 group-hover/btn:text-slate-900 dark:group-hover/btn:text-white"
+                        }`}>
+                        {category.name}
+                      </span>
 
                       {isSelected && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full" />
-                      )}
-
-                      {!isSelected && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-300 dark:bg-slate-600 rounded-full transform scale-x-0 group-hover/btn:scale-x-100 transition-transform duration-300 origin-center" />
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-500 rounded-full" />
                       )}
                     </button>
-
-                    {/* Dropdown Submenu */}
-                    {hoveredCategoryId === category.id && (
-                      <div
-                        className="absolute top-full left-0 pt-0 z-50 animate-in fade-in duration-150"
-                        onMouseEnter={() => {
-                          if (dropdownTimeoutRef.current) {
-                            clearTimeout(dropdownTimeoutRef.current);
-                          }
-                        }}
-                        onMouseLeave={handleHoverLeave}
-                      >
-                        <div className="bg-white dark:bg-slate-900 shadow-lg border border-slate-100 dark:border-slate-800 rounded-b-lg min-w-[200px] overflow-hidden">
-                          {loadingSubcategories === category.id ? (
-                            <div className="px-4 py-6 text-center text-xs text-slate-500">
-                              Loading...
-                            </div>
-                          ) : (subcategories[category.id] || []).length > 0 ? (
-                            <div className="grid grid-cols-1 divide-y divide-slate-100 dark:divide-slate-800">
-                              {(subcategories[category.id] || []).slice(0, 8).map((sub) => (
-                                <button
-                                  key={sub._id || sub.id}
-                                  type="button"
-                                  onClick={() => {
-                                    onSelect?.(sub);
-                                    setHoveredCategoryId(null);
-                                  }}
-                                  className="px-4 py-2 text-xs sm:text-sm text-left text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800/50 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-150 font-medium"
-                                >
-                                  {sub.name}
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="px-4 py-6 text-center text-xs text-slate-500">
-                              No subcategories
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -203,65 +181,150 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
               className="hidden lg:flex absolute right-0 z-10 h-full w-12 items-center justify-center bg-gradient-to-l from-white to-transparent dark:from-slate-950 hover:from-slate-50 dark:hover:from-slate-900 transition-colors duration-200 flex-shrink-0"
               aria-label="Scroll categories right"
             >
-              <ChevronRight className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+              <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
             </button>
           )}
         </div>
+
+        {/* Mega Menu Dropdown */}
+        {hoveredCategoryId && (
+          <div
+            className="absolute left-0 w-full flex justify-center z-40 px-4 pointer-events-none"
+            style={{ top: "100%" }}
+            onMouseEnter={() => {
+              if (dropdownTimeoutRef.current) {
+                clearTimeout(dropdownTimeoutRef.current);
+              }
+            }}
+            onMouseLeave={handleHoverLeave}
+          >
+            <div
+              className="w-full max-w-[900px] bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 rounded-2xl animate-in fade-in duration-200 mt-2 overflow-hidden pointer-events-auto"
+            >
+              <div className="w-full px-6 py-6 flex gap-8">
+                {loadingSubcategories === hoveredCategoryId ? (
+                  <div className="w-full py-10 text-center text-slate-500">Loading subcategories...</div>
+                ) : (subcategories[hoveredCategoryId] || []).length > 0 ? (
+                  <>
+                    <div className="flex-1">
+                      {hoveredCategory?.name && (
+                        <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-6 border-b border-slate-100 dark:border-slate-800 pb-2">
+                          {hoveredCategory.name}
+                        </h3>
+                      )}
+                      <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-8">
+                        {(subcategories[hoveredCategoryId] || []).map((sub) => (
+                          <button
+                            key={sub._id || sub.id}
+                            type="button"
+                            onClick={() => {
+                              onSelect?.(sub);
+                              setHoveredCategoryId(null);
+                            }}
+                            className="block w-full text-left py-1.5 mb-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 break-inside-avoid transition-colors"
+                          >
+                            {sub.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {hoveredCategory?.banners?.length > 0 && (
+                      <div className="hidden lg:flex w-[260px] shrink-0 gap-4 border-l border-slate-200 dark:border-slate-800 pl-6">
+                        {hoveredCategory.banners.map((banner, idx) => {
+                          const BannerWrapper = banner.link ? Link : 'div';
+                          const wrapperProps = banner.link ? { to: banner.link } : {};
+                          return (
+                            <BannerWrapper key={idx} {...wrapperProps} className="flex-1 flex flex-col group/promo cursor-pointer">
+                              <div className="aspect-square w-full rounded-xl bg-slate-100 dark:bg-slate-800 mb-3 overflow-hidden relative shadow-sm border border-slate-100 dark:border-slate-700">
+                                <img src={resolveApiAssetUrl(banner.image)} className="w-full h-full object-cover group-hover/promo:scale-105 transition-transform duration-700" alt={banner.title || "Promo"} />
+                                <div className="absolute inset-0 bg-black/5 group-hover/promo:bg-transparent transition-colors duration-500" />
+                              </div>
+                              {banner.title && <div className="font-bold text-slate-900 dark:text-white text-center text-sm">{banner.title}</div>}
+                              <div className="text-sm font-medium text-slate-500 group-hover/promo:text-blue-600 text-center mt-1 transition-colors">See more</div>
+                            </BannerWrapper>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="w-full py-20 text-center text-slate-500">No subcategories available</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Mobile Horizontal Category Scroller */}
-      <div className="block lg:hidden bg-white/95 dark:bg-slate-950/95 py-3.5 border-b border-slate-100 dark:border-white/5 overflow-hidden">
-        <div className="overflow-x-auto scrollbar-hide flex gap-4 px-4 scroll-smooth">
-          {categoryList.map((category) => {
-            const isSelected = selectedCategory?.id === category.id || selectedCategory?.slug === category.slug;
-            const imageUrl = category.logo || category.image ? resolveApiAssetUrl(category.logo || category.image) : "";
-            const initials = String(category.name || "C").slice(0, 1);
-            
-            return (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => handleCategorySelect(category)}
-                className="flex flex-col items-center gap-1.5 flex-shrink-0 group focus:outline-none"
-                style={{ width: "64px" }}
-              >
-                <div
-                  className={`h-12 w-12 rounded-full flex items-center justify-center overflow-hidden transition-all duration-200 border-2 ${
-                    isSelected
-                      ? "border-indigo-600 dark:border-indigo-500 scale-105 shadow-sm"
-                      : "border-slate-200/80 dark:border-slate-800/80 group-hover:border-slate-400"
+      <div className={`block lg:hidden sticky z-[31] bg-white/95 backdrop-blur-md will-change-none dark:bg-slate-950/95 border-b border-slate-100 dark:border-white/5 transition-all duration-300 ${minimized ? 'top-[57px] py-0.5' : 'top-[144px] py-1.5'}`}>
+        <div className="flex items-center relative">
+          <div className="overflow-x-auto scrollbar-hide flex-1 flex gap-2 sm:gap-3 px-3 scroll-smooth">
+            {categoryList.map((category) => {
+              const isSelected = selectedCategory?.id === category.id || selectedCategory?.slug === category.slug;
+              const IconComponent = category.IconComponent;
+              
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => handleCategorySelect(category)}
+                  className={`flex items-center justify-start flex-shrink-0 group focus:outline-none relative transition-all duration-300 ${
+                    minimized
+                      ? "flex-row gap-1.5 px-2 py-1 min-w-auto"
+                      : "flex-col gap-0 min-w-[60px] pb-1.5"
                   }`}
                 >
-                  {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt={category.name}
-                      loading="lazy"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div
-                      className="h-full w-full flex items-center justify-center text-[10px] font-bold uppercase text-white"
-                      style={{
-                        background: `linear-gradient(135deg, ${category.color || "#6366f1"}, ${category.accentColor || "#a855f7"})`,
-                      }}
-                    >
-                      {initials}
-                    </div>
+                  <div
+                    className={`flex items-center justify-center overflow-hidden transition-all duration-300 flex-shrink-0 ${
+                      minimized ? "h-7 w-7 rounded-[8px]" : "h-12 w-12 rounded-[14px]"
+                    } ${
+                      isSelected
+                        ? "bg-[#e0f0ff] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                        : "bg-transparent text-slate-800 dark:text-slate-300"
+                    }`}
+                  >
+                    {IconComponent ? (
+                      <div className={`transition-all duration-300 ${minimized ? 'w-4 h-4' : 'w-6 h-6'}`}>
+                        <IconComponent />
+                      </div>
+                    ) : (
+                      <span className={`font-bold transition-all duration-300 ${minimized ? 'text-sm' : 'text-lg'}`}>
+                        {String(category.name).charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={`text-center leading-tight tracking-tight transition-all duration-300 ${
+                      minimized ? "text-[12px] whitespace-nowrap" : "text-[11px] truncate w-full pt-0.5"
+                    } ${
+                      isSelected
+                        ? "font-bold text-slate-900 dark:text-white"
+                        : "font-medium text-slate-700 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white"
+                    }`}
+                  >
+                    {category.name}
+                  </span>
+                  
+                  {isSelected && (
+                    <div className={`absolute bottom-0 bg-blue-600 dark:bg-blue-500 rounded-full transition-all duration-300 ${
+                      minimized ? "left-1 right-1 h-[2px]" : "left-1/2 -translate-x-1/2 w-6 h-[2px]"
+                    }`} />
                   )}
-                </div>
-                <span
-                  className={`text-[11px] font-semibold text-center truncate w-full leading-none tracking-tight ${
-                    isSelected
-                      ? "text-indigo-600 dark:text-indigo-400 font-bold"
-                      : "text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white"
-                  }`}
-                >
-                  {category.name}
-                </span>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
+          <div className="pr-3 pl-1 flex items-center justify-center h-full">
+            <button 
+              onClick={toggleMinimized} 
+              className="p-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full transition-colors active:scale-95 shadow-sm border border-slate-200 dark:border-slate-700"
+              aria-label={minimized ? "Maximize categories" : "Minimize categories"}
+            >
+              {minimized ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </div>
 

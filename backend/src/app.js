@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
 const path = require("path");
+const compression = require("compression");
 
 const { requestLoggerStream, logger } = require("./utils/logger");
 const { notFound } = require("./middleware/notFound");
@@ -27,9 +28,14 @@ const { assertNoProductionBootstrapRoutes } = require("./utils/bootstrapRouteSca
 function createApp() {
   assertNoProductionBootstrapRoutes();
   const app = express();
+  app.set("trust proxy", 1);
 
   app.disable("x-powered-by");
-  app.use(helmet());
+  app.use(helmet({
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  }));
+  app.use(compression());
   app.use(apiTimingMiddleware);
   
   app.use(corsMiddleware);
@@ -101,11 +107,21 @@ function createApp() {
   app.use("/api", apiRoutes);
 
   // Serve static frontend files
-  app.use(express.static(path.join(process.cwd(), "public")));
+  app.use(express.static(path.join(process.cwd(), "public"), {
+    setHeaders: (res, resourcePath) => {
+      if (resourcePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      } else if (resourcePath.includes('/assets/') || /\.[0-9a-f]{8}\.(js|css)$/i.test(resourcePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+      }
+    }
+  }));
 
   // Handle SPA routing - send all non-API and non-upload requests to index.html
-  app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api/") || req.path.startsWith("/uploads/")) {
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' || req.path.startsWith("/api/") || req.path.startsWith("/uploads/")) {
       return next();
     }
     res.sendFile(path.join(process.cwd(), "public", "index.html"));

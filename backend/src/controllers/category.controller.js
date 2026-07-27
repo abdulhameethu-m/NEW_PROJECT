@@ -27,10 +27,16 @@ const toggleCategory = asyncHandler(async (req, res) => {
   return ok(res, category, "Category updated");
 });
 
+const deleteCategory = asyncHandler(async (req, res) => {
+  await categoryService.deleteCategory(req.params.id);
+  return ok(res, null, "Category deleted");
+});
+
 module.exports = {
   getActiveCategories,
   getAdminCategories,
   createCategory,
   updateCategory,
   toggleCategory,
+  deleteCategory,
 };
