@@ -26,6 +26,9 @@ const initialForm = {
   subCategoryId: "",
   template: "",
   isActive: true,
+  // Multi-select state (only for create mode)
+  categoryIds: [],
+  subCategoryIds: [],
 };
 
 function normalizeError(error) {
@@ -34,7 +37,7 @@ function normalizeError(error) {
 
 export function AdminAttributesPage() {
   const { categories } = useCategories({ includeInactive: true });
-  const [subcategories, setSubcategories] = useState([]);
+  const [subcategoriesMap, setSubcategoriesMap] = useState({});
   const [attributes, setAttributes] = useState([]);
   const [modules, setModules] = useState([]);
   const [activeModuleFilter, setActiveModuleFilter] = useState("all");
@@ -83,32 +86,63 @@ export function AdminAttributesPage() {
     refresh();
   }, [refresh]);
 
+  // Derive a stable key for the current category selection
+  const categoryLoadKey = editingId ? form.categoryId : form.categoryIds.join(",");
+
+  // Load subcategories for all selected categories
   useEffect(() => {
     let cancelled = false;
-    async function loadSubcategories() {
-      if (!form.categoryId) {
-        setSubcategories([]);
-        return;
+    async function loadAllSubcategories() {
+      const catIds = editingId ? [form.categoryId].filter(Boolean) : form.categoryIds;
+      if (!catIds.length) return;
+
+      const newMap = {};
+      for (const catId of catIds) {
+        if (subcategoriesMap[catId]) {
+          newMap[catId] = subcategoriesMap[catId];
+          continue;
+        }
+        try {
+          const res = await getSubcategoriesByCategory(catId);
+          if (!cancelled) {
+            newMap[catId] = Array.isArray(res?.data) ? res.data : [];
+          }
+        } catch {
+          if (!cancelled) {
+            newMap[catId] = [];
+          }
+        }
       }
-      try {
-        const res = await getSubcategoriesByCategory(form.categoryId);
-        if (!cancelled) setSubcategories(Array.isArray(res?.data) ? res.data : []);
-      } catch {
-        if (!cancelled) setSubcategories([]);
+      if (!cancelled) setSubcategoriesMap((prev) => ({ ...prev, ...newMap }));
+    }
+    loadAllSubcategories();
+    return () => { cancelled = true; };
+  }, [categoryLoadKey]);
+
+  // All subcategories for the selected categories
+  const availableSubcategories = useMemo(() => {
+    if (editingId) {
+      return subcategoriesMap[form.categoryId] || [];
+    }
+    const subs = [];
+    const seen = new Set();
+    for (const catId of form.categoryIds) {
+      for (const sub of (subcategoriesMap[catId] || [])) {
+        if (!seen.has(sub._id)) {
+          seen.add(sub._id);
+          subs.push({ ...sub, _categoryName: categories.find(c => c._id === catId)?.name || "" });
+        }
       }
     }
-    loadSubcategories();
-    return () => {
-      cancelled = true;
-    };
-  }, [form.categoryId]);
+    return subs;
+  }, [editingId, form.categoryId, form.categoryIds, subcategoriesMap, categories]);
 
   async function handleSubmit(event) {
     event.preventDefault();
     setSaving(true);
     setError("");
     try {
-      const payload = {
+      const basePayload = {
         name: form.name,
         key: form.key,
         type: form.type,
@@ -127,16 +161,68 @@ export function AdminAttributesPage() {
         order: Number(form.order || 0),
         template: form.template,
         isActive: form.isActive,
-        appliesTo: {
-          categoryId: form.categoryId,
-          subCategoryId: form.subCategoryId || null,
-        },
       };
 
       if (editingId) {
+        // Single update (editing existing attribute)
+        const payload = {
+          ...basePayload,
+          appliesTo: {
+            categoryId: form.categoryId,
+            subCategoryId: form.subCategoryId || null,
+          },
+        };
         await updateAdminAttribute(editingId, payload);
       } else {
-        await createAdminAttribute(payload);
+        // Batch create for all selected category + subcategory combos
+        const catIds = form.categoryIds.length ? form.categoryIds : [];
+        if (!catIds.length) {
+          setError("Please select at least one category");
+          setSaving(false);
+          return;
+        }
+
+        const subIds = form.subCategoryIds;
+        const combos = [];
+
+        for (const catId of catIds) {
+          if (subIds.length) {
+            // Only include subcategories that belong to this category
+            const catSubs = (subcategoriesMap[catId] || []).map(s => s._id);
+            const matchingSubs = subIds.filter(sid => catSubs.includes(sid));
+            if (matchingSubs.length) {
+              for (const subId of matchingSubs) {
+                combos.push({ categoryId: catId, subCategoryId: subId });
+              }
+            } else {
+              // No matching subs for this category — apply to all subcategories (null)
+              combos.push({ categoryId: catId, subCategoryId: null });
+            }
+          } else {
+            // No subcategory selected — apply to all subcategories
+            combos.push({ categoryId: catId, subCategoryId: null });
+          }
+        }
+
+        const results = await Promise.allSettled(
+          combos.map((combo) =>
+            createAdminAttribute({
+              ...basePayload,
+              appliesTo: combo,
+            })
+          )
+        );
+
+        const failures = results.filter((r) => r.status === "rejected");
+        if (failures.length) {
+          const msgs = failures.map(f => normalizeError(f.reason));
+          const uniqueMsgs = [...new Set(msgs)];
+          if (failures.length < combos.length) {
+            setError(`${combos.length - failures.length} created, ${failures.length} failed: ${uniqueMsgs.join("; ")}`);
+          } else {
+            setError(`All ${failures.length} failed: ${uniqueMsgs.join("; ")}`);
+          }
+        }
       }
 
       setEditingId("");
@@ -167,6 +253,8 @@ export function AdminAttributesPage() {
       subCategoryId: item.appliesTo?.subCategoryId?._id || item.appliesTo?.subCategoryId || "",
       template: item.template || "",
       isActive: item.isActive !== false,
+      categoryIds: [],
+      subCategoryIds: [],
     });
   }
 
@@ -178,6 +266,48 @@ export function AdminAttributesPage() {
     } catch (err) {
       setError(normalizeError(err));
     }
+  }
+
+  function toggleCategoryId(catId) {
+    setForm((prev) => {
+      const next = prev.categoryIds.includes(catId)
+        ? prev.categoryIds.filter((id) => id !== catId)
+        : [...prev.categoryIds, catId];
+      // When removing a category, also remove its subcategories from selection
+      if (!next.includes(catId)) {
+        const catSubs = (subcategoriesMap[catId] || []).map(s => s._id);
+        return { ...prev, categoryIds: next, subCategoryIds: prev.subCategoryIds.filter(sid => !catSubs.includes(sid)) };
+      }
+      return { ...prev, categoryIds: next };
+    });
+  }
+
+  function toggleSubCategoryId(subId) {
+    setForm((prev) => ({
+      ...prev,
+      subCategoryIds: prev.subCategoryIds.includes(subId)
+        ? prev.subCategoryIds.filter((id) => id !== subId)
+        : [...prev.subCategoryIds, subId],
+    }));
+  }
+
+  function toggleAllCategories() {
+    setForm((prev) => {
+      if (prev.categoryIds.length === categories.length) {
+        return { ...prev, categoryIds: [], subCategoryIds: [] };
+      }
+      return { ...prev, categoryIds: categories.map((c) => c._id) };
+    });
+  }
+
+  function toggleAllSubcategories() {
+    setForm((prev) => {
+      const allIds = availableSubcategories.map((s) => s._id);
+      if (prev.subCategoryIds.length === allIds.length) {
+        return { ...prev, subCategoryIds: [] };
+      }
+      return { ...prev, subCategoryIds: allIds };
+    });
   }
 
   return (
@@ -275,11 +405,16 @@ export function AdminAttributesPage() {
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{editingId ? "Edit field" : "Create field"}</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Choose the destination module, then define the reusable field once for the selected category and subcategory scope.
+          {editingId
+            ? "Update this field's configuration."
+            : "Choose the destination module, then define the reusable field once for multiple categories and subcategories."}
         </p>
         <form onSubmit={handleSubmit} className="mt-4 grid gap-3">
           <input className="rounded-xl border px-3 py-2 text-sm" placeholder="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
-          <input className="rounded-xl border px-3 py-2 text-sm" placeholder="Key (e.g. ram)" value={form.key} onChange={(e) => setForm((p) => ({ ...p, key: e.target.value.toLowerCase().replace(/\s+/g, "_") }))} required />
+          <div>
+            <input className="rounded-xl border px-3 py-2 text-sm w-full" placeholder="Key (e.g. color, ram, screen_size)" value={form.key} onChange={(e) => setForm((p) => ({ ...p, key: e.target.value.toLowerCase().replace(/[^a-z0-9_,]/g, "") }))} required />
+            <p className="mt-1 text-xs text-slate-400">Lowercase letters, numbers, underscores, and commas allowed.</p>
+          </div>
           <select className="rounded-xl border px-3 py-2 text-sm" value={form.moduleKey} onChange={(e) => setForm((p) => ({ ...p, moduleKey: e.target.value }))} required>
             <option value="">{modules.length ? "Select module" : "Create a module first"}</option>
             {modules.map((moduleDef) => (
@@ -323,18 +458,135 @@ export function AdminAttributesPage() {
           ) : null}
           <input className="rounded-xl border px-3 py-2 text-sm" placeholder="Template (optional)" value={form.template} onChange={(e) => setForm((p) => ({ ...p, template: e.target.value }))} />
           <input className="rounded-xl border px-3 py-2 text-sm" type="number" min="0" value={form.order} onChange={(e) => setForm((p) => ({ ...p, order: e.target.value }))} />
-          <select className="rounded-xl border px-3 py-2 text-sm" value={form.categoryId} onChange={(e) => setForm((p) => ({ ...p, categoryId: e.target.value, subCategoryId: "" }))} required>
-            <option value="">Select category</option>
-            {categories.map((category) => (
-              <option key={category._id} value={category._id}>{category.name}</option>
-            ))}
-          </select>
-          <select className="rounded-xl border px-3 py-2 text-sm" value={form.subCategoryId} onChange={(e) => setForm((p) => ({ ...p, subCategoryId: e.target.value }))}>
-            <option value="">All subcategories</option>
-            {subcategories.map((subcategory) => (
-              <option key={subcategory._id} value={subcategory._id}>{subcategory.name}</option>
-            ))}
-          </select>
+
+          {/* Category & Subcategory Selection */}
+          {editingId ? (
+            <>
+              {/* Single select for edit mode */}
+              <select className="rounded-xl border px-3 py-2 text-sm" value={form.categoryId} onChange={(e) => setForm((p) => ({ ...p, categoryId: e.target.value, subCategoryId: "" }))} required>
+                <option value="">Select category</option>
+                {categories.map((category) => (
+                  <option key={category._id} value={category._id}>{category.name}</option>
+                ))}
+              </select>
+              <select className="rounded-xl border px-3 py-2 text-sm" value={form.subCategoryId} onChange={(e) => setForm((p) => ({ ...p, subCategoryId: e.target.value }))}>
+                <option value="">All subcategories</option>
+                {availableSubcategories.map((subcategory) => (
+                  <option key={subcategory._id} value={subcategory._id}>{subcategory.name}</option>
+                ))}
+              </select>
+            </>
+          ) : (
+            <>
+              {/* Multi-select checkbox panel for categories */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="flex items-center justify-between bg-slate-50 px-4 py-2.5 dark:bg-slate-950">
+                  <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                    Categories
+                    {form.categoryIds.length > 0 && (
+                      <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-indigo-100 px-1.5 text-xs font-bold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
+                        {form.categoryIds.length}
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={toggleAllCategories}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  >
+                    {form.categoryIds.length === categories.length ? "Deselect all" : "Select all"}
+                  </button>
+                </div>
+                <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                  {categories.map((category) => {
+                    const checked = form.categoryIds.includes(category._id);
+                    return (
+                      <label
+                        key={category._id}
+                        className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                          checked ? "bg-indigo-50/50 dark:bg-indigo-950/20" : ""
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleCategoryId(category._id)}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className={`${checked ? "font-medium text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-400"}`}>
+                          {category.name}
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {!categories.length && (
+                    <div className="px-4 py-3 text-xs text-slate-500">No categories available</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Multi-select checkbox panel for subcategories */}
+              {form.categoryIds.length > 0 && availableSubcategories.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                  <div className="flex items-center justify-between bg-slate-50 px-4 py-2.5 dark:bg-slate-950">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Subcategories
+                      {form.subCategoryIds.length > 0 && (
+                        <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-indigo-100 px-1.5 text-xs font-bold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
+                          {form.subCategoryIds.length}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={toggleAllSubcategories}
+                      className="text-xs font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+                    >
+                      {form.subCategoryIds.length === availableSubcategories.length ? "Deselect all" : "Select all"}
+                    </button>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                    {availableSubcategories.map((sub) => {
+                      const checked = form.subCategoryIds.includes(sub._id);
+                      return (
+                        <label
+                          key={sub._id}
+                          className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                            checked ? "bg-indigo-50/50 dark:bg-indigo-950/20" : ""
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleSubCategoryId(sub._id)}
+                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className={`${checked ? "font-medium text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-400"}`}>
+                            {sub.name}
+                          </span>
+                          {sub._categoryName && (
+                            <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">{sub._categoryName}</span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="bg-slate-50 px-4 py-2 text-xs text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+                    Leave empty to apply to all subcategories
+                  </div>
+                </div>
+              )}
+
+              {form.categoryIds.length > 0 && (
+                <div className="rounded-xl bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300">
+                  Will create {form.categoryIds.length} attribute{form.categoryIds.length > 1 ? "s" : ""}
+                  {form.subCategoryIds.length > 0 && ` × ${form.subCategoryIds.length} subcategor${form.subCategoryIds.length > 1 ? "ies" : "y"}`}
+                  {" "}on submit
+                </div>
+              )}
+            </>
+          )}
+
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={form.required} onChange={(e) => setForm((p) => ({ ...p, required: e.target.checked }))} />
             Required

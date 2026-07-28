@@ -37,6 +37,11 @@ const inventoryLedgerSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    adjustmentType: {
+      type: String,
+      enum: ["INCREASE", "DECREASE"],
+      index: true,
+    },
     status: {
       type: String,
       enum: TRANSACTION_STATUS,

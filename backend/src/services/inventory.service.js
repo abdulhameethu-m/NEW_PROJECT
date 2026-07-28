@@ -1,6 +1,8 @@
 const { AppError } = require("../utils/AppError");
 const { Product } = require("../models/Product");
 const { InventoryLedger } = require("../models/InventoryLedger");
+const { AuditLog } = require("../models/AuditLog");
+const mongoose = require("mongoose");
 const { logger } = require("../utils/logger");
 
 const LEGACY_VARIANT_ID = "__default__";
@@ -531,62 +533,95 @@ class InventoryService {
       throw new AppError("Quantity change cannot be zero", 400, "INVALID_ADJUSTMENT");
     }
 
-    const product = await this.getProductOrFail(productId);
-    this.assertOwnership(product, options.expectedSellerId);
+    const isExternalSession = !!options.session;
+    const session = options.session || await mongoose.startSession();
+    if (!isExternalSession) session.startTransaction();
 
-    const resolved = await this.resolveInventoryRecord(product, variantId, { requireExplicit: true });
-    const currentStock = resolved.record.stock;
-    const currentReserved = resolved.record.reservedStock;
-    const nextStock = currentStock + normalizedChange;
+    try {
+      const product = await this.getProductOrFail(productId, { session });
+      this.assertOwnership(product, options.expectedSellerId);
 
-    if (nextStock < 0) {
-      throw new AppError(
-        `Cannot reduce stock below 0. Current: ${currentStock}, Change: ${normalizedChange}`,
-        400,
-        "NEGATIVE_STOCK"
-      );
+      const resolved = await this.resolveInventoryRecord(product, variantId, { requireExplicit: true });
+      const currentStock = resolved.record.stock;
+      const currentReserved = resolved.record.reservedStock;
+      const nextStock = currentStock + normalizedChange;
+
+      if (nextStock < 0) {
+        throw new AppError(
+          `Cannot reduce stock below 0. Current: ${currentStock}, Change: ${normalizedChange}`,
+          400,
+          "NEGATIVE_STOCK"
+        );
+      }
+
+      if (nextStock < currentReserved) {
+        throw new AppError(
+          `Cannot reduce stock below reserved quantity. Reserved: ${currentReserved}, Resulting stock: ${nextStock}`,
+          400,
+          "RESERVED_CONFLICT"
+        );
+      }
+
+      if (resolved.kind === "variant") {
+        resolved.variant.stock = nextStock;
+        syncAggregateStock(product);
+      } else {
+        product.stock = nextStock;
+      }
+
+      await product.save({ session });
+
+      const adjustmentType = options.adjustmentType || (normalizedChange > 0 ? "INCREASE" : "DECREASE");
+
+      await this._recordTransaction({
+        productId,
+        variantId: resolved.record.variantId,
+        variantSku: resolved.record.sku,
+        sellerId: product.sellerId,
+        transactionType: "MANUAL_ADJUSTMENT",
+        adjustmentType,
+        quantityChange: normalizedChange,
+        stockBefore: currentStock,
+        stockAfter: nextStock,
+        reservedBefore: currentReserved,
+        reservedAfter: currentReserved,
+        reason,
+        notes,
+        performedBy,
+        session,
+      });
+
+      await AuditLog.create([{
+        actorId: performedBy,
+        action: adjustmentType === "INCREASE" ? "INVENTORY_INCREASED" : "INVENTORY_DECREASED",
+        entityType: "InventoryLedger",
+        entityId: String(productId),
+        metadata: {
+          variantId: resolved.record.variantId,
+          sku: resolved.record.sku,
+          quantityChange: normalizedChange,
+          reason,
+          notes,
+          stockBefore: currentStock,
+          stockAfter: nextStock
+        }
+      }], { session });
+
+      if (!isExternalSession) await session.commitTransaction();
+
+      return {
+        productId,
+        variantId: resolved.record.variantId,
+        sku: resolved.record.sku,
+        adjustmentQuantity: normalizedChange,
+        newStock: nextStock,
+      };
+    } catch (error) {
+      if (!isExternalSession) await session.abortTransaction();
+      throw error;
+    } finally {
+      if (!isExternalSession) session.endSession();
     }
-
-    if (nextStock < currentReserved) {
-      throw new AppError(
-        `Cannot reduce stock below reserved quantity. Reserved: ${currentReserved}, Resulting stock: ${nextStock}`,
-        400,
-        "RESERVED_CONFLICT"
-      );
-    }
-
-    if (resolved.kind === "variant") {
-      resolved.variant.stock = nextStock;
-      syncAggregateStock(product);
-    } else {
-      product.stock = nextStock;
-    }
-
-    await product.save();
-
-    await this._recordTransaction({
-      productId,
-      variantId: resolved.record.variantId,
-      variantSku: resolved.record.sku,
-      sellerId: product.sellerId,
-      transactionType: normalizedChange > 0 ? "RESTOCK" : "MANUAL_ADJUSTMENT",
-      quantityChange: normalizedChange,
-      stockBefore: currentStock,
-      stockAfter: nextStock,
-      reservedBefore: currentReserved,
-      reservedAfter: currentReserved,
-      reason,
-      notes,
-      performedBy,
-    });
-
-    return {
-      productId,
-      variantId: resolved.record.variantId,
-      sku: resolved.record.sku,
-      adjustmentQuantity: normalizedChange,
-      newStock: nextStock,
-    };
   }
 
   async updateThreshold(productId, variantId, newThreshold, performedBy, options = {}) {
@@ -742,6 +777,7 @@ class InventoryService {
         variantSku: data.variantSku,
         sellerId: data.sellerId,
         transactionType: data.transactionType,
+        adjustmentType: data.adjustmentType,
         status: "COMPLETED",
         quantityChange: data.quantityChange,
         stockBefore: data.stockBefore,
@@ -756,13 +792,15 @@ class InventoryService {
         performedBy: data.performedBy,
       };
 
-      await InventoryLedger.create(payload, { session: data.session || undefined });
+      const opts = data.session ? { session: data.session } : undefined;
+      await InventoryLedger.create([payload], opts);
     } catch (error) {
       logger.error("Failed to record inventory transaction", {
         source: "inventory.service",
         event: "inventory_ledger_record_failed",
         error,
       });
+      if (data.session) throw error;
     }
   }
 }

@@ -104,9 +104,9 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
     <>
       {/* Desktop Category Navigation */}
       <nav
-        className="hidden lg:flex sticky top-16 z-30 border-b border-slate-200/40 bg-white/95 backdrop-blur-md will-change-none dark:border-slate-800/50 dark:bg-slate-950/95 py-3"
+        className="hidden lg:flex sticky top-[50px] z-20 border-y-0 bg-white/95 backdrop-blur-md will-change-none dark:bg-slate-950/95 py-1"
       >
-        <div className="w-full px-2 lg:px-4 h-full flex items-center relative">
+        <div className="w-full px-0 h-full flex items-center relative">
           {/* Left Arrow */}
           {canScrollLeft && (
             <button
@@ -126,7 +126,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
             className="flex-1 overflow-x-auto scrollbar-hide flex items-center"
             style={{ scrollBehavior: "smooth", msOverflowStyle: "none" }}
           >
-            <div className="flex items-start gap-2 sm:gap-4 px-2 h-full whitespace-nowrap lg:px-12">
+            <div className="flex items-start gap-1.5 sm:gap-2 px-0 h-full whitespace-nowrap">
               {categoryList.map((category) => {
                 const isSelected = selectedCategory?.id === category.id || selectedCategory?.slug === category.slug;
                 const IconComponent = category.IconComponent;
@@ -141,14 +141,14 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
                     <button
                       type="button"
                       onClick={() => handleCategorySelect(category)}
-                      className="flex flex-row items-center justify-start gap-2 px-3 py-1.5 h-full transition-all duration-200 relative group/btn focus:outline-none"
+                      className="flex flex-row items-center justify-start gap-1.5 px-2 py-0.5 h-full transition-all duration-200 relative group/btn focus:outline-none"
                     >
-                      <div className={`h-[36px] w-[36px] rounded-[12px] flex items-center justify-center overflow-hidden transition-all duration-200 flex-shrink-0 ${isSelected
+                      <div className={`h-6 w-6 rounded-md flex items-center justify-center overflow-hidden transition-all duration-200 flex-shrink-0 ${isSelected
                           ? "bg-[#e0f0ff] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                           : "bg-transparent text-slate-800 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                         }`}>
                         {IconComponent ? (
-                          <div className="w-5 h-5">
+                          <div className="h-4 w-4">
                             <IconComponent />
                           </div>
                         ) : (

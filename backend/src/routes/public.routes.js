@@ -16,6 +16,36 @@ router.get(
     return ok(res, { influencerCommerceEnabled }, "OK");
   })
 );
+
+router.get(
+  "/platform-status",
+  asyncHandler(async (_req, res) => {
+    const { getMaintenanceConfig } = require("../services/maintenance.service");
+    const config = await getMaintenanceConfig();
+    
+    // Omit sensitive details like allowedIPs
+    const publicConfig = {
+      maintenanceEnabled: config?.enabled || false,
+      title: config?.title || "The Platform is Under Maintenance",
+      subtitle: config?.subtitle || "We're making improvements to serve you better.",
+      description: config?.description || "",
+      estimatedCompletion: config?.estimatedCompletion || null,
+      animation: config?.animation || "Construction",
+      logo: config?.logo || "",
+      background: config?.background || "",
+      themeColor: config?.themeColor || "#000000",
+      supportEmail: config?.supportEmail || "",
+      supportPhone: config?.supportPhone || "",
+      socialLinks: config?.socialLinks || {},
+      allowAdmins: config?.allowAdmins ?? true,
+      allowStaff: config?.allowStaff ?? false,
+      allowVendors: config?.allowVendors ?? false,
+      allowInfluencers: config?.allowInfluencers ?? false,
+    };
+
+    return ok(res, publicConfig, "OK");
+  })
+);
 router.get("/branding", companyBrandingController.getPublicConfig);
 router.get("/branding/manifest.webmanifest", companyBrandingController.getManifest);
 // Get all vendors for public stores listing

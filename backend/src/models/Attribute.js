@@ -17,7 +17,7 @@ const attributeSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       maxlength: 120,
-      match: /^[a-z][a-z0-9_]*$/,
+      match: /^[a-z][a-z0-9_,]*$/,
     },
     type: {
       type: String,

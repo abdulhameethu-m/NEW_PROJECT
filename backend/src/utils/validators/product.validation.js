@@ -35,7 +35,7 @@ const productVariantSchema = Joi.object({
     )
     .default([]),
   price: Joi.number().required().min(0),
-  discountPrice: Joi.number().min(0),
+  discountPrice: Joi.number().min(0).less(Joi.ref('price')).messages({ 'number.less': 'Variant discount price must be less than price' }),
   weight: Joi.object({
     value: Joi.number().greater(0).required(),
     unit: Joi.string().valid("kg").default("kg"),
@@ -162,7 +162,7 @@ const draftProductSchema = Joi.object({
   subCategoryId: objectId.allow(""),
   tags: Joi.array().items(Joi.string().trim()).max(10),
   price: Joi.number().min(0).allow(null),
-  discountPrice: Joi.number().min(0).allow(null),
+  discountPrice: Joi.number().min(0).less(Joi.ref('price')).allow(null).messages({ 'number.less': 'Discount price must be less than base price' }),
   currency: Joi.string().valid("USD", "EUR", "INR", "GBP").default("INR"),
   stock: Joi.number().integer().min(0).allow(null),
   SKU: Joi.string().trim().uppercase().regex(/^[A-Z0-9-]+$/).allow(""),
@@ -218,7 +218,7 @@ const publishUpdateProductSchema = Joi.object({
   subCategoryId: objectId,
   tags: Joi.array().items(Joi.string().trim()).max(10),
   price: Joi.number().min(0),
-  discountPrice: Joi.number().min(0),
+  discountPrice: Joi.number().min(0).less(Joi.ref('price')).messages({ 'number.less': 'Discount price must be less than base price' }),
   currency: Joi.string().valid("USD", "EUR", "INR", "GBP"),
   stock: Joi.number().integer().min(0),
   SKU: Joi.string().trim().uppercase().regex(/^[A-Z0-9-]+$/).allow(""),

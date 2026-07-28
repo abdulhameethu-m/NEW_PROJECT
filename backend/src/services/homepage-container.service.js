@@ -223,16 +223,54 @@ function normalizeLayout(input = {}, legacyPresentation = {}, payload = {}) {
   };
 }
 
-function getDefaultConfig(type, input = {}) {
+function getDefaultConfig(type, input = {}, { includeDefaults = true } = {}) {
   const schema = getContainerTypeSchema(type);
   return (schema.typeFields || []).reduce((acc, field) => {
     if (input[field.name] !== undefined) {
-      acc[field.name] = input[field.name];
-    } else if (field.defaultValue !== undefined) {
+      acc[field.name] = normalizeConfigFieldValue(field, input[field.name]);
+    } else if (includeDefaults && field.defaultValue !== undefined) {
       acc[field.name] = field.defaultValue;
     }
     return acc;
   }, {});
+}
+
+function normalizeConfigFieldValue(field = {}, value) {
+  if (value === null) return "";
+  if (field.type === "image" || field.type === "video" || field.type === "file") {
+    if (typeof value === "object") {
+      return String(value.url || value.secureUrl || value.path || value.src || "").trim();
+    }
+    return String(value || "").trim();
+  }
+  return value;
+}
+
+function hasUsableMediaUrl(value) {
+  if (typeof value === "object" && value) {
+    return Boolean(String(value.url || value.secureUrl || value.path || value.src || "").trim());
+  }
+  return Boolean(String(value || "").trim());
+}
+
+function hasUsableBannerMedia(config = {}) {
+  const bannerMedia = Array.isArray(config.bannerMedia) ? config.bannerMedia : [];
+  return (
+    bannerMedia.some((item) => hasUsableMediaUrl(item?.desktopImage || item?.mobileImage || item?.desktopVideo || item?.mobileVideo || item?.url || item)) ||
+    hasUsableMediaUrl(config.desktopBannerImage) ||
+    hasUsableMediaUrl(config.bannerImage) ||
+    hasUsableMediaUrl(config.mobileBannerImage) ||
+    hasUsableMediaUrl(config.bannerVideo)
+  );
+}
+
+function getUsableBannerMediaItems(config = {}) {
+  const bannerMedia = Array.isArray(config.bannerMedia) ? config.bannerMedia : [];
+  return bannerMedia.filter((item) => hasUsableMediaUrl(item?.desktopImage || item?.mobileImage || item?.desktopVideo || item?.mobileVideo || item?.url || item));
+}
+
+function hasMissingBannerMediaCtaUrl(config = {}) {
+  return getUsableBannerMediaItems(config).some((item) => !String(item?.ctaUrl || "").trim());
 }
 
 function normalizePayload(payload = {}, actorId = null, { partial = false } = {}) {
@@ -332,12 +370,12 @@ function normalizePayload(payload = {}, actorId = null, { partial = false } = {}
       ).trim().toUpperCase(),
       manualProductIds: toObjectIdArray(payload.manualProductIds ?? filters.manualProductIds ?? []),
     },
-    config: getDefaultConfig(containerType, { ...inputConfig, ...(payload.config || {}) }),
+    config: getDefaultConfig(containerType, { ...inputConfig, ...(payload.config || {}) }, { includeDefaults: !partial }),
   };
 
   for (const field of schema.typeFields || []) {
     if (payload[field.name] !== undefined) {
-      normalized.config[field.name] = payload[field.name];
+      normalized.config[field.name] = normalizeConfigFieldValue(field, payload[field.name]);
     }
   }
 
@@ -509,9 +547,12 @@ function validateTypeSpecificRules(payload = {}) {
     }
   }
 
-  const bannerMedia = Array.isArray(config.bannerMedia) ? config.bannerMedia : [];
-  if (containerType === "BANNER" && !bannerMedia.length && !String(config.bannerImage || "").trim() && !String(config.bannerVideo || "").trim()) {
-    throw new AppError("Banner image or banner video is required", 400, "BANNER_MEDIA_REQUIRED");
+  if ((containerType === "BANNER" || containerType === "BANNER_CAROUSEL") && !hasUsableBannerMedia(config)) {
+    throw new AppError("At least one banner image or banner video is required", 400, "BANNER_MEDIA_REQUIRED");
+  }
+
+  if (containerType === "BANNER_CAROUSEL" && hasMissingBannerMediaCtaUrl(config)) {
+    throw new AppError("CTA URL is required for every banner carousel media item", 400, "BANNER_CAROUSEL_CTA_URL_REQUIRED");
   }
 
   if (containerType === "VIDEO_PRODUCTS" && !String(config.videoUpload || "").trim()) {
@@ -1393,7 +1434,14 @@ class HomepageContainerService {
       throw new AppError("Homepage container not found", 404, "NOT_FOUND");
     }
 
-    const normalized = normalizePayload(payload, actorId, { partial: true });
+    const normalized = normalizePayload(
+      {
+        containerType: existing.containerType,
+        ...payload,
+      },
+      actorId,
+      { partial: true }
+    );
     const merged = {
       ...existing,
       ...normalized,

@@ -7,6 +7,7 @@ import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
 import { StaffPermissionRoute } from "./components/StaffPermissionRoute";
 import VendorModuleRoute from "./components/VendorModuleRoute";
 import { AuthSessionBootstrap } from "./components/AuthSessionBootstrap";
+import { MaintenanceGuard } from "./components/MaintenanceGuard";
 
 const lazyNamed = (loader, exportName) => lazy(() => loader().then((module) => ({ default: module[exportName] })));
 const lazyDefault = (loader) => lazy(loader);
@@ -145,6 +146,7 @@ const AdminRevenuePage = lazyNamed(() => import("./pages/AdminRevenuePage"), "Ad
 const AuditLogsPage = lazyNamed(() => import("./pages/AuditLogsPage"), "AuditLogsPage");
 const AdminSettingsPage = lazyNamed(() => import("./pages/AdminSettingsPage"), "AdminSettingsPage");
 const AdminCompanyBrandingPage = lazyNamed(() => import("./pages/AdminCompanyBrandingPage"), "AdminCompanyBrandingPage");
+const AdminMaintenancePage = lazyNamed(() => import("./pages/AdminMaintenancePage"), "AdminMaintenancePage");
 const AdminCatalogRequestsPage = lazyNamed(() => import("./pages/AdminCatalogRequestsPage"), "AdminCatalogRequestsPage");
 const AdminPricingPage = lazyNamed(() => import("./pages/AdminPricingPage"), "AdminPricingPage");
 const AdminCommissionManagementPage = lazyNamed(() => import("./pages/AdminCommissionManagementPage"), "AdminCommissionManagementPage");
@@ -178,7 +180,8 @@ export default function App() {
   return (
     <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm font-bold text-slate-500">Loading...</div>}>
     <AuthSessionBootstrap>
-    <Routes>
+      <MaintenanceGuard>
+        <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/role" element={<RoleSelectionPage />} />
@@ -370,6 +373,7 @@ export default function App() {
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
               <Route path="settings/company-branding" element={<AdminCompanyBrandingPage />} />
+              <Route path="settings/maintenance" element={<AdminMaintenancePage />} />
               <Route path="pricing" element={<AdminPricingPage />} />
               <Route path="commission" element={<AdminCommissionManagementPage />} />
               <Route path="pricing-categories" element={<AdminPricingCategoriesPage />} />
@@ -429,7 +433,8 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
-    </Routes>
+            </Routes>
+      </MaintenanceGuard>
     </AuthSessionBootstrap>
     </Suspense>
   );

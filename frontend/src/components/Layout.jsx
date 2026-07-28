@@ -92,7 +92,10 @@ export function Layout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileHeaderMinimized, setIsMobileHeaderMinimized] = useState(false);
+  const [isMobileHeaderMinimized, setIsMobileHeaderMinimized] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 1024;
+  });
   const location = useLocation();
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
@@ -124,6 +127,10 @@ export function Layout() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  useEffect(() => {
+    setIsMobileHeaderMinimized(isMobile);
+  }, [isMobile]);
   const showShopActions = !user || user?.role === "user";
   const wishlistHref = user?.role === "user" ? "/dashboard/user/wishlist" : "/wishlist";
 
@@ -243,8 +250,8 @@ export function Layout() {
         <>
           {/* Desktop Header */}
           <header className="hidden lg:block sticky top-0 z-30 border-b border-white/50 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60">
-            <div className="w-full px-3 py-3 sm:px-4 lg:px-8">
-              <div className="flex flex-col gap-4">
+            <div className="w-full px-3 py-1.5 sm:px-4 lg:px-5">
+              <div className="flex flex-col gap-1.5">
                 <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap">
                   <Link
                     to="/"
@@ -253,13 +260,13 @@ export function Layout() {
                     <BrandLogo
                       showName={false}
                       className="text-slate-950 dark:text-white"
-                      imgClassName="h-8 w-auto max-w-[140px] object-contain"
+                      imgClassName="h-6 w-auto max-w-[120px] object-contain"
                     />
                   </Link>
 
                   <div className="order-3 w-full lg:order-none lg:flex-1">
                     <div className="group mx-auto w-full max-w-5xl transition-all duration-300 focus-within:max-w-6xl">
-                      <SearchBar />
+                      <SearchBar className="[&_input]:py-2 [&_input]:shadow-none" />
                     </div>
                   </div>
 
@@ -273,7 +280,7 @@ export function Layout() {
                         <Link
                           key={item.href}
                           to={item.href}
-                          className={`group relative rounded-full px-4 py-2 text-sm font-medium transition ${
+                          className={`group relative rounded-full px-3 py-1 text-sm font-medium transition ${
                             isActive
                               ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
                               : "text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white"
@@ -292,14 +299,14 @@ export function Layout() {
                     <button
                       type="button"
                       onClick={() => setIsDarkMode(!isDarkMode)}
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/75 text-slate-600 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur transition hover:text-slate-950 active:scale-95 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:text-white"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/75 text-slate-600 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur transition hover:text-slate-950 active:scale-95 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:text-white"
                       aria-label={isDarkMode ? "Enable light mode" : "Enable dark mode"}
                     >
                       {isDarkMode ? <SunMedium className="h-4.5 w-4.5" /> : <MoonStar className="h-4.5 w-4.5" />}
                     </button>
 
-                    <div className="hidden xl:block xl:w-[280px]">
-                      <div className="rounded-full border border-white/60 bg-white/75 p-1 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-slate-900/70">
+                    <div className="hidden shrink-0 xl:block xl:w-[260px]">
+                      <div className="h-9 overflow-hidden rounded-full border border-white/60 bg-white/75 shadow-[0_10px_40px_-28px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-slate-900/70">
                         <LocationSelector />
                       </div>
                     </div>
@@ -589,7 +596,7 @@ export function Layout() {
         className={
           hideShopChrome
             ? "flex-1"
-            : "w-full flex-1 px-3 py-5 sm:px-4 sm:py-7 lg:px-8 lg:py-10 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-10"
+            : "w-full flex-1"
         }
       >
         <PlatformFeaturesProvider>

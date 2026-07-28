@@ -2,6 +2,7 @@ const PlatformConfig = require("../models/PlatformConfig");
 const { AuditLog } = require("../models/AuditLog");
 const { AppError } = require("../utils/AppError");
 const { invalidateInfluencerCommerceConfigCache } = require("./influencer-commerce-config.service");
+const { invalidateMaintenanceCache } = require("./maintenance.service");
 
 function actorId(user = {}) {
   return user._id || user.sub;
@@ -55,6 +56,17 @@ async function getConfigByKey(key, user = {}) {
       updatedBy: actorId(user),
     });
     config = created.toObject();
+  } else if (!config && key === "maintenance_mode") {
+    const created = await PlatformConfig.create({
+      key: "maintenance_mode",
+      value: { enabled: false },
+      description: "Temporarily disable public access to the platform while upgrades, deployments, migrations, or maintenance are in progress.",
+      category: "general",
+      type: "object",
+      isPublic: true,
+      updatedBy: actorId(user),
+    });
+    config = created.toObject();
   }
 
   if (!config) {
@@ -89,6 +101,8 @@ async function updateConfig(key, payload = {}, user = {}, meta = {}) {
 
   if (key === "influencer_commerce_enabled") {
     invalidateInfluencerCommerceConfigCache();
+  } else if (key === "maintenance_mode") {
+    invalidateMaintenanceCache();
   }
 
   await logConfigChange({ user, config, key, oldValue, newValue: value, meta });
@@ -115,6 +129,8 @@ async function batchUpdateConfigs(updates = [], user = {}, meta = {}) {
 
     if (key === "influencer_commerce_enabled") {
       invalidateInfluencerCommerceConfigCache();
+    } else if (key === "maintenance_mode") {
+      invalidateMaintenanceCache();
     }
 
     results.push({ key, updated: true });

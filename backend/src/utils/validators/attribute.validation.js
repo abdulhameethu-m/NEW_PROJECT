@@ -4,7 +4,7 @@ const attributeType = Joi.string().valid("text", "number", "select", "multi-sele
 const variantDisplayType = Joi.string().valid("button", "swatch", "image-swatch");
 const attributePayload = {
   name: Joi.string().trim().max(120),
-  key: Joi.string().trim().lowercase().pattern(/^[a-z][a-z0-9_]*$/).max(120),
+  key: Joi.string().trim().lowercase().pattern(/^[a-z][a-z0-9_,]*$/).max(120),
   type: attributeType,
   required: Joi.boolean(),
   options: Joi.array().items(Joi.string().trim().max(120)).max(200),
@@ -35,6 +35,8 @@ const createAttributeSchema = Joi.object({
   order: attributePayload.order,
   template: attributePayload.template,
   useInFilters: attributePayload.useInFilters,
+  isVariant: attributePayload.isVariant,
+  variantConfig: attributePayload.variantConfig,
   isActive: attributePayload.isActive,
   appliesTo: attributePayload.appliesTo.required(),
 });

@@ -103,7 +103,10 @@ function createApp() {
   
   app.use("/api", apiLimiter);
 
+  const { maintenanceModeMiddleware } = require("./middleware/maintenanceMode");
+
   // Mount API Routes
+  app.use("/api", maintenanceModeMiddleware);
   app.use("/api", apiRoutes);
 
   // Serve static frontend files

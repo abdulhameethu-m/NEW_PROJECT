@@ -180,7 +180,7 @@ export function UserMenu() {
       <button
         ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 transition-all sm:px-3 ${
+        className={`flex items-center gap-2 rounded-lg border px-2.5 py-1 transition-all sm:px-3 ${
           isOpen
             ? "border-blue-300 bg-blue-50 shadow-md"
             : "border-slate-200 bg-white hover:bg-slate-50"
@@ -189,7 +189,7 @@ export function UserMenu() {
         aria-expanded={isOpen}
       >
         <div
-          className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarBg}`}
+          className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-white ${avatarBg}`}
           title={user.name}
         >
           {initials}

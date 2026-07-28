@@ -3,6 +3,7 @@ const CORE_CONTAINER_TYPES = [
   "GRID",
   "FEATURED_PRODUCTS",
   "BANNER",
+  "BANNER_CAROUSEL",
   "SLIDER",
   "FLASH_SALE",
   "DEALS_STRIP",
@@ -626,6 +627,22 @@ const REGISTRY = {
       field("showCtaOnHover", { label: "Show Shop Now On Hover" }),
     ],
   },
+  BANNER_CAROUSEL: {
+    label: "Banner Carousel",
+    supportsProducts: false,
+    supportsManualSelection: false,
+    supportsProductFilters: false,
+    fields: [
+      field("bannerMedia", { label: "Banner Carousel Media" }),
+      field("autoSlide"),
+      field("slideSpeed"),
+      field("showArrows"),
+      field("showDots"),
+      field("infiniteLoop"),
+      field("swipeEnabled"),
+      field("overlayOpacity"),
+    ],
+  },
   SLIDER: {
     label: "Slider",
     supportsProducts: false,
@@ -936,4 +953,4 @@ module.exports = {
   normalizeContainerType,
   getContainerTypeSchema,
   listContainerTypeSchemas,
-};
+};

@@ -1,4 +1,5 @@
 import {
+  ShieldAlert,
   BarChart3,
   Brush,
   Boxes,
@@ -178,6 +179,7 @@ export const ADMIN_SECTION_ITEMS = [
     items: [
       { name: "Settings", path: "/admin/settings", permission: "settings.update", icon: Settings, notificationModule: "WORKSPACE", notificationSubModule: "SETTINGS" },
       { name: "Company Branding", path: "/admin/settings/company-branding", permission: "branding.view", icon: Brush, notificationModule: "WORKSPACE", notificationSubModule: "SETTINGS" },
+      { name: "Platform Maintenance", path: "/admin/settings/maintenance", permission: "settings.update", icon: ShieldAlert, notificationModule: "WORKSPACE", notificationSubModule: "SETTINGS" },
       { name: "Shipping", path: "/admin/shipping", permission: "settings.update", icon: Truck },
       { name: "Pricing", path: "/admin/pricing", permission: "settings.update", icon: Percent },
       { name: "Pricing Categories", path: "/admin/pricing-categories", permission: "settings.update", icon: Tags },

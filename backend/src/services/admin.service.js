@@ -419,15 +419,22 @@ async function getAdminInventoryLedger(productId, variantId, { limit = 20, offse
   return await inventoryService.getVariantLedger(productId, variantId, limit, offset);
 }
 
-async function adjustAdminInventory(productId, variantId, { quantityChange, reason, notes }, actor) {
+async function adjustAdminInventory(productId, variantId, { quantityChange, adjustmentType, reason, notes }, actor) {
   await assertAdminInventoryProduct(productId);
+  let normalizedChange = Number(quantityChange);
+  if (adjustmentType === "DECREASE") {
+    normalizedChange = -Math.abs(normalizedChange);
+  } else {
+    normalizedChange = Math.abs(normalizedChange);
+  }
   return await inventoryService.adjustStock(
     productId,
     variantId,
-    quantityChange,
+    normalizedChange,
     reason,
     notes,
-    actor?._id || actor?.sub
+    actor?._id || actor?.sub,
+    { adjustmentType: adjustmentType || (normalizedChange > 0 ? "INCREASE" : "DECREASE") }
   );
 }
 

@@ -246,14 +246,14 @@ export function LocationSelector({ variant = "default" }) {
         <button
           onClick={openPanel}
           type="button"
-          className="flex w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          className="flex h-full w-full min-w-0 items-center gap-2 rounded-full bg-transparent px-3 py-0 text-left text-sm text-slate-700 transition hover:bg-white/70 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/70 dark:hover:text-white"
         >
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
               <path d="M12 2a6 6 0 0 0-6 6c0 4.7 6 12 6 12s6-7.3 6-12a6 6 0 0 0-6-6Zm0 8.5A2.5 2.5 0 1 1 12 5.5a2.5 2.5 0 0 1 0 5Z" />
             </svg>
           </span>
-          <span className="min-w-0 flex-1 truncate text-xs font-medium sm:text-sm">
+          <span className="min-w-0 flex-1 truncate text-xs font-medium">
             {selectedLocation}
           </span>
           <span className="shrink-0 text-slate-400" aria-hidden="true">

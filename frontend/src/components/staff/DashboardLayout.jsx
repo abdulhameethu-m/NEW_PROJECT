@@ -44,10 +44,12 @@ export function StaffDashboardLayout({ children }) {
         const response = await staffAuthService.getMe();
         
         if (active) {
-          setAuth({
-            user: response.data,
-          });
-          logPermissionSyncSuccess(response.data?.email, response.data?.permissions, response.data?.syncedAt);
+          setAuth(response.data);
+          logPermissionSyncSuccess(
+            response.data?.user?.email,
+            response.data?.user?.role?.permissions || response.data?.user?.permissions,
+            response.data?.user?.syncedAt
+          );
           setLastSyncTime(new Date());
           setError("");
         }

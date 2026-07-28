@@ -150,6 +150,19 @@ export function AdminSettingsPage() {
             Open Company Branding
           </Link>
         </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+          <div className="text-sm font-semibold text-slate-900 dark:text-white">Maintenance Mode</div>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Temporarily disable public access to the platform while upgrades, deployments, migrations, or maintenance are in progress.
+          </p>
+          <Link
+            to="/admin/settings/maintenance"
+            className="mt-4 inline-flex rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-slate-950"
+          >
+            Configure Maintenance
+          </Link>
+        </div>
       </section>
 
       <section className="rounded-3xl border border-rose-200 bg-white p-6 shadow-sm dark:border-rose-900/60 dark:bg-slate-900 xl:col-span-2">

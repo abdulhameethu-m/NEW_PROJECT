@@ -578,6 +578,9 @@ export function ProductEditor({
     if (formData.images.some((image) => image?.status === "uploading")) return setError("Wait for product image uploads to finish");
     if (!formData.productNumber.trim()) return setError("Product number is required");
     if (!formData.weight || Number(formData.weight) <= 0) return setError("Product weight is required");
+    if (formData.discountPrice !== "" && Number(formData.discountPrice) >= Number(formData.price)) {
+      return setError("Base discount price must be less than base price");
+    }
 
     for (const section of moduleSections) {
       for (const field of section.fields.filter((item) => !item.isVariant)) {
@@ -607,9 +610,17 @@ export function ProductEditor({
       if (!Number.isFinite(variant.price) || variant.price < 0) return setError("Each variant requires a valid price");
       if (
         variant.discountPrice !== undefined &&
+        variant.discountPrice !== "" &&
         (!Number.isFinite(variant.discountPrice) || variant.discountPrice < 0)
       ) {
         return setError("Each variant requires a valid discount price");
+      }
+      if (
+        variant.discountPrice !== undefined &&
+        variant.discountPrice !== "" &&
+        Number(variant.discountPrice) >= Number(variant.price)
+      ) {
+        return setError(`Variant ${variant.title || "SKU " + variant.sku} discount price must be less than price`);
       }
       if (!Number.isFinite(variant.stock) || variant.stock < 0) return setError("Each variant requires a valid stock quantity");
       if (!Number.isFinite(Number(variant.weight?.value || 0)) || Number(variant.weight?.value || 0) <= 0) {
@@ -722,6 +733,14 @@ export function ProductEditor({
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Product number *</label>
               <input type="text" name="productNumber" value={formData.productNumber} disabled className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm uppercase dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Weight (kg) *</label>
+              <input type="number" name="weight" value={formData.weight} onChange={handleChange} min="0.1" step="0.01" className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Low stock threshold</label>
+              <input type="number" name="lowStockThreshold" value={formData.lowStockThreshold} onChange={handleChange} min="0" className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
             </div>
           </div>
         </section>
@@ -991,14 +1010,6 @@ export function ProductEditor({
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Additional details</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Weight (kg) *</label>
-              <input type="number" name="weight" value={formData.weight} onChange={handleChange} min="0.1" step="0.01" className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Low stock threshold</label>
-              <input type="number" name="lowStockThreshold" value={formData.lowStockThreshold} onChange={handleChange} min="0" className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
-            </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Return policy</label>
               <textarea name="returnPolicy" value={formData.returnPolicy} onChange={handleChange} rows={3} className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />

@@ -65,7 +65,7 @@ export const DynamicHomepageRenderer = memo(function DynamicHomepageRenderer({
 
   if (Array.isArray(resolvedRows) && resolvedRows.length) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-0">
         {resolvedRows.map((row) => (
           <DynamicHomepageRow
             key={row.id || row.order}
@@ -97,7 +97,7 @@ const DynamicHomepageRow = memo(function DynamicHomepageRow({ row, bareContainer
 
   return (
     <div
-      className="grid gap-6"
+      className="grid gap-x-6 gap-y-0"
       style={{
         gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
         gridAutoFlow: "row dense",
@@ -107,7 +107,7 @@ const DynamicHomepageRow = memo(function DynamicHomepageRow({ row, bareContainer
         const columnStyle = resolveColumnStyle(column, renderContext);
 
         return (
-          <div key={column.id || `${row.id || row.order || "row"}-column-${column.order ?? columnIndex}`} style={columnStyle} className="min-w-0 space-y-6">
+          <div key={column.id || `${row.id || row.order || "row"}-column-${column.order ?? columnIndex}`} style={columnStyle} className="min-w-0 space-y-0">
             {(column.containers || []).map((container, containerIndex) => (
               <DynamicHomepageSection
                 key={container.instanceId || container._id || `${column.id || column.order || columnIndex}-container-${containerIndex}`}
@@ -144,10 +144,11 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
   const layout = resolveContainerLayout(container);
   const themeStyles = resolveContainerThemeStyles(layout.theme || container?.presentation?.containerTheme);
   const contentSized = isContentSizedContainer(container);
+  const bannerLike = container.containerType === "BANNER" || container.containerType === "BANNER_CAROUSEL" || container.containerType === "SLIDER";
   const widthStyles = resolveContainerDimensionStyle(layout, renderContext, {
     inline,
     contentSized,
-    isBanner: container.containerType === "BANNER" || container.containerType === "SLIDER",
+    isBanner: bannerLike,
   });
   const previewBare = container?.previewBare === true || bareContainers;
   const stripOuterLayout = bareOuterLayout && !previewBare;
@@ -161,8 +162,8 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
           background: resolveContainerBackground(layout, themeStyles),
           color: container?.presentation?.textColor || themeStyles.color,
           padding: 0,
-          marginTop: `${layout.marginTop}px`,
-          marginBottom: `${layout.marginBottom}px`,
+          marginTop: bannerLike ? 0 : `${layout.marginTop}px`,
+          marginBottom: bannerLike ? 0 : `${layout.marginBottom}px`,
           marginLeft: `${layout.marginLeft}px`,
           marginRight: `${layout.marginRight}px`,
         }),
@@ -284,7 +285,7 @@ function resolveContainerDimensionStyle(layout, renderContext, options = {}) {
 
   if (renderContext.device === "mobile" && options.isBanner) {
     styles.width = "100%";
-    styles.aspectRatio = "2 / 1";
+    styles.aspectRatio = "4 / 5";
     delete styles.height;
     delete styles.minHeight;
   }
@@ -494,6 +495,8 @@ function renderContainer(container, options = {}) {
   switch (container.containerType) {
     case "BANNER":
       return <BannerContainer container={container} />;
+    case "BANNER_CAROUSEL":
+      return <BannerCarouselContainer container={container} />;
     case "SLIDER":
       return <SliderContainer container={container} />;
     case "FEATURED_PRODUCTS":
@@ -747,17 +750,22 @@ function CarouselContainer({ container, bareContainers = false, bareOuterLayout 
 
 function BannerContainer({ container }) {
   const config = container.config || {};
+  const hasDeviceOrLegacyImage = Boolean(config.desktopBannerImage || config.mobileBannerImage || config.bannerImage);
   const mediaItems = Array.isArray(config.bannerMedia) && config.bannerMedia.length
     ? config.bannerMedia
     : [
-        config.bannerVideo
-          ? { type: "video", url: config.bannerVideo }
-          : { type: "image", url: config.bannerImage || "" },
+        hasDeviceOrLegacyImage
+          ? { type: "image", url: config.bannerImage || config.desktopBannerImage || config.mobileBannerImage || "" }
+          : config.bannerVideo
+            ? { type: "video", url: config.bannerVideo }
+            : { type: "image", url: "" },
       ].filter((item) => item.url);
   const [index, setIndex] = useState(0);
   const activeItem = mediaItems[index] || mediaItems[0] || {};
-  const mediaUrl = resolveApiAssetUrl(activeItem.url || "");
+  const resolvedBannerImages = resolveBannerImageSources(config, activeItem);
   const isVideo = activeItem.type === "video" || /\.(mp4|webm|mov)$/i.test(activeItem.url || "");
+  const resolvedBannerVideos = resolveBannerVideoSources(config, activeItem);
+  const mediaUrl = resolveApiAssetUrl(isVideo ? resolvedBannerVideos.desktop : activeItem.url || resolvedBannerImages.desktop || "");
   const imageFit = config.bannerFit === "contain" ? "contain" : "cover";
   const autoSlide = config.autoSlide !== false;
   const showArrows = config.showArrows !== false;
@@ -790,13 +798,19 @@ function BannerContainer({ container }) {
     <div className="hero-banner group relative h-full w-full overflow-hidden">
       {mediaUrl ? (
         isVideo ? (
-          <video src={mediaUrl} autoPlay muted loop playsInline className="block h-full w-full object-cover" />
+          <video autoPlay muted loop playsInline className="block h-full w-full object-cover">
+            {resolvedBannerVideos.mobile ? <source media="(max-width: 767px)" src={resolveApiAssetUrl(resolvedBannerVideos.mobile)} /> : null}
+            <source src={resolveApiAssetUrl(resolvedBannerVideos.desktop || activeItem.url || "")} />
+          </video>
         ) : (
-          <img
-            src={mediaUrl}
-            alt={heading}
-            className={`block h-full w-full object-center ${imageFit === "contain" ? "object-contain" : "object-cover"}`}
-          />
+          <picture className="block h-full w-full">
+            {resolvedBannerImages.mobile ? <source media="(max-width: 767px)" srcSet={resolveApiAssetUrl(resolvedBannerImages.mobile)} /> : null}
+            <img
+              src={resolveApiAssetUrl(resolvedBannerImages.desktop || activeItem.url || "")}
+              alt={heading}
+              className={`block h-full w-full object-center ${imageFit === "contain" ? "object-contain" : "object-contain md:object-cover"}`}
+            />
+          </picture>
         )
       ) : null}
       {mediaUrl ? (
@@ -805,9 +819,8 @@ function BannerContainer({ container }) {
           style={{ background: `rgba(15, 23, 42, ${Number(config.overlayOpacity ?? 0.35)})` }}
         />
       ) : null}
-      <div className="absolute inset-0 z-10 flex items-center p-4 sm:p-8 lg:p-10">
-        <div className={`max-w-2xl transition duration-300 ${resolveTextAlign(config.textPosition)} ${config.showCtaOnHover ? "opacity-0 translate-y-3 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto" : ""}`}>
-          <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.28em] text-white/70">Campaign</p>
+      <div className="absolute inset-0 z-10 flex items-end justify-center p-5 pb-9 text-center sm:p-8 lg:items-center lg:justify-start lg:p-10">
+        <div className={`mx-auto max-w-2xl transition duration-300 ${resolveResponsiveBannerTextAlign(config.textPosition)} ${config.showCtaOnHover ? "opacity-0 translate-y-3 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto" : ""}`}>
           <h2 className="mt-1 sm:mt-3 text-lg sm:text-3xl font-bold tracking-tight text-white md:text-4xl">
             {heading}
           </h2>
@@ -848,6 +861,153 @@ function BannerContainer({ container }) {
       ) : null}
     </div>
   );
+}
+
+function BannerCarouselContainer({ container }) {
+  const config = container.config || {};
+  const mediaItems = (Array.isArray(config.bannerMedia) ? config.bannerMedia : [])
+    .filter((item) => {
+      const images = resolveBannerImageSources(config, item || {});
+      const videos = resolveBannerVideoSources(config, item || {});
+      return Boolean(item?.ctaUrl && (images.desktop || images.mobile || videos.desktop || videos.mobile || item?.url));
+    });
+  const [index, setIndex] = useState(0);
+  const autoSlide = config.autoSlide !== false;
+  const showArrows = config.showArrows !== false;
+  const showDots = config.showDots !== false;
+  const cardCount = mediaItems.length;
+
+  const [visibleCards, setVisibleCards] = useState(1);
+
+  useEffect(() => {
+    const handleResize = () => setVisibleCards(window.innerWidth >= 768 ? 3 : 1);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const maxIndex = Math.max(0, cardCount - visibleCards);
+
+  useEffect(() => {
+    if (index > maxIndex) {
+      setIndex(maxIndex);
+    }
+  }, [maxIndex, index]);
+
+  useEffect(() => {
+    if (!autoSlide || maxIndex <= 0) return undefined;
+    const timer = window.setInterval(() => {
+      setIndex((current) => (current >= maxIndex ? 0 : current + 1));
+    }, Number(config.slideSpeed || 3500));
+    return () => window.clearInterval(timer);
+  }, [autoSlide, maxIndex, config.slideSpeed]);
+
+  if (!cardCount) {
+    return <EmptyState label="No banner carousel media available." />;
+  }
+
+  function goTo(nextIndex) {
+    if (!cardCount || maxIndex <= 0) return;
+    if (config.infiniteLoop === false) {
+      setIndex(Math.min(Math.max(nextIndex, 0), maxIndex));
+      return;
+    }
+    setIndex(nextIndex > maxIndex ? 0 : nextIndex < 0 ? maxIndex : nextIndex);
+  }
+
+  return (
+    <div className="relative h-[260px] w-full overflow-hidden bg-white px-3 py-3 dark:bg-slate-950 sm:h-[320px] sm:px-4 lg:h-[360px]">
+      <div
+        className="flex h-full gap-3 transition-transform duration-500 ease-out [--banner-carousel-card-width:100%] [--banner-carousel-step:calc(var(--banner-carousel-card-width)+0.75rem)] md:[--banner-carousel-card-width:calc((100%_-_1.5rem)/3)]"
+        style={{ transform: `translateX(calc(-${index} * var(--banner-carousel-step)))` }}
+      >
+        {mediaItems.map((item, itemIndex) => {
+          const images = resolveBannerImageSources(config, item);
+          const videos = resolveBannerVideoSources(config, item);
+          const videoUrl = videos.desktop || videos.mobile || item.url || "";
+          const imageUrl = images.desktop || images.mobile || item.url || "";
+          const isVideo = Boolean(videos.desktop || videos.mobile) || item.type === "video" || /\.(mp4|webm|mov)$/i.test(item.url || "");
+          const heading = item.heading || "";
+          const subheading = item.subheading || "";
+          const ctaLabel = item.ctaLabel || "";
+
+          return (
+            <a
+              key={item.id || item.url || itemIndex}
+              href={item.ctaUrl}
+              className="group relative h-full shrink-0 basis-[var(--banner-carousel-card-width)] overflow-hidden rounded-lg bg-slate-100 text-white shadow-sm transition hover:shadow-lg dark:bg-slate-900"
+            >
+              {isVideo ? (
+                <video autoPlay muted loop playsInline className="block h-full w-full object-cover">
+                  {videos.mobile ? <source media="(max-width: 767px)" src={resolveApiAssetUrl(videos.mobile)} /> : null}
+                  <source src={resolveApiAssetUrl(videoUrl)} />
+                </video>
+              ) : (
+                <picture className="block h-full w-full">
+                  {images.mobile ? <source media="(max-width: 767px)" srcSet={resolveApiAssetUrl(images.mobile)} /> : null}
+                  <img src={resolveApiAssetUrl(imageUrl)} alt={heading || `Banner ${itemIndex + 1}`} className="block h-full w-full object-cover" loading={itemIndex === 0 ? "eager" : "lazy"} />
+                </picture>
+              )}
+              {(heading || subheading || ctaLabel) ? (
+                <>
+                  <div className="absolute inset-0 bg-gradient-to-r from-slate-950/65 via-slate-950/20 to-transparent" style={{ opacity: Number(config.overlayOpacity ?? 0.35) + 0.45 }} />
+                  <div className="absolute inset-y-0 left-0 flex max-w-[78%] flex-col justify-center px-5 py-4 sm:px-6">
+                    {heading ? <h2 className="text-lg font-black leading-tight tracking-tight sm:text-2xl">{heading}</h2> : null}
+                    {subheading ? <p className="mt-1 line-clamp-2 text-xs font-medium text-white/85 sm:text-sm">{subheading}</p> : null}
+                    {ctaLabel ? (
+                      <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-950 transition group-hover:-translate-y-0.5">
+                        {ctaLabel}
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </span>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+            </a>
+          );
+        })}
+      </div>
+
+      {showArrows && maxIndex > 0 ? (
+        <>
+          <button type="button" onClick={() => goTo(index - 1)} className="absolute left-4 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-lg transition hover:bg-white lg:inline-flex" aria-label="Previous banner">
+            {"<"}
+          </button>
+          <button type="button" onClick={() => goTo(index + 1)} className="absolute right-4 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-lg transition hover:bg-white lg:inline-flex" aria-label="Next banner">
+            {">"}
+          </button>
+        </>
+      ) : null}
+
+      {showDots && maxIndex > 0 ? (
+        <div className="absolute bottom-1.5 left-1/2 z-20 flex -translate-x-1/2 gap-1.5">
+          {Array.from({ length: maxIndex + 1 }).map((_, itemIndex) => (
+            <button
+              key={itemIndex}
+              type="button"
+              onClick={() => goTo(itemIndex)}
+              className={`h-1.5 rounded-full transition ${itemIndex === index ? "w-5 bg-slate-900/70 dark:bg-white" : "w-1.5 bg-slate-900/20 hover:bg-slate-900/45 dark:bg-white/50"}`}
+              aria-label={`Show banner page ${itemIndex + 1}`}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function resolveBannerImageSources(config = {}, activeItem = {}) {
+  const legacyImage = activeItem.type === "image" ? activeItem.url || config.bannerImage || "" : config.bannerImage || "";
+  const desktop = activeItem.desktopImage || config.desktopBannerImage || legacyImage || activeItem.mobileImage || config.mobileBannerImage || "";
+  const mobile = activeItem.mobileImage || activeItem.desktopImage || config.mobileBannerImage || config.desktopBannerImage || legacyImage || "";
+  return { desktop, mobile };
+}
+
+export function resolveBannerVideoSources(config = {}, activeItem = {}) {
+  const legacyVideo = activeItem.type === "video" ? activeItem.url || config.bannerVideo || "" : config.bannerVideo || "";
+  const desktop = activeItem.desktopVideo || legacyVideo || activeItem.mobileVideo || "";
+  const mobile = activeItem.mobileVideo || activeItem.desktopVideo || legacyVideo || "";
+  return { desktop, mobile };
 }
 
 function FeaturedProductsContainer({ container, renderContext }) {
@@ -1981,14 +2141,14 @@ function resolveCategoryShowcaseGrid(config = {}) {
   return `grid-cols-2 sm:grid-cols-2 ${columnClassMap[columns] || "lg:grid-cols-4"}`;
 }
 
-function resolveTextAlign(position) {
+function resolveResponsiveBannerTextAlign(position) {
   switch (String(position || "LEFT").toUpperCase()) {
     case "CENTER":
-      return "mx-auto text-center";
+      return "text-center";
     case "RIGHT":
-      return "ml-auto text-right";
+      return "text-center lg:ml-auto lg:mr-0 lg:text-right";
     case "LEFT":
     default:
-      return "text-left";
+      return "text-center lg:mx-0 lg:text-left";
   }
 }

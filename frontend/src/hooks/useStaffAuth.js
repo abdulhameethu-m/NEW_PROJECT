@@ -16,7 +16,7 @@ export function useStaffPermission() {
   const setAuth = useStaffAuthStore((state) => state.setAuth);
   const [syncing, setSyncing] = useState(false);
 
-  const permissions = useMemo(() => user?.permissions || {}, [user]);
+  const permissions = useMemo(() => user?.role?.permissions || user?.permissions || {}, [user]);
   const enabledModules = useMemo(() => user?.enabledModules || {}, [user]);
   const roleName = user?.role?.name || user?.roleName || null;
 
@@ -82,7 +82,7 @@ export function useRequirePermission(permissionKey) {
     if (
       permissionKey &&
       user &&
-      (user?.enabledModules?.[moduleName] === false || !hasStaffPermission(user.permissions, permissionKey))
+      (user?.enabledModules?.[moduleName] === false || !hasStaffPermission(user?.role?.permissions || user?.permissions, permissionKey))
     ) {
       logUnauthorizedAccess(window.location.pathname, permissionKey);
       navigate("/staff/unauthorized", { replace: true });

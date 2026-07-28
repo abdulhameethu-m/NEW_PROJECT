@@ -17,6 +17,8 @@ import {
   Settings,
   Smartphone,
   Tablet,
+  Trash2,
+  Upload,
 } from "lucide-react";
 import { AsyncMultiSelect } from "../components/AsyncMultiSelect";
 import { DynamicHomepageRenderer } from "../components/homepage/DynamicHomepageRenderer";
@@ -152,6 +154,18 @@ function parseSlides(value) {
     }
   }
   return [];
+}
+
+function isBannerMediaItemUsable(item = {}) {
+  if (typeof item === "string") return Boolean(item.trim());
+  return Boolean(item?.desktopImage || item?.mobileImage || item?.desktopVideo || item?.mobileVideo || item?.url);
+}
+
+function findBannerCarouselCtaError(config = {}) {
+  const media = parseSlides(config.bannerMedia).filter(isBannerMediaItemUsable);
+  if (!media.length) return "At least one banner carousel image or video is required.";
+  const missingIndex = media.findIndex((item) => !String(item?.ctaUrl || "").trim());
+  return missingIndex >= 0 ? `CTA URL is required for banner carousel media ${missingIndex + 1}.` : "";
 }
 
 function legacyWidthType(value) {
@@ -349,7 +363,7 @@ function containerToForm(container, schema) {
   if (container?.containerType === "SLIDER" && Array.isArray(container?.config?.slides)) {
     config.slides = container.config.slides;
   }
-  if (container?.containerType === "BANNER" && Array.isArray(container?.config?.bannerMedia)) {
+  if ((container?.containerType === "BANNER" || container?.containerType === "BANNER_CAROUSEL") && Array.isArray(container?.config?.bannerMedia)) {
     config.bannerMedia = container.config.bannerMedia;
   }
 
@@ -570,6 +584,10 @@ export function AdminHomepageContainersPage() {
     setSaving(true);
     setError("");
     try {
+      if (form.containerType === "BANNER_CAROUSEL") {
+        const ctaError = findBannerCarouselCtaError(form.config);
+        if (ctaError) throw new Error(ctaError);
+      }
       const payload = buildPayload(form);
       if (editingId) {
         await updateAdminHomepageContainer(editingId, payload);
@@ -589,6 +607,10 @@ export function AdminHomepageContainersPage() {
     setPreviewLoading(true);
     setError("");
     try {
+      if (form.containerType === "BANNER_CAROUSEL") {
+        const ctaError = findBannerCarouselCtaError(form.config);
+        if (ctaError) throw new Error(ctaError);
+      }
       const response = await previewAdminHomepageContainer(buildPayload(form));
       setPreview(response?.data || null);
       setCurrentStep(3);
@@ -906,9 +928,16 @@ export function AdminHomepageContainersPage() {
                     ) : null}
 
                     <EditorSection icon={Save} title="Advanced Settings" description="Schema-driven fields for the selected container type appear here so admins only see the controls that matter.">
-                      {form.containerType === "BANNER" ? (
+                      {form.containerType === "BANNER" || form.containerType === "BANNER_CAROUSEL" ? (
                         <BannerMediaEditor
                           media={parseSlides(form.config.bannerMedia)}
+                          requireCtaUrl={form.containerType === "BANNER_CAROUSEL"}
+                          title={form.containerType === "BANNER_CAROUSEL" ? "Banner Carousel Media" : "Banner Media"}
+                          description={
+                            form.containerType === "BANNER_CAROUSEL"
+                              ? "Add multiple banners for the carousel. CTA URL is required because the whole banner redirects on click."
+                              : "Add desktop and mobile media pairs for each banner, with separate text and CTA settings per banner."
+                          }
                           onChange={(nextMedia) => setForm((current) => ({ ...current, config: { ...current.config, bannerMedia: nextMedia } }))}
                         />
                       ) : null}
@@ -924,7 +953,8 @@ export function AdminHomepageContainersPage() {
                         <div className="grid gap-6 lg:grid-cols-2">
                           {(activeSchema?.typeFields || [])
                             .filter((field) => !(form.containerType === "SLIDER" && field.name === "slides"))
-                            .filter((field) => !(form.containerType === "BANNER" && field.name === "bannerMedia"))
+                            .filter((field) => !((form.containerType === "BANNER" || form.containerType === "BANNER_CAROUSEL") && field.name === "bannerMedia"))
+                            .filter((field) => !((form.containerType === "BANNER" || form.containerType === "BANNER_CAROUSEL") && ["desktopBannerImage", "mobileBannerImage"].includes(field.name)))
                             .map((field) => (
                             <div key={field.name} className={field.type === "textarea" || field.type === "array" || field.type === "category-cards" ? "lg:col-span-2" : ""}>
                               <FieldRenderer
@@ -1571,6 +1601,12 @@ function MediaUploadField({ field, value, onChange }) {
   );
 }
 
+function getMediaFileName(value = "") {
+  const raw = typeof value === "object" && value ? value.url || value.secureUrl || value.path || value.src || "" : value;
+  const clean = String(raw || "").split("?")[0].split("#")[0];
+  return clean.split("/").filter(Boolean).pop() || "";
+}
+
 function CategoryCardsField({ field, value, onChange }) {
   const cards = Array.isArray(value) ? value : [];
 
@@ -1807,8 +1843,14 @@ function ProductPickerField({ field, value = [], onChange, loadOptions }) {
   );
 }
 
-function BannerMediaEditor({ media = [], onChange }) {
-  const [uploadingIndex, setUploadingIndex] = useState(null);
+function BannerMediaEditor({
+  media = [],
+  onChange,
+  requireCtaUrl = false,
+  title = "Banner Media",
+  description = "Add desktop and mobile media pairs for each banner, with separate text and CTA settings per banner.",
+}) {
+  const [uploadingKey, setUploadingKey] = useState("");
   const resolvedMedia = Array.isArray(media) ? media : [];
 
   function updateItem(index, updater) {
@@ -1825,6 +1867,10 @@ function BannerMediaEditor({ media = [], onChange }) {
         id: createUniqueId("banner-media"),
         type,
         url: "",
+        desktopImage: "",
+        mobileImage: "",
+        desktopVideo: "",
+        mobileVideo: "",
         heading: "",
         subheading: "",
         ctaLabel: "",
@@ -1846,19 +1892,24 @@ function BannerMediaEditor({ media = [], onChange }) {
     onChange(next);
   }
 
-  async function uploadMedia(index, file) {
+  async function uploadMedia(index, field, file) {
     if (!file) return;
-    setUploadingIndex(index);
+    const key = `${index}-${field}`;
+    setUploadingKey(key);
     try {
       const response = await uploadHomepageContainerMedia([file]);
       const uploaded = response?.data?.[0] || {};
       const uploadedUrl = uploaded.url || "";
       const uploadedType = uploaded.mimeType?.startsWith("video/") ? "video" : "image";
-      updateItem(index, (item) => ({ ...item, type: uploadedType, url: uploadedUrl }));
+      updateItem(index, (item) => ({
+        ...item,
+        type: field === "url" ? uploadedType : field.toLowerCase().includes("video") ? "video" : "image",
+        [field]: uploadedUrl,
+      }));
     } catch (err) {
       showError("Media upload failed: " + (err?.message || "unknown"));
     } finally {
-      setUploadingIndex(null);
+      setUploadingKey("");
     }
   }
 
@@ -1866,8 +1917,8 @@ function BannerMediaEditor({ media = [], onChange }) {
     <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/40">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-slate-950 dark:text-white">Banner Media</div>
-          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Add images, videos, or a mixed media sequence for the banner auto-scroll.</div>
+          <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{description}</div>
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={() => addItem("image")} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
@@ -1881,13 +1932,17 @@ function BannerMediaEditor({ media = [], onChange }) {
 
       {!resolvedMedia.length ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400">
-          No banner media yet. Add an image or video to build the auto-scroll banner.
+          No banner media yet. Add an image or video to build the banner sequence.
         </div>
       ) : null}
 
       <div className="space-y-4">
         {resolvedMedia.map((item, index) => {
           const isVideo = item.type === "video" || /\.(mp4|webm|mov)$/i.test(item.url || "");
+          const desktopImage = item.desktopImage || item.url || "";
+          const mobileImage = item.mobileImage || item.desktopImage || item.url || "";
+          const desktopVideo = item.desktopVideo || item.url || "";
+          const mobileVideo = item.mobileVideo || item.desktopVideo || item.url || "";
           return (
             <div key={item.id || index} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1905,51 +1960,183 @@ function BannerMediaEditor({ media = [], onChange }) {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field label="Type">
-                  <select value={item.type || "image"} onChange={(event) => updateItem(index, (current) => ({ ...current, type: event.target.value }))} className={inputClassName}>
-                    <option value="image">Image</option>
-                    <option value="video">Video</option>
-                  </select>
-                </Field>
-                <Field label="Upload Media">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime"
-                      onChange={(event) => uploadMedia(index, event.target.files?.[0])}
-                      className={`${inputClassName} cursor-pointer`}
+              <div className="mt-4 space-y-5">
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <Field label="Type">
+                    <select value={item.type || "image"} onChange={(event) => updateItem(index, (current) => ({ ...current, type: event.target.value }))} className={inputClassName}>
+                      <option value="image">Image</option>
+                      <option value="video">Video</option>
+                    </select>
+                  </Field>
+                </div>
+
+                {isVideo ? (
+                  <div className="grid items-start gap-4 lg:grid-cols-2">
+                    <BannerMediaAssetField
+                      label="Desktop Banner Video"
+                      helper="Displayed on tablet, laptop, and desktop screens."
+                      recommendation="Recommended: MP4, WebM, or MOV"
+                      value={item.desktopVideo || ""}
+                      fallbackValue={item.url || ""}
+                      fallbackLabel="Legacy video fallback"
+                      uploading={uploadingKey === `${index}-desktopVideo`}
+                      mediaType="video"
+                      onUpload={(file) => uploadMedia(index, "desktopVideo", file)}
+                      onRemove={() => updateItem(index, (current) => ({ ...current, desktopVideo: "" }))}
                     />
-                    <div className="text-sm text-slate-500">{uploadingIndex === index ? "Uploading..." : item.url ? "Ready" : "No file"}</div>
+                    <BannerMediaAssetField
+                      label="Mobile Banner Video"
+                      helper="Displayed on smaller mobile screens."
+                      recommendation="Recommended: MP4, WebM, or MOV"
+                      value={item.mobileVideo || ""}
+                      fallbackValue={item.desktopVideo || item.url || ""}
+                      fallbackLabel="Desktop/legacy fallback"
+                      uploading={uploadingKey === `${index}-mobileVideo`}
+                      mediaType="video"
+                      previewVariant="mobile"
+                      onUpload={(file) => uploadMedia(index, "mobileVideo", file)}
+                      onRemove={() => updateItem(index, (current) => ({ ...current, mobileVideo: "" }))}
+                    />
                   </div>
-                </Field>
+                ) : (
+                  <div className="grid items-start gap-4 lg:grid-cols-2">
+                    <BannerMediaAssetField
+                      label="Desktop Banner Image"
+                      helper="Displayed on tablet, laptop, and desktop screens."
+                      recommendation="Recommended: 1920 x 600 px"
+                      value={item.desktopImage || ""}
+                      fallbackValue={item.url || ""}
+                      fallbackLabel="Legacy image fallback"
+                      uploading={uploadingKey === `${index}-desktopImage`}
+                      onUpload={(file) => uploadMedia(index, "desktopImage", file)}
+                      onRemove={() => updateItem(index, (current) => ({ ...current, desktopImage: "" }))}
+                    />
+                    <BannerMediaAssetField
+                      label="Mobile Banner Image"
+                      helper="Displayed on smaller mobile screens."
+                      recommendation="Recommended: 750 x 1000 px or 1080 x 1350 px"
+                      value={item.mobileImage || ""}
+                      fallbackValue={item.desktopImage || item.url || ""}
+                      fallbackLabel="Desktop/legacy fallback"
+                      uploading={uploadingKey === `${index}-mobileImage`}
+                      previewVariant="mobile"
+                      onUpload={(file) => uploadMedia(index, "mobileImage", file)}
+                      onRemove={() => updateItem(index, (current) => ({ ...current, mobileImage: "" }))}
+                    />
+                  </div>
+                )}
+
+                <div className="grid gap-4 lg:grid-cols-2">
                 <Field label="Heading">
                   <input value={item.heading || ""} onChange={(event) => updateItem(index, (current) => ({ ...current, heading: event.target.value }))} className={inputClassName} />
                 </Field>
                 <Field label="Subheading">
                   <input value={item.subheading || ""} onChange={(event) => updateItem(index, (current) => ({ ...current, subheading: event.target.value }))} className={inputClassName} />
                 </Field>
-                <Field label="Button Text">
+                <Field label="Button Text (optional)">
                   <input value={item.ctaLabel || ""} onChange={(event) => updateItem(index, (current) => ({ ...current, ctaLabel: event.target.value }))} className={inputClassName} />
                 </Field>
-                <Field label="Button Link">
-                  <input value={item.ctaUrl || ""} onChange={(event) => updateItem(index, (current) => ({ ...current, ctaUrl: event.target.value }))} className={inputClassName} placeholder="/sale" />
+                <Field label={requireCtaUrl ? "CTA URL *" : "Button Link"}>
+                  <input required={requireCtaUrl} value={item.ctaUrl || ""} onChange={(event) => updateItem(index, (current) => ({ ...current, ctaUrl: event.target.value }))} className={inputClassName} placeholder="/sale" />
                 </Field>
+                </div>
               </div>
 
-              {item.url ? (
-                <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-950">
-                  {isVideo ? (
-                    <video src={resolveApiAssetUrl(item.url)} controls className="max-h-56 w-full object-cover" />
-                  ) : (
-                    <img src={resolveApiAssetUrl(item.url)} alt={item.heading || `Banner media ${index + 1}`} className="max-h-56 w-full object-cover" />
-                  )}
+              {isVideo && (desktopVideo || mobileVideo) ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {desktopVideo ? (
+                    <BannerMediaPreview title="Desktop Preview" src={desktopVideo} alt={item.heading || `Desktop banner video ${index + 1}`} mediaType="video" />
+                  ) : null}
+                  {mobileVideo ? (
+                    <BannerMediaPreview title="Mobile Preview" src={mobileVideo} alt={item.heading || `Mobile banner video ${index + 1}`} mediaType="video" previewVariant="mobile" />
+                  ) : null}
+                </div>
+              ) : null}
+              {!isVideo && (desktopImage || mobileImage) ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {desktopImage ? (
+                    <BannerMediaPreview title="Desktop Preview" src={desktopImage} alt={item.heading || `Desktop banner media ${index + 1}`} />
+                  ) : null}
+                  {mobileImage ? (
+                    <BannerMediaPreview title="Mobile Preview" src={mobileImage} alt={item.heading || `Mobile banner media ${index + 1}`} previewVariant="mobile" />
+                  ) : null}
                 </div>
               ) : null}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function BannerMediaAssetField({ label, helper, recommendation, value = "", fallbackValue = "", fallbackLabel = "", uploading = false, mediaType = "image", previewVariant = "desktop", onUpload, onRemove }) {
+  const previewValue = value || fallbackValue;
+  const fileName = getMediaFileName(value);
+  const isVideo = mediaType === "video";
+  const previewClassName = previewVariant === "mobile" ? "mx-auto aspect-[4/5] max-h-80 w-full max-w-[260px]" : "h-36 w-full";
+
+  return (
+    <Field label={label}>
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+        <div>
+          <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{helper}</p>
+          <p className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-300">{recommendation}</p>
+        </div>
+        {previewValue ? (
+          <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-950">
+            {isVideo ? (
+              <video src={resolveApiAssetUrl(previewValue)} controls className={`${previewClassName} object-contain`} />
+            ) : (
+              <img src={resolveApiAssetUrl(previewValue)} alt={`${label} preview`} className={`${previewClassName} object-contain`} />
+            )}
+            {!value && fallbackValue && fallbackLabel ? (
+              <span className="absolute left-2 top-2 rounded-full bg-slate-950/75 px-2.5 py-1 text-[11px] font-semibold text-white">{fallbackLabel}</span>
+            ) : null}
+          </div>
+        ) : (
+          <div className={`flex ${previewClassName} flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400`}>
+            <Upload className="h-5 w-5" />
+            <span>No image selected</span>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            accept={isVideo ? "video/mp4,video/webm,video/quicktime" : "image/png,image/jpeg,image/webp"}
+            onChange={(event) => {
+              onUpload(event.target.files?.[0]);
+              event.target.value = "";
+            }}
+            className={`${inputClassName} cursor-pointer`}
+          />
+          {value ? (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="inline-flex items-center gap-2 rounded-full border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/40"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Remove
+            </button>
+          ) : null}
+        </div>
+        <div className="text-xs text-slate-500 dark:text-slate-400">{uploading ? "Uploading..." : fileName || (isVideo ? "MP4, WebM, or MOV" : "JPG, PNG, or WebP")}</div>
+      </div>
+    </Field>
+  );
+}
+
+function BannerMediaPreview({ title, src, alt, mediaType = "image", previewVariant = "desktop" }) {
+  const mediaClassName = previewVariant === "mobile" ? "mx-auto aspect-[4/5] max-h-96 w-full max-w-[300px] object-contain" : "max-h-56 w-full object-contain";
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-950">
+      <div className="border-b border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">{title}</div>
+      {mediaType === "video" ? (
+        <video src={resolveApiAssetUrl(src)} controls className={mediaClassName} />
+      ) : (
+        <img src={resolveApiAssetUrl(src)} alt={alt} className={mediaClassName} />
+      )}
     </div>
   );
 }
