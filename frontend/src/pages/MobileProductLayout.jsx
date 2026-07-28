@@ -315,7 +315,7 @@ export function MobileProductLayout({
 
       {/* Description & Specs Accordion */}
       <section className="mt-2 bg-white px-4 py-2 dark:bg-slate-900">
-        <Accordion title="Product Description" defaultOpen={true}>
+        <Accordion title="Product Description" defaultOpen={false}>
           <div className="prose prose-sm max-w-none text-slate-600 dark:prose-invert dark:text-slate-400">
             <p>{product.description}</p>
             {product.shortDescription && <p>{product.shortDescription}</p>}

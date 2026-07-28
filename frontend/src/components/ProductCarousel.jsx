@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion as Motion } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { ProductCard } from "./ProductCard";
 
 export function ProductCarousel({
@@ -17,7 +17,7 @@ export function ProductCarousel({
   slideSpeed = 3500,
   desktopItemsPerView = 6,
   tabletItemsPerView = 3,
-  mobileItemsPerView = 1.5,
+  mobileItemsPerView = 2,
   getProductCardProps = () => ({}),
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -154,8 +154,8 @@ export function ProductCarousel({
 
   return (
     <section className={shellClassName}>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-2xl">
+      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl pr-12 sm:pr-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-500">Product discovery</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white lg:text-3xl">
             {title}
@@ -165,12 +165,21 @@ export function ProductCarousel({
           </p>
         </div>
         {viewAllHref && (
-          <a
-            href={viewAllHref}
-            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-indigo-400/30 dark:hover:text-indigo-300"
-          >
-            View all
-          </a>
+          <>
+            <a
+              href={viewAllHref}
+              className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center text-slate-700 transition hover:-translate-y-0.5 sm:hidden dark:text-slate-200"
+              aria-label="View all"
+            >
+              <ArrowRight className="h-5 w-5" />
+            </a>
+            <a
+              href={viewAllHref}
+              className="hidden sm:inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-indigo-400/30 dark:hover:text-indigo-300"
+            >
+              View all
+            </a>
+          </>
         )}
       </div>
 

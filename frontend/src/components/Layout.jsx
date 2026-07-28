@@ -245,7 +245,7 @@ export function Layout() {
 
   return (
     <CartDrawerProvider>
-      <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.16),_transparent_34%),linear-gradient(to_bottom,_#ffffff,_#f8fafc_32%,_#eef2ff_100%)] text-slate-900 transition-colors dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_30%),linear-gradient(to_bottom,_#020617,_#020617_28%,_#0f172a_100%)] dark:text-white">
+      <div className="flex min-h-screen flex-col bg-white text-slate-900 transition-colors dark:bg-slate-950 dark:text-white">
       {!hideShopChrome ? (
         <>
           {/* Desktop Header */}

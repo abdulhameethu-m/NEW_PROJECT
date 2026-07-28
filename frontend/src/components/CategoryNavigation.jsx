@@ -319,7 +319,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
           <div className="pr-3 pl-1 flex items-center justify-center h-full">
             <button 
               onClick={toggleMinimized} 
-              className="p-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full transition-colors active:scale-95 shadow-sm border border-slate-200 dark:border-slate-700"
+              className="p-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors active:scale-95"
               aria-label={minimized ? "Maximize categories" : "Minimize categories"}
             >
               {minimized ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
