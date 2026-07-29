@@ -201,9 +201,9 @@ function normalizeDeviceConfig(value = {}, device = "desktop", desktopSpan = 12)
   const columns = DEVICE_CONFIG[device].columns;
   const fallbackSpan = device === "mobile" ? 1 : Math.min(columns, desktopSpan);
   return {
-    colSpan: clamp(value.colSpan ?? value.span, 1, columns, fallbackSpan),
-    rowSpan: clamp(value.rowSpan, 1, 24, 1),
-    height: clamp(value.height, 80, 2400, device === "desktop" ? 360 : device === "tablet" ? 320 : 280),
+    colSpan: value.colSpan === "" ? "" : clamp(value.colSpan ?? value.span, 1, columns, fallbackSpan),
+    rowSpan: value.rowSpan === "" ? "" : clamp(value.rowSpan, 1, 24, 1),
+    height: value.height === "" ? "" : clamp(value.height, 0, 4000, device === "desktop" ? 360 : device === "tablet" ? 320 : 280),
     visible: value.visible !== false,
   };
 }
@@ -334,8 +334,8 @@ function validateDraft(draft) {
     for (const device of Object.keys(DEVICE_CONFIG)) {
       const config = layout[device];
       const columns = DEVICE_CONFIG[device].columns;
-      if (!config || config.colSpan < 1 || config.colSpan > columns || config.height < 0 || config.rowSpan < 1) {
-        messages.push(`${layout.name} has invalid ${device} sizing.`);
+      if (!config || config.colSpan < 1 || config.colSpan > columns || config.height === "" || config.height < 80 || config.rowSpan < 1) {
+        messages.push("Height must be at least 80px.");
       }
     }
   }
@@ -724,10 +724,18 @@ export function AdminHomepageBuilderPage() {
       updateSlot(slotId, (slot) => {
         const config = slot[device];
         const columns = DEVICE_CONFIG[device].columns;
-        const nextValue = field === "colSpan" ? clamp(value, 1, columns, config.colSpan) : clamp(value, field === "height" ? 80 : 1, field === "height" ? 2400 : 24, config[field]);
+        
+        let nextValue = value === "" ? "" : Number(value);
+        if (value !== "" && Number.isFinite(nextValue)) {
+          if (field === "colSpan") nextValue = Math.min(Math.max(nextValue, 1), columns);
+          if (field === "height") nextValue = Math.min(nextValue, 4000); // clamp max only
+        } else if (value !== "") {
+          nextValue = config[field];
+        }
+
         const nextSlot = { ...slot, [device]: { ...config, [field]: nextValue }, updatedAt: new Date().toISOString() };
         if (device === "desktop" && field === "colSpan") {
-          nextSlot.tablet = { ...nextSlot.tablet, colSpan: Math.min(6, Math.max(1, Math.ceil(nextValue / 2))) };
+          nextSlot.tablet = { ...nextSlot.tablet, colSpan: Math.min(6, Math.max(1, Math.ceil((nextValue || 1) / 2))) };
           nextSlot.mobile = { ...nextSlot.mobile, colSpan: 1 };
         }
         return nextSlot;
@@ -1267,7 +1275,7 @@ function LayoutTab({ slot, canEdit, selectedDevice, onUpdateSlot, onResize }) {
           <input type="number" min={1} max={DEVICE_CONFIG[selectedDevice].columns} value={config.colSpan} disabled={!canEdit} onChange={(event) => onResize(slot.id, selectedDevice, "colSpan", event.target.value)} className={INPUT_CLASS} />
         </Field>
         <Field label="Height">
-          <input type="number" min={80} max={2400} value={config.height} disabled={!canEdit} onChange={(event) => onResize(slot.id, selectedDevice, "height", event.target.value)} className={INPUT_CLASS} />
+          <input type="number" min={0} max={4000} value={config.height} disabled={!canEdit} onChange={(event) => onResize(slot.id, selectedDevice, "height", event.target.value)} className={INPUT_CLASS} />
         </Field>
       </div>
       <label className="flex items-center gap-2 text-sm text-slate-700">

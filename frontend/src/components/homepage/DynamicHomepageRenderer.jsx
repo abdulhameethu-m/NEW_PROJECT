@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, BadgeCheck, BadgePercent, Clock3, CreditCard, Eye, Flame, Gift, Heart, Megaphone, ShoppingCart, Star, Store, Truck, Users, Wallet, Zap } from "lucide-react";
+import { ArrowRight, BadgeCheck, BadgePercent, ChevronLeft, ChevronRight, Clock3, CreditCard, Eye, Flame, Gift, Heart, Megaphone, ShoppingCart, Star, Store, Truck, Users, Wallet, Zap } from "lucide-react";
 import { ProductCard } from "../ProductCard";
 import { ProductCarousel } from "../ProductCarousel";
 import { resolveApiAssetUrl } from "../../utils/resolveUrl";
@@ -140,15 +140,19 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
     return () => window.clearTimeout(timeoutId);
   }, [container?._id]);
 
+
+
   const visibilityClasses = resolveContainerVisibilityClasses(container);
   const layout = resolveContainerLayout(container);
   const themeStyles = resolveContainerThemeStyles(layout.theme || container?.presentation?.containerTheme);
   const contentSized = isContentSizedContainer(container);
-  const bannerLike = container.containerType === "BANNER" || container.containerType === "BANNER_CAROUSEL" || container.containerType === "SLIDER";
+  const bannerCarouselLike = container.containerType === "BANNER_CAROUSEL";
+  const bannerLike = container.containerType === "BANNER" || bannerCarouselLike || container.containerType === "SLIDER";
   const widthStyles = resolveContainerDimensionStyle(layout, renderContext, {
     inline,
     contentSized,
     isBanner: bannerLike,
+    container,
   });
   const previewBare = container?.previewBare === true || bareContainers;
   const stripOuterLayout = bareOuterLayout && !previewBare;
@@ -162,11 +166,18 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
         background: resolveContainerBackground(layout, themeStyles),
         color: container?.presentation?.textColor || themeStyles.color,
         padding: 0,
-        marginTop: bannerLike || renderContext.device === 'mobile' ? 0 : `${layout.marginTop}px`,
-        marginBottom: bannerLike ? 0 : `${layout.marginBottom}px`,
+        marginTop: `${layout.marginTop}px`,
+        marginBottom: `${layout.marginBottom}px`,
         marginLeft: `${layout.marginLeft}px`,
         marginRight: `${layout.marginRight}px`,
       }),
+    ...(renderContext.device === "mobile" && (container.containerType === "BANNER" || bannerCarouselLike) && !previewBare && !stripOuterLayout
+      ? {
+        height: "auto",
+        minHeight: undefined,
+        aspectRatio: "16 / 9",
+      }
+      : {}),
   };
 
   const wrapperStyle = {};
@@ -192,7 +203,7 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
       {!previewBare && !stripOuterLayout && (layout.backgroundType === "image" || layout.backgroundType === "video") && backgroundMediaUrl ? (
         <div className="absolute inset-0 bg-slate-950/20" />
       ) : null}
-      <div className="relative z-10" style={style}>
+      <div className={`relative z-10 ${bannerLike ? "h-full w-full" : ""}`} style={style}>
         {renderContainer(container, { bareContainers: previewBare, bareOuterLayout: stripOuterLayout, bareCarouselShell, renderContext })}
       </div>
     </div>
@@ -246,8 +257,12 @@ function resolveContainerThemeStyles(themeValue) {
 
 function resolveContainerDimensionStyle(layout, renderContext, options = {}) {
   const width = resolveConfiguredWidth(layout, renderContext.canvasWidth);
-  const height = resolveConfiguredHeight(layout);
+  const deviceHeight = options.container?.builderLayout?.[renderContext.device]?.height || options.container?.[renderContext.device]?.height;
+  const height = deviceHeight || resolveConfiguredHeight(layout);
   const exactSize = resolveResponsiveSize(width, height, renderContext);
+  if (deviceHeight) {
+    exactSize.height = deviceHeight;
+  }
   const styles = {};
   const applyHeight = (value) => {
     if (!value) return;
@@ -283,10 +298,8 @@ function resolveContainerDimensionStyle(layout, renderContext, options = {}) {
     styles.marginInline = "auto";
   }
 
-  if (renderContext.device === "mobile" && options.isBanner) {
+  if (options.isBanner) {
     styles.width = "100%";
-    delete styles.height;
-    delete styles.minHeight;
   }
 
   return styles;
@@ -495,7 +508,7 @@ function renderContainer(container, options = {}) {
     case "BANNER":
       return <BannerContainer container={container} />;
     case "BANNER_CAROUSEL":
-      return <BannerCarouselContainer container={container} />;
+      return <BannerCarouselContainer container={container} renderContext={options.renderContext} />;
     case "SLIDER":
       return <SliderContainer container={container} />;
     case "FEATURED_PRODUCTS":
@@ -758,6 +771,7 @@ function BannerContainer({ container }) {
           : { type: "image", url: "" },
     ].filter((item) => item.url);
   const [index, setIndex] = useState(0);
+  const isPaused = useRef(false);
   const activeItem = mediaItems[index] || mediaItems[0] || {};
   const resolvedBannerImages = resolveBannerImageSources(config, activeItem);
   const isVideo = activeItem.type === "video" || /\.(mp4|webm|mov)$/i.test(activeItem.url || "");
@@ -767,14 +781,17 @@ function BannerContainer({ container }) {
   const autoSlide = config.autoSlide !== false;
   const showArrows = config.showArrows !== false;
   const showDots = config.showDots !== false;
+  const multiSlide = mediaItems.length > 1;
 
   useEffect(() => {
-    if (!autoSlide || mediaItems.length <= 1) return undefined;
+    if (!autoSlide || !multiSlide) return undefined;
     const timer = window.setInterval(() => {
-      setIndex((current) => (current + 1) % mediaItems.length);
+      if (!isPaused.current) {
+        setIndex((current) => (current + 1) % mediaItems.length);
+      }
     }, Number(config.slideSpeed || 3500));
     return () => window.clearInterval(timer);
-  }, [autoSlide, config.slideSpeed, mediaItems.length]);
+  }, [autoSlide, config.slideSpeed, mediaItems.length, multiSlide]);
 
   function goTo(nextIndex) {
     if (!mediaItems.length) return;
@@ -786,81 +803,117 @@ function BannerContainer({ container }) {
     setIndex((nextIndex + mediaItems.length) % mediaItems.length);
   }
 
+  // Touch swipe support
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+  function handleTouchStart(e) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+  function handleTouchEnd(e) {
+    touchEndX.current = e.changedTouches[0].clientX;
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > 50) {
+      goTo(index + (diff > 0 ? 1 : -1));
+    }
+  }
+
+  // Keyboard navigation
+  function handleKeyDown(e) {
+    if (e.key === "ArrowLeft") { e.preventDefault(); goTo(index - 1); }
+    if (e.key === "ArrowRight") { e.preventDefault(); goTo(index + 1); }
+  }
+
   const heading = activeItem.heading || config.heading || container.title;
   const subheading = activeItem.subheading || config.subheading;
   const ctaLabel = activeItem.ctaLabel || config.ctaButton;
   const ctaUrl = activeItem.ctaUrl || config.ctaUrl;
 
   return (
-    <div className="hero-banner group relative h-full w-full overflow-hidden">
-      {mediaUrl ? (
-        isVideo ? (
-          <video autoPlay muted loop playsInline className="block h-full w-full object-cover">
-            {resolvedBannerVideos.mobile ? <source media="(max-width: 767px)" src={resolveApiAssetUrl(resolvedBannerVideos.mobile)} /> : null}
-            <source src={resolveApiAssetUrl(resolvedBannerVideos.desktop || activeItem.url || "")} />
-          </video>
-        ) : (
-          <picture className="block h-full w-full">
-            {resolvedBannerImages.mobile ? <source media="(max-width: 767px)" srcSet={resolveApiAssetUrl(resolvedBannerImages.mobile)} /> : null}
-            <img
-              src={resolveApiAssetUrl(resolvedBannerImages.desktop || activeItem.url || "")}
-              alt={heading}
-              className={`block h-full w-full object-center ${imageFit === "contain" ? "object-contain" : "object-contain md:object-cover"}`}
-            />
-          </picture>
-        )
-      ) : null}
-      {mediaUrl ? (
-        <div
-          className="absolute inset-0 bg-slate-950/20"
-          style={{ background: `rgba(15, 23, 42, ${Number(config.overlayOpacity ?? 0.35)})` }}
-        />
-      ) : null}
-      <div className="absolute inset-0 z-10 flex items-end justify-center p-5 pb-9 text-center sm:p-8 lg:items-center lg:justify-start lg:p-10">
-        <div className={`mx-auto max-w-2xl transition duration-300 ${resolveResponsiveBannerTextAlign(config.textPosition)} ${config.showCtaOnHover ? "opacity-0 translate-y-3 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto" : ""}`}>
-          <h2 className="mt-1 sm:mt-3 text-lg sm:text-3xl font-bold tracking-tight text-white md:text-4xl">
-            {heading}
-          </h2>
-          {subheading ? <p className="mt-1 sm:mt-4 text-xs sm:text-sm md:text-base leading-snug sm:leading-7 text-white/85 line-clamp-2 sm:line-clamp-none">{subheading}</p> : null}
-          {ctaLabel && ctaUrl ? (
-            <a
-              href={ctaUrl}
-              className="mt-2.5 sm:mt-6 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs sm:px-5 sm:py-3 sm:text-sm font-semibold text-slate-900 transition hover:-translate-y-0.5"
-            >
-              {ctaLabel}
-              <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
-            </a>
-          ) : null}
+    <section
+      className="hero-banner group relative h-full w-full overflow-hidden bg-slate-100 dark:bg-slate-900"
+      role={multiSlide ? "region" : undefined}
+      aria-roledescription={multiSlide ? "carousel" : undefined}
+      aria-label={heading || container.title || "Banner"}
+      tabIndex={multiSlide ? 0 : undefined}
+      onKeyDown={multiSlide ? handleKeyDown : undefined}
+      onMouseEnter={() => { isPaused.current = true; }}
+      onMouseLeave={() => { isPaused.current = false; }}
+      onTouchStart={multiSlide ? handleTouchStart : undefined}
+      onTouchEnd={multiSlide ? handleTouchEnd : undefined}
+    >
+      {/* Container respects parent height */}
+      <div className="h-full w-full">
+        {mediaUrl ? (
+          isVideo ? (
+            <video autoPlay muted loop playsInline className="block h-full w-full object-cover">
+              {resolvedBannerVideos.mobile ? <source media="(max-width: 767px)" src={resolveApiAssetUrl(resolvedBannerVideos.mobile)} /> : null}
+              <source src={resolveApiAssetUrl(resolvedBannerVideos.desktop || activeItem.url || "")} />
+            </video>
+          ) : (
+            <picture className="block h-full w-full">
+              {resolvedBannerImages.mobile ? <source media="(max-width: 767px)" srcSet={resolveApiAssetUrl(resolvedBannerImages.mobile)} /> : null}
+              <img
+                src={resolveApiAssetUrl(resolvedBannerImages.desktop || activeItem.url || "")}
+                alt={heading || "Banner"}
+                loading="eager"
+                decoding="async"
+                className={`block h-full w-full object-center ${imageFit === "contain" ? "object-contain" : "object-contain md:object-cover"}`}
+              />
+            </picture>
+          )
+        ) : null}
+        {mediaUrl ? (
+          <div
+            className="absolute inset-0 bg-slate-950/20"
+            style={{ background: `rgba(15, 23, 42, ${Number(config.overlayOpacity ?? 0.35)})` }}
+          />
+        ) : null}
+        <div className="absolute inset-0 z-10 flex items-end justify-center p-4 pb-8 text-center sm:p-8 lg:items-center lg:justify-start lg:p-10">
+          <div className={`mx-auto max-w-2xl transition duration-300 ${resolveResponsiveBannerTextAlign(config.textPosition)} ${config.showCtaOnHover ? "opacity-0 translate-y-3 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto" : ""}`}>
+            <h2 className="mt-1 sm:mt-3 text-lg sm:text-3xl font-bold tracking-tight text-white md:text-4xl">
+              {heading}
+            </h2>
+            {subheading ? <p className="mt-1 sm:mt-4 text-xs sm:text-sm md:text-base leading-snug sm:leading-7 text-white/85 line-clamp-2 sm:line-clamp-none">{subheading}</p> : null}
+            {ctaLabel && ctaUrl ? (
+              <a
+                href={ctaUrl}
+                className="mt-2.5 sm:mt-6 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs sm:px-5 sm:py-3 sm:text-sm font-semibold text-slate-900 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg"
+              >
+                {ctaLabel}
+                <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
+              </a>
+            ) : null}
+          </div>
         </div>
       </div>
-      {showArrows && mediaItems.length > 1 ? (
+      {showArrows && multiSlide ? (
         <>
-          <button type="button" onClick={() => goTo(index - 1)} className="absolute left-4 top-1/2 z-20 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-slate-900 shadow-lg transition hover:bg-white" aria-label="Previous banner media">
-            {"<"}
+          <button type="button" onClick={() => goTo(index - 1)} className="absolute left-2 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow-lg transition hover:bg-white hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/50 md:inline-flex" aria-label="Previous banner">
+            <ChevronLeft className="h-5 w-5" />
           </button>
-          <button type="button" onClick={() => goTo(index + 1)} className="absolute right-4 top-1/2 z-20 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-slate-900 shadow-lg transition hover:bg-white" aria-label="Next banner media">
-            {">"}
+          <button type="button" onClick={() => goTo(index + 1)} className="absolute right-2 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow-lg transition hover:bg-white hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/50 md:inline-flex" aria-label="Next banner">
+            <ChevronRight className="h-5 w-5" />
           </button>
         </>
       ) : null}
-      {showDots && mediaItems.length > 1 ? (
-        <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2">
+      {showDots && multiSlide ? (
+        <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-2">
           {mediaItems.map((item, itemIndex) => (
             <button
               key={item.id || item.url || itemIndex}
               type="button"
               onClick={() => goTo(itemIndex)}
-              className={`h-2.5 rounded-full transition ${itemIndex === index ? "w-8 bg-white" : "w-2.5 bg-white/50 hover:bg-white/80"}`}
-              aria-label={`Show banner media ${itemIndex + 1}`}
+              className={`h-2 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/50 ${itemIndex === index ? "w-7 bg-white" : "w-2 bg-white/50 hover:bg-white/80"}`}
+              aria-label={`Show banner ${itemIndex + 1} of ${mediaItems.length}`}
             />
           ))}
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }
 
-function BannerCarouselContainer({ container }) {
+function BannerCarouselContainer({ container, renderContext }) {
   const config = container.config || {};
   const mediaItems = (Array.isArray(config.bannerMedia) ? config.bannerMedia : [])
     .filter((item) => {
@@ -869,39 +922,35 @@ function BannerCarouselContainer({ container }) {
       return Boolean(item?.ctaUrl && (images.desktop || images.mobile || videos.desktop || videos.mobile || item?.url));
     });
   const [index, setIndex] = useState(0);
+  const isPaused = useRef(false);
   const autoSlide = config.autoSlide !== false;
   const showArrows = config.showArrows !== false;
   const showDots = config.showDots !== false;
   const cardCount = mediaItems.length;
-
-  const [visibleCards, setVisibleCards] = useState(1);
+  const requestedPerView = renderContext?.device === "mobile"
+    ? Number(config.mobileCardCount || 1)
+    : Number(config.desktopCardCount || 1);
+  const perView = Math.min(cardCount || 1, Math.max(1, Math.min(requestedPerView, renderContext?.device === "mobile" ? 2 : 6)));
+  const gapRem = 0.75;
+  const maxIndex = Math.max(0, cardCount - perView);
+  const carouselVars = {
+    "--banner-carousel-card-width": `calc((100% - ${(perView - 1) * gapRem}rem) / ${perView})`,
+    "--banner-carousel-step": `calc(var(--banner-carousel-card-width) + ${gapRem}rem)`,
+  };
 
   useEffect(() => {
-    const handleResize = () => setVisibleCards(window.innerWidth >= 768 ? 3 : 1);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  const maxIndex = Math.max(0, cardCount - visibleCards);
-
-  useEffect(() => {
-    if (index > maxIndex) {
-      setIndex(maxIndex);
-    }
+    if (index > maxIndex) setIndex(maxIndex);
   }, [maxIndex, index]);
 
   useEffect(() => {
     if (!autoSlide || maxIndex <= 0) return undefined;
     const timer = window.setInterval(() => {
-      setIndex((current) => (current >= maxIndex ? 0 : current + 1));
+      if (!isPaused.current) {
+        setIndex((current) => (current >= maxIndex ? 0 : current + 1));
+      }
     }, Number(config.slideSpeed || 3500));
     return () => window.clearInterval(timer);
   }, [autoSlide, maxIndex, config.slideSpeed]);
-
-  if (!cardCount) {
-    return <EmptyState label="No banner carousel media available." />;
-  }
 
   function goTo(nextIndex) {
     if (!cardCount || maxIndex <= 0) return;
@@ -912,112 +961,136 @@ function BannerCarouselContainer({ container }) {
     setIndex(nextIndex > maxIndex ? 0 : nextIndex < 0 ? maxIndex : nextIndex);
   }
 
+  // Touch swipe
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
-
-  const handleTouchStart = (e) => {
+  function handleTouchStart(e) {
     touchStartX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = (e) => {
+  }
+  function handleTouchEnd(e) {
     touchEndX.current = e.changedTouches[0].clientX;
-    handleSwipe();
-  };
-
-  const handleSwipe = () => {
-    const swipeThreshold = 50;
-    const difference = touchStartX.current - touchEndX.current;
-    if (Math.abs(difference) > swipeThreshold) {
-      if (difference > 0) {
-        goTo(index + 1);
-      } else {
-        goTo(index - 1);
-      }
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > 50) {
+      goTo(index + (diff > 0 ? 1 : -1));
     }
-  };
+  }
+
+  // Keyboard navigation
+  function handleKeyDown(e) {
+    if (e.key === "ArrowLeft") { e.preventDefault(); goTo(index - 1); }
+    if (e.key === "ArrowRight") { e.preventDefault(); goTo(index + 1); }
+  }
+
+  if (!cardCount) {
+    return (
+      <div className="flex h-full w-full items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-400 dark:bg-slate-900">
+        No banner carousel media available.
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="relative h-[260px] w-full overflow-hidden bg-white px-3 py-3 dark:bg-slate-950 sm:h-[320px] sm:px-4 lg:h-[360px]"
+    <section
+      className="relative h-full w-full overflow-hidden bg-white dark:bg-slate-950"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label={container.title || "Banner carousel"}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      onMouseEnter={() => { isPaused.current = true; }}
+      onMouseLeave={() => { isPaused.current = false; }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <div
-        className="flex h-full gap-3 transition-transform duration-500 ease-out [--banner-carousel-card-width:100%] [--banner-carousel-step:calc(var(--banner-carousel-card-width)+0.75rem)] md:[--banner-carousel-card-width:calc((100%_-_1.5rem)/3)]"
-        style={{ transform: `translateX(calc(-${index} * var(--banner-carousel-step)))` }}
-      >
-        {mediaItems.map((item, itemIndex) => {
-          const images = resolveBannerImageSources(config, item);
-          const videos = resolveBannerVideoSources(config, item);
-          const videoUrl = videos.desktop || videos.mobile || item.url || "";
-          const imageUrl = images.desktop || images.mobile || item.url || "";
-          const isVideo = Boolean(videos.desktop || videos.mobile) || item.type === "video" || /\.(mp4|webm|mov)$/i.test(item.url || "");
-          const heading = item.heading || "";
-          const subheading = item.subheading || "";
-          const ctaLabel = item.ctaLabel || "";
+      {/* Full-width carousel respecting parent configured height */}
+      <div className="h-full w-full">
+        <div
+          className="flex h-full w-full gap-3 transition-transform duration-500 ease-out will-change-transform"
+          style={{ ...carouselVars, transform: `translateX(calc(-${index} * var(--banner-carousel-step)))` }}
+          aria-live="polite"
+        >
+          {mediaItems.map((item, itemIndex) => {
+            const images = resolveBannerImageSources(config, item);
+            const videos = resolveBannerVideoSources(config, item);
+            const videoUrl = videos.desktop || videos.mobile || item.url || "";
+            const imageUrl = images.desktop || images.mobile || item.url || "";
+            const isVideo = Boolean(videos.desktop || videos.mobile) || item.type === "video" || /\.(mp4|webm|mov)$/i.test(item.url || "");
+            const heading = item.heading || "";
+            const subheading = item.subheading || "";
+            const ctaLabel = item.ctaLabel || "";
 
-          return (
-            <a
-              key={item.id || item.url || itemIndex}
-              href={item.ctaUrl}
-              className="group relative h-full shrink-0 basis-[var(--banner-carousel-card-width)] overflow-hidden rounded-lg bg-slate-100 text-white shadow-sm transition hover:shadow-lg dark:bg-slate-900"
-            >
-              {isVideo ? (
-                <video autoPlay muted loop playsInline className="block h-full w-full object-cover">
-                  {videos.mobile ? <source media="(max-width: 767px)" src={resolveApiAssetUrl(videos.mobile)} /> : null}
-                  <source src={resolveApiAssetUrl(videoUrl)} />
-                </video>
-              ) : (
-                <picture className="block h-full w-full">
-                  {images.mobile ? <source media="(max-width: 767px)" srcSet={resolveApiAssetUrl(images.mobile)} /> : null}
-                  <img src={resolveApiAssetUrl(imageUrl)} alt={heading || `Banner ${itemIndex + 1}`} className="block h-full w-full object-cover" loading={itemIndex === 0 ? "eager" : "lazy"} />
-                </picture>
-              )}
-              {(heading || subheading || ctaLabel) ? (
-                <>
-                  <div className="absolute inset-0 bg-gradient-to-r from-slate-950/65 via-slate-950/20 to-transparent" style={{ opacity: Number(config.overlayOpacity ?? 0.35) + 0.45 }} />
-                  <div className="absolute inset-y-0 left-0 flex max-w-[78%] flex-col justify-center px-5 py-4 sm:px-6">
-                    {heading ? <h2 className="text-lg font-black leading-tight tracking-tight sm:text-2xl">{heading}</h2> : null}
-                    {subheading ? <p className="mt-1 line-clamp-2 text-xs font-medium text-white/85 sm:text-sm">{subheading}</p> : null}
-                    {ctaLabel ? (
-                      <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-950 transition group-hover:-translate-y-0.5">
-                        {ctaLabel}
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </span>
-                    ) : null}
-                  </div>
-                </>
-              ) : null}
-            </a>
-          );
-        })}
+            return (
+              <a
+                key={item.id || item.url || itemIndex}
+                href={item.ctaUrl}
+                className="group relative h-full shrink-0 basis-[var(--banner-carousel-card-width)] overflow-hidden bg-slate-100 text-white dark:bg-slate-900"
+                role="group"
+                aria-roledescription="slide"
+                aria-label={`Slide ${itemIndex + 1} of ${cardCount}`}
+              >
+                {isVideo ? (
+                  <video autoPlay muted loop playsInline className="absolute inset-0 block h-full w-full object-cover">
+                    {videos.mobile ? <source media="(max-width: 767px)" src={resolveApiAssetUrl(videos.mobile)} /> : null}
+                    <source src={resolveApiAssetUrl(videoUrl)} />
+                  </video>
+                ) : (
+                  <picture className="absolute inset-0 block h-full w-full">
+                    {images.mobile ? <source media="(max-width: 767px)" srcSet={resolveApiAssetUrl(images.mobile)} /> : null}
+                    <img
+                      src={resolveApiAssetUrl(imageUrl)}
+                      alt={heading || `Banner ${itemIndex + 1}`}
+                      className="block h-full w-full object-cover object-center"
+                      loading={itemIndex === 0 ? "eager" : "lazy"}
+                      decoding="async"
+                    />
+                  </picture>
+                )}
+                {(heading || subheading || ctaLabel) ? (
+                  <>
+                    <div className="absolute inset-0 bg-gradient-to-r from-slate-950/65 via-slate-950/20 to-transparent" style={{ opacity: Number(config.overlayOpacity ?? 0.35) + 0.45 }} />
+                    <div className="absolute inset-y-0 left-0 flex max-w-[78%] flex-col justify-center px-5 py-4 sm:px-8 lg:px-10">
+                      {heading ? <h2 className="text-lg font-black leading-tight tracking-tight sm:text-2xl lg:text-3xl">{heading}</h2> : null}
+                      {subheading ? <p className="mt-1 line-clamp-2 text-xs font-medium text-white/85 sm:text-sm">{subheading}</p> : null}
+                      {ctaLabel ? (
+                        <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-950 shadow-md transition group-hover:-translate-y-0.5 group-hover:shadow-lg sm:px-4 sm:py-2 sm:text-sm">
+                          {ctaLabel}
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </span>
+                      ) : null}
+                    </div>
+                  </>
+                ) : null}
+              </a>
+            );
+          })}
+        </div>
       </div>
 
       {showArrows && maxIndex > 0 ? (
         <>
-          <button type="button" onClick={() => goTo(index - 1)} className="absolute left-4 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-lg transition hover:bg-white lg:inline-flex" aria-label="Previous banner">
-            {"<"}
+          <button type="button" onClick={() => goTo(index - 1)} className="absolute left-2 sm:left-4 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow-lg transition hover:bg-white hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/50 md:inline-flex" aria-label="Previous banner">
+            <ChevronLeft className="h-5 w-5" />
           </button>
-          <button type="button" onClick={() => goTo(index + 1)} className="absolute right-4 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-lg transition hover:bg-white lg:inline-flex" aria-label="Next banner">
-            {">"}
+          <button type="button" onClick={() => goTo(index + 1)} className="absolute right-2 sm:right-4 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow-lg transition hover:bg-white hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/50 md:inline-flex" aria-label="Next banner">
+            <ChevronRight className="h-5 w-5" />
           </button>
         </>
       ) : null}
 
       {showDots && maxIndex > 0 ? (
-        <div className="absolute bottom-0 sm:bottom-1.5 left-1/2 z-20 flex -translate-x-1/2 gap-1.5">
+        <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-1.5">
           {Array.from({ length: maxIndex + 1 }).map((_, itemIndex) => (
             <button
               key={itemIndex}
               type="button"
               onClick={() => goTo(itemIndex)}
-              className={`h-1.5 rounded-full transition ${itemIndex === index ? "w-5 bg-slate-900/70 dark:bg-white" : "w-1.5 bg-slate-900/20 hover:bg-slate-900/45 dark:bg-white/50"}`}
-              aria-label={`Show banner page ${itemIndex + 1}`}
+              className={`h-2 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/50 ${itemIndex === index ? "w-6 bg-white shadow-sm" : "w-2 bg-white/40 hover:bg-white/70"}`}
+              aria-label={`Show banner ${itemIndex + 1} of ${maxIndex + 1}`}
             />
           ))}
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -1293,42 +1366,57 @@ function FeaturedProductTile({ product, config = {}, hero = false }) {
 }
 
 function SliderContainer({ container }) {
-  const slides = Array.isArray(container?.config?.slides) && container.config.slides.length
-    ? container.config.slides
+  const config = container?.config || {};
+  const slides = Array.isArray(config.slides) && config.slides.length
+    ? config.slides
     : [
       {
-        image: container?.config?.bannerImage || "",
-        heading: container?.config?.heading || container.title,
-        subheading: container?.config?.subheading || container.description,
-        ctaLabel: container?.config?.ctaButton || "Shop now",
-        ctaUrl: container?.config?.ctaUrl || (container.slug ? `/collections/${container.slug}` : "/shop"),
+        image: config.bannerImage || "",
+        heading: config.heading || container.title,
+        subheading: config.subheading || container.description,
+        ctaLabel: config.ctaButton || "Shop now",
+        ctaUrl: config.ctaUrl || (container.slug ? `/collections/${container.slug}` : "/shop"),
       },
     ];
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (!container?.config?.autoplay || slides.length <= 1) return undefined;
+    if (!config.autoplay || slides.length <= 1) return undefined;
     const timer = window.setInterval(() => {
       setIndex((current) => (current + 1) % slides.length);
-    }, 3500);
+    }, Number(config.slideSpeed || 3500));
     return () => window.clearInterval(timer);
-  }, [container?.config?.autoplay, slides.length]);
+  }, [config.autoplay, config.slideSpeed, slides.length]);
 
   const currentSlide = slides[index] || slides[0];
-  const imageUrl = resolveApiAssetUrl(currentSlide?.image || "");
+  const slideImages = resolveBannerImageSources(config, { type: "image", url: currentSlide?.image || "", desktopImage: currentSlide?.desktopImage, mobileImage: currentSlide?.mobileImage });
+  const imageUrl = resolveApiAssetUrl(slideImages.desktop || currentSlide?.image || "");
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
-      {imageUrl ? <img src={imageUrl} alt={currentSlide?.heading || container.title} className="block h-full w-full object-cover" /> : null}
-      {imageUrl ? <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-950/35 to-transparent" /> : null}
-      <div className={`relative z-10 ${imageUrl ? "absolute inset-0" : ""} flex items-end p-4 sm:p-8 lg:p-10`}>
-        <div className="max-w-xl">
-          <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.28em] text-white/70">Curated story</p>
-          <h2 className="mt-1 sm:mt-3 text-lg sm:text-3xl font-bold tracking-tight text-white md:text-4xl">{currentSlide?.heading || container.title}</h2>
-          {currentSlide?.subheading ? <p className="mt-1 sm:mt-4 text-xs sm:text-sm md:text-base leading-snug sm:leading-7 text-white/85 line-clamp-2 sm:line-clamp-none">{currentSlide.subheading}</p> : null}
+    <section className="relative h-full w-full overflow-hidden bg-slate-900" aria-label={currentSlide?.heading || container.title || "Slider"}>
+      <div className="h-full w-full">
+        {imageUrl ? (
+          <picture className="block h-full w-full">
+            {slideImages.mobile ? <source media="(max-width: 767px)" srcSet={resolveApiAssetUrl(slideImages.mobile)} /> : null}
+            <img src={imageUrl} alt={currentSlide?.heading || container.title || "Slider"} className="block h-full w-full object-cover object-center" loading="eager" decoding="async" />
+          </picture>
+        ) : null}
+        {imageUrl ? <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-950/35 to-transparent" /> : null}
+        <div className="absolute inset-0 z-10 flex items-end p-4 sm:p-8 lg:p-10">
+          <div className="max-w-xl">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.28em] text-white/70">Curated story</p>
+            <h2 className="mt-1 sm:mt-3 text-lg sm:text-3xl font-bold tracking-tight text-white md:text-4xl">{currentSlide?.heading || container.title}</h2>
+            {currentSlide?.subheading ? <p className="mt-1 sm:mt-4 text-xs sm:text-sm md:text-base leading-snug sm:leading-7 text-white/85 line-clamp-2 sm:line-clamp-none">{currentSlide.subheading}</p> : null}
+            {currentSlide?.ctaLabel && currentSlide?.ctaUrl ? (
+              <a href={currentSlide.ctaUrl} className="mt-3 sm:mt-6 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs sm:px-5 sm:py-3 sm:text-sm font-semibold text-slate-900 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg">
+                {currentSlide.ctaLabel}
+                <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
+              </a>
+            ) : null}
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 

@@ -634,6 +634,8 @@ const REGISTRY = {
     supportsProductFilters: false,
     fields: [
       field("bannerMedia", { label: "Banner Carousel Media" }),
+      field("desktopCardCount", { label: "Desktop Banners Per Row", min: 1, max: 6, defaultValue: 1 }),
+      field("mobileCardCount", { label: "Mobile Banners Per Row", min: 1, max: 2, defaultValue: 1 }),
       field("autoSlide"),
       field("slideSpeed"),
       field("showArrows"),

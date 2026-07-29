@@ -113,121 +113,125 @@ export function LoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
-      <BrandLogo showName={false} className="mb-5 text-slate-950" imgClassName="h-12 w-auto object-contain" />
-      <h1 className="text-2xl font-semibold tracking-tight">Login</h1>
-      <p className="mt-2 text-slate-600">
-        {branding?.tagline || "Users can login with phone; vendors, admin, and staff can use email."}
-      </p>
-
-      <form
-        onSubmit={onSubmit}
-        className="mt-6 rounded-2xl border bg-white p-6 shadow-sm"
-      >
-        <label className="block text-sm font-medium">
-          Email or phone
-          <div className="relative">
-            <input
-              className={`mt-1 w-full rounded-lg border px-3 py-2 ${
-                fieldErrors.identifier
-                  ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
-                  : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              }`}
-              value={identifier}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setIdentifier(value);
-                setFieldErrors((current) => ({ ...current, identifier: "" }));
-              }}
-              onBlur={(e) => {
-                const value = e.target.value.trim();
-                if (value) {
-                  const nextErrors = validateAuthForm({ identifier: value });
-                  if (nextErrors.identifier) {
-                    setFieldErrors((current) => ({ ...current, identifier: nextErrors.identifier }));
-                  }
-                }
-              }}
-              type="text"
-              autoComplete="username"
-              placeholder="10-digit phone or Gmail"
-              required
-            />
-          </div>
-          {fieldErrors.identifier && (
-            <div className="mt-1.5 text-xs text-rose-600 flex items-start gap-1">
-              <svg className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <span>{fieldErrors.identifier}</span>
-            </div>
-          )}
-          <div className="mt-1 text-xs text-slate-500">
-            💡 Use 10-digit phone (1234567890) or Gmail (@gmail.com)
-          </div>
-        </label>
-
-        <label className="mt-4 block text-sm font-medium">
-          Password
-          <PasswordField
-            className={`mt-1 w-full rounded-lg border px-3 py-2 ${
-              fieldErrors.password
-                ? "border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-300"
-                : "border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            }`}
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setFieldErrors((current) => ({ ...current, password: "" }));
-            }}
-            autoComplete="current-password"
-            placeholder="Enter your password"
-            required
-          />
-          {fieldErrors.password && (
-            <div className="mt-1.5 text-xs text-rose-600 flex items-start gap-1">
-              <svg className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <span>{fieldErrors.password}</span>
-            </div>
-          )}
-          <div className="mt-1 text-xs text-slate-500">
-            💡 Minimum 6 characters
-          </div>
-        </label>
-
-        <div className="mt-4 flex gap-3 text-xs">
-          <Link to="/forgot-password" className="text-indigo-600 hover:text-indigo-700 font-medium">
-            Forgot password?
-          </Link>
-          <span className="text-slate-300">•</span>
-          <Link to="/forgot-username" className="text-indigo-600 hover:text-indigo-700 font-medium">
-            Forgot email/phone?
-          </Link>
+    <div className="flex min-h-[calc(100vh-16rem)] flex-col items-center justify-center px-4 py-12 sm:px-6 lg:px-8 bg-slate-50/50">
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex flex-col items-center text-center">
+          <BrandLogo showName={false} className="text-slate-950" imgClassName="h-14 w-auto object-contain drop-shadow-sm" />
+          <h1 className="mt-6 text-3xl font-bold tracking-tight text-slate-900">Welcome Back</h1>
+          <p className="mt-3 text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
+            {branding?.tagline || "Users can login with phone; vendors, admin, and staff can use email."}
+          </p>
         </div>
 
-        {error ? (
-          <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-            {error}
-          </div>
-        ) : null}
-
-        <button
-          disabled={loading}
-          className="mt-5 w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-          type="submit"
+        <form
+          onSubmit={onSubmit}
+          className="rounded-[2rem] border border-slate-100 bg-white p-8 shadow-xl shadow-slate-200/40 sm:p-10"
         >
-          {loading ? "Signing in..." : "Sign in"}
-        </button>
+          <div className="space-y-5">
+            <label className="block text-sm font-medium text-slate-700">
+              Email or phone
+              <div className="relative mt-1.5">
+                <input
+                  className={`w-full rounded-xl border px-4 py-3 text-sm transition-colors ${
+                    fieldErrors.identifier
+                      ? "border-rose-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+                      : "border-slate-200 bg-slate-50/50 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 hover:border-slate-300"
+                  }`}
+                  value={identifier}
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    setIdentifier(value);
+                    setFieldErrors((current) => ({ ...current, identifier: "" }));
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value) {
+                      const nextErrors = validateAuthForm({ identifier: value });
+                      if (nextErrors.identifier) {
+                        setFieldErrors((current) => ({ ...current, identifier: nextErrors.identifier }));
+                      }
+                    }
+                  }}
+                  type="text"
+                  autoComplete="username"
+                  placeholder="10-digit phone or Gmail"
+                  required
+                />
+              </div>
+              {fieldErrors.identifier && (
+                <div className="mt-2 flex items-start gap-1 text-xs font-medium text-rose-600">
+                  <svg className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <span>{fieldErrors.identifier}</span>
+                </div>
+              )}
+              <div className="mt-2 text-[11px] font-medium text-slate-400">
+                Use 10-digit phone (1234567890) or Gmail (@gmail.com)
+              </div>
+            </label>
 
-        <div className="mt-4 text-center text-sm text-slate-600">
-          No account?{" "}
-          <Link className="text-indigo-600 hover:underline" to="/role" state={location.state}>
-            Register
-          </Link>
-        </div>
-      </form>
+            <label className="block text-sm font-medium text-slate-700">
+              Password
+              <div className="relative mt-1.5">
+                <PasswordField
+                  className={`w-full rounded-xl border px-4 py-3 text-sm transition-colors ${
+                    fieldErrors.password
+                      ? "border-rose-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+                      : "border-slate-200 bg-slate-50/50 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 hover:border-slate-300"
+                  }`}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFieldErrors((current) => ({ ...current, password: "" }));
+                  }}
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  required
+                />
+              </div>
+              {fieldErrors.password && (
+                <div className="mt-2 flex items-start gap-1 text-xs font-medium text-rose-600">
+                  <svg className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <span>{fieldErrors.password}</span>
+                </div>
+              )}
+            </label>
+          </div>
+
+          <div className="mt-5 flex items-center justify-between text-xs font-medium">
+            <Link to="/forgot-password" className="text-indigo-600 transition-colors hover:text-indigo-700">
+              Forgot password?
+            </Link>
+            <Link to="/forgot-username" className="text-indigo-600 transition-colors hover:text-indigo-700">
+              Forgot email/phone?
+            </Link>
+          </div>
+
+          {error ? (
+            <div className="mt-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
+              {error}
+            </div>
+          ) : null}
+
+          <button
+            disabled={loading}
+            className="mt-8 w-full rounded-xl bg-slate-900 px-4 py-3.5 text-sm font-bold text-white shadow-md shadow-slate-900/10 transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-900/20 disabled:opacity-50"
+            type="submit"
+          >
+            {loading ? "Signing in..." : "Sign in"}
+          </button>
+
+          <div className="mt-8 text-center text-sm font-medium text-slate-500">
+            No account?{" "}
+            <Link className="text-indigo-600 transition-colors hover:text-indigo-700 hover:underline" to="/role" state={location.state}>
+              Register now
+            </Link>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

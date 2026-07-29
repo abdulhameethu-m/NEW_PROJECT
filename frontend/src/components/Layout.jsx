@@ -572,7 +572,7 @@ export function Layout() {
         </>
       ) : null}
 
-      {!hideShopChrome && !(isMobile && location.pathname.startsWith("/influencers/reels")) ? (
+      {!hideShopChrome && !(isMobile && isPublicInfluencerPage) ? (
         <CategoryNavigation 
           categories={presentedCategories}
           isMinimized={isMobileHeaderMinimized}

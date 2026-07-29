@@ -8,6 +8,7 @@ import {
   Heart,
   Home,
   MessageCircle,
+  Menu,
   MoreHorizontal,
   Share2,
   Search,
@@ -393,7 +394,7 @@ export function InfluencersHubPage() {
       </aside>
 
       <main className="min-w-0">
-        {! (section === "reels" && isMobile) && <MobileHubNav section={section} navigate={navigate} />}
+        {/* Mobile hub nav is now at the bottom */}
         {section === "reels" ? (
           <div
             onTouchStart={(e) => {
@@ -446,18 +447,7 @@ export function InfluencersHubPage() {
             onVisitStore={visitStore}
             onProductOpen={openProduct}
             />
-            {debugOverlay ? (
-              <div style={{ position: "fixed", left: 8, bottom: 72, zIndex: 9999 }}>
-                <div className="rounded-lg bg-white/95 p-2 text-xs text-slate-900 shadow-lg">
-                  <div className="font-mono">API: {apiBase}</div>
-                  <div>creators: {creators.length}</div>
-                  <div>reels: {reels.length}</div>
-                  <div>products: {products.length}</div>
-                  <div>loading: {loading ? "yes" : "no"}</div>
-                  <button onClick={() => setDebugOverlay(false)} className="mt-1 w-full rounded-md bg-slate-200 px-2 py-1 text-[11px]">Hide</button>
-                </div>
-              </div>
-            ) : null}
+
           </>
         )}
       </main>
@@ -474,7 +464,7 @@ export function InfluencersHubPage() {
           </div>
         </aside>
       ) : null}
-      {! (section === "reels" && isMobile) && <MobileInfluencerBottomNav />}
+      {! (section === "reels" && isMobile) && <MobileInfluencerBottomNav section={section} navigate={navigate} />}
       {loginPrompt ? <LoginPromptModal onClose={() => setLoginPrompt(false)} /> : null}
       {commentReel ? (
         <HomeCommentsModal
@@ -669,7 +659,7 @@ function HubContent({ section, loading, query, setQuery, creators, reels, produc
 
 function FeedShell({ title, subtitle, children }) {
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       <div className="hidden rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:block">
         <h1 className="text-2xl font-black text-slate-950 dark:text-white">{title}</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-300">{subtitle}</p>
@@ -1068,41 +1058,86 @@ function HubFeedSkeleton() {
   );
 }
 
-function MobileInfluencerBottomNav() {
-  const { pathname } = useLocation();
-  const isActive = (href) => href === "/" ? pathname === "/" : pathname.startsWith(href);
-  const items = [
-    { label: "Home", icon: Home, href: "/" },
-    { label: "Shop", icon: Search, href: "/shop" },
-    { label: "Creators", icon: Users, href: "/influencers" },
-    { label: "Wishlist", icon: Heart, href: "/wishlist" },
-    { label: "Account", icon: UserRound, href: "/profile" },
+function MobileInfluencerBottomNav({ section, navigate }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, []);
+
+  const mainItems = [
+    { label: "Home", icon: Home, onClick: () => navigate("/influencers"), isActive: !section || section === "home" },
+    { label: "Reels", icon: Video, onClick: () => navigate("/influencers/reels"), isActive: section === "reels" },
+    { label: "View Products", icon: Store, onClick: () => navigate("/") },
+    { label: "Search", icon: Search, onClick: () => navigate("/influencers/search"), isActive: section === "search" },
   ];
+
+  const menuItems = [
+    { key: "explore", label: "Explore", icon: Compass },
+    { key: "saved", label: "Saved", icon: Bookmark },
+    { key: "following", label: "Following", icon: Users },
+    { key: "trending", label: "Trending", icon: TrendingUp },
+  ];
+
   return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-slate-200/80 bg-white/95 backdrop-blur-md lg:hidden dark:border-slate-800 dark:bg-slate-950/95"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      aria-label="Bottom navigation"
-    >
-      {items.map(({ label, icon, href }) => {
-        const active = isActive(href);
-        return (
-          <Link
-            key={href}
-            to={href}
+    <div ref={menuRef} className="fixed inset-x-0 bottom-0 z-40 lg:hidden">
+      {isMenuOpen && (
+        <div className="absolute bottom-full right-4 mb-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          {menuItems.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => {
+                navigate(`/influencers/${key}`);
+                setIsMenuOpen(false);
+              }}
+              className={`flex w-full items-center gap-3 border-b border-slate-100 px-4 py-3 text-sm font-semibold transition-colors last:border-0 dark:border-slate-800/60 ${
+                section === key ? "bg-slate-50 text-slate-950 dark:bg-slate-800 dark:text-white" : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+              }`}
+            >
+              <Icon className="h-4.5 w-4.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      <nav
+        className="flex items-stretch border-t border-slate-200/80 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        aria-label="Bottom navigation"
+      >
+        {mainItems.map(({ label, icon: Icon, onClick, isActive }) => (
+          <button
+            key={label}
+            onClick={onClick}
             className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors ${
-              active ? "text-slate-950 dark:text-white" : "text-slate-400 dark:text-slate-500"
+              isActive ? "text-slate-950 dark:text-white" : "text-slate-400 dark:text-slate-500"
             }`}
-            aria-label={label}
           >
-            {createElement(icon, {
-              className: "h-[22px] w-[22px]",
-              strokeWidth: active ? 2.25 : 1.5,
-            })}
-            {label}
-          </Link>
-        );
-      })}
-    </nav>
+            <Icon className="h-[22px] w-[22px]" strokeWidth={isActive ? 2.25 : 1.5} />
+            <span className="truncate w-full text-center px-1">{label}</span>
+          </button>
+        ))}
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors ${
+            isMenuOpen ? "text-slate-950 dark:text-white" : "text-slate-400 dark:text-slate-500"
+          }`}
+        >
+          <Menu className="h-[22px] w-[22px]" strokeWidth={isMenuOpen ? 2.25 : 1.5} />
+          <span className="truncate w-full text-center px-1">Menu</span>
+        </button>
+      </nav>
+    </div>
   );
 }
