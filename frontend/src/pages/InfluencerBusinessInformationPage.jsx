@@ -46,14 +46,14 @@ function WizardProgress() {
           <div className="text-xs font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Step 4 of 6</div>
           <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">66% complete</div>
         </div>
-        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-200">Business Information</span>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-200">Tax Details</span>
       </div>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
         <div className="h-full w-2/3 rounded-full bg-blue-600" />
       </div>
       <ol className="mt-5 grid gap-2" aria-label="Influencer registration progress">
         {influencerWizardSteps.map((step, index) => {
-          const label = index === 1 ? "Social Verification" : index === 2 ? "Profile Information" : index === 3 ? "Business Information" : index === 4 ? "Payment Details" : step;
+          const label = step;
           const completed = index < 3;
           const current = index === 3;
           return (
@@ -125,7 +125,20 @@ export function InfluencerBusinessInformationPage() {
     const stepThree = loadInfluencerProfileDraft();
     const local = loadInfluencerBusinessDraft();
     const applicationId = location.state?.applicationId || local?.values?.applicationId || stepThree?.values?.applicationId || stepTwo?.values?.applicationId || stepOne?.values?.applicationId || "";
-    setForm((current) => ({ ...current, ...(local?.values || {}), applicationId }));
+    const accountValues = stepOne?.values || {};
+    const profileValues = stepThree?.values || {};
+    const localValues = local?.values || {};
+    const legalName = [accountValues.firstName, accountValues.lastName].filter(Boolean).join(" ").trim();
+    setForm((current) => ({
+      ...current,
+      ...localValues,
+      legalName: localValues.legalName || current.legalName || legalName,
+      businessName: localValues.businessName || current.businessName || profileValues.storeName || profileValues.displayName || legalName,
+      country: localValues.country || current.country || profileValues.country || "IN",
+      state: localValues.state || current.state || profileValues.state || "",
+      city: localValues.city || current.city || profileValues.city || "",
+      applicationId,
+    }));
     setLastSavedAt(local?.savedAt || "");
   }, [location.state?.applicationId]);
 
@@ -193,15 +206,15 @@ export function InfluencerBusinessInformationPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 dark:bg-slate-950 dark:text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <button type="button" onClick={() => navigate("/influencer/register/profile-information", { state: { applicationId: form.applicationId } })} className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">
-          <ArrowLeft className="h-4 w-4" /> Back to Profile Information
+          <ArrowLeft className="h-4 w-4" /> Back to Creator Profile
         </button>
         <div className="mt-6 grid gap-8 lg:grid-cols-[340px_1fr]">
           <WizardProgress />
           <section className="space-y-6">
             <header>
               <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-600 dark:text-blue-300">Influencer Registration</p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Business Information</h1>
-              <p className="mt-3 max-w-2xl text-base text-slate-600 dark:text-slate-300">Provide your business and tax information for payouts and compliance purposes.</p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Tax Details</h1>
+              <p className="mt-3 max-w-2xl text-base text-slate-600 dark:text-slate-300">Confirm the legal and tax details needed for payouts. We reuse your account and creator profile wherever possible.</p>
             </header>
 
             <div className="grid gap-6 xl:grid-cols-2">

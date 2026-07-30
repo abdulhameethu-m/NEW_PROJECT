@@ -46,14 +46,13 @@ function verifyAccessToken(token) {
 function verifyRefreshToken(token) {
   return jwt.verify(token, getRequiredSecret("JWT_REFRESH_SECRET"));
 }
-function signStaffAccessToken({ staff, sessionId, roleId, permissions }) {
+function signStaffAccessToken({ staff, sessionId, roleId }) {
   const payload = {
     sub: String(staff._id),
     sid: String(sessionId),
     type: "staff",
     role: "staff",
     roleId: roleId ? String(roleId) : null,
-    permissions,
     email: staff.email,
   };
   const expiresIn = process.env.STAFF_JWT_ACCESS_EXPIRES_IN || "15m";
@@ -61,14 +60,13 @@ function signStaffAccessToken({ staff, sessionId, roleId, permissions }) {
     expiresIn,
   });
 }
-function signStaffRefreshToken({ staff, sessionId, roleId, permissions }) {
+function signStaffRefreshToken({ staff, sessionId, roleId }) {
   const payload = {
     sub: String(staff._id),
     sid: String(sessionId),
     type: "staff_refresh",
     role: "staff",
     roleId: roleId ? String(roleId) : null,
-    permissions,
   };
   const expiresIn = process.env.STAFF_JWT_REFRESH_EXPIRES_IN || "30d";
   return jwt.sign(payload, getRequiredSecret("STAFF_JWT_REFRESH_SECRET", "JWT_REFRESH_SECRET"), {
@@ -90,4 +88,4 @@ module.exports = {
   signStaffRefreshToken,
   verifyStaffAccessToken,
   verifyStaffRefreshToken,
-};
+};

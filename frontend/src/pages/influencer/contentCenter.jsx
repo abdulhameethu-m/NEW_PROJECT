@@ -1,6 +1,6 @@
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, Download, FileVideo, RefreshCw, Search, Trash2, Upload, Video, X } from "lucide-react";
+import { BarChart3, Download, FileVideo, Pencil, RefreshCw, Search, Trash2, Upload, Video, X } from "lucide-react";
 import { confirmAction } from "../../services/notificationService";
 import {
   checkAndCompleteCampaign,
@@ -134,7 +134,7 @@ function ScheduledCountdown({ remainingMs }) {
   );
 }
 
-function ContentCard({ item, onAction, busy = false }) {
+function ContentCard({ item, onAction, onEdit, busy = false }) {
   const metrics = item.metrics || {};
   const status = item.visibility || item.state || "draft";
   const normalizedStatus = String(status || "").toLowerCase();
@@ -191,12 +191,16 @@ function ContentCard({ item, onAction, busy = false }) {
         <Metric label="Clicks" value={metrics.clicks || 0} />
         <Metric label="Revenue" value={formatCurrency(metrics.revenue || 0)} />
       </div>
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 grid grid-cols-[1fr_1fr_auto_auto] gap-2">
         <button disabled={busy || normalizedStatus === "published" || publishLocked} onClick={() => onAction(item, "publish")} className="flex-1 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600">
           {busy && isScheduled && remainingMs <= 0 ? "Publishing..." : publishLocked ? "Scheduled" : "Publish"}
         </button>
         <button disabled={busy || normalizedStatus === "archived"} onClick={() => onAction(item, "archive")} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-white">
           Archive
+        </button>
+        <button disabled={busy} onClick={() => onEdit(item)} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200" aria-label="Edit content title and description">
+          <Pencil className="h-3.5 w-3.5" />
+          Edit
         </button>
         <button disabled={busy} onClick={() => onAction(item, "delete")} className="inline-flex items-center gap-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900/60 dark:text-rose-300" aria-label="Delete content">
           <Trash2 className="h-3.5 w-3.5" />
@@ -204,6 +208,70 @@ function ContentCard({ item, onAction, busy = false }) {
         </button>
       </div>
     </article>
+  );
+}
+
+function EditContentModal({ item, busy = false, onClose, onSave }) {
+  const [draft, setDraft] = useState(() => ({
+    title: item?.title || item?.caption || "",
+    description: item?.description || "",
+  }));
+
+  if (!item) return null;
+
+  function submit(event) {
+    event.preventDefault();
+    onSave(item, {
+      title: draft.title,
+      description: draft.description,
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
+      <form onSubmit={submit} className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-500">Edit Scheduled Content</p>
+            <h2 className="mt-1 text-lg font-bold text-slate-950 dark:text-white">Title and description</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Publishing time stays the same.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800" aria-label="Close edit content">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid gap-4 px-5 py-5">
+          <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Title
+            <input
+              value={draft.title}
+              onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+              maxLength={160}
+              className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+            />
+          </label>
+          <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Description
+            <textarea
+              value={draft.description}
+              onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
+              maxLength={2000}
+              className="mt-2 min-h-32 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+            />
+          </label>
+          <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm dark:bg-slate-950/60">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Scheduled publish time</p>
+            <p className="mt-1 font-semibold text-slate-950 dark:text-white">{formatDate(item.scheduledAt)}</p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4 dark:border-slate-800">
+          <button type="button" onClick={onClose} className="h-10 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">Cancel</button>
+          <button type="submit" disabled={busy} className="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-slate-950">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -632,6 +700,7 @@ export default function InfluencerContentCenterPage() {
   const [statisticsData, setStatisticsData] = useState(null);
   const [statisticsLoading, setStatisticsLoading] = useState(false);
   const [statisticsError, setStatisticsError] = useState("");
+  const [editingItem, setEditingItem] = useState(null);
   const normalizedFormContentType = normalizeUploadContentType(form.contentType);
   const isPostContent = normalizedFormContentType === "POST";
   const hasPublishableMedia = isPostContent
@@ -787,6 +856,26 @@ export default function InfluencerContentCenterPage() {
     }
   }
 
+  async function handleSaveEdit(item, payload) {
+    const id = item?._id || item?.id;
+    if (!id) return;
+    setBusyId(String(id));
+    setNotice("");
+    try {
+      await updateInfluencerContent(id, {
+        title: payload.title,
+        description: payload.description,
+      });
+      setNotice("Content title and description updated. Publishing time is unchanged.");
+      setEditingItem(null);
+      await load();
+    } catch (error) {
+      setNotice(error?.response?.data?.message || "Content could not be updated.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   async function openStatistics(asset, options = {}) {
     const id = asset?.id || asset?._id;
     if (!id) return;
@@ -813,6 +902,12 @@ export default function InfluencerContentCenterPage() {
 
   return (
     <div className="mx-auto flex max-w-[1500px] flex-col gap-5">
+      <EditContentModal
+        item={editingItem}
+        busy={Boolean(editingItem && busyId === String(editingItem._id || editingItem.id || ""))}
+        onClose={() => setEditingItem(null)}
+        onSave={handleSaveEdit}
+      />
       {notice ? <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold dark:border-slate-800 dark:bg-slate-900 dark:text-white">{notice}</div> : null}
 
       {tab === "upload" ? (
@@ -881,7 +976,7 @@ export default function InfluencerContentCenterPage() {
               <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Uploaded Content</h3>
             </div>
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {loading ? <EmptyState label="Loading uploaded content..." /> : items.length ? items.map((item) => <ContentCard key={item._id} item={item} onAction={handleAction} busy={busyId === String(item._id)} />) : <EmptyState label="No uploaded content yet." />}
+              {loading ? <EmptyState label="Loading uploaded content..." /> : items.length ? items.map((item) => <ContentCard key={item._id} item={item} onAction={handleAction} onEdit={setEditingItem} busy={busyId === String(item._id)} />) : <EmptyState label="No uploaded content yet." />}
             </section>
           </div>
         </Card>
@@ -897,7 +992,7 @@ export default function InfluencerContentCenterPage() {
             <input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search scheduled videos" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
           </Card>
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {loading ? <EmptyState label="Loading scheduled content..." /> : items.length ? items.map((item) => <ContentCard key={item._id} item={item} onAction={handleAction} busy={busyId === String(item._id)} />) : <EmptyState label="No scheduled content found." />}
+            {loading ? <EmptyState label="Loading scheduled content..." /> : items.length ? items.map((item) => <ContentCard key={item._id} item={item} onAction={handleAction} onEdit={setEditingItem} busy={busyId === String(item._id)} />) : <EmptyState label="No scheduled content found." />}
           </section>
         </>
       )}

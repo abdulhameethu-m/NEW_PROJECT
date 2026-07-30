@@ -1,4 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  BarChart3,
+  ChevronDown,
+  Link as LinkIcon,
+  Megaphone,
+  Settings,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { confirmAction } from "../services/notificationService";
 import {
   createStaffRole,
@@ -14,12 +23,14 @@ function normalizeError(err) {
 
 export function AdminRolesPage() {
   const [catalog, setCatalog] = useState({});
+  const [catalogLayout, setCatalogLayout] = useState({});
   const [emptyPermissions, setEmptyPermissions] = useState({});
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState("");
+  const [expandedPermissionGroups, setExpandedPermissionGroups] = useState({});
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -38,6 +49,7 @@ export function AdminRolesPage() {
         ]);
         if (!alive) return;
         setCatalog(catalogResponse.data.catalog || {});
+        setCatalogLayout(catalogResponse.data.layout || {});
         setEmptyPermissions(catalogResponse.data.emptyPermissions || {});
         setRoles(rolesResponse.data || []);
         setForm((current) => ({
@@ -93,6 +105,150 @@ export function AdminRolesPage() {
         ])
       ),
     }));
+  }
+
+  function togglePermissionGroup(moduleName, groupLabel) {
+    const key = `${moduleName}:${groupLabel}`;
+    setExpandedPermissionGroups((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  }
+
+  function actionKey(itemKey, action) {
+    if (action === "view") return `${itemKey}Read`;
+    return `${itemKey}${action[0].toUpperCase()}${action.slice(1)}`;
+  }
+
+  function actionLabel(action) {
+    return action === "view" ? "view" : action;
+  }
+
+  function itemPermissionActions(moduleName, group, item) {
+    const isViewOnlyItem =
+      moduleName === "influencerCommerce" &&
+      (
+        (group?.label === "People" && ["influencers", "vendors", "influencerVendorMatching"].includes(item?.key)) ||
+        (group?.label === "Configuration" && item?.key === "settings")
+      );
+
+    if (isViewOnlyItem) return ["view"];
+    return item.actions || ["create", "read", "update", "delete"];
+  }
+
+  function layoutPermissionActions(moduleName, layout) {
+    return (layout.groups || []).flatMap((group) =>
+      (group.items || []).flatMap((item) =>
+        itemPermissionActions(moduleName, group, item).map((action) =>
+          actionKey(item.key, action)
+        )
+      )
+    );
+  }
+
+  function toggleLayoutModule(moduleName, layout, checked) {
+    const visibleActions = layoutPermissionActions(moduleName, layout);
+    setForm((current) => ({
+      ...current,
+      permissions: {
+        ...current.permissions,
+        [moduleName]: {
+          ...(current.permissions[moduleName] || {}),
+          ...Object.fromEntries(visibleActions.map((action) => [action, checked])),
+        },
+      },
+    }));
+  }
+
+  function permissionGroupIcon(label) {
+    const icons = {
+      Overview: BarChart3,
+      People: Users,
+      Campaigns: Megaphone,
+      "Affiliate & Products": LinkIcon,
+      Finance: Wallet,
+      Configuration: Settings,
+    };
+    return icons[label] || BarChart3;
+  }
+
+  function renderInfluencerCommerceModule(moduleName, layout) {
+    const visibleActions = layoutPermissionActions(moduleName, layout);
+    const enabledCount = visibleActions.filter((action) => form.permissions?.[moduleName]?.[action]).length;
+
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-base font-semibold text-slate-950 dark:text-white">{layout.label || moduleName}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">{enabledCount} permissions enabled</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => toggleLayoutModule(moduleName, layout, enabledCount !== visibleActions.length)}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-medium uppercase tracking-wide dark:border-slate-700 dark:bg-slate-950"
+          >
+            {enabledCount === visibleActions.length ? "Clear Module" : "Select Module"}
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-1">
+          {layout.groups.map((group) => {
+            const expanded = Boolean(expandedPermissionGroups[`${moduleName}:${group.label}`]);
+            const Icon = permissionGroupIcon(group.label);
+
+            return (
+              <div key={group.label}>
+                <button
+                  type="button"
+                  onClick={() => togglePermissionGroup(moduleName, group.label)}
+                  className="flex w-full items-center justify-between rounded-xl px-2 py-3 text-left transition hover:bg-white dark:hover:bg-slate-800"
+                >
+                  <span className="flex items-center gap-3">
+                    <Icon className="h-4 w-4 text-slate-500" />
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {group.label}
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {expanded ? (
+                  <div className="ml-7 space-y-3 pb-3">
+                    {(group.items || []).map((item) => (
+                      <div key={item.key} className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100 dark:bg-slate-950 dark:ring-slate-800">
+                        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{item.label}</div>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                          {itemPermissionActions(moduleName, group, item).map((action) => {
+                            const permissionAction = actionKey(item.key, action);
+
+                            return (
+                              <label
+                                key={permissionAction}
+                                className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(form.permissions?.[moduleName]?.[permissionAction])}
+                                  onChange={(event) => updatePermission(moduleName, permissionAction, event.target.checked)}
+                                />
+                                {actionLabel(action)}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   function startEditing(role) {
@@ -268,6 +424,16 @@ export function AdminRolesPage() {
           <div className="space-y-4">
             {modules.map(([moduleName, actions]) => {
               const enabledCount = actions.filter((action) => form.permissions?.[moduleName]?.[action]).length;
+              const moduleLayout = catalogLayout[moduleName];
+
+              if (moduleLayout?.groups?.length) {
+                return (
+                  <div key={moduleName}>
+                    {renderInfluencerCommerceModule(moduleName, moduleLayout)}
+                  </div>
+                );
+              }
+
               return (
                 <div key={moduleName} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
                   <div className="flex items-center justify-between">

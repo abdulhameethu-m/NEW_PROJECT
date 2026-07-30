@@ -1,6 +1,21 @@
 const mongoose = require("mongoose");
 
 const SHIPMENT_STATUSES = [
+  "placed",
+  "packing",
+  "ready_for_pickup",
+  "picked_up",
+  "shipped",
+  "out_for_delivery",
+  "delivery_confirmed",
+  "return_placed",
+  "return_packing",
+  "return_ready_for_pickup",
+  "return_shipped",
+  "return_out_for_delivery",
+  "return_received",
+  "quality_check",
+  "return_approved",
   "pending_shipment",
   "packed",
   "dispatched",

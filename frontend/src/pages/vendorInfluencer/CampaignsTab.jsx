@@ -261,20 +261,50 @@ function emptyProductShipping() {
     returnRequired: true,
     deliveryAddressSnapshot: { name: "", phone: "", addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "", country: "India" },
     returnAddressSnapshot: { name: "", phone: "", addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "", country: "India" },
-    courierCompany: "",
-    trackingNumber: "",
-    trackingUrl: "",
-    shipmentDate: "",
-    estimatedDelivery: "",
-    shippingCost: 0,
-    packageWeight: "",
-    packageDimensions: { length: "", width: "", height: "", unit: "cm" },
-    notes: "",
+  };
+}
+
+function buildProductShippingPayload(productShipping = {}) {
+  return {
+    productRequired: Boolean(productShipping.productRequired),
+    returnRequired: productShipping.returnRequired !== false,
+    deliveryAddressSnapshot: productShipping.deliveryAddressSnapshot || emptyProductShipping().deliveryAddressSnapshot,
+    returnAddressSnapshot: productShipping.returnAddressSnapshot || emptyProductShipping().returnAddressSnapshot,
   };
 }
 
 function isAddressEmpty(address = {}) {
   return ![address.name, address.phone, address.addressLine1, address.city, address.state, address.postalCode].some((value) => String(value || "").trim());
+}
+
+function compactAddressLine(...parts) {
+  return parts.map((part) => String(part || "").trim()).filter(Boolean).join(", ");
+}
+
+function ReadOnlyDeliveryAddress({ address = {} }) {
+  if (isAddressEmpty(address)) {
+    return (
+      <div className="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+        Delivery address not available.
+      </div>
+    );
+  }
+
+  const localityLine = compactAddressLine(
+    address.city,
+    [address.state, address.postalCode].map((part) => String(part || "").trim()).filter(Boolean).join(" - ")
+  );
+
+  return (
+    <address className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm not-italic text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200">
+      {address.name ? <p className="font-bold text-slate-950 dark:text-white">{address.name}</p> : null}
+      {address.phone ? <p>{address.phone}</p> : null}
+      {address.addressLine1 ? <p>{address.addressLine1}</p> : null}
+      {address.addressLine2 ? <p>{address.addressLine2}</p> : null}
+      {localityLine ? <p>{localityLine}</p> : null}
+      {address.country ? <p>{address.country}</p> : null}
+    </address>
+  );
 }
 
 function CampaignForm({ influencers, products, configuration = {}, onCreate, busy, initialInfluencerId = "", initialProductIds = [] }) {
@@ -737,12 +767,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
         returnRequired: Boolean(dynamicFieldValues.returnRequired),
         currency: dynamicFieldValues.currency || undefined,
       },
-      productShipping: {
-        ...(source.productShipping || emptyProductShipping()),
-        productRequired: Boolean(source.productShipping?.productRequired),
-        returnRequired: source.productShipping?.returnRequired !== false,
-        shippingCost: Number(source.productShipping?.shippingCost || 0),
-      },
+      productShipping: buildProductShippingPayload(source.productShipping || emptyProductShipping()),
     };
   }, [deliverableCommissionRatesFrom, form]);
 
@@ -1057,27 +1082,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                   {deliveryAddressStatus === "loading" ? <p className="mt-2 rounded-lg bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300">Loading saved creator delivery address...</p> : null}
                   {deliveryAddressStatus === "loaded" && !isAddressEmpty(form.productShipping.deliveryAddressSnapshot) ? <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">Saved creator delivery address loaded.</p> : null}
                   {deliveryAddressStatus === "missing" && isAddressEmpty(form.productShipping.deliveryAddressSnapshot) ? <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">No saved creator address found yet. Ask the influencer to click Product Required in My Services and save a delivery address.</p> : null}
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    {[
-                      ["name", "Receiver name"],
-                      ["phone", "Phone"],
-                      ["addressLine1", "Address line 1"],
-                      ["addressLine2", "Address line 2"],
-                      ["city", "City"],
-                      ["state", "State"],
-                      ["postalCode", "Postal code"],
-                      ["country", "Country"],
-                    ].map(([key, label]) => (
-                      <input
-                        key={key}
-                        value={form.productShipping.deliveryAddressSnapshot?.[key] || ""}
-                        onChange={(event) => setProductShippingAddress("deliveryAddressSnapshot", key, event.target.value)}
-                        placeholder={label}
-                        className="h-10 rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                        aria-label={`Delivery ${label}`}
-                      />
-                    ))}
-                  </div>
+                  <ReadOnlyDeliveryAddress address={form.productShipping.deliveryAddressSnapshot} />
                 </div>
 
                 <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
@@ -1107,37 +1112,6 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                 </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                <label className="block space-y-1.5">
-                  <FieldLabel>Courier Company</FieldLabel>
-                  <input value={form.productShipping.courierCompany || ""} onChange={(event) => setProductShippingField("courierCompany", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
-                </label>
-                <label className="block space-y-1.5">
-                  <FieldLabel>Tracking Number</FieldLabel>
-                  <input value={form.productShipping.trackingNumber || ""} onChange={(event) => setProductShippingField("trackingNumber", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
-                </label>
-                <label className="block space-y-1.5">
-                  <FieldLabel>Shipment Date</FieldLabel>
-                  <input type="date" value={form.productShipping.shipmentDate || ""} onChange={(event) => setProductShippingField("shipmentDate", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
-                </label>
-                <label className="block space-y-1.5">
-                  <FieldLabel>Estimated Delivery</FieldLabel>
-                  <input type="date" value={form.productShipping.estimatedDelivery || ""} onChange={(event) => setProductShippingField("estimatedDelivery", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
-                </label>
-                <label className="block space-y-1.5">
-                  <FieldLabel>Shipping Cost</FieldLabel>
-                  <input type="number" min="0" value={form.productShipping.shippingCost || 0} onChange={(event) => setProductShippingField("shippingCost", Number(event.target.value || 0))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
-                </label>
-                <label className="block space-y-1.5">
-                  <FieldLabel>Package Weight</FieldLabel>
-                  <input value={form.productShipping.packageWeight || ""} onChange={(event) => setProductShippingField("packageWeight", event.target.value)} placeholder="Example: 500 g" className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
-                </label>
-                <label className="block space-y-1.5 lg:col-span-2">
-                  <FieldLabel>Tracking URL</FieldLabel>
-                  <input value={form.productShipping.trackingUrl || ""} onChange={(event) => setProductShippingField("trackingUrl", event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
-                </label>
-              </div>
-              <textarea value={form.productShipping.notes || ""} onChange={(event) => setProductShippingField("notes", event.target.value)} placeholder="Packaging notes, handoff instructions, or product condition notes" className="min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
             </div>
           ) : null}
         </div>

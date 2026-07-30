@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Camera, Check, Image as ImageIcon, Loader2, RotateCw, ShieldCheck, Upload, X } from "lucide-react";
@@ -88,7 +87,7 @@ function ProgressIndicator() {
           <div className="text-xs font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Step 3 of 6</div>
           <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">50% complete</div>
         </div>
-        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-200">Profile Information</span>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-200">Creator Profile</span>
       </div>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
         <div className="h-full w-1/2 rounded-full bg-blue-600" />
@@ -97,7 +96,7 @@ function ProgressIndicator() {
         {influencerWizardSteps.map((step, index) => {
           const completed = index < 2;
           const current = index === 2;
-          const label = step === "Social Profiles" ? "Social Verification" : step === "Creator Profile" ? "Profile Information" : step === "Payment Details" ? "Payment Information" : step === "Verification" ? "Identity Verification" : step;
+          const label = step;
           return (
             <li key={step} aria-current={current ? "step" : undefined} className={`flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-semibold ${current ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : completed ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200" : "bg-slate-50 text-slate-400 dark:bg-slate-950 dark:text-slate-500"}`}>
               <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${current ? "bg-white text-slate-950 dark:bg-slate-950 dark:text-white" : completed ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500 dark:bg-slate-800"}`}>
@@ -264,7 +263,18 @@ export function InfluencerProfileInformationPage() {
     const stepTwo = loadSocialVerificationDraft();
     const local = loadInfluencerProfileDraft();
     const applicationId = location.state?.applicationId || local?.values?.applicationId || stepTwo?.values?.applicationId || stepOne?.values?.applicationId || "";
-    setForm((current) => normalizeProfileForm({ ...current, ...(local?.values || {}), applicationId }));
+    const accountValues = stepOne?.values || {};
+    const localValues = local?.values || {};
+    const displayName = [accountValues.firstName, accountValues.lastName].filter(Boolean).join(" ").trim();
+    const usernameSlug = slugifyInfluencer(accountValues.username || "");
+    setForm((current) => normalizeProfileForm({
+      ...current,
+      ...localValues,
+      displayName: localValues.displayName || current.displayName || displayName,
+      storeName: localValues.storeName || current.storeName || localValues.displayName || displayName,
+      storeSlug: localValues.storeSlug || current.storeSlug || usernameSlug,
+      applicationId,
+    }));
     setLastSavedAt(local?.savedAt || "");
   }, [location.state?.applicationId]);
 
@@ -368,7 +378,7 @@ export function InfluencerProfileInformationPage() {
         <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <Link to="/influencer/register/social-verification" className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white"><ArrowLeft className="h-4 w-4" /> Back to Social Verification</Link>
-            <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Profile Information</h1>
+            <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Creator Profile</h1>
             <p className="mt-3 max-w-3xl text-base text-slate-600 dark:text-slate-300">Create your public influencer profile that customers will see throughout the marketplace.</p>
           </div>
           <div className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-black text-slate-600 shadow-sm dark:bg-slate-900 dark:text-slate-300" role="status">
@@ -456,13 +466,6 @@ export function InfluencerProfileInformationPage() {
             </section>
 
             <section className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="grid gap-5 md:grid-cols-3">
-                {["country", "state", "city"].map((field) => (
-                  <label key={field} className="text-sm font-bold capitalize">{field}
-                    <input value={form[field]} onChange={(event) => updateField(field, event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-950" />
-                  </label>
-                ))}
-              </div>
               <div className="grid gap-5 md:grid-cols-2">
                 <label className="text-sm font-bold">Influencer Store Name
                   <input value={form.storeName} onChange={(event) => updateField("storeName", event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-950" />

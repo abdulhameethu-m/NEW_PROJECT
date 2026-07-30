@@ -2,48 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStaffAuthStore } from "../../context/staffAuthStore";
 import * as staffAuthService from "../../services/staffAuthService";
+import { getDisplayPermissionCount } from "../../config/staffModules";
 
 export function StaffTopbar({ user, role, permissions, module, onMenuToggle }) {
   const navigate = useNavigate();
   const logout = useStaffAuthStore((state) => state.logout);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef(null);
   const triggerRef = useRef(null);
-
-  // Update dropdown position when opened
-  useEffect(() => {
-    function updateDropdownPosition() {
-      if (!triggerRef.current) return;
-
-      const rect = triggerRef.current.getBoundingClientRect();
-      const dropdownHeight = 280; // Approximate dropdown height
-      const viewportHeight = window.innerHeight;
-      
-      // Check if there's enough space below
-      const hasSpaceBelow = rect.bottom + dropdownHeight + 16 < viewportHeight;
-      
-      if (hasSpaceBelow) {
-        // Position below the trigger
-        setDropdownPosition({
-          top: rect.bottom + 8,
-          left: rect.right - 256, // Align right edge (w-64 = 256px)
-        });
-      } else {
-        // Position above the trigger
-        setDropdownPosition({
-          top: rect.top - dropdownHeight - 8,
-          left: rect.right - 256,
-        });
-      }
-    }
-
-    if (dropdownOpen) {
-      updateDropdownPosition();
-      window.addEventListener("resize", updateDropdownPosition);
-      return () => window.removeEventListener("resize", updateDropdownPosition);
-    }
-  }, [dropdownOpen]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -70,10 +36,11 @@ export function StaffTopbar({ user, role, permissions, module, onMenuToggle }) {
     }
   }
 
-  const activePermissionCount = Object.values(permissions || {}).reduce(
-    (count, actions) => count + Object.values(actions || {}).filter(Boolean).length,
-    0
-  );
+  const activePermissionCount = getDisplayPermissionCount(permissions || {}, user?.enabledModules || {});
+  const visibleModulesText = Object.entries(permissions || {})
+    .filter(([, actions]) => Object.values(actions || {}).some(Boolean))
+    .map(([name]) => name)
+    .join(", ") || "No permissions";
 
   const initials = String(user?.name || "ST")
     .split(" ")
@@ -134,30 +101,20 @@ export function StaffTopbar({ user, role, permissions, module, onMenuToggle }) {
 
             {dropdownOpen ? (
               <div
-                ref={dropdownRef}
-                style={{
-                  position: "fixed",
-                  top: `${dropdownPosition.top}px`,
-                  left: `${dropdownPosition.left}px`,
-                  zIndex: 9999,
-                }}
-                className="w-64 rounded-2xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5"
+                className="absolute right-0 top-full z-50 mt-2 max-h-[calc(100vh-7rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5"
               >
                 <div className="border-b border-slate-200 px-4 py-3">
-                  <div className="text-sm font-medium text-slate-950">{user?.name || "Staff"}</div>
-                  <div className="text-xs text-slate-500">{user?.email}</div>
-                  <div className="mt-2 inline-block rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                  <div className="truncate text-sm font-medium text-slate-950">{user?.name || "Staff"}</div>
+                  <div className="truncate text-xs text-slate-500">{user?.email}</div>
+                  <div className="mt-2 inline-block max-w-full truncate rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
                     {role?.name || "No role"}
                   </div>
                 </div>
 
                 <div className="border-b border-slate-200 px-4 py-3">
                   <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Visible modules</div>
-                  <div className="mt-2 text-sm text-slate-600">
-                    {Object.entries(permissions || {})
-                      .filter(([, actions]) => Object.values(actions || {}).some(Boolean))
-                      .map(([name]) => name)
-                      .join(", ") || "No permissions"}
+                  <div className="mt-2 max-h-24 overflow-y-auto break-words text-sm text-slate-600">
+                    {visibleModulesText}
                   </div>
                 </div>
 

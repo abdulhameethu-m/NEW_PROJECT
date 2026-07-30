@@ -159,6 +159,18 @@ const campaignSchema = new mongoose.Schema(
       totalBudget: { type: Number, min: 0, default: 0 },
       currency: { type: String, trim: true, uppercase: true, default: "INR" },
     },
+    productShippingConfig: {
+      productRequired: { type: Boolean, default: false },
+      returnRequired: { type: Boolean, default: true },
+      influencerAddressId: { type: mongoose.Schema.Types.ObjectId },
+      vendorReturnAddressId: { type: mongoose.Schema.Types.ObjectId },
+      deliveryAddressSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
+      returnAddressSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
+      shippingCost: { type: Number, min: 0, default: 0 },
+      packageWeight: { type: String, trim: true, maxlength: 80, default: "" },
+      packageDimensions: { type: mongoose.Schema.Types.Mixed, default: {} },
+      notes: { type: String, trim: true, maxlength: 1500, default: "" },
+    },
     startDate: { type: Date, index: true },
     endDate: { type: Date, index: true },
     scheduling: {

@@ -34,13 +34,11 @@ async function createSessionTokens(staff, meta = {}) {
     staff,
     sessionId: session._id,
     roleId: staff.roleId?._id || staff.roleId,
-    permissions: staff.roleId?.permissions || {},
   });
   const accessToken = signStaffAccessToken({
     staff,
     sessionId: session._id,
     roleId: staff.roleId?._id || staff.roleId,
-    permissions: staff.roleId?.permissions || {},
   });
 
   session.refreshTokenHash = hashToken(refreshToken);
@@ -113,13 +111,11 @@ async function refreshSession(refreshToken, meta = {}) {
     staff,
     sessionId: session._id,
     roleId: staff.roleId?._id || staff.roleId,
-    permissions: staff.roleId?.permissions || {},
   });
   const newAccessToken = signStaffAccessToken({
     staff,
     sessionId: session._id,
     roleId: staff.roleId?._id || staff.roleId,
-    permissions: staff.roleId?.permissions || {},
   });
 
   session.refreshTokenHash = hashToken(newRefreshToken);

@@ -225,9 +225,9 @@ function configTogglePayload(row = {}, nextActive) {
   return payload;
 }
 
-function ConfigToggleButton({ entityType, row = {}, runAction, busyId, label }) {
+function ConfigToggleButton({ entityType, row = {}, runAction, busyId, label, canUpdate = true }) {
   const id = row._id;
-  if (!id) return null;
+  if (!id || !canUpdate) return null;
   const active = isConfigActive(row);
   const nextActive = !active;
   const name = label || configLabel(row);
@@ -247,7 +247,10 @@ function ConfigToggleButton({ entityType, row = {}, runAction, busyId, label }) 
   );
 }
 
-function CommerceEntityEditor({ entityType, rows = [], def, runAction, busyId, archiveConfig }) {
+function CommerceEntityEditor({ entityType, rows = [], def, runAction, busyId, archiveConfig, capabilities = {} }) {
+  const canCreate = capabilities.create !== false;
+  const canUpdate = capabilities.update !== false;
+  const canDelete = capabilities.delete !== false;
   const blankForm = useMemo(() => ({ ...def.defaults, displayOrder: rows.length + 1, approval: { status: "active" }, reason: "Updated from admin commerce configuration" }), [def.defaults, rows.length]);
   const [form, setForm] = useState(blankForm);
   const [editingId, setEditingId] = useState("");
@@ -288,21 +291,25 @@ function CommerceEntityEditor({ entityType, rows = [], def, runAction, busyId, a
 
   return (
     <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{def.title}</h3>
-        {editingId ? <ActionButton tone="slate" onClick={reset}>Cancel</ActionButton> : null}
-      </div>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        {def.fields.map((field) => {
-          if (field.type === "checkbox") return <ConfigCheckbox key={field.key} label={field.label} checked={form[field.key]} onChange={(value) => updateField(field.key, value)} />;
-          if (field.type === "select") return <ConfigSelect key={field.key} label={field.label} value={form[field.key] || ""} onChange={(value) => updateField(field.key, value)} options={field.options} />;
-          if (field.type === "textarea") return <div key={field.key} className="md:col-span-2"><ConfigTextarea label={field.label} value={form[field.key] || ""} onChange={(value) => updateField(field.key, value)} /></div>;
-          return <ConfigInput key={field.key} type={field.type === "number" ? "number" : "text"} label={field.label} value={form[field.key] ?? ""} onChange={(value) => updateField(field.key, value)} />;
-        })}
-      </div>
-      <div className="mt-3 flex justify-end">
-        <ActionButton icon={CheckCircle2} disabled={Boolean(busyId) || !form.key || !form.label} onClick={save}>{editingId ? "Update" : "Create"}</ActionButton>
-      </div>
+      {canCreate || canUpdate ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">{def.title}</h3>
+            {editingId ? <ActionButton tone="slate" onClick={reset}>Cancel</ActionButton> : null}
+          </div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {def.fields.map((field) => {
+              if (field.type === "checkbox") return <ConfigCheckbox key={field.key} label={field.label} checked={form[field.key]} onChange={(value) => updateField(field.key, value)} />;
+              if (field.type === "select") return <ConfigSelect key={field.key} label={field.label} value={form[field.key] || ""} onChange={(value) => updateField(field.key, value)} options={field.options} />;
+              if (field.type === "textarea") return <div key={field.key} className="md:col-span-2"><ConfigTextarea label={field.label} value={form[field.key] || ""} onChange={(value) => updateField(field.key, value)} /></div>;
+              return <ConfigInput key={field.key} type={field.type === "number" ? "number" : "text"} label={field.label} value={form[field.key] ?? ""} onChange={(value) => updateField(field.key, value)} />;
+            })}
+          </div>
+          <div className="mt-3 flex justify-end">
+            <ActionButton icon={CheckCircle2} disabled={Boolean(busyId) || !form.key || !form.label || (editingId ? !canUpdate : !canCreate)} onClick={save}>{editingId ? "Update" : "Create"}</ActionButton>
+          </div>
+        </>
+      ) : null}
       <div className="mt-4">
         <ResponsiveTable headers={["Name", "Key", "Details", "Order", "Status", "Actions"]} rows={rows} renderRow={(row) => (
           <tr key={row._id || row.key}>
@@ -313,9 +320,9 @@ function CommerceEntityEditor({ entityType, rows = [], def, runAction, busyId, a
             <td className="px-3 py-3"><StatusBadge value={row.approval?.status} /></td>
             <td className="px-3 py-3">
               <div className="flex flex-wrap gap-2">
-                <ActionButton tone="slate" icon={Pencil} disabled={Boolean(busyId)} onClick={() => edit(row)}>Update</ActionButton>
-                <ConfigToggleButton entityType={entityType} row={row} label={row.label || row.key} runAction={runAction} busyId={busyId} />
-                <ActionButton tone="red" icon={Trash2} disabled={Boolean(busyId)} onClick={() => archiveConfig(entityType, row._id, row.label || row.key)}>Delete</ActionButton>
+                {canUpdate ? <ActionButton tone="slate" icon={Pencil} disabled={Boolean(busyId)} onClick={() => edit(row)}>Update</ActionButton> : null}
+                <ConfigToggleButton entityType={entityType} row={row} label={row.label || row.key} runAction={runAction} busyId={busyId} canUpdate={canUpdate} />
+                {canDelete ? <ActionButton tone="red" icon={Trash2} disabled={Boolean(busyId)} onClick={() => archiveConfig(entityType, row._id, row.label || row.key)}>Delete</ActionButton> : null}
               </div>
             </td>
           </tr>
@@ -325,7 +332,10 @@ function CommerceEntityEditor({ entityType, rows = [], def, runAction, busyId, a
   );
 }
 
-function AdvancedConfigManager({ data, runAction, busyId, archiveConfig }) {
+function AdvancedConfigManager({ data, runAction, busyId, archiveConfig, capabilities = {} }) {
+  const canCreate = capabilities.create !== false;
+  const canUpdate = capabilities.update !== false;
+  const canDelete = capabilities.delete !== false;
   const [entityType, setEntityType] = useState(ADVANCED_CONFIG_ENTITIES[0].entityType);
   const [editingId, setEditingId] = useState("");
   const [json, setJson] = useState("{}");
@@ -369,15 +379,19 @@ function AdvancedConfigManager({ data, runAction, busyId, archiveConfig }) {
 
   return (
     <Section title="Templates, Rules & Dynamic Fields" icon={SlidersHorizontal}>
-      <div className="grid gap-3 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <ConfigSelect label="Configuration Type" value={entityType} onChange={(value) => { setEntityType(value); reset(); }} options={ADVANCED_CONFIG_ENTITIES.map((item) => ({ value: item.entityType, label: item.label }))} />
-        <ConfigTextarea label="Configuration JSON" value={json} onChange={setJson} rows={8} />
-      </div>
-      {jsonError ? <p className="mt-2 text-sm font-semibold text-rose-600 dark:text-rose-300">{jsonError}</p> : null}
-      <div className="mt-3 flex justify-end gap-2">
-        {editingId ? <ActionButton tone="slate" onClick={reset}>Cancel</ActionButton> : null}
-        <ActionButton icon={CheckCircle2} disabled={Boolean(busyId)} onClick={save}>{editingId ? "Update" : "Create"}</ActionButton>
-      </div>
+      {canCreate || canUpdate ? (
+        <>
+          <div className="grid gap-3 lg:grid-cols-[240px_minmax(0,1fr)]">
+            <ConfigSelect label="Configuration Type" value={entityType} onChange={(value) => { setEntityType(value); reset(); }} options={ADVANCED_CONFIG_ENTITIES.map((item) => ({ value: item.entityType, label: item.label }))} />
+            <ConfigTextarea label="Configuration JSON" value={json} onChange={setJson} rows={8} />
+          </div>
+          {jsonError ? <p className="mt-2 text-sm font-semibold text-rose-600 dark:text-rose-300">{jsonError}</p> : null}
+          <div className="mt-3 flex justify-end gap-2">
+            {editingId ? <ActionButton tone="slate" onClick={reset}>Cancel</ActionButton> : null}
+            <ActionButton icon={CheckCircle2} disabled={Boolean(busyId) || (editingId ? !canUpdate : !canCreate)} onClick={save}>{editingId ? "Update" : "Create"}</ActionButton>
+          </div>
+        </>
+      ) : null}
       <div className="mt-4">
         <ResponsiveTable headers={["Name", "Key", "Detail", "Status", "Actions"]} rows={rows} renderRow={(row) => (
           <tr key={row._id || row.key}>
@@ -387,9 +401,9 @@ function AdvancedConfigManager({ data, runAction, busyId, archiveConfig }) {
             <td className="px-3 py-3"><StatusBadge value={row.approval?.status} /></td>
             <td className="px-3 py-3">
               <div className="flex flex-wrap gap-2">
-                <ActionButton tone="slate" icon={Pencil} disabled={Boolean(busyId)} onClick={() => edit(row)}>Update</ActionButton>
-                <ConfigToggleButton entityType={entityType} row={row} label={row.name || row.label || row.key || row.slug || row.scope} runAction={runAction} busyId={busyId} />
-                <ActionButton tone="red" icon={Trash2} disabled={Boolean(busyId)} onClick={() => archiveConfig(entityType, row._id, row.name || row.label || row.key || row.slug || row.scope)}>Delete</ActionButton>
+                {canUpdate ? <ActionButton tone="slate" icon={Pencil} disabled={Boolean(busyId)} onClick={() => edit(row)}>Update</ActionButton> : null}
+                <ConfigToggleButton entityType={entityType} row={row} label={row.name || row.label || row.key || row.slug || row.scope} runAction={runAction} busyId={busyId} canUpdate={canUpdate} />
+                {canDelete ? <ActionButton tone="red" icon={Trash2} disabled={Boolean(busyId)} onClick={() => archiveConfig(entityType, row._id, row.name || row.label || row.key || row.slug || row.scope)}>Delete</ActionButton> : null}
               </div>
             </td>
           </tr>
@@ -399,7 +413,7 @@ function AdvancedConfigManager({ data, runAction, busyId, archiveConfig }) {
   );
 }
 
-function CommerceConfigurationView({ data, runAction, busyId, archiveConfig }) {
+function CommerceConfigurationView({ data, runAction, busyId, archiveConfig, capabilities = {} }) {
   return (
     <div className="space-y-4">
       <Section title="Creator Rate Card Builder" icon={Package}>
@@ -413,16 +427,20 @@ function CommerceConfigurationView({ data, runAction, busyId, archiveConfig }) {
               runAction={runAction}
               busyId={busyId}
               archiveConfig={archiveConfig}
+              capabilities={capabilities}
             />
           ))}
         </div>
       </Section>
-      <AdvancedConfigManager data={data} runAction={runAction} busyId={busyId} archiveConfig={archiveConfig} />
+      <AdvancedConfigManager data={data} runAction={runAction} busyId={busyId} archiveConfig={archiveConfig} capabilities={capabilities} />
     </div>
   );
 }
 
-function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }) {
+function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction, capabilities = {} }) {
+  const canCreate = capabilities.create !== false;
+  const canUpdate = capabilities.update !== false;
+  const canDelete = capabilities.delete !== false;
   const tiers = data.tiers || [];
   const plans = data.plans || [];
   const scoreConfig = useMemo(() => data.scoreConfig || {}, [data.scoreConfig]);
@@ -662,7 +680,7 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
           action={(
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge value={scoreConfig?.approval?.status || "draft"} />
-              <ConfigToggleButton entityType="scoreConfigs" row={scoreConfig} label="Score engine" runAction={runAction} busyId={busyId} />
+              <ConfigToggleButton entityType="scoreConfigs" row={scoreConfig} label="Score engine" runAction={runAction} busyId={busyId} canUpdate={canUpdate} />
             </div>
           )}
         >
@@ -673,7 +691,7 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <span className={`text-sm font-semibold ${scoreTotal === 100 ? "text-emerald-600" : "text-rose-600"}`}>Total: {scoreTotal}%</span>
-            <ActionButton icon={CheckCircle2} disabled={!scoreConfig._id || busyId === "save-score" || scoreTotal !== 100} onClick={() => runAction("save-score", () => updateInfluencerCommerceConfig("scoreConfigs", scoreConfig._id, scoreForm), "Score formula activated.")}>Save Formula</ActionButton>
+            {canUpdate ? <ActionButton icon={CheckCircle2} disabled={!scoreConfig._id || busyId === "save-score" || scoreTotal !== 100} onClick={() => runAction("save-score", () => updateInfluencerCommerceConfig("scoreConfigs", scoreConfig._id, scoreForm), "Score formula activated.")}>Save Formula</ActionButton> : null}
           </div>
         </Section>
 
@@ -688,7 +706,7 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
           </div>
           <div className="mt-3 flex justify-end gap-2">
             {editingTierId ? <ActionButton tone="slate" onClick={resetTierForm}>Cancel</ActionButton> : null}
-            <ActionButton icon={CheckCircle2} disabled={Boolean(busyId) || !tierForm.tierName} onClick={saveTier}>{editingTierId ? "Update Tier" : "Create Tier"}</ActionButton>
+            {(editingTierId ? canUpdate : canCreate) ? <ActionButton icon={CheckCircle2} disabled={Boolean(busyId) || !tierForm.tierName} onClick={saveTier}>{editingTierId ? "Update Tier" : "Create Tier"}</ActionButton> : null}
           </div>
           <ResponsiveTable headers={["Tier", "Score", "Followers", "Priority", "Status", "Actions"]} rows={tiers} renderRow={(tier) => (
             <tr key={tier._id}>
@@ -699,9 +717,9 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
               <td className="px-3 py-3"><StatusBadge value={tier.approval?.status} /></td>
               <td className="px-3 py-3">
                 <div className="flex flex-wrap gap-2">
-                  <ActionButton tone="slate" icon={Pencil} disabled={Boolean(busyId)} onClick={() => editTier(tier)}>Update</ActionButton>
-                  <ConfigToggleButton entityType="tiers" row={tier} label={tier.tierName} runAction={runAction} busyId={busyId} />
-                  <ActionButton tone="red" icon={Trash2} disabled={Boolean(busyId)} onClick={() => archiveConfig("tiers", tier._id, tier.tierName)}>Delete</ActionButton>
+                  {canUpdate ? <ActionButton tone="slate" icon={Pencil} disabled={Boolean(busyId)} onClick={() => editTier(tier)}>Update</ActionButton> : null}
+                  <ConfigToggleButton entityType="tiers" row={tier} label={tier.tierName} runAction={runAction} busyId={busyId} canUpdate={canUpdate} />
+                  {canDelete ? <ActionButton tone="red" icon={Trash2} disabled={Boolean(busyId)} onClick={() => archiveConfig("tiers", tier._id, tier.tierName)}>Delete</ActionButton> : null}
                 </div>
               </td>
             </tr>
@@ -792,7 +810,7 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
           </div>
           <div className="mt-3 flex justify-end gap-2">
             {editingPlanId ? <ActionButton tone="slate" onClick={resetPlanForm}>Cancel</ActionButton> : null}
-            <ActionButton icon={CheckCircle2} disabled={Boolean(busyId) || !planForm.planName} onClick={savePlan}>{editingPlanId ? "Update Plan" : "Create Plan"}</ActionButton>
+            {(editingPlanId ? canUpdate : canCreate) ? <ActionButton icon={CheckCircle2} disabled={Boolean(busyId) || !planForm.planName} onClick={savePlan}>{editingPlanId ? "Update Plan" : "Create Plan"}</ActionButton> : null}
           </div>
           <ResponsiveTable headers={["Plan", "Price", "Campaigns", "Discovery", "Features", "Status", "Actions"]} rows={plans} renderRow={(plan) => (
             <tr key={plan._id}>
@@ -804,16 +822,16 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
               <td className="px-3 py-3"><StatusBadge value={plan.approval?.status} /></td>
               <td className="px-3 py-3">
                 <div className="flex flex-wrap gap-2">
-                  <ActionButton tone="slate" icon={Pencil} disabled={Boolean(busyId)} onClick={() => editPlan(plan)}>Update</ActionButton>
-                  <ConfigToggleButton entityType="subscriptionPlans" row={plan} label={plan.planName} runAction={runAction} busyId={busyId} />
-                  <ActionButton tone="red" icon={Trash2} disabled={Boolean(busyId)} onClick={() => archiveConfig("subscriptionPlans", plan._id, plan.planName)}>Delete</ActionButton>
+                  {canUpdate ? <ActionButton tone="slate" icon={Pencil} disabled={Boolean(busyId)} onClick={() => editPlan(plan)}>Update</ActionButton> : null}
+                  <ConfigToggleButton entityType="subscriptionPlans" row={plan} label={plan.planName} runAction={runAction} busyId={busyId} canUpdate={canUpdate} />
+                  {canDelete ? <ActionButton tone="red" icon={Trash2} disabled={Boolean(busyId)} onClick={() => archiveConfig("subscriptionPlans", plan._id, plan.planName)}>Delete</ActionButton> : null}
                 </div>
               </td>
             </tr>
           )} />
         </Section>
 
-        <CommerceConfigurationView data={data} runAction={runAction} busyId={busyId} archiveConfig={archiveConfig} />
+        <CommerceConfigurationView data={data} runAction={runAction} busyId={busyId} archiveConfig={archiveConfig} capabilities={capabilities} />
       </div>
 
       <div className="space-y-4">
@@ -823,7 +841,7 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
           action={(
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge value={rankingRule?.approval?.status || "draft"} />
-              <ConfigToggleButton entityType="rankingRules" row={rankingRule} label="Ranking rules" runAction={runAction} busyId={busyId} />
+              <ConfigToggleButton entityType="rankingRules" row={rankingRule} label="Ranking rules" runAction={runAction} busyId={busyId} canUpdate={canUpdate} />
             </div>
           )}
         >
@@ -834,7 +852,7 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <span className={`text-sm font-semibold ${rankingTotal === 100 ? "text-emerald-600" : "text-rose-600"}`}>Total: {rankingTotal}%</span>
-            <ActionButton icon={CheckCircle2} disabled={!rankingRule._id || busyId === "save-ranking" || rankingTotal !== 100} onClick={() => runAction("save-ranking", () => updateInfluencerCommerceConfig("rankingRules", rankingRule._id, rankingForm), "Ranking formula activated.")}>Save Ranking</ActionButton>
+            {canUpdate ? <ActionButton icon={CheckCircle2} disabled={!rankingRule._id || busyId === "save-ranking" || rankingTotal !== 100} onClick={() => runAction("save-ranking", () => updateInfluencerCommerceConfig("rankingRules", rankingRule._id, rankingForm), "Ranking formula activated.")}>Save Ranking</ActionButton> : null}
           </div>
         </Section>
 
@@ -844,7 +862,7 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
           action={(
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge value={budgetRule?.approval?.status || "draft"} />
-              <ConfigToggleButton entityType="budgetRules" row={budgetRule} label="Budget protection" runAction={runAction} busyId={busyId} />
+              <ConfigToggleButton entityType="budgetRules" row={budgetRule} label="Budget protection" runAction={runAction} busyId={busyId} canUpdate={canUpdate} />
             </div>
           )}
         >
@@ -857,7 +875,7 @@ function ConfigurationEngineView({ data, runAction, busyId, confirmAdminAction }
             </label>
           </div>
           <div className="mt-4">
-            <ActionButton icon={CheckCircle2} disabled={!budgetRule._id || busyId === "save-budget"} onClick={() => runAction("save-budget", () => updateInfluencerCommerceConfig("budgetRules", budgetRule._id, budgetForm), "Budget protection updated.")}>Save Budget Rules</ActionButton>
+            {canUpdate ? <ActionButton icon={CheckCircle2} disabled={!budgetRule._id || busyId === "save-budget"} onClick={() => runAction("save-budget", () => updateInfluencerCommerceConfig("budgetRules", budgetRule._id, budgetForm), "Budget protection updated.")}>Save Budget Rules</ActionButton> : null}
           </div>
         </Section>
 

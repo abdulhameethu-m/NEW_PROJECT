@@ -25,11 +25,123 @@ const STAFF_PERMISSION_CATALOG = Object.freeze({
     "analytics",
     "fraud",
     "settings",
+    "influencerVendorMatching",
+    "vendorCampaignCommission",
+    "affiliateLinks",
+    "affiliateTracking",
+    "productPromotions",
+    "campaignFinance",
+    "revenueDashboard",
+    "tierScoreConfig",
+    "dashboardRead",
+    "influencersCreate",
+    "influencersRead",
+    "influencersUpdate",
+    "influencersDelete",
+    "vendorsCreate",
+    "vendorsRead",
+    "vendorsUpdate",
+    "vendorsDelete",
+    "influencerVendorMatchingCreate",
+    "influencerVendorMatchingRead",
+    "influencerVendorMatchingUpdate",
+    "influencerVendorMatchingDelete",
+    "campaignsRead",
+    "campaignsUpdate",
+    "campaignsDelete",
+    "vendorCampaignCommissionCreate",
+    "vendorCampaignCommissionRead",
+    "vendorCampaignCommissionUpdate",
+    "vendorCampaignCommissionDelete",
+    "affiliateLinksCreate",
+    "affiliateLinksRead",
+    "affiliateLinksUpdate",
+    "affiliateLinksDelete",
+    "affiliateTrackingCreate",
+    "affiliateTrackingRead",
+    "affiliateTrackingUpdate",
+    "affiliateTrackingDelete",
+    "productPromotionsCreate",
+    "productPromotionsRead",
+    "productPromotionsUpdate",
+    "productPromotionsDelete",
+    "settlementsCreate",
+    "settlementsRead",
+    "settlementsUpdate",
+    "settlementsDelete",
+    "campaignFinanceCreate",
+    "campaignFinanceRead",
+    "campaignFinanceUpdate",
+    "campaignFinanceDelete",
+    "revenueDashboardCreate",
+    "revenueDashboardRead",
+    "revenueDashboardUpdate",
+    "revenueDashboardDelete",
+    "payoutsCreate",
+    "payoutsRead",
+    "payoutsUpdate",
+    "payoutsDelete",
+    "tierScoreConfigCreate",
+    "tierScoreConfigRead",
+    "tierScoreConfigUpdate",
+    "tierScoreConfigDelete",
+    "settingsRead",
   ],
   settings: ["update"],
   branding: ["view", "create", "update", "delete"],
   roles: ["read", "create", "update", "delete"],
   staff: ["read", "create", "update", "delete"],
+});
+
+const STAFF_PERMISSION_LAYOUT = Object.freeze({
+  influencerCommerce: {
+    label: "Influencer Commerce",
+    groups: [
+      {
+        label: "Overview",
+        items: [{ key: "dashboard", label: "Dashboard", actions: ["view"] }],
+      },
+      {
+        label: "People",
+        items: [
+          { key: "influencers", label: "Influencers", actions: ["view"] },
+          { key: "vendors", label: "Vendors", actions: ["view"] },
+          { key: "influencerVendorMatching", label: "Influencer-Vendor Matching", actions: ["view"] },
+        ],
+      },
+      {
+        label: "Campaigns",
+        items: [
+          { key: "campaigns", label: "Campaign Management", actions: ["read", "update", "delete"] },
+          { key: "vendorCampaignCommission", label: "Vendor Campaign Commission" },
+        ],
+      },
+      {
+        label: "Affiliate & Products",
+        items: [
+          { key: "affiliateLinks", label: "Affiliate Links" },
+          { key: "affiliateTracking", label: "Affiliate Tracking" },
+          { key: "productPromotions", label: "Product Promotions" },
+        ],
+      },
+      {
+        label: "Finance",
+        items: [
+          { key: "settlements", label: "Escrow & Settlements" },
+          { key: "campaignFinance", label: "Campaign Finance", actions: ["view"] },
+          { key: "revenueDashboard", label: "Revenue Dashboard", actions: ["view"] },
+          { key: "payouts", label: "Payout Management" },
+        ],
+      },
+      {
+        label: "Configuration",
+        items: [
+          { key: "tierScoreConfig", label: "Tier & Score Config" },
+          { key: "settings", label: "Settings", actions: ["view"] },
+        ],
+      },
+    ],
+  },
 });
 function createEmptyPermissions() {
   return Object.fromEntries(
@@ -55,6 +167,61 @@ function normalizePermissions(input = {}) {
       }
     }
   }
+  if (normalized.influencerCommerce) {
+    const commerce = normalized.influencerCommerce;
+    const viewOnlyNestedKeys = [
+      "dashboard",
+      "influencers",
+      "vendors",
+      "influencerVendorMatching",
+      "campaignFinance",
+      "revenueDashboard",
+      "settings",
+    ];
+    viewOnlyNestedKeys.forEach((key) => {
+      ["Create", "Update", "Delete"].forEach((suffix) => {
+        const action = `${key}${suffix}`;
+        if (action in commerce) commerce[action] = false;
+      });
+    });
+    const nestedCrudKeys = [
+      "dashboard",
+      "influencers",
+      "vendors",
+      "influencerVendorMatching",
+      "campaigns",
+      "vendorCampaignCommission",
+      "affiliateLinks",
+      "affiliateTracking",
+      "productPromotions",
+      "settlements",
+      "campaignFinance",
+      "revenueDashboard",
+      "payouts",
+      "tierScoreConfig",
+      "settings",
+    ];
+    nestedCrudKeys.forEach((key) => {
+      const hasNestedMutation = ["Create", "Update", "Delete"].some((suffix) => commerce[`${key}${suffix}`]);
+      if (hasNestedMutation && `${key}Read` in commerce) {
+        commerce[`${key}Read`] = true;
+      }
+    });
+    const hasCrudMutation = Object.entries(commerce).some(
+      ([action, enabled]) => enabled && /(Create|Update|Delete)$/.test(action)
+    );
+    const hasCrudRead = Object.entries(commerce).some(
+      ([action, enabled]) => enabled && /Read$/.test(action)
+    );
+    if (hasCrudRead || hasCrudMutation) commerce.read = true;
+    if (hasCrudMutation) commerce.manage = true;
+    if (commerce.payoutsRead || commerce.payoutsCreate || commerce.payoutsUpdate || commerce.payoutsDelete) {
+      commerce.payouts = true;
+    }
+    if (commerce.settingsCreate || commerce.settingsUpdate || commerce.settingsDelete) {
+      commerce.settings = true;
+    }
+  }
   return normalized;
 }
 function permissionExists(permission) {
@@ -69,7 +236,8 @@ function hasStaffPermission(permissions, permission) {
 
 module.exports = {
   STAFF_PERMISSION_CATALOG,
+  STAFF_PERMISSION_LAYOUT,
   createEmptyPermissions,
   normalizePermissions,
   hasStaffPermission,
-};
+};

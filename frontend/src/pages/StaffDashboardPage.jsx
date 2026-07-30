@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getDashboard, listOrders, listProducts, listUsers } from "../services/adminApi";
-import { getAccessibleModules } from "../config/staffModules";
+import { getAccessibleModules, getDisplayPermissionEntries } from "../config/staffModules";
 import { useStaffPermission, useStaffUser } from "../hooks/useStaffAuth";
 
 const FALLBACK_STATS = {
@@ -29,17 +29,8 @@ export function StaffDashboardPage() {
     [accessibleModules]
   );
   const effectivePermissionEntries = useMemo(
-    () =>
-      Object.entries(permissions)
-        .filter(([moduleName]) => enabledModules?.[moduleName] !== false)
-        .map(([moduleName, actions]) => [
-          moduleName,
-          Object.fromEntries(
-            Object.entries(actions || {}).filter(([action]) => hasPermission(`${moduleName}.${action}`))
-          ),
-        ])
-        .filter(([, actions]) => Object.keys(actions).length > 0),
-    [enabledModules, hasPermission, permissions]
+    () => getDisplayPermissionEntries(permissions, enabledModules),
+    [enabledModules, permissions]
   );
   const canReadAnalytics = enabledModules.analytics !== false && hasPermission("analytics.read");
   const canReadUsers = enabledModules.users !== false && hasPermission("users.read");

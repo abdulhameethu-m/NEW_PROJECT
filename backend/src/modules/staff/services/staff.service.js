@@ -2,10 +2,12 @@ const bcrypt = require("bcryptjs");
 const { Staff } = require("../models/Staff");
 const { StaffSession } = require("../models/StaffSession");
 const { Role } = require("../models/Role");
+const { normalizePermissions } = require("../permissions");
 const { AppError } = require("../../../utils/AppError");
 
 function normalizeStaff(staffDoc) {
   const staff = staffDoc.toObject ? staffDoc.toObject() : staffDoc;
+  const permissions = normalizePermissions(staff.roleId?.permissions || {});
   return {
     _id: staff._id,
     name: staff.name,
@@ -15,13 +17,13 @@ function normalizeStaff(staffDoc) {
     lastLogin: staff.lastLogin,
     createdAt: staff.createdAt,
     updatedAt: staff.updatedAt,
-    permissions: staff.roleId?.permissions || {},
+    permissions,
     role: staff.roleId && typeof staff.roleId === "object"
       ? {
           _id: staff.roleId._id,
           name: staff.roleId.name,
           description: staff.roleId.description,
-          permissions: staff.roleId.permissions,
+          permissions,
         }
       : staff.roleId,
   };

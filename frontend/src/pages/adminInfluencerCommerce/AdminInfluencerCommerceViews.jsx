@@ -219,7 +219,9 @@ function VendorsView({ items, pagination, setFilters }) {
   );
 }
 
-function CampaignsView({ items, pagination, setFilters, runAction, busyId, confirmAdminAction }) {
+function CampaignsView({ items, pagination, setFilters, runAction, busyId, confirmAdminAction, capabilities = {} }) {
+  const canUpdate = capabilities.update !== false;
+  const canDelete = capabilities.delete !== false;
   return (
     <Section title="Campaign Center" icon={BarChart3}>
       <ResponsiveTable headers={["Campaign", "Vendor", "Budget", "Revenue", "Applications", "Creators", "Products", "Commission", "Status", "Actions"]} rows={items} renderRow={(row) => {
@@ -242,55 +244,62 @@ function CampaignsView({ items, pagination, setFilters, runAction, busyId, confi
             <td className="px-3 py-3"><StatusBadge value={row.status || row.state} /></td>
             <td className="px-3 py-3">
               <div className="flex flex-wrap gap-2">
-                <ActionButton
-                  tone={actions.cancelled ? "slate" : "amber"}
-                  disabled={busyId === `cancel-${id}`}
-                  onClick={async () => {
-                    if (!actions.cancelled && !(await confirmAdminAction({
-                      title: "Cancel campaign",
-                      message: `Cancel "${text(row.title)}"? Vendors and influencers may lose active campaign access.`,
-                      tone: "danger",
-                      confirmLabel: "Cancel Campaign",
-                    }))) return;
-                    return runAction(
-                      `cancel-${id}`,
-                      () => updateAdminInfluencerCommerceCampaign(id, { action: actions.cancelled ? "activate" : "pause" }),
-                      actions.cancelled ? "Campaign reactivated." : "Campaign cancelled.",
-                    );
-                  }}
-                >
-                  {actions.cancelled ? "Cancelled" : "Cancel"}
-                </ActionButton>
-                <ActionButton
-                  tone="slate"
-                  disabled={busyId === `publish-${id}`}
-                  onClick={() => runAction(
-                    `publish-${id}`,
-                    () => updateAdminInfluencerCommerceCampaign(id, { action: actions.published ? "unfeature" : "feature" }),
-                    actions.published ? "Campaign unpublished." : "Campaign published."
-                  )}
-                >
-                  {actions.published ? "Published" : "Publish"}
-                </ActionButton>
-                <ActionButton
-                  tone={actions.completed ? "slate" : "red"}
-                  disabled={busyId === `complete-${id}`}
-                  onClick={async () => {
-                    if (!actions.completed && !(await confirmAdminAction({
-                      title: "Complete campaign",
-                      message: `Close "${text(row.title)}" as completed? This can affect campaign settlement and reporting.`,
-                      tone: "danger",
-                      confirmLabel: "Complete Campaign",
-                    }))) return;
-                    return runAction(
-                      `complete-${id}`,
-                      () => updateAdminInfluencerCommerceCampaign(id, { action: actions.completed ? "activate" : "close" }),
-                      actions.completed ? "Campaign reactivated." : "Campaign completed.",
-                    );
-                  }}
-                >
-                  {actions.completed ? "Completed" : "Complete"}
-                </ActionButton>
+                {canDelete ? (
+                  <ActionButton
+                    tone={actions.cancelled ? "slate" : "amber"}
+                    disabled={busyId === `cancel-${id}`}
+                    onClick={async () => {
+                      if (!actions.cancelled && !(await confirmAdminAction({
+                        title: "Cancel campaign",
+                        message: `Cancel "${text(row.title)}"? Vendors and influencers may lose active campaign access.`,
+                        tone: "danger",
+                        confirmLabel: "Cancel Campaign",
+                      }))) return;
+                      return runAction(
+                        `cancel-${id}`,
+                        () => updateAdminInfluencerCommerceCampaign(id, { action: actions.cancelled ? "activate" : "pause" }),
+                        actions.cancelled ? "Campaign reactivated." : "Campaign cancelled.",
+                      );
+                    }}
+                  >
+                    {actions.cancelled ? "Cancelled" : "Cancel"}
+                  </ActionButton>
+                ) : null}
+                {canUpdate ? (
+                  <ActionButton
+                    tone="slate"
+                    disabled={busyId === `publish-${id}`}
+                    onClick={() => runAction(
+                      `publish-${id}`,
+                      () => updateAdminInfluencerCommerceCampaign(id, { action: actions.published ? "unfeature" : "feature" }),
+                      actions.published ? "Campaign unpublished." : "Campaign published."
+                    )}
+                  >
+                    {actions.published ? "Published" : "Publish"}
+                  </ActionButton>
+                ) : null}
+                {canUpdate ? (
+                  <ActionButton
+                    tone={actions.completed ? "slate" : "red"}
+                    disabled={busyId === `complete-${id}`}
+                    onClick={async () => {
+                      if (!actions.completed && !(await confirmAdminAction({
+                        title: "Complete campaign",
+                        message: `Close "${text(row.title)}" as completed? This can affect campaign settlement and reporting.`,
+                        tone: "danger",
+                        confirmLabel: "Complete Campaign",
+                      }))) return;
+                      return runAction(
+                        `complete-${id}`,
+                        () => updateAdminInfluencerCommerceCampaign(id, { action: actions.completed ? "activate" : "close" }),
+                        actions.completed ? "Campaign reactivated." : "Campaign completed.",
+                      );
+                    }}
+                  >
+                    {actions.completed ? "Completed" : "Complete"}
+                  </ActionButton>
+                ) : null}
+                {!canUpdate && !canDelete ? <span className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">View only</span> : null}
               </div>
             </td>
           </tr>
@@ -329,7 +338,8 @@ function MatchingView({ data }) {
   );
 }
 
-function AffiliateLinksView({ items, pagination, setFilters, runAction, busyId }) {
+function AffiliateLinksView({ items, pagination, setFilters, runAction, busyId, capabilities = {} }) {
+  const canUpdate = capabilities.update !== false;
   const [selected, setSelected] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
@@ -405,11 +415,11 @@ function AffiliateLinksView({ items, pagination, setFilters, runAction, busyId }
                   <ActionButton tone="slate" icon={Eye} onClick={() => openDetails(row)}>View</ActionButton>
                   <ActionButton tone="slate" icon={Copy} onClick={() => copyLink(row)} disabled={!row.affiliateLink}>Copy</ActionButton>
                   <ActionButton tone="slate" icon={ExternalLink} onClick={() => row.affiliateLink && window.open(row.affiliateLink, "_blank", "noopener,noreferrer")} disabled={!row.affiliateLink}>Open</ActionButton>
-                  {row.trackingStatus === "active" ? (
+                  {canUpdate && row.trackingStatus === "active" ? (
                     <ActionButton tone="red" icon={PowerOff} disabled={!canDeactivate || busyId === `affiliate-${id}-deactivate`} onClick={() => statusAction(row, "deactivate")}>Deactivate</ActionButton>
-                  ) : (
+                  ) : canUpdate ? (
                     <ActionButton tone="green" icon={Power} disabled={!canActivate || busyId === `affiliate-${id}-activate`} onClick={() => statusAction(row, "activate")}>Activate</ActionButton>
-                  )}
+                  ) : null}
                 </div>
               </td>
             </tr>
@@ -517,7 +527,8 @@ function TrackingView({ items, pagination, setFilters }) {
   );
 }
 
-function SettlementsView({ items, fixedPayments, refunds, releaseQueue, pagination, setFilters, runAction, busyId, confirmAdminAction }) {
+function SettlementsView({ items, fixedPayments, refunds, releaseQueue, pagination, setFilters, runAction, busyId, confirmAdminAction, capabilities = {} }) {
+  const canUpdate = capabilities.update !== false;
   return (
     <div className="space-y-4">
       <Section title="Approved Fixed Deliverables" icon={CheckCircle2}>
@@ -535,25 +546,27 @@ function SettlementsView({ items, fixedPayments, refunds, releaseQueue, paginati
               <td className="px-3 py-3">{formatCurrency(row.amount || 0)}</td>
               <td className="px-3 py-3"><StatusBadge value={row.paymentEligibility} /></td>
               <td className="px-3 py-3">
-                <ActionButton
-                  tone="green"
-                  disabled={!campaignId || !influencerId || busyId === actionId}
-                  onClick={async () => {
-                    if (!(await confirmAdminAction({
-                      title: "Release fixed deliverable",
-                      message: `Release ${formatCurrency(row.amount || 0)} to ${pickUserName(campaign.influencerId)} for "${text(campaign.title)}"?`,
-                      tone: "danger",
-                      confirmLabel: "Release Earnings",
-                    }))) return;
-                    return runAction(
-                      actionId,
-                      () => CampaignEscrowService.releaseApprovedDeliverables(campaignId, influencerId, [row.deliverableId]),
-                      "Approved earnings released to the influencer wallet.",
-                    );
-                  }}
-                >
-                  Release
-                </ActionButton>
+                {canUpdate ? (
+                  <ActionButton
+                    tone="green"
+                    disabled={!campaignId || !influencerId || busyId === actionId}
+                    onClick={async () => {
+                      if (!(await confirmAdminAction({
+                        title: "Release fixed deliverable",
+                        message: `Release ${formatCurrency(row.amount || 0)} to ${pickUserName(campaign.influencerId)} for "${text(campaign.title)}"?`,
+                        tone: "danger",
+                        confirmLabel: "Release Earnings",
+                      }))) return;
+                      return runAction(
+                        actionId,
+                        () => CampaignEscrowService.releaseApprovedDeliverables(campaignId, influencerId, [row.deliverableId]),
+                        "Approved earnings released to the influencer wallet.",
+                      );
+                    }}
+                  >
+                    Release
+                  </ActionButton>
+                ) : <span className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">View only</span>}
               </td>
             </tr>
           );
@@ -589,18 +602,19 @@ function SettlementsView({ items, fixedPayments, refunds, releaseQueue, paginati
               <td className="px-3 py-3">{dateValue(row.requestedAt)}</td>
               <td className="px-3 py-3">
                 <div className="flex flex-wrap gap-2">
-                  <ActionButton tone="green" disabled={row.status !== "requested" || busyId === `approve-refund-${id}`} onClick={async () => {
+                  {canUpdate ? <ActionButton tone="green" disabled={row.status !== "requested" || busyId === `approve-refund-${id}`} onClick={async () => {
                     if (!(await confirmAdminAction({ title: "Approve refund", message: `Approve refund of ${formatCurrency(row.totalRefundAmount || 0)}?`, confirmLabel: "Approve Refund" }))) return;
                     return runAction(`approve-refund-${id}`, () => CampaignEscrowService.approveRefund(id, "Approved by platform admin"), "Refund approved.");
-                  }}>Approve</ActionButton>
-                  <ActionButton tone="red" disabled={row.status !== "requested" || busyId === `reject-refund-${id}`} onClick={async () => {
+                  }}>Approve</ActionButton> : null}
+                  {canUpdate ? <ActionButton tone="red" disabled={row.status !== "requested" || busyId === `reject-refund-${id}`} onClick={async () => {
                     if (!(await confirmAdminAction({ title: "Reject refund", message: `Reject refund of ${formatCurrency(row.totalRefundAmount || 0)}?`, tone: "danger", confirmLabel: "Reject Refund" }))) return;
                     return runAction(`reject-refund-${id}`, () => CampaignEscrowService.rejectRefund(id, "Rejected by platform admin"), "Refund rejected.");
-                  }}>Reject</ActionButton>
-                  <ActionButton tone="amber" disabled={row.status !== "approved" || busyId === `process-refund-${id}`} onClick={async () => {
+                  }}>Reject</ActionButton> : null}
+                  {canUpdate ? <ActionButton tone="amber" disabled={row.status !== "approved" || busyId === `process-refund-${id}`} onClick={async () => {
                     if (!(await confirmAdminAction({ title: "Process refund", message: `Send ${formatCurrency(row.totalRefundAmount || 0)} to Razorpay for processing?`, tone: "danger", confirmLabel: "Process Refund" }))) return;
                     return runAction(`process-refund-${id}`, () => CampaignEscrowService.processRefund(id), "Refund sent to Razorpay.");
-                  }}>Process</ActionButton>
+                  }}>Process</ActionButton> : null}
+                  {!canUpdate ? <span className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">View only</span> : null}
                 </div>
               </td>
             </tr>
@@ -627,7 +641,10 @@ function SettlementsView({ items, fixedPayments, refunds, releaseQueue, paginati
   );
 }
 
-function VendorCampaignCommissionView({ items, runAction, busyId, confirmAdminAction }) {
+function VendorCampaignCommissionView({ items, runAction, busyId, confirmAdminAction, capabilities = {} }) {
+  const canCreate = capabilities.create !== false;
+  const canUpdate = capabilities.update !== false;
+  const canDelete = capabilities.delete !== false;
   const emptyForm = () => ({
     feeName: "Platform Fee",
     feeCode: "platform_fee",
@@ -677,6 +694,7 @@ function VendorCampaignCommissionView({ items, runAction, busyId, confirmAdminAc
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const saveConfiguration = async () => {
+    if ((editingId && !canUpdate) || (!editingId && !canCreate)) return;
     const actionId = editingId ? `edit-campaign-fee-${editingId}` : "create-campaign-fee";
     const saved = await runAction(
       actionId,
@@ -703,7 +721,7 @@ function VendorCampaignCommissionView({ items, runAction, busyId, confirmAdminAc
   };
   return (
     <div className="space-y-4">
-      <Section title={editingId ? "Edit Fee Configuration" : "Create Fee Configuration"} icon={Calculator}>
+      {canCreate || (editingId && canUpdate) ? <Section title={editingId ? "Edit Fee Configuration" : "Create Fee Configuration"} icon={Calculator}>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <FieldShell label="Fee Name"><input className={inputClass} value={form.feeName} onChange={(event) => setForm((current) => ({ ...current, feeName: event.target.value }))} /></FieldShell>
           <FieldShell label="Fee Code">
@@ -752,14 +770,14 @@ function VendorCampaignCommissionView({ items, runAction, busyId, confirmAdminAc
         <div className="mt-4 flex flex-wrap gap-2">
           <ActionButton
             icon={CheckCircle2}
-            disabled={busyId === (editingId ? `edit-campaign-fee-${editingId}` : "create-campaign-fee") || !form.feeName.trim()}
+            disabled={busyId === (editingId ? `edit-campaign-fee-${editingId}` : "create-campaign-fee") || !form.feeName.trim() || (editingId ? !canUpdate : !canCreate)}
             onClick={saveConfiguration}
           >
             {editingId ? "Update Configuration" : "Save Configuration"}
           </ActionButton>
           {editingId ? <ActionButton tone="slate" icon={XCircle} onClick={resetForm}>Cancel Edit</ActionButton> : null}
         </div>
-      </Section>
+      </Section> : null}
       <Section title="Configured Campaign Fees" icon={Percent}>
         <ResponsiveTable headers={["Fee", "Model", "Code", "Type", "Percentage", "Fixed", "Base", "Effective", "Status", "Actions"]} rows={items} renderRow={(row) => (
           <tr key={idOf(row)}>
@@ -774,19 +792,22 @@ function VendorCampaignCommissionView({ items, runAction, busyId, confirmAdminAc
             <td className="px-3 py-3"><StatusBadge value={row.isActive ? "active" : "inactive"} /></td>
             <td className="px-3 py-3">
               <div className="flex flex-wrap gap-2">
-                <ActionButton tone="slate" icon={Pencil} disabled={Boolean(busyId)} onClick={() => startEdit(row)}>Edit</ActionButton>
-                <ActionButton
-                  tone={row.isActive ? "amber" : "green"}
-                  disabled={busyId === `toggle-fee-${idOf(row)}`}
-                  onClick={() => runAction(
-                    `toggle-fee-${idOf(row)}`,
-                    () => CampaignEscrowService.updateFeeConfiguration(idOf(row), payloadFor({ ...row, isActive: !row.isActive, effectiveFrom: dateInput(row.effectiveFrom), effectiveTo: dateInput(row.effectiveTo) })),
-                    `Campaign fee ${row.isActive ? "deactivated" : "activated"}.`
-                  )}
-                >
-                  {row.isActive ? "Deactivate" : "Activate"}
-                </ActionButton>
-                <ActionButton tone="red" icon={Trash2} disabled={busyId === `delete-campaign-fee-${idOf(row)}`} onClick={() => deleteConfiguration(row)}>Delete</ActionButton>
+                {canUpdate ? <ActionButton tone="slate" icon={Pencil} disabled={Boolean(busyId)} onClick={() => startEdit(row)}>Edit</ActionButton> : null}
+                {canUpdate ? (
+                  <ActionButton
+                    tone={row.isActive ? "amber" : "green"}
+                    disabled={busyId === `toggle-fee-${idOf(row)}`}
+                    onClick={() => runAction(
+                      `toggle-fee-${idOf(row)}`,
+                      () => CampaignEscrowService.updateFeeConfiguration(idOf(row), payloadFor({ ...row, isActive: !row.isActive, effectiveFrom: dateInput(row.effectiveFrom), effectiveTo: dateInput(row.effectiveTo) })),
+                      `Campaign fee ${row.isActive ? "deactivated" : "activated"}.`
+                    )}
+                  >
+                    {row.isActive ? "Deactivate" : "Activate"}
+                  </ActionButton>
+                ) : null}
+                {canDelete ? <ActionButton tone="red" icon={Trash2} disabled={busyId === `delete-campaign-fee-${idOf(row)}`} onClick={() => deleteConfiguration(row)}>Delete</ActionButton> : null}
+                {!canUpdate && !canDelete ? <span className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">View only</span> : null}
               </div>
             </td>
           </tr>
@@ -813,7 +834,8 @@ function withdrawalTone(status = "") {
   return "slate";
 }
 
-function PayoutsView({ items, withdrawalRequests = [], pagination, setFilters, runAction, busyId, requestAdminInput }) {
+function PayoutsView({ items, withdrawalRequests = [], pagination, setFilters, runAction, busyId, requestAdminInput, capabilities = {} }) {
+  const canUpdate = capabilities.update !== false;
   return (
     <div className="space-y-4">
       <Section title="Withdrawal Requests" icon={WalletCards}>
@@ -829,7 +851,7 @@ function PayoutsView({ items, withdrawalRequests = [], pagination, setFilters, r
               <td className="px-3 py-3">{text(row.transactionReference)}</td>
               <td className="px-3 py-3">
                 <div className="flex flex-wrap gap-2">
-                  {actions.map((status) => (
+                  {canUpdate ? actions.map((status) => (
                     <ActionButton
                       key={status}
                       tone={withdrawalTone(status)}
@@ -860,7 +882,7 @@ function PayoutsView({ items, withdrawalRequests = [], pagination, setFilters, r
                     >
                       {status.replace(/_/g, " ")}
                     </ActionButton>
-                  ))}
+                  )) : <span className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">View only</span>}
                 </div>
               </td>
             </tr>
@@ -886,9 +908,10 @@ function PayoutsView({ items, withdrawalRequests = [], pagination, setFilters, r
   );
 }
 
-function SettingsView({ data, runAction, busyId }) {
+function SettingsView({ data, runAction, busyId, capabilities = {} }) {
   const settings = data.settings || data || {};
   const enabled = Boolean(settings.enabled ?? settings.influencerCommerceEnabled);
+  const canUpdate = capabilities.update !== false;
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
@@ -909,38 +932,40 @@ function SettingsView({ data, runAction, busyId }) {
           ))}
         </div>
       </Section>
-      <Section title="Platform Toggle" icon={ShieldCheck}>
-        <div className="space-y-3">
-          <StatusBadge value={enabled ? "enabled" : "disabled"} />
-          <p className="text-sm text-slate-500 dark:text-slate-400">This updates the existing platform configuration used by admin, vendor, and influencer dashboards.</p>
-          <ActionButton disabled={busyId === "toggle-settings"} onClick={() => runAction("toggle-settings", () => updateAdminInfluencerSettings({ enabled: !enabled }), "Influencer commerce settings updated.")}>
-            {enabled ? "Disable" : "Enable"} Commerce
-          </ActionButton>
-        </div>
-      </Section>
+      {canUpdate ? (
+        <Section title="Platform Toggle" icon={ShieldCheck}>
+          <div className="space-y-3">
+            <StatusBadge value={enabled ? "enabled" : "disabled"} />
+            <p className="text-sm text-slate-500 dark:text-slate-400">This updates the existing platform configuration used by admin, vendor, and influencer dashboards.</p>
+            <ActionButton disabled={busyId === "toggle-settings"} onClick={() => runAction("toggle-settings", () => updateAdminInfluencerSettings({ enabled: !enabled }), "Influencer commerce settings updated.")}>
+              {enabled ? "Disable" : "Enable"} Commerce
+            </ActionButton>
+          </div>
+        </Section>
+      ) : null}
     </div>
   );
 }
 
-export function AdminInfluencerCommerceModule({ moduleId, data, items, pagination, setFilters, runAction, busyId, requestAdminInput, confirmAdminAction }) {
+export function AdminInfluencerCommerceModule({ moduleId, data, items, pagination, setFilters, runAction, busyId, requestAdminInput, confirmAdminAction, capabilities = {} }) {
   if (moduleId === "dashboard") return <DashboardView data={data} />;
   if (moduleId === "influencers") return <InfluencersView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "vendors") return <VendorsView items={items} pagination={pagination} setFilters={setFilters} />;
-  if (moduleId === "campaigns") return <CampaignsView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} confirmAdminAction={confirmAdminAction} />;
-  if (moduleId === "vendor-campaign-commission") return <VendorCampaignCommissionView items={items} runAction={runAction} busyId={busyId} confirmAdminAction={confirmAdminAction} />;
+  if (moduleId === "campaigns") return <CampaignsView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} confirmAdminAction={confirmAdminAction} capabilities={capabilities.campaigns} />;
+  if (moduleId === "vendor-campaign-commission") return <VendorCampaignCommissionView items={items} runAction={runAction} busyId={busyId} confirmAdminAction={confirmAdminAction} capabilities={capabilities.vendorCampaignCommission} />;
   if (moduleId === "matching") return <MatchingView data={data} />;
-  if (moduleId === "affiliate-links") return <AffiliateLinksView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} />;
+  if (moduleId === "affiliate-links") return <AffiliateLinksView items={items} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} capabilities={capabilities.affiliateLinks} />;
   if (moduleId === "promotions") return <ProductPromotionsView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "tracking") return <TrackingView items={items} pagination={pagination} setFilters={setFilters} />;
-  if (moduleId === "settlements") return <SettlementsView items={items} fixedPayments={data.fixedPayments || []} refunds={data.refunds || []} releaseQueue={data.releaseQueue || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} confirmAdminAction={confirmAdminAction} />;
+  if (moduleId === "settlements") return <SettlementsView items={items} fixedPayments={data.fixedPayments || []} refunds={data.refunds || []} releaseQueue={data.releaseQueue || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} confirmAdminAction={confirmAdminAction} capabilities={capabilities.settlements} />;
   if (moduleId === "revenue") return <RevenueDashboardView data={data} setFilters={setFilters} />;
-  if (moduleId === "payouts") return <PayoutsView items={items} withdrawalRequests={data.withdrawalRequests || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} requestAdminInput={requestAdminInput} />;
+  if (moduleId === "payouts") return <PayoutsView items={items} withdrawalRequests={data.withdrawalRequests || []} pagination={pagination} setFilters={setFilters} runAction={runAction} busyId={busyId} requestAdminInput={requestAdminInput} capabilities={capabilities.payouts} />;
   if (moduleId === "configuration") return (
     <Suspense fallback={<div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">Loading configuration tools...</div>}>
-      <ConfigurationEngineView data={data} runAction={runAction} busyId={busyId} confirmAdminAction={confirmAdminAction} />
+      <ConfigurationEngineView data={data} runAction={runAction} busyId={busyId} confirmAdminAction={confirmAdminAction} capabilities={capabilities.tierScoreConfig} />
     </Suspense>
   );
-  if (moduleId === "settings") return <SettingsView data={data} runAction={runAction} busyId={busyId} />;
+  if (moduleId === "settings") return <SettingsView data={data} runAction={runAction} busyId={busyId} capabilities={capabilities.settings} />;
   return null;
 }
 

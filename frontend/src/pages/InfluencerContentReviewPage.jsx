@@ -11,7 +11,6 @@ import { loadSocialVerificationDraft } from "../utils/influencerSocialVerificati
 import { loadInfluencerProfileDraft } from "../utils/influencerProfileInformation";
 import { loadInfluencerBusinessDraft, loadInfluencerPaymentDraft } from "../utils/influencerBusinessPayment";
 import {
-  contentNiches,
   initialInfluencerContentReviewForm,
   loadInfluencerContentReviewDraft,
   saveInfluencerContentReviewDraftLocal,
@@ -26,11 +25,11 @@ function WizardProgress() {
   return (
     <aside className="sticky top-20 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="text-xs font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Step 6 of 6</div>
-      <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">Content Review</div>
+      <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">Review & Submit</div>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div className="h-full w-full rounded-full bg-blue-600" /></div>
       <ol className="mt-5 grid gap-2" aria-label="Influencer registration progress">
         {influencerWizardSteps.map((step, index) => {
-          const labels = ["Account Information", "Social Verification", "Profile Information", "Business Information", "Payment Details", "Content Review"];
+          const labels = influencerWizardSteps;
           const completed = index < 5;
           const current = index === 5;
           return (
@@ -158,14 +157,14 @@ export function InfluencerContentReviewPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 dark:bg-slate-950 dark:text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <button type="button" onClick={() => navigate("/influencer/register/payment-commission", { state: { applicationId: form.applicationId } })} className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white"><ArrowLeft className="h-4 w-4" /> Back to Payment Details</button>
+        <button type="button" onClick={() => navigate("/influencer/register/payment-commission", { state: { applicationId: form.applicationId } })} className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white"><ArrowLeft className="h-4 w-4" /> Back to Payout Setup</button>
         <div className="mt-6 grid gap-8 lg:grid-cols-[340px_1fr]">
           <WizardProgress />
           <section className="space-y-6">
             <header>
               <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-600 dark:text-blue-300">Influencer Registration</p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Content Review & Verification</h1>
-              <p className="mt-3 max-w-2xl text-base text-slate-600 dark:text-slate-300">Help us evaluate your content quality and creator profile before joining our Influencer Program.</p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Review & Submit</h1>
+              <p className="mt-3 max-w-2xl text-base text-slate-600 dark:text-slate-300">Upload sample work and identity proof once. Your niche and profile details are reused from the creator profile step.</p>
             </header>
             <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
               <div className="space-y-6">
@@ -207,14 +206,6 @@ export function InfluencerContentReviewPage() {
               </div>
               <div className="space-y-6">
                 <StatusPanel status={status} />
-                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                  <h2 className="text-xl font-black">Content Niche Analysis</h2>
-                  <p className="mt-1 text-sm text-slate-500">Auto detected: <strong>{status?.contentReview?.detectedNiche || "Pending"}</strong></p>
-                  <select value={form.manualNiche} onChange={(event) => setForm((current) => ({ ...current, manualNiche: event.target.value }))} className="mt-4 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-950">
-                    <option value="">Use auto-detected niche</option>
-                    {contentNiches.map((niche) => <option key={niche} value={niche.toLowerCase()}>{niche}</option>)}
-                  </select>
-                </section>
               </div>
             </div>
             {pageError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200" role="alert">{pageError}</div> : null}

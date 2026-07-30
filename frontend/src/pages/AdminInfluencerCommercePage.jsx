@@ -20,6 +20,7 @@ import {
 import CampaignEscrowService from "../services/campaignEscrowService";
 import { showError, showSuccess } from "../services/notificationService";
 import { MODULES, MODULE_IDS, defaultFilters, unwrap, ActionButton, Filters } from "./adminInfluencerCommerce/AdminInfluencerCommerceShared";
+import { useStaffPermission } from "../hooks/useStaffAuth";
 
 const AdminInfluencerCommerceModule = lazy(() =>
   import("./adminInfluencerCommerce/AdminInfluencerCommerceViews").then((module) => ({ default: module.AdminInfluencerCommerceModule })),
@@ -102,8 +103,13 @@ function AdminWorkflowModal({ request, busy, onCancel, onConfirm }) {
 
 export function AdminInfluencerCommercePage() {
   const location = useLocation();
+  const { hasPermission } = useStaffPermission();
+  const basePath = location.pathname.startsWith("/staff/influencer-commerce")
+    ? "/staff/influencer-commerce"
+    : "/admin/influencer-commerce";
+  const isStaffWorkspace = basePath.startsWith("/staff");
   const moduleId = useMemo(() => {
-    const suffix = location.pathname.replace(/^\/admin\/influencer-commerce\/?/, "");
+    const suffix = location.pathname.replace(/^\/(?:admin|staff)\/influencer-commerce\/?/, "");
     const next = suffix.split("/")[0] || "dashboard";
     return MODULE_IDS.has(next) ? next : null;
   }, [location.pathname]);
@@ -239,7 +245,44 @@ export function AdminInfluencerCommercePage() {
     setWorkflowRequest(null);
   }, [workflowRequest]);
 
-  if (!moduleId) return <Navigate to="/admin/influencer-commerce" replace />;
+  const capabilities = useMemo(() => {
+    const moduleCapability = (key, overrides = {}) => ({
+      create: !isStaffWorkspace || hasPermission(`influencerCommerce.${key}Create`),
+      read: !isStaffWorkspace || hasPermission(`influencerCommerce.${key}Read`),
+      update: !isStaffWorkspace || hasPermission(`influencerCommerce.${key}Update`),
+      delete: !isStaffWorkspace || hasPermission(`influencerCommerce.${key}Delete`),
+      ...overrides,
+    });
+
+    return {
+      campaigns: moduleCapability("campaigns", {
+        create: false,
+      }),
+      vendorCampaignCommission: moduleCapability("vendorCampaignCommission"),
+      affiliateLinks: moduleCapability("affiliateLinks"),
+      affiliateTracking: moduleCapability("affiliateTracking"),
+      productPromotions: moduleCapability("productPromotions"),
+      settlements: moduleCapability("settlements"),
+      campaignFinance: moduleCapability("campaignFinance", {
+        create: false,
+        update: false,
+        delete: false,
+      }),
+      revenueDashboard: moduleCapability("revenueDashboard", {
+        create: false,
+        update: false,
+        delete: false,
+      }),
+      payouts: moduleCapability("payouts"),
+      tierScoreConfig: moduleCapability("tierScoreConfig"),
+      settings: {
+        read: !isStaffWorkspace || hasPermission("influencerCommerce.settingsRead"),
+        update: !isStaffWorkspace,
+      },
+    };
+  }, [hasPermission, isStaffWorkspace]);
+
+  if (!moduleId) return <Navigate to={basePath} replace />;
 
   const module = MODULES[moduleId];
   const Icon = module.icon;
@@ -275,6 +318,7 @@ export function AdminInfluencerCommercePage() {
             busyId={busyId}
             requestAdminInput={requestAdminInput}
             confirmAdminAction={confirmAdminAction}
+            capabilities={capabilities}
           />
         </Suspense>
       )}

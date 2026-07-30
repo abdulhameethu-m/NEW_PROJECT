@@ -15,6 +15,7 @@ const { queueWhatsAppMessage } = require("./whatsapp.service");
 const { logger } = require("../utils/logger");
 const { getCommissionPercentage } = require("./finance-config.service");
 const payoutService = require("./payout.service");
+const payoutAccountService = require("./payoutAccount.service");
 const { getShippingModesConfig, updateShippingModesConfig } = require("./shipping-config.service");
 const { normalizeShippingMode } = require("./shipping.service");
 const notificationService = require("./notification.service");
@@ -112,7 +113,20 @@ async function listVendors({ status, startDate, endDate } = {}) {
 async function getVendorDetails(vendorId) {
   const vendor = await vendorRepo.findById(vendorId);
   if (!vendor) throw new AppError("Vendor not found", 404, "NOT_FOUND");
-  return vendor;
+  const payoutAccount = await payoutAccountService.getVendorAccountByVendorId(vendor._id).catch(() => null);
+  return {
+    ...vendor,
+    payoutAccount,
+    bankDetails: vendor.bankDetails || (payoutAccount ? {
+      accountNumber: payoutAccount.accountNumber,
+      IFSC: payoutAccount.ifscCode,
+      holderName: payoutAccount.accountHolderName,
+      bankName: payoutAccount.bankName,
+      upiId: payoutAccount.upiId,
+      verificationStatus: payoutAccount.verificationStatus,
+      isVerified: payoutAccount.isVerified,
+    } : undefined),
+  };
 }
 
 async function listUsers({ role, startDate, endDate } = {}) {

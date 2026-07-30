@@ -9,6 +9,7 @@ const notificationService = require("../../services/notification.service");
 const commissionService = require("../commission/service");
 const schedulingService = require("../../services/campaign-scheduling.service");
 const campaignProductShippingService = require("../../services/campaign-product-shipping.service");
+const CampaignProductShipment = require("../../models/CampaignProductShipment");
 const { emitDomainEvent } = require("../events/event-bus");
 const { INFLUENCER_EVENTS } = require("../shared/constants");
 const { CommissionRecord } = require("../commission/models");
@@ -569,7 +570,7 @@ function buildMarketplaceQuery(profileId, query = {}) {
   if (tab === "invitations" || tab === "invitation" || tab === "applied") {
     and.push({ influencerId: profileId, state: { $in: INVITATION_OPEN_STATES } });
   }
-  if (tab === "accepted" || tab === "active") {
+  if (["accepted", "active", "delivered-products", "returned-products"].includes(tab)) {
     and.push({
       $or: [
         { influencerId: profileId, state: { $in: ACCEPTED_STATES } },
@@ -700,6 +701,11 @@ class CampaignService {
         : {}),
       attributionWindowDays: pricing.attributionDays,
       pricing: pricing.pricing,
+      productShippingConfig: {
+        ...(payload.productShipping || {}),
+        productRequired: Boolean(payload.productShipping?.productRequired),
+        returnRequired: payload.productShipping?.returnRequired !== false,
+      },
       startDate: undefined,
       endDate: schedule.endDate || payload.deadline || undefined,
       scheduling: {
@@ -726,13 +732,6 @@ class CampaignService {
       history: [pushHistory(initialState, userId, "Campaign invitation sent by vendor")],
     });
     await influencerRateCardService.attachCampaignPricing(campaign, pricing);
-    if (payload.productShipping?.productRequired) {
-      await campaignProductShippingService.ensureCreatedFromCampaign({
-        userId,
-        campaign,
-        payload: payload.productShipping,
-      });
-    }
     await commissionService.ensureCampaignCommissionConfiguration(campaign, payload, pricing, { _id: userId, role: "vendor" });
     await createInvitationRecord({ campaign, influencerId: influencer._id, actorId: userId });
     await notifyInfluencerProfile(influencer, {
@@ -760,6 +759,11 @@ class CampaignService {
     }
     if (ACCEPTED_STATES.includes(campaign.state)) {
       await ensureAcceptedWorkflowArtifacts({ campaign, profile, userId });
+      await campaignProductShippingService.ensureCreatedAfterAcceptance({
+        campaign,
+        actorId: userId,
+        actorRole: "influencer",
+      });
       return campaign;
     }
     if (!INVITATION_OPEN_STATES.includes(campaign.state)) {
@@ -872,6 +876,11 @@ class CampaignService {
       reason: "Influencer accepted campaign invitation",
       metadata: { acceptanceId: acceptance._id, influencerId: String(profile._id), vendorId: String(updated.vendorId) },
     });
+    await campaignProductShippingService.ensureCreatedAfterAcceptance({
+      campaign: updated,
+      actorId: userId,
+      actorRole: "influencer",
+    });
     await notifyVendorUser(updated.vendorId, {
       title: "Campaign accepted",
       message: `${profile.displayName || profile.userId?.name || "Creator"} accepted ${updated.title || "your campaign"}.${["fixed", "hybrid"].includes(updated.paymentType) ? " Escrow funding is now required." : ""}`,
@@ -956,7 +965,7 @@ class CampaignService {
     const limit = toLimit(query.limit);
     const skip = (page - 1) * limit;
     const tab = String(query.tab || "available").toLowerCase();
-    const acceptedCampaignIds = ["accepted", "active", "completed"].includes(tab)
+    const acceptedCampaignIds = ["accepted", "active", "completed", "delivered-products", "returned-products"].includes(tab)
       ? (await CampaignAcceptance.find({ influencerId: profile._id, status: { $in: [WORKFLOW.ACCEPTED, WORKFLOW.ACTIVE] } }).select("campaignId").lean()).map((row) => row.campaignId).filter(Boolean)
       : [];
     const filter = buildMarketplaceQuery(profile._id, { ...query, tab, acceptedCampaignIds });
@@ -971,18 +980,21 @@ class CampaignService {
       Campaign.countDocuments(filter),
     ]);
     const campaignIds = items.map((campaign) => campaign._id);
-    const [invitations, acceptances] = campaignIds.length
+    const [invitations, acceptances, productShipments] = campaignIds.length
       ? await Promise.all([
         CampaignInvitation.find({ campaignId: { $in: campaignIds }, influencerId: profile._id }).lean(),
         CampaignAcceptance.find({ campaignId: { $in: campaignIds }, influencerId: profile._id }).lean(),
+        CampaignProductShipment.find({ campaignId: { $in: campaignIds }, influencerId: profile._id }).lean(),
       ])
-      : [[], []];
+      : [[], [], []];
     const invitationMap = new Map(invitations.map((row) => [String(row.campaignId), row]));
     const acceptanceMap = new Map(acceptances.map((row) => [String(row.campaignId), row]));
+    const shipmentMap = new Map(productShipments.map((row) => [String(row.campaignId), campaignProductShippingService.shipmentSummary(row)]));
     const rows = items.map((item) => {
       item.invitation = invitationMap.get(String(item._id)) || null;
       item.acceptance = acceptanceMap.get(String(item._id)) || null;
       const row = presentCampaign(item, profile._id);
+      row.productShipping = shipmentMap.get(String(item._id)) || { productRequired: false };
       if (tab === "recommended") {
         const categoryMatch = profile.categories?.some((category) => String(category).toLowerCase() === String(row.category).toLowerCase());
         row.recommendationScore = Math.min(98, Math.round(58 + row.commissionRate * 0.8 + (categoryMatch ? 18 : 0) + row.analytics.conversionRate));
@@ -1123,4 +1135,4 @@ class CampaignService {
       .sort({ createdAt: -1 });
   }
 }
-module.exports = new CampaignService();
+module.exports = new CampaignService();

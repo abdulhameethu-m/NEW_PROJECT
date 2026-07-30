@@ -93,7 +93,7 @@ function ProgressIndicator() {
           <div className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Step 1 of 6</div>
           <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">16% complete</div>
         </div>
-        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-200">Account Information</span>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-200">Account Basics</span>
       </div>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" aria-hidden="true">
         <div className="h-full w-[16%] rounded-full bg-blue-600" />
@@ -178,6 +178,7 @@ export function InfluencerRegistrationStepOnePage() {
   const [lastSavedAt, setLastSavedAt] = useState("");
   const restoredRef = useRef(false);
 
+  const isExistingApplication = Boolean(form.applicationId);
   const passwordStrength = useMemo(() => getPasswordStrength(form.password), [form.password]);
 
   useEffect(() => {
@@ -204,6 +205,10 @@ export function InfluencerRegistrationStepOnePage() {
       setEmailState({ message: "" });
       return;
     }
+    if (isExistingApplication) {
+      setEmailState({ available: true, type: "success", message: "Saved for this application" });
+      return;
+    }
     setEmailState({ loading: true, message: "Checking email..." });
     const timer = window.setTimeout(async () => {
       try {
@@ -215,12 +220,16 @@ export function InfluencerRegistrationStepOnePage() {
       }
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [form.email]);
+  }, [form.email, isExistingApplication]);
 
   useEffect(() => {
     const username = form.username.trim();
     if (!username || !/^[A-Za-z0-9_]{3,30}$/.test(username)) {
       setUsernameState({ message: "" });
+      return;
+    }
+    if (isExistingApplication) {
+      setUsernameState({ available: true, type: "success", message: "Saved for this application" });
       return;
     }
     setUsernameState({ loading: true, message: "Checking username..." });
@@ -234,7 +243,7 @@ export function InfluencerRegistrationStepOnePage() {
       }
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [form.username]);
+  }, [form.username, isExistingApplication]);
 
   function updateField(name, value) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -244,8 +253,9 @@ export function InfluencerRegistrationStepOnePage() {
 
   function validateCurrentForm() {
     const nextErrors = validateInfluencerStepOne(form, {
-      email: emailState.available,
-      username: usernameState.available,
+      email: isExistingApplication ? true : emailState.available,
+      username: isExistingApplication ? true : usernameState.available,
+      existingApplication: isExistingApplication,
     });
     setErrors(nextErrors);
     return nextErrors;
@@ -280,11 +290,16 @@ export function InfluencerRegistrationStepOnePage() {
       setPageError("Please fix the highlighted fields before continuing.");
       return;
     }
+    if (isExistingApplication) {
+      saveInfluencerStepOneDraft(sanitizeInfluencerStepOneDraft(form));
+      navigate("/influencer/register/social-verification", { state: { applicationId: form.applicationId, currentStep: 2 } });
+      return;
+    }
     setContinuing(true);
     try {
       const response = await submitInfluencerRegistrationStepOne(form);
       const application = response?.data?.application;
-      const nextPath = response?.data?.nextPath || "/influencer/register/social-profiles";
+      const nextPath = response?.data?.nextPath || "/influencer/register/social-verification";
       saveInfluencerStepOneDraft({
         ...sanitizeInfluencerStepOneDraft(form),
         applicationId: application?.applicationId || form.applicationId,
@@ -319,8 +334,8 @@ export function InfluencerRegistrationStepOnePage() {
             <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-7" aria-labelledby="account-information-title">
               <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 dark:border-slate-800 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 id="account-information-title" className="text-2xl font-bold">Account Information</h2>
-                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Let's create your influencer account.</p>
+                  <h2 id="account-information-title" className="text-2xl font-bold">Account Basics</h2>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Create your login once. We reuse these details in later steps.</p>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 dark:bg-slate-950 dark:text-slate-300" role="status">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
@@ -357,7 +372,7 @@ export function InfluencerRegistrationStepOnePage() {
                   </TextInput>
 
                   <div className="grid gap-5 md:grid-cols-2">
-                    <TextInput id="password" label="Password" required error={errors.password}>
+                    <TextInput id="password" label="Password" required={!isExistingApplication} error={errors.password}>
                       <PasswordField
                         id="password"
                         value={form.password}
@@ -365,15 +380,16 @@ export function InfluencerRegistrationStepOnePage() {
                         className="mt-2 h-14 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                         autoComplete="new-password"
                         aria-invalid={Boolean(errors.password)}
+                        disabled={isExistingApplication}
                       />
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" aria-hidden="true">
                         <div className={`h-full rounded-full ${passwordStrength.tone}`} style={{ width: `${passwordStrength.percent}%` }} />
                       </div>
                       <div className={`mt-2 text-xs font-semibold ${errors.password ? "text-rose-600 dark:text-rose-300" : "text-slate-500 dark:text-slate-400"}`} role={errors.password ? "alert" : "status"}>
-                        {errors.password || `Strength: ${passwordStrength.label}`}
+                        {errors.password || (isExistingApplication && !form.password ? "Password is already saved for this application." : `Strength: ${passwordStrength.label}`)}
                       </div>
                     </TextInput>
-                    <TextInput id="confirmPassword" label="Confirm Password" required error={errors.confirmPassword}>
+                    <TextInput id="confirmPassword" label="Confirm Password" required={!isExistingApplication} error={errors.confirmPassword}>
                       <PasswordField
                         id="confirmPassword"
                         value={form.confirmPassword}
@@ -381,6 +397,7 @@ export function InfluencerRegistrationStepOnePage() {
                         className="mt-2 h-14 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                         autoComplete="new-password"
                         aria-invalid={Boolean(errors.confirmPassword)}
+                        disabled={isExistingApplication}
                       />
                       <span className={`mt-2 block min-h-4 text-xs ${errors.confirmPassword ? "text-rose-600 dark:text-rose-300" : form.confirmPassword && form.confirmPassword === form.password ? "text-emerald-600 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`} role={errors.confirmPassword ? "alert" : "status"}>
                         {errors.confirmPassword || (form.confirmPassword && form.confirmPassword === form.password ? "Passwords match." : "")}

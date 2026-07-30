@@ -343,6 +343,26 @@ export async function getVendorInfluencerCampaigns(params = {}) {
   return data;
 }
 
+export async function getVendorDeliveredProducts(params = {}) {
+  const { data } = await api.get("/api/vendor/influencer-commerce/delivered-products", { params: compactParams(params) });
+  return data;
+}
+
+export async function updateVendorDeliveredProductStatus(shipmentId, payload = {}) {
+  const { data } = await api.patch(`/api/vendor/influencer-commerce/delivered-products/${shipmentId}/status`, payload);
+  return data;
+}
+
+export async function getVendorReturnedProducts(params = {}) {
+  const { data } = await api.get("/api/vendor/influencer-commerce/returned-products", { params: compactParams(params) });
+  return data;
+}
+
+export async function updateVendorReturnedProductStatus(shipmentId, payload = {}) {
+  const { data } = await api.patch(`/api/vendor/influencer-commerce/returned-products/${shipmentId}/status`, payload);
+  return data;
+}
+
 export async function reviewVendorCampaignApplication(campaignId, influencerId, payload = {}) {
   const { data } = await api.patch(`/api/vendor/influencer-commerce/campaigns/${campaignId}/applications/${influencerId}`, payload);
   return data;

@@ -69,8 +69,8 @@ const productShippingPayload = Joi.object({
   courierCompany: Joi.string().trim().max(120).allow("").default(""),
   trackingNumber: Joi.string().trim().max(120).allow("").default(""),
   trackingUrl: Joi.string().trim().max(500).allow("").default(""),
-  shipmentDate: Joi.date().iso().allow(null).optional(),
-  estimatedDelivery: Joi.date().iso().allow(null).optional(),
+  shipmentDate: Joi.date().iso().empty("").allow(null).optional(),
+  estimatedDelivery: Joi.date().iso().empty("").allow(null).optional(),
   shippingCost: Joi.number().min(0).default(0),
   packageWeight: Joi.string().trim().max(80).allow("").default(""),
   packageDimensions: Joi.object({
@@ -87,8 +87,8 @@ const productShippingPayload = Joi.object({
   returnCourierCompany: Joi.string().trim().max(120).allow("").default(""),
   returnTrackingNumber: Joi.string().trim().max(120).allow("").default(""),
   returnTrackingUrl: Joi.string().trim().max(500).allow("").default(""),
-  returnShipmentDate: Joi.date().iso().allow(null).optional(),
-  returnEstimatedDelivery: Joi.date().iso().allow(null).optional(),
+  returnShipmentDate: Joi.date().iso().empty("").allow(null).optional(),
+  returnEstimatedDelivery: Joi.date().iso().empty("").allow(null).optional(),
   returnNotes: Joi.string().trim().max(1500).allow("").default(""),
 }).unknown(true).default({});
 
@@ -254,6 +254,10 @@ router.patch(
 router.get("/campaigns", validate(listQuery, "query"), controller.campaigns);
 router.post("/campaigns/preview", validate(campaignPayload), controller.campaignPreview);
 router.post("/campaigns", validate(campaignPayload), controller.createCampaign);
+router.get("/delivered-products", validate(listQuery, "query"), controller.deliveredProducts);
+router.patch("/delivered-products/:shipmentId/status", validate(Joi.object({ shipmentId: Joi.string().required() }), "params"), validate(productShippingPayload), controller.updateDeliveredProductStatus);
+router.get("/returned-products", validate(listQuery, "query"), controller.returnedProducts);
+router.patch("/returned-products/:shipmentId/status", validate(Joi.object({ shipmentId: Joi.string().required() }), "params"), validate(productShippingPayload), controller.updateReturnedProductStatus);
 router.get("/campaigns/:campaignId/shipping", validate(Joi.object({ campaignId: Joi.string().required() }), "params"), controller.getCampaignShipping);
 router.post("/campaigns/:campaignId/shipping", validate(productShippingPayload), controller.saveCampaignShipping);
 router.put("/campaigns/:campaignId/shipping", validate(productShippingPayload), controller.saveCampaignShipping);

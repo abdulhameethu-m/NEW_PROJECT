@@ -1373,4 +1373,10 @@ class CampaignExecutionService {
   }
 }
 
-module.exports = new CampaignExecutionService();
+const campaignExecutionService = new CampaignExecutionService();
+
+campaignExecutionService.__private__ = {
+  deriveDeliverables,
+};
+
+module.exports = campaignExecutionService;

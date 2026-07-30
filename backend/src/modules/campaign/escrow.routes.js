@@ -1,13 +1,34 @@
 const express = require("express");
 const Joi = require("joi");
 const { authRequired, requireRole } = require("../../middleware/auth");
+const { adminWorkspaceAuthRequired, requireWorkspacePermission } = require("../../middleware/adminAccess");
 const { requireApprovedVendor } = require("../../middleware/vendorApproval");
 const { validate } = require("../../middleware/validate");
 const escrowController = require("./escrow.controller");
 
 const router = express.Router();
 const vendorAuth = [authRequired, requireRole("vendor"), requireApprovedVendor];
-const adminAuth = [authRequired, requireRole("admin", "super_admin", "finance_admin")];
+const requireSettlementsRead = requireWorkspacePermission("influencerCommerce.settlementsRead", {
+  legacyPermission: "payouts:process",
+});
+const requireSettlementsCreate = requireWorkspacePermission("influencerCommerce.settlementsCreate", {
+  legacyPermission: "payouts:process",
+});
+const requireSettlementsUpdate = requireWorkspacePermission("influencerCommerce.settlementsUpdate", {
+  legacyPermission: "payouts:process",
+});
+const requireVendorCampaignCommissionRead = requireWorkspacePermission("influencerCommerce.vendorCampaignCommissionRead", {
+  legacyPermission: "influencerCommerce:settings",
+});
+const requireVendorCampaignCommissionCreate = requireWorkspacePermission("influencerCommerce.vendorCampaignCommissionCreate", {
+  legacyPermission: "influencerCommerce:settings",
+});
+const requireVendorCampaignCommissionUpdate = requireWorkspacePermission("influencerCommerce.vendorCampaignCommissionUpdate", {
+  legacyPermission: "influencerCommerce:settings",
+});
+const requireVendorCampaignCommissionDelete = requireWorkspacePermission("influencerCommerce.vendorCampaignCommissionDelete", {
+  legacyPermission: "influencerCommerce:settings",
+});
 const feeConfigurationSchema = Joi.object({
   feeName: Joi.string().trim().max(120).required(),
   feeCode: Joi.string().valid("platform_fee", "gateway_fee", "gst", "refund_processing_fee", "partial_refund_fee").required(),
@@ -132,13 +153,15 @@ router.get(
 
 router.get(
   "/admin/release-queue",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsRead,
   escrowController.listReleaseQueue
 );
 
 router.post(
   "/admin/release-payment/:campaignId",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsUpdate,
   validate(
     Joi.object({
       influencerId: Joi.string().required(),
@@ -154,7 +177,8 @@ router.post(
  */
 router.get(
   "/admin/refund-requests",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsRead,
   escrowController.listRefundRequests
 );
 
@@ -164,7 +188,8 @@ router.get(
  */
 router.get(
   "/admin/escrow-refunds",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsRead,
   escrowController.listEscrowRefundDashboard
 );
 
@@ -174,7 +199,8 @@ router.get(
  */
 router.get(
   "/admin/escrow-refunds/:campaignId/deliverables",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsRead,
   validate(Joi.object({ campaignId: Joi.string().required() }), "params"),
   escrowController.listEscrowRefundDeliverables
 );
@@ -185,7 +211,8 @@ router.get(
  */
 router.post(
   "/admin/escrow-refunds/:campaignId/deliverables/:deliverableId/refund",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsUpdate,
   validate(
     Joi.object({
       campaignId: Joi.string().required(),
@@ -218,7 +245,8 @@ router.post(
  */
 router.post(
   "/admin/refund/:campaignId",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsCreate,
   validate(Joi.object({ campaignId: Joi.string().required() }), "params"),
   validate(
     Joi.object({
@@ -253,7 +281,8 @@ router.post(
  */
 router.post(
   "/admin/approve-refund/:refundId",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsUpdate,
   validate(
     Joi.object({
       approvalReason: Joi.string().max(1000).allow(""),
@@ -268,7 +297,8 @@ router.post(
  */
 router.post(
   "/admin/approve-and-process-refund/:refundId",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsUpdate,
   validate(Joi.object({ refundId: Joi.string().required() }), "params"),
   validate(
     Joi.object({
@@ -285,7 +315,8 @@ router.post(
  */
 router.post(
   "/admin/reject-refund/:refundId",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsUpdate,
   validate(
     Joi.object({
       rejectionReason: Joi.string().required(),
@@ -300,7 +331,8 @@ router.post(
  */
 router.post(
   "/admin/process-refund/:refundId",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsUpdate,
   escrowController.processRefund
 );
 
@@ -310,7 +342,8 @@ router.post(
  */
 router.get(
   "/admin/statistics",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsRead,
   escrowController.getRefundStats
 );
 
@@ -320,33 +353,38 @@ router.get(
  */
 router.get(
   "/admin/payment-orders",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireSettlementsRead,
   escrowController.listPaymentOrders
 );
 
 router.get(
   "/admin/fee-configurations",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireVendorCampaignCommissionRead,
   escrowController.listFeeConfigurations
 );
 
 router.post(
   "/admin/fee-configurations",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireVendorCampaignCommissionCreate,
   validate(feeConfigurationSchema),
   escrowController.createFeeConfiguration
 );
 
 router.patch(
   "/admin/fee-configurations/:configId",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireVendorCampaignCommissionUpdate,
   validate(feeConfigurationSchema),
   escrowController.updateFeeConfiguration
 );
 
 router.delete(
   "/admin/fee-configurations/:configId",
-  adminAuth,
+  adminWorkspaceAuthRequired,
+  requireVendorCampaignCommissionDelete,
   validate(Joi.object({ configId: Joi.string().required() }), "params"),
   escrowController.deleteFeeConfiguration
 );

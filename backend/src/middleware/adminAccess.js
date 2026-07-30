@@ -3,44 +3,50 @@ const { ADMIN_ROLES, hasPermission, normalizeRole } = require("../utils/adminPer
 const { verifyAccessToken, verifyStaffAccessToken } = require("../utils/jwt");
 const { Staff } = require("../modules/staff/models/Staff");
 const { StaffSession } = require("../modules/staff/models/StaffSession");
-const { hasStaffPermission } = require("../modules/staff/permissions");
+const { hasStaffPermission, normalizePermissions } = require("../modules/staff/permissions");
 const { logger } = require("../utils/logger");
 const vendorModuleService = require("../services/vendorModule.service");
-function getTokenFromReq(req) {
+function getTokensFromReq(req) {
   const header = req.headers.authorization || "";
   if (header.startsWith("Bearer ")) {
     throw new AppError("Bearer token authentication has been removed", 410, "LEGACY_AUTH_REMOVED");
   }
-  if (req.cookies?.accessToken) return req.cookies.accessToken;
-  if (req.cookies?.staffAccessToken) return req.cookies.staffAccessToken;
-  return null;
+  return {
+    adminToken: req.cookies?.accessToken || null,
+    staffToken: req.cookies?.staffAccessToken || null,
+  };
 }
 
 async function adminWorkspaceAuthRequired(req, res, next) {
-  let token;
+  let tokens;
   try {
-    token = getTokenFromReq(req);
+    tokens = getTokensFromReq(req);
   } catch (error) {
     return next(error);
   }
-  if (!token) {
+  if (!tokens.adminToken && !tokens.staffToken) {
     logger.warn("Auth request without token", { path: req.path, method: req.method });
     return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
   }
-  try {
-    const payload = verifyAccessToken(token);
-    if (ADMIN_ROLES.includes(normalizeRole(payload.role))) {
-      req.user = payload;
-      req.authContext = { type: "legacy_admin" };
-      logger.debug("Legacy admin authenticated", { role: payload.role, path: req.path });
-      return next();
+  if (tokens.adminToken) {
+    try {
+      const payload = verifyAccessToken(tokens.adminToken);
+      if (ADMIN_ROLES.includes(normalizeRole(payload.role))) {
+        req.user = payload;
+        req.authContext = { type: "legacy_admin" };
+        logger.debug("Legacy admin authenticated", { role: payload.role, path: req.path });
+        return next();
+      }
+    } catch (error) {
+      logger.debug("Legacy admin token verification failed", { error: error.message });
+      // Staff tokens are validated below.
     }
-  } catch (error) {
-    logger.debug("Legacy admin token verification failed", { error: error.message });
-    // Staff tokens are validated below.
+  }
+  if (!tokens.staffToken) {
+    return next(new AppError("Invalid or expired token", 401, "UNAUTHORIZED"));
   }
   try {
-    const payload = verifyStaffAccessToken(token);
+    const payload = verifyStaffAccessToken(tokens.staffToken);
     const session = await StaffSession.findById(payload.sid);
     if (!session || session.revokedAt || session.expiresAt < new Date()) {
       logger.warn("Staff session expired or revoked", { staffId: payload.sub, path: req.path });
@@ -60,13 +66,14 @@ async function adminWorkspaceAuthRequired(req, res, next) {
       logger.warn("Staff session invalidated due to password/logout", { staffId: payload.sub });
       return next(new AppError("Session expired", 401, "UNAUTHORIZED"));
     }
+    const permissions = normalizePermissions(staff.roleId?.permissions || {});
     req.staff = {
       _id: staff._id,
       name: staff.name,
       email: staff.email,
       roleId: staff.roleId?._id,
       roleName: staff.roleId?.name,
-      permissions: staff.roleId?.permissions || {},
+      permissions,
       status: staff.status,
       authType: "staff",
     };
@@ -74,7 +81,7 @@ async function adminWorkspaceAuthRequired(req, res, next) {
       sub: String(staff._id),
       role: "staff",
       roleId: req.staff.roleId,
-      permissions: req.staff.permissions,
+      permissions,
       authType: "staff",
     };
     req.authContext = { type: "staff" };
@@ -127,4 +134,4 @@ module.exports = {
   adminWorkspaceAuthRequired,
   requireWorkspacePermission,
   requireLegacyAdminPermission,
-};
+};

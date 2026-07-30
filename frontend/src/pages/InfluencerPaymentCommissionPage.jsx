@@ -49,14 +49,14 @@ function WizardProgress() {
           <div className="text-xs font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Step 5 of 6</div>
           <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">83% complete</div>
         </div>
-        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-200">Payment Details</span>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-200">Payout Setup</span>
       </div>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
         <div className="h-full w-5/6 rounded-full bg-blue-600" />
       </div>
       <ol className="mt-5 grid gap-2" aria-label="Influencer registration progress">
         {influencerWizardSteps.map((step, index) => {
-          const label = index === 1 ? "Social Verification" : index === 2 ? "Profile Information" : index === 3 ? "Business Information" : index === 4 ? "Payment Details" : step;
+          const label = step;
           const completed = index < 4;
           const current = index === 4;
           return (
@@ -126,7 +126,8 @@ export function InfluencerPaymentCommissionPage() {
     const local = loadInfluencerPaymentDraft();
     const applicationId = location.state?.applicationId || local?.values?.applicationId || stepFour?.values?.applicationId || stepThree?.values?.applicationId || stepTwo?.values?.applicationId || stepOne?.values?.applicationId || "";
     const country = location.state?.country || local?.values?.country || stepFour?.values?.country || "IN";
-    setForm((current) => ({ ...current, ...(local?.values || {}), applicationId, country }));
+    const accountHolderName = local?.values?.accountHolderName || stepFour?.values?.legalName || stepThree?.values?.displayName || "";
+    setForm((current) => ({ ...current, ...(local?.values || {}), applicationId, country, accountHolderName: current.accountHolderName || accountHolderName }));
     setLastSavedAt(local?.savedAt || "");
   }, [location.state?.applicationId, location.state?.country]);
 
@@ -200,15 +201,15 @@ export function InfluencerPaymentCommissionPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 dark:bg-slate-950 dark:text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <button type="button" onClick={() => navigate("/influencer/register/business-information", { state: { applicationId: form.applicationId } })} className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">
-          <ArrowLeft className="h-4 w-4" /> Back to Business Information
+          <ArrowLeft className="h-4 w-4" /> Back to Tax Details
         </button>
         <div className="mt-6 grid gap-8 lg:grid-cols-[340px_1fr]">
           <WizardProgress />
           <section className="space-y-6">
             <header>
               <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-600 dark:text-blue-300">Influencer Registration</p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Payment & Commission Details</h1>
-              <p className="mt-3 max-w-2xl text-base text-slate-600 dark:text-slate-300">Provide payout information to receive influencer commissions securely.</p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Payout Setup</h1>
+              <p className="mt-3 max-w-2xl text-base text-slate-600 dark:text-slate-300">Choose how you want to receive commissions. Account holder name is reused from your tax details when available.</p>
             </header>
 
             <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -236,7 +237,7 @@ export function InfluencerPaymentCommissionPage() {
             </div>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <h2 className="text-xl font-black">Payment Details</h2>
+              <h2 className="text-xl font-black">Payout Details</h2>
               {form.payoutMethod === "bank_transfer" ? (
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <Field label="Account Holder Name" required error={errors.accountHolderName}><input value={form.accountHolderName} onChange={(event) => update("accountHolderName", event.target.value)} className={inputClass(errors.accountHolderName)} autoComplete="name" /></Field>

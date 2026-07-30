@@ -39,6 +39,10 @@ const saveCampaignShipping = asyncHandler(async (req, res) => ok(res, await prod
 const dispatchCampaignProduct = asyncHandler(async (req, res) => ok(res, await productShippingService.dispatch(req.user.sub, req.params.campaignId, req.body), "Campaign product dispatched"));
 const updateCampaignReturn = asyncHandler(async (req, res) => ok(res, await productShippingService.updateReturn(req.user.sub, req.params.campaignId, req.body), "Campaign return updated"));
 const getCampaignTracking = asyncHandler(async (req, res) => ok(res, await productShippingService.getTracking(req.user.sub, req.params.campaignId), "Campaign tracking loaded"));
+const deliveredProducts = asyncHandler(async (req, res) => ok(res, await productShippingService.listVendorLogistics(req.user.sub, req.query, "delivery"), "Delivered products loaded"));
+const returnedProducts = asyncHandler(async (req, res) => ok(res, await productShippingService.listVendorLogistics(req.user.sub, req.query, "return"), "Returned products loaded"));
+const updateDeliveredProductStatus = asyncHandler(async (req, res) => ok(res, await productShippingService.updateVendorDeliveryStatus(req.user.sub, req.params.shipmentId, req.body), "Delivery status updated"));
+const updateReturnedProductStatus = asyncHandler(async (req, res) => ok(res, await productShippingService.updateVendorReturnStatus(req.user.sub, req.params.shipmentId, req.body), "Return status updated"));
 
 module.exports = {
   dashboard,
@@ -77,4 +81,8 @@ module.exports = {
   dispatchCampaignProduct,
   updateCampaignReturn,
   getCampaignTracking,
+  deliveredProducts,
+  returnedProducts,
+  updateDeliveredProductStatus,
+  updateReturnedProductStatus,
 };

@@ -11,10 +11,13 @@ import {
   ExternalLink,
   FileUp,
   Megaphone,
+  PackageCheck,
   PlusCircle,
   Save,
   Search,
   Send,
+  Truck,
+  Undo2,
   Trash2,
 } from "lucide-react";
 import {
@@ -38,6 +41,8 @@ const TABS = [
   { id: "recommended", label: "Recommended Campaigns" },
   { id: "invitations", label: "Campaign Invitations" },
   { id: "accepted", label: "Accepted Campaigns" },
+  { id: "delivered-products", label: "Delivered Products" },
+  { id: "returned-products", label: "Returned Products" },
   { id: "rejected", label: "Rejected Campaigns" },
   { id: "completed", label: "Completed Campaigns" },
   { id: "analytics", label: "Campaign Analytics" },
@@ -73,7 +78,182 @@ function formatDate(value) {
   return value ? new Date(value).toLocaleDateString() : "Not set";
 }
 
-function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, onSave, onSubmitDeliverable, onGenerateLink, busyId }) {
+function formatDateTime(value) {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not available";
+  return date.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function compactAddress(...parts) {
+  return parts.map((part) => String(part || "").trim()).filter(Boolean).join(", ");
+}
+
+function AddressBlock({ title, address = {} }) {
+  const locality = compactAddress(address.city, [address.state, address.postalCode].filter(Boolean).join(" - "));
+  const lines = [
+    address.name,
+    address.phone,
+    address.addressLine1,
+    address.addressLine2,
+    locality,
+    address.country,
+  ].filter(Boolean);
+  return (
+    <div className="min-w-56 rounded-xl bg-slate-50 px-3 py-2 text-xs dark:bg-slate-950/60">
+      <p className="font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</p>
+      {lines.length ? (
+        <address className="mt-1 space-y-0.5 not-italic text-slate-700 dark:text-slate-200">
+          {lines.map((line) => <p key={line}>{line}</p>)}
+        </address>
+      ) : (
+        <p className="mt-1 text-slate-500">Not available</p>
+      )}
+    </div>
+  );
+}
+
+function isDeliveredProductCampaign(campaign = {}) {
+  const status = String(campaign.productShipping?.shipmentStatus || "");
+  return Boolean(campaign.productShipping?.productRequired && !status.startsWith("return_"));
+}
+
+function isReturnedProductCampaign(campaign = {}) {
+  const status = String(campaign.productShipping?.shipmentStatus || "");
+  return Boolean(campaign.productShipping?.returnRequired && status.startsWith("return_"));
+}
+
+function ProductLogisticsSummary({ campaign }) {
+  const shipping = campaign.productShipping || {};
+  if (!shipping.productRequired) return null;
+  return (
+    <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-950 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-100">
+      <p className="font-semibold capitalize">Product logistics: {statusLabel(shipping.shipmentStatus || "pending_shipment")}</p>
+      <p className="mt-1 text-xs">
+        {[shipping.courierCompany, shipping.trackingNumber].filter(Boolean).join(" - ") || "Tracking details will appear after vendor dispatch."}
+      </p>
+      {shipping.returnRequired ? <p className="mt-1 text-xs">Return required after campaign completion.</p> : null}
+    </div>
+  );
+}
+
+function CampaignProductLogisticsTable({ campaigns = [], type = "delivery", onViewDetails, onSubmitDeliverable }) {
+  const isReturn = type === "return";
+  const Icon = isReturn ? Undo2 : PackageCheck;
+  const title = isReturn ? "Returned Products" : "Delivered Products";
+  const description = isReturn
+    ? "Track product return movement from your delivery address back to the vendor."
+    : "Track campaign products shipped by vendors to your delivery address.";
+  const emptyMessage = isReturn ? "No return product records found." : "No delivery product records found.";
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-indigo-50 p-3 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-200">
+              <Icon className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-slate-950 dark:text-white">{title}</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+            </div>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            {campaigns.length} records
+          </span>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        {!campaigns.length ? (
+          <div className="rounded-xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            {emptyMessage}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                <tr>
+                  {["Campaign", "Product", "Vendor", "Address", "Tracking", "Status", "Action"].map((header) => (
+                    <th key={header} className="whitespace-nowrap px-3 py-3">{header}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {campaigns.map((campaign) => {
+                  const shipping = campaign.productShipping || {};
+                  const trackingUrl = isReturn ? shipping.returnTrackingUrl : shipping.trackingUrl;
+                  const courier = isReturn ? shipping.returnCourierCompany : shipping.courierCompany;
+                  const trackingNumber = isReturn ? shipping.returnTrackingNumber : shipping.trackingNumber;
+                  const address = isReturn ? shipping.returnAddressSnapshot : shipping.deliveryAddressSnapshot;
+                  const products = campaign.products || campaign.productIds || [];
+                  return (
+                    <tr key={campaignKey(campaign)} className="border-t border-slate-100 align-top dark:border-slate-800">
+                      <td className="px-3 py-3">
+                        <p className="font-semibold text-slate-950 dark:text-white">{campaign.title || "Campaign"}</p>
+                        <p className="mt-1 text-xs capitalize text-slate-500">{campaignLifecycleLabel(campaign) || statusLabel(campaign.state)}</p>
+                      </td>
+                      <td className="px-3 py-3">
+                        {products.length ? products.map((product) => (
+                          <p key={product.id || product._id || product} className="font-medium text-slate-700 dark:text-slate-200">{product.name || product.title || product.productName || "Product"}</p>
+                        )) : <p className="text-slate-500">No product</p>}
+                      </td>
+                      <td className="px-3 py-3">
+                        <p className="font-medium text-slate-800 dark:text-slate-100">{campaign.brandName || campaign.vendor?.shopName || campaign.vendorName || "Vendor"}</p>
+                        <p className="mt-1 text-xs text-slate-500">Campaign partner</p>
+                      </td>
+                      <td className="px-3 py-3">
+                        <AddressBlock title={isReturn ? "Vendor return address" : "Your delivery address"} address={address} />
+                      </td>
+                      <td className="px-3 py-3 text-xs text-slate-700 dark:text-slate-200">
+                        <p><span className="font-semibold">Courier:</span> {courier || "-"}</p>
+                        <p className="mt-1"><span className="font-semibold">Tracking:</span> {trackingNumber || "-"}</p>
+                        <p className="mt-1"><span className="font-semibold">Updated:</span> {formatDateTime(shipping.updatedAt || shipping.shipmentDate || shipping.returnShipmentDate)}</p>
+                        {trackingUrl ? (
+                          <a href={trackingUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-300">
+                            Track <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                          {statusLabel(shipping.shipmentStatus || "placed")}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onViewDetails(campaign)}
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                          >
+                            View Details
+                          </button>
+                          {!isReturn ? (
+                            <button
+                              type="button"
+                              onClick={() => onSubmitDeliverable(campaign)}
+                              className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950"
+                            >
+                              Create Content
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function CampaignCard({ campaign, tab = "available", onApply, onAccept, onReject, onViewDetails, onSave, onSubmitDeliverable, onGenerateLink, busyId }) {
   const campaignId = campaignKey(campaign);
   const busy = busyId === campaignId;
   const applicationStatus = campaign.applicationStatus || "";
@@ -92,7 +272,7 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
   const contentEnabled = ["CONTENT_CREATION", "UNDER_REVIEW", "READY_FOR_PUBLISH", "PUBLISH_SCHEDULED"].includes(lifecycleStatus) && (campaign.paymentType !== "fixed" || Boolean(campaign.fixedPaymentWorkflow?.contentEnabled));
   const linksEnabled = lifecycleStatus === "LIVE";
   const isWaiting = !isActive && ["submitted", "pending_review", "shortlisted"].includes(applicationStatus);
-  const canApply = !isActive && campaign.marketplacePublic && !isApplied && !hasOpenInvitation && !canAccept;
+  const canApply = tab === "available" && !isActive && campaign.marketplacePublic && !isApplied && !hasOpenInvitation && !canAccept;
   const deadline = campaign.applicationDeadline || campaign.deadline;
   const productIds = campaignProductIds(campaign);
 
@@ -149,6 +329,8 @@ function CampaignCard({ campaign, onApply, onAccept, onReject, onViewDetails, on
             {campaign.recommendationScore}% match - {campaign.successProbability}% success probability
           </div>
         ) : null}
+
+        <ProductLogisticsSummary campaign={campaign} />
 
         <div className="mt-auto flex flex-wrap gap-2">
           {canAccept ? (
@@ -808,8 +990,18 @@ export default function InfluencerCampaignsPage() {
         setCommerceProfile(res?.data || null);
         return;
       }
-      const res = await listCampaignMarketplace({ tab, ...filters, limit: 24 });
-      setCampaigns(res?.data?.items || []);
+      const sourceTab = ["delivered-products", "returned-products"].includes(tab) ? "accepted" : tab;
+      const res = await listCampaignMarketplace({ tab: sourceTab, ...filters, limit: sourceTab === tab ? 24 : 100 });
+      const rows = res?.data?.items || [];
+      if (tab === "delivered-products") {
+        setCampaigns(rows.filter(isDeliveredProductCampaign));
+        return;
+      }
+      if (tab === "returned-products") {
+        setCampaigns(rows.filter(isReturnedProductCampaign));
+        return;
+      }
+      setCampaigns(rows);
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load campaign marketplace.");
     } finally {
@@ -973,7 +1165,11 @@ export default function InfluencerCampaignsPage() {
             </p>
             <h1 className="mt-3 text-2xl font-semibold text-slate-950 dark:text-white">Discover, apply, execute, and analyze brand campaigns</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-              Built on the existing campaign, product, content, and commission infrastructure.
+              {tab === "delivered-products"
+                ? "Track campaign products dispatched by vendors and confirm delivery from the campaign execution page."
+                : tab === "returned-products"
+                  ? "Track campaign products that are in the return workflow after campaign completion."
+                  : "Built on the existing campaign, product, content, and commission infrastructure."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1064,12 +1260,20 @@ export default function InfluencerCampaignsPage() {
             <div key={index} className="h-[360px] animate-pulse rounded-2xl bg-slate-200/70 dark:bg-slate-800" />
           ))}
         </div>
+      ) : ["delivered-products", "returned-products"].includes(tab) ? (
+        <CampaignProductLogisticsTable
+          campaigns={campaigns}
+          type={tab === "returned-products" ? "return" : "delivery"}
+          onViewDetails={setSelectedCampaign}
+          onSubmitDeliverable={handleSubmitDeliverable}
+        />
       ) : campaigns.length ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {campaigns.map((campaign) => (
             <CampaignCard
               key={campaignKey(campaign)}
               campaign={campaign}
+              tab={tab}
               onApply={handleApply}
               onAccept={handleAcceptCampaign}
               onReject={handleRejectCampaign}

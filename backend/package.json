@@ -5,6 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "seed:admin": "node src/scripts/seedAdmin.js",
+    "db:audit": "node src/scripts/databaseAuditCleanup.js",
     "start": "node src/server.js",
     "build:frontend": "node src/scripts/buildFrontend.js",
     "test": "vitest run",

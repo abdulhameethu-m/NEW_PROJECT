@@ -11,6 +11,11 @@ const ICON_MAP = {
   MessageCircle: MessageCircleIcon,
   CreditCard: CreditCardIcon,
   BarChart3: BarChart3Icon,
+  Megaphone: MegaphoneIcon,
+  Search: SearchIcon,
+  Percent: PercentIcon,
+  Link: LinkIcon,
+  Wallet: PayoutsIcon,
   Settings: SettingsIcon,
   Lock: LockIcon,
   UserCheck: UserCheckIcon,
@@ -21,7 +26,14 @@ export function StaffSidebar({ permissions, enabledModules = {}, isOpen, onToggl
   const [expandedSections, setExpandedSections] = useState({
     main: true,
     management: true,
+    growth: true,
     finance: true,
+  });
+  const [expandedModules, setExpandedModules] = useState({
+    "influencer-commerce": true,
+  });
+  const [expandedGroups, setExpandedGroups] = useState({
+    "influencer-commerce:overview": true,
   });
 
   const accessibleModules = useMemo(
@@ -47,8 +59,21 @@ export function StaffSidebar({ permissions, enabledModules = {}, isOpen, onToggl
     setExpandedSections((current) => ({ ...current, [section]: !current[section] }));
   }
 
+  function toggleModule(moduleKey) {
+    setExpandedModules((current) => ({ ...current, [moduleKey]: !current[moduleKey] }));
+  }
+
+  function toggleGroup(groupKey) {
+    setExpandedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }));
+  }
+
   function isActive(route) {
     return location.pathname === route || location.pathname.startsWith(`${route}/`);
+  }
+
+  function isModuleActive(module) {
+    if (module.exact) return location.pathname === module.route;
+    return isActive(module.route);
   }
 
   return (
@@ -82,7 +107,7 @@ export function StaffSidebar({ permissions, enabledModules = {}, isOpen, onToggl
         <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
           {Object.entries(modulesBySection).map(([section, sectionModules]) => (
             <div key={section}>
-              {section !== "main" ? (
+              {section !== "main" && section !== "growth" ? (
                 <button
                   type="button"
                   onClick={() => toggleSection(section)}
@@ -98,28 +123,21 @@ export function StaffSidebar({ permissions, enabledModules = {}, isOpen, onToggl
               {expandedSections[section] ? (
                 <div className="space-y-1">
                   {sectionModules.map((module) => {
-                    const Icon = ICON_MAP[module.icon];
-                    const active = isActive(module.route);
+                    if (module.children?.length) {
+                      return (
+                        <NestedModule
+                          key={module.key}
+                          module={module}
+                          expanded={Boolean(expandedModules[module.key])}
+                          expandedGroups={expandedGroups}
+                          isModuleActive={isModuleActive}
+                          onToggleModule={toggleModule}
+                          onToggleGroup={toggleGroup}
+                        />
+                      );
+                    }
 
-                    return (
-                      <Link
-                        key={module.key}
-                        to={module.route}
-                        className={`group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition ${
-                          active
-                            ? "bg-slate-950 text-white shadow-sm"
-                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                        }`}
-                      >
-                        {Icon ? <Icon size={24} className="shrink-0 text-current" /> : null}
-                        <div className="min-w-0">
-                          <div className="font-medium">{module.name}</div>
-                          <div className={`truncate text-xs ${active ? "text-slate-300" : "text-slate-400"}`}>
-                            {module.description}
-                          </div>
-                        </div>
-                      </Link>
-                    );
+                    return <ModuleLink key={module.key} module={module} active={isModuleActive(module)} />;
                   })}
                 </div>
               ) : null}
@@ -134,6 +152,86 @@ export function StaffSidebar({ permissions, enabledModules = {}, isOpen, onToggl
         </div>
       </aside>
     </>
+  );
+}
+
+function ModuleLink({ module, active, nested = false }) {
+  const Icon = ICON_MAP[module.icon];
+  return (
+    <Link
+      to={module.route}
+      className={`group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition ${
+        active
+          ? "bg-slate-950 text-white shadow-sm"
+          : nested
+            ? "bg-white text-slate-600 ring-1 ring-slate-100 hover:bg-slate-100 hover:text-slate-950"
+            : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+      }`}
+    >
+      {Icon ? <Icon size={nested ? 18 : 24} className="shrink-0 text-current" /> : null}
+      <div className="min-w-0">
+        <div className="truncate font-medium">{module.name}</div>
+        {!nested ? (
+          <div className={`truncate text-xs ${active ? "text-slate-300" : "text-slate-400"}`}>
+            {module.description}
+          </div>
+        ) : null}
+      </div>
+    </Link>
+  );
+}
+
+function NestedModule({ module, expanded, expandedGroups, isModuleActive, onToggleModule, onToggleGroup }) {
+  const Icon = ICON_MAP[module.icon];
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <button
+        type="button"
+        onClick={() => onToggleModule(module.key)}
+        className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left text-slate-800"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          {Icon ? <Icon size={22} className="shrink-0 text-slate-600" /> : null}
+          <span className="truncate text-sm font-semibold">{module.name}</span>
+        </span>
+        <ChevronDownIcon className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {expanded ? (
+        <div className="mt-2 space-y-1">
+          {module.children.map((group) => {
+            const GroupIcon = ICON_MAP[group.icon];
+            const groupKey = `${module.key}:${group.key}`;
+            const groupExpanded = Boolean(expandedGroups[groupKey]);
+
+            return (
+              <div key={group.key}>
+                <button
+                  type="button"
+                  onClick={() => onToggleGroup(groupKey)}
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:bg-white"
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    {GroupIcon ? <GroupIcon size={16} className="shrink-0" /> : null}
+                    <span className="truncate">{group.name}</span>
+                  </span>
+                  <ChevronDownIcon className={`h-3.5 w-3.5 shrink-0 transition-transform ${groupExpanded ? "rotate-180" : "-rotate-90"}`} />
+                </button>
+
+                {groupExpanded ? (
+                  <div className="ml-5 mt-1 space-y-1">
+                    {group.children.map((child) => (
+                      <ModuleLink key={child.key} module={child} active={isModuleActive(child)} nested />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -221,6 +319,44 @@ function PackageIcon({ size = 24, className = "shrink-0" }) {
       <path d="m12 2 8 4.5v11L12 22 4 17.5v-11L12 2Z" />
       <path d="M12 22V11.5" />
       <path d="m20 6.5-8 5-8-5" />
+    </IconBase>
+  );
+}
+
+function MegaphoneIcon({ size = 24, className = "shrink-0" }) {
+  return (
+    <IconBase size={size} className={className}>
+      <path d="m3 11 14-5v12L3 13z" />
+      <path d="M11 14v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2.5" />
+      <path d="M21 9v6" />
+    </IconBase>
+  );
+}
+
+function SearchIcon({ size = 24, className = "shrink-0" }) {
+  return (
+    <IconBase size={size} className={className}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m16.5 16.5 4 4" />
+    </IconBase>
+  );
+}
+
+function LinkIcon({ size = 24, className = "shrink-0" }) {
+  return (
+    <IconBase size={size} className={className}>
+      <path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
+      <path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1" />
+    </IconBase>
+  );
+}
+
+function PercentIcon({ size = 24, className = "shrink-0" }) {
+  return (
+    <IconBase size={size} className={className}>
+      <path d="M19 5 5 19" />
+      <circle cx="7" cy="7" r="2" />
+      <circle cx="17" cy="17" r="2" />
     </IconBase>
   );
 }

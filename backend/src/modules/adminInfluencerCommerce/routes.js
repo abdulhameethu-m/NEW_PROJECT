@@ -6,13 +6,31 @@ const controller = require("./controller");
 
 const router = express.Router();
 
-const requireInfluencerCommerceManage = requireWorkspacePermission("influencerCommerce.manage", {
-  legacyPermission: "influencerCommerce:manage",
+const readPermission = (key, legacyPermission = "influencerCommerce:manage") => requireWorkspacePermission(`influencerCommerce.${key}Read`, {
+  legacyPermission,
 });
-const requireInfluencerCommercePayouts = requireWorkspacePermission("influencerCommerce.payouts", {
+const updatePermission = (key, legacyPermission = "influencerCommerce:manage") => requireWorkspacePermission(`influencerCommerce.${key}Update`, {
+  legacyPermission,
+});
+const requireInfluencerCommercePayoutsUpdate = requireWorkspacePermission("influencerCommerce.payoutsUpdate", {
   legacyPermission: "payouts:process",
 });
-const requireInfluencerCommerceSettings = requireWorkspacePermission("influencerCommerce.settings", {
+const requireInfluencerCommerceTierScoreRead = requireWorkspacePermission("influencerCommerce.tierScoreConfigRead", {
+  legacyPermission: "influencerCommerce:settings",
+});
+const requireInfluencerCommerceTierScoreCreate = requireWorkspacePermission("influencerCommerce.tierScoreConfigCreate", {
+  legacyPermission: "influencerCommerce:settings",
+});
+const requireInfluencerCommerceTierScoreUpdate = requireWorkspacePermission("influencerCommerce.tierScoreConfigUpdate", {
+  legacyPermission: "influencerCommerce:settings",
+});
+const requireInfluencerCommerceTierScoreDelete = requireWorkspacePermission("influencerCommerce.tierScoreConfigDelete", {
+  legacyPermission: "influencerCommerce:settings",
+});
+const requireInfluencerCommerceSettingsRead = requireWorkspacePermission("influencerCommerce.settingsRead", {
+  legacyPermission: "influencerCommerce:settings",
+});
+const requireInfluencerCommerceSettingsUpdate = requireWorkspacePermission("influencerCommerce.settingsUpdate", {
   legacyPermission: "influencerCommerce:settings",
 });
 
@@ -86,13 +104,13 @@ const recoverConfigSchema = Joi.object({
   version: Joi.number().integer().min(1).required(),
 });
 
-router.get("/dashboard", validate(querySchema, "query"), controller.dashboard);
-router.get("/influencers", validate(querySchema, "query"), controller.influencers);
-router.get("/vendors", validate(querySchema, "query"), controller.vendors);
-router.get("/campaigns", validate(querySchema, "query"), controller.campaigns);
+router.get("/dashboard", readPermission("dashboard", "dashboard:read"), validate(querySchema, "query"), controller.dashboard);
+router.get("/influencers", readPermission("influencers"), validate(querySchema, "query"), controller.influencers);
+router.get("/vendors", readPermission("vendors"), validate(querySchema, "query"), controller.vendors);
+router.get("/campaigns", readPermission("campaigns"), validate(querySchema, "query"), controller.campaigns);
 router.patch(
   "/campaigns/:campaignId",
-  requireInfluencerCommerceManage,
+  updatePermission("campaigns"),
   validate(
     Joi.object({
       title: Joi.string().trim().max(180).allow("").optional(),
@@ -120,25 +138,25 @@ router.patch(
   ),
   controller.updateCampaign
 );
-router.get("/matching", validate(querySchema, "query"), controller.matching);
-router.get("/affiliate-links", validate(querySchema, "query"), controller.affiliateLinks);
-router.get("/affiliate-links/:linkId", validate(objectIdParamSchema, "params"), controller.affiliateLinkDetails);
+router.get("/matching", readPermission("influencerVendorMatching"), validate(querySchema, "query"), controller.matching);
+router.get("/affiliate-links", readPermission("affiliateLinks"), validate(querySchema, "query"), controller.affiliateLinks);
+router.get("/affiliate-links/:linkId", readPermission("affiliateLinks"), validate(objectIdParamSchema, "params"), controller.affiliateLinkDetails);
 router.patch(
   "/affiliate-links/:linkId/status",
-  requireInfluencerCommerceManage,
+  updatePermission("affiliateLinks"),
   validate(objectIdParamSchema, "params"),
   validate(affiliateLinkStatusSchema),
   controller.updateAffiliateLinkStatus
 );
-router.get("/affiliate-tracking", validate(querySchema, "query"), controller.tracking);
-router.get("/product-promotions", validate(querySchema, "query"), controller.productPromotions);
-router.get("/settlements", validate(querySchema, "query"), controller.settlements);
-router.get("/payouts", validate(querySchema, "query"), controller.payouts);
-router.get("/revenue-dashboard", validate(querySchema, "query"), controller.revenueDashboard);
-router.get("/fixed-revenue", validate(querySchema, "query"), controller.fixedRevenueDashboard);
+router.get("/affiliate-tracking", readPermission("affiliateTracking"), validate(querySchema, "query"), controller.tracking);
+router.get("/product-promotions", readPermission("productPromotions"), validate(querySchema, "query"), controller.productPromotions);
+router.get("/settlements", readPermission("settlements"), validate(querySchema, "query"), controller.settlements);
+router.get("/payouts", readPermission("payouts", "payouts:read"), validate(querySchema, "query"), controller.payouts);
+router.get("/revenue-dashboard", readPermission("revenueDashboard"), validate(querySchema, "query"), controller.revenueDashboard);
+router.get("/fixed-revenue", readPermission("campaignFinance"), validate(querySchema, "query"), controller.fixedRevenueDashboard);
 router.patch(
   "/withdrawals/:requestId",
-  requireInfluencerCommercePayouts,
+  requireInfluencerCommercePayoutsUpdate,
   validate(Joi.object({ requestId: Joi.string().trim().required() }), "params"),
   validate(
     Joi.object({
@@ -151,41 +169,41 @@ router.patch(
   ),
   controller.updateWithdrawalRequest
 );
-router.get("/settings", controller.settings);
+router.get("/settings", requireInfluencerCommerceSettingsRead, controller.settings);
 router.patch(
   "/settings",
-  requireInfluencerCommerceSettings,
+  requireInfluencerCommerceSettingsUpdate,
   validate(Joi.object({ enabled: Joi.boolean().optional() })),
   controller.updateSettings
 );
-router.get("/audit-logs", validate(querySchema, "query"), controller.auditLogs);
-router.get("/configuration", controller.configOverview);
-router.get("/configuration/audit-logs", validate(querySchema, "query"), controller.configAuditLogs);
-router.get("/configuration/:entityType", validate(configEntitySchema, "params"), validate(querySchema, "query"), controller.listConfig);
+router.get("/audit-logs", readPermission("tierScoreConfig"), validate(querySchema, "query"), controller.auditLogs);
+router.get("/configuration", requireInfluencerCommerceTierScoreRead, controller.configOverview);
+router.get("/configuration/audit-logs", requireInfluencerCommerceTierScoreRead, validate(querySchema, "query"), controller.configAuditLogs);
+router.get("/configuration/:entityType", requireInfluencerCommerceTierScoreRead, validate(configEntitySchema, "params"), validate(querySchema, "query"), controller.listConfig);
 router.post(
   "/configuration/:entityType",
-  requireInfluencerCommerceSettings,
+  requireInfluencerCommerceTierScoreCreate,
   validate(configEntitySchema, "params"),
   validate(flexibleConfigSchema),
   controller.createConfig
 );
 router.patch(
   "/configuration/:entityType/:id",
-  requireInfluencerCommerceSettings,
+  requireInfluencerCommerceTierScoreUpdate,
   validate(configEntitySchema, "params"),
   validate(flexibleConfigSchema),
   controller.updateConfig
 );
 router.delete(
   "/configuration/:entityType/:id",
-  requireInfluencerCommerceSettings,
+  requireInfluencerCommerceTierScoreDelete,
   validate(configEntitySchema, "params"),
   controller.deleteConfig
 );
-router.get("/configuration/:entityType/:id/history", validate(configEntitySchema, "params"), controller.configVersions);
+router.get("/configuration/:entityType/:id/history", requireInfluencerCommerceTierScoreRead, validate(configEntitySchema, "params"), controller.configVersions);
 router.post(
   "/configuration/:entityType/:id/recover",
-  requireInfluencerCommerceSettings,
+  requireInfluencerCommerceTierScoreUpdate,
   validate(configEntitySchema, "params"),
   validate(recoverConfigSchema),
   controller.recoverConfig

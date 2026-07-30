@@ -1,5 +1,5 @@
 import { createElement, useCallback, useMemo } from "react";
-import { BarChart3, CreditCard, FileCheck2, Images, LineChart, Megaphone, RotateCcw, Search, Users } from "lucide-react";
+import { BarChart3, CreditCard, FileCheck2, Images, LineChart, Megaphone, PackageCheck, RotateCcw, Search, Undo2, Users } from "lucide-react";
 
 const TABS = [
   ["dashboard", "Dashboard", BarChart3],
@@ -7,6 +7,8 @@ const TABS = [
   ["subscription", "Subscription", CreditCard],
   ["relationships", "My Influencers", Users],
   ["campaigns", "Campaign Management", Megaphone],
+  ["delivered-products", "Delivered Products", PackageCheck],
+  ["returned-products", "Returned Products", Undo2],
   ["media-library", "Media Library", Images],
   ["content", "Content Approvals", FileCheck2],
   ["performance", "Influencer Performance", LineChart],
@@ -31,6 +33,8 @@ const TAB_PATHS = {
   subscription: "/vendor/influencer-commerce/subscription",
   relationships: "/vendor/influencer-commerce/relationships",
   campaigns: "/vendor/influencer-commerce/campaigns",
+  "delivered-products": "/vendor/influencer-commerce/delivered-products",
+  "returned-products": "/vendor/influencer-commerce/returned-products",
   "media-library": "/vendor/influencer-commerce/media-library",
   content: "/vendor/influencer-commerce/content",
   performance: "/vendor/influencer-commerce/performance",

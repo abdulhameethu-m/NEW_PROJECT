@@ -27,8 +27,8 @@ const productShippingPayload = Joi.object({
   courierCompany: Joi.string().trim().max(120).allow("").default(""),
   trackingNumber: Joi.string().trim().max(120).allow("").default(""),
   trackingUrl: Joi.string().trim().max(500).allow("").default(""),
-  shipmentDate: Joi.date().iso().allow(null).optional(),
-  estimatedDelivery: Joi.date().iso().allow(null).optional(),
+  shipmentDate: Joi.date().iso().empty("").allow(null).optional(),
+  estimatedDelivery: Joi.date().iso().empty("").allow(null).optional(),
   shippingCost: Joi.number().min(0).default(0),
   packageWeight: Joi.string().trim().max(80).allow("").default(""),
   packageDimensions: Joi.object().unknown(true).default({}),
@@ -40,8 +40,8 @@ const productShippingPayload = Joi.object({
   returnCourierCompany: Joi.string().trim().max(120).allow("").default(""),
   returnTrackingNumber: Joi.string().trim().max(120).allow("").default(""),
   returnTrackingUrl: Joi.string().trim().max(500).allow("").default(""),
-  returnShipmentDate: Joi.date().iso().allow(null).optional(),
-  returnEstimatedDelivery: Joi.date().iso().allow(null).optional(),
+  returnShipmentDate: Joi.date().iso().empty("").allow(null).optional(),
+  returnEstimatedDelivery: Joi.date().iso().empty("").allow(null).optional(),
   returnNotes: Joi.string().trim().max(1500).allow("").default(""),
 }).unknown(true).default({});
 

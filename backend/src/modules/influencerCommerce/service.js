@@ -1593,6 +1593,11 @@ class InfluencerCommerceVendorService {
         paymentType: pricing.paymentType,
         attributionWindowDays: pricing.attributionDays,
         pricing: pricing.pricing,
+        productShippingConfig: {
+          ...(payload.productShipping || {}),
+          productRequired: Boolean(payload.productShipping?.productRequired),
+          returnRequired: payload.productShipping?.returnRequired !== false,
+        },
         startDate: schedule.startDate || undefined,
         endDate: schedule.endDate || payload.deadline || undefined,
         scheduling: {
@@ -1606,13 +1611,6 @@ class InfluencerCommerceVendorService {
         history: [{ state: "draft", actorId: userId, note: "Marketplace campaign created by vendor", changedAt: new Date() }],
       });
       await influencerRateCardService.attachCampaignPricing(campaign, pricing);
-    }
-    if (payload.productShipping?.productRequired) {
-      await campaignProductShippingService.ensureCreatedFromCampaign({
-        userId,
-        campaign,
-        payload: payload.productShipping,
-      });
     }
     await influencerCommerceEngine.ensureCampaignBudgetControl(campaign, campaign.pricing?.totalBudget || payload.budget || campaign.fixedFee || 0);
     await auditService.log({ actor: { _id: userId, role: "vendor" }, action: payload.influencerId ? "campaign.invite" : "campaign.create", entityType: "Campaign", entityId: campaign._id, metadata: { influencerId: payload.influencerId || null } }).catch(() => {});
@@ -2434,4 +2432,4 @@ class InfluencerCommerceVendorService {
 
 }
 
-module.exports = new InfluencerCommerceVendorService();
+module.exports = new InfluencerCommerceVendorService();

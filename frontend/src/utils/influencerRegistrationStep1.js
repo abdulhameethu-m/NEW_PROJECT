@@ -2,11 +2,11 @@ const INFLUENCER_STEP_ONE_STORAGE_KEY = "grm_influencer_register_step_1";
 const INFLUENCER_STEP_ONE_SESSION_KEY = "grm_influencer_register_step_1_session";
 
 export const influencerWizardSteps = [
-  "Account Information",
-  "Social Profiles",
+  "Account Basics",
+  "Social Verification",
   "Creator Profile",
-  "Payment Details",
-  "Verification",
+  "Tax Details",
+  "Payout Setup",
   "Review & Submit",
 ];
 
@@ -91,6 +91,7 @@ export function getPasswordStrength(password = "") {
 
 export function validateInfluencerStepOne(values = {}, availability = {}) {
   const errors = {};
+  const existingApplication = Boolean(availability.existingApplication || values.applicationId);
   const firstName = String(values.firstName || "").trim();
   const lastName = String(values.lastName || "").trim();
   const email = String(values.email || "").trim();
@@ -98,6 +99,7 @@ export function validateInfluencerStepOne(values = {}, availability = {}) {
   const username = String(values.username || "").trim();
   const password = String(values.password || "");
   const confirmPassword = String(values.confirmPassword || "");
+  const shouldValidatePassword = !existingApplication || Boolean(password || confirmPassword);
 
   if (firstName.length < 2) errors.firstName = "First name must be at least 2 characters.";
   if (firstName.length > 50) errors.firstName = "First name must be 50 characters or fewer.";
@@ -106,23 +108,25 @@ export function validateInfluencerStepOne(values = {}, availability = {}) {
 
   if (!email) errors.email = "Email address is required.";
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Enter a valid email address.";
-  else if (availability.email === false) errors.email = "Email already registered.";
+  else if (!existingApplication && availability.email === false) errors.email = "Email already registered.";
 
   if (!/^\+\d{1,4}\s?\d{7,14}$/.test(mobile)) errors.mobile = "Enter a valid phone number with country code.";
 
   if (!username) errors.username = "Username is required.";
   else if (!/^[A-Za-z0-9_]+$/.test(username)) errors.username = "Use letters, numbers, and underscores only.";
   else if (/\s/.test(username)) errors.username = "Username cannot contain spaces.";
-  else if (availability.username === false) errors.username = "Username already registered.";
+  else if (!existingApplication && availability.username === false) errors.username = "Username already registered.";
 
-  if (password.length < 8) errors.password = "Password must be at least 8 characters.";
-  else if (password.length > 128) errors.password = "Password must be 128 characters or fewer.";
-  else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/.test(password)) {
-    errors.password = "Use uppercase, lowercase, number, and special character.";
+  if (shouldValidatePassword) {
+    if (password.length < 8) errors.password = "Password must be at least 8 characters.";
+    else if (password.length > 128) errors.password = "Password must be 128 characters or fewer.";
+    else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/.test(password)) {
+      errors.password = "Use uppercase, lowercase, number, and special character.";
+    }
+
+    if (!confirmPassword) errors.confirmPassword = "Confirm your password.";
+    else if (password !== confirmPassword) errors.confirmPassword = "Passwords do not match.";
   }
-
-  if (!confirmPassword) errors.confirmPassword = "Confirm your password.";
-  else if (password !== confirmPassword) errors.confirmPassword = "Passwords do not match.";
 
   if (!values.termsAccepted) errors.termsAccepted = "Influencer Program Terms are required.";
   if (!values.privacyAccepted) errors.privacyAccepted = "Privacy Policy agreement is required.";

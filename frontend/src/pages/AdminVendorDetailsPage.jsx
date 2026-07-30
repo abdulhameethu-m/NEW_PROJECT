@@ -9,6 +9,20 @@ function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
 }
 
+function resolveBankDetails(vendor) {
+  const account = vendor?.payoutAccount || {};
+  const legacy = vendor?.bankDetails || {};
+  return {
+    accountNumber: legacy.accountNumber || account.accountNumber || "",
+    ifscCode: legacy.IFSC || legacy.ifscCode || account.ifscCode || "",
+    holderName: legacy.holderName || legacy.accountHolderName || account.accountHolderName || "",
+    bankName: legacy.bankName || account.bankName || "",
+    upiId: legacy.upiId || account.upiId || "",
+    verificationStatus: legacy.verificationStatus || account.verificationStatus || "",
+    isVerified: Boolean(legacy.isVerified || account.isVerified),
+  };
+}
+
 export function AdminVendorDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -78,6 +92,8 @@ export function AdminVendorDetailsPage() {
     );
   }
 
+  const bankDetails = resolveBankDetails(vendor);
+
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -131,9 +147,15 @@ export function AdminVendorDetailsPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Bank details</h2>
             <div className="mt-4 grid gap-2 text-sm text-slate-600 dark:text-slate-300">
-              <div>Account number: {vendor.bankDetails?.accountNumber || "Not provided"}</div>
-              <div>IFSC: {vendor.bankDetails?.IFSC || "Not provided"}</div>
-              <div>Holder name: {vendor.bankDetails?.holderName || "Not provided"}</div>
+              <div>Account number: {bankDetails.accountNumber || "Not provided"}</div>
+              <div>IFSC: {bankDetails.ifscCode || "Not provided"}</div>
+              <div>Holder name: {bankDetails.holderName || "Not provided"}</div>
+              <div>Bank name: {bankDetails.bankName || "Not provided"}</div>
+              <div>UPI: {bankDetails.upiId || "Not provided"}</div>
+              <div>
+                Status:{" "}
+                {bankDetails.verificationStatus || (bankDetails.isVerified ? "VERIFIED" : "Not verified")}
+              </div>
             </div>
           </div>
 

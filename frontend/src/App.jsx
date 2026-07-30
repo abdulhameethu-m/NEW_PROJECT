@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -188,7 +187,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/forgot-username" element={<ForgotUsernamePage />} />
-        <Route path="/staff/login" element={<Navigate to="/login" replace />} />
+        <Route path="/staff/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/register/influencer" element={<InfluencerRegistrationStepOnePage />} />
         <Route path="/influencer/register" element={<InfluencerRegistrationStepOnePage />} />
@@ -418,6 +417,51 @@ export default function App() {
             </Route>
             <Route element={<StaffPermissionRoute permission="analytics.read" />}>
               <Route path="analytics" element={<StaffAnalyticsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.dashboardRead" />}>
+              <Route path="influencer-commerce" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.influencersRead" />}>
+              <Route path="influencer-commerce/influencers" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.vendorsRead" />}>
+              <Route path="influencer-commerce/vendors" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.influencerVendorMatchingRead" />}>
+              <Route path="influencer-commerce/matching" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.campaignsRead" />}>
+              <Route path="influencer-commerce/campaigns" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.vendorCampaignCommissionRead" />}>
+              <Route path="influencer-commerce/vendor-campaign-commission" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.affiliateLinksRead" />}>
+              <Route path="influencer-commerce/affiliate-links" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.affiliateTrackingRead" />}>
+              <Route path="influencer-commerce/tracking" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.productPromotionsRead" />}>
+              <Route path="influencer-commerce/promotions" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.settlementsRead" />}>
+              <Route path="influencer-commerce/settlements" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.campaignFinanceRead" />}>
+              <Route path="influencer-commerce/campaign-finance" element={<AdminCampaignFinancePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.revenueDashboardRead" />}>
+              <Route path="influencer-commerce/revenue" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.payoutsRead" />}>
+              <Route path="influencer-commerce/payouts" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.tierScoreConfigRead" />}>
+              <Route path="influencer-commerce/configuration" element={<AdminInfluencerCommercePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="influencerCommerce.settingsRead" />}>
+              <Route path="influencer-commerce/settings" element={<AdminInfluencerCommercePage />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="settings.update" />}>
               <Route path="settings" element={<StaffSettingsPage />} />

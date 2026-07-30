@@ -75,12 +75,25 @@ export function LoginPage() {
     setLoading(true);
     const normalizedIdentifier = identifier.trim();
     const normalizedPassword = password;
+    const staffLoginOnly = location.pathname === "/staff/login";
 
     try {
+      if (staffLoginOnly) {
+        const staffResponse = await staffAuthService.login({
+          email: normalizedIdentifier,
+          password: normalizedPassword,
+        });
+        await authService.logout().catch(() => {});
+        clearAuth();
+        setStaffAuth(staffResponse.data);
+        return navigateAfterStaffLogin(from);
+      }
+
       const primaryResponse = await authService.login({
         identifier: normalizedIdentifier,
         password: normalizedPassword,
       });
+      await staffAuthService.logout().catch(() => {});
       clearStaffAuth();
       setAuth(primaryResponse.data);
       return navigateAfterPrimaryLogin(primaryResponse, from);
@@ -100,6 +113,7 @@ export function LoginPage() {
           email: normalizedIdentifier,
           password: normalizedPassword,
         });
+        await authService.logout().catch(() => {});
         clearAuth();
         setStaffAuth(staffResponse.data);
         return navigateAfterStaffLogin(from);
@@ -141,6 +155,7 @@ export function LoginPage() {
                   onChange={(e) => {
                     const value = e.target.value.trim();
                     setIdentifier(value);
+                    setError("");
                     setFieldErrors((current) => ({ ...current, identifier: "" }));
                   }}
                   onBlur={(e) => {
@@ -183,6 +198,7 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
+                    setError("");
                     setFieldErrors((current) => ({ ...current, password: "" }));
                   }}
                   autoComplete="current-password"

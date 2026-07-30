@@ -4,6 +4,7 @@ const { AppError } = require("../../../utils/AppError");
 
 const {
   STAFF_PERMISSION_CATALOG,
+  STAFF_PERMISSION_LAYOUT,
   createEmptyPermissions,
   normalizePermissions,
 } = require("../permissions");
@@ -61,9 +62,13 @@ async function ensurePredefinedStaffRoles() {
       updateOne: {
         filter: { name: role.name },
         update: {
-          $setOnInsert: {
-            ...role,
+          $set: {
+            description: role.description,
+            permissions: role.permissions,
             isSystem: true,
+          },
+          $setOnInsert: {
+            name: role.name,
           },
         },
         upsert: true,
@@ -75,6 +80,7 @@ async function ensurePredefinedStaffRoles() {
 function getPermissionCatalog() {
   return {
     catalog: STAFF_PERMISSION_CATALOG,
+    layout: STAFF_PERMISSION_LAYOUT,
     emptyPermissions: createEmptyPermissions(),
   };
 }

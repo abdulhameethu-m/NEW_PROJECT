@@ -63,6 +63,46 @@ function normalizeUser(user) {
   };
 }
 
+function getConfiguredAdminLogin(identifier, password) {
+  const configuredEmail = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+  const configuredPassword = String(process.env.ADMIN_PASSWORD || "");
+  const id = String(identifier || "").trim().toLowerCase();
+  if (!configuredEmail || !configuredPassword || id !== configuredEmail || password !== configuredPassword) {
+    return null;
+  }
+  return {
+    email: configuredEmail,
+    password: configuredPassword,
+    name: String(process.env.ADMIN_NAME || "Platform Admin").trim() || "Platform Admin",
+    phone: String(process.env.ADMIN_PHONE || "9999999999").trim() || "9999999999",
+    role: String(process.env.ADMIN_ROLE || "super_admin").trim() || "super_admin",
+  };
+}
+
+async function createConfiguredAdminUser(configuredAdmin) {
+  const hashed = await bcrypt.hash(configuredAdmin.password, 12);
+  return userRepo.createUser({
+    name: configuredAdmin.name,
+    email: configuredAdmin.email,
+    phone: configuredAdmin.phone,
+    password: hashed,
+    role: configuredAdmin.role,
+    roles: [configuredAdmin.role],
+    status: "active",
+  });
+}
+
+async function repairConfiguredAdminPassword(user, configuredAdmin) {
+  const hashed = await bcrypt.hash(configuredAdmin.password, 12);
+  user.password = hashed;
+  user.name = user.name || configuredAdmin.name;
+  user.phone = user.phone || configuredAdmin.phone;
+  user.role = configuredAdmin.role;
+  user.roles = Array.from(new Set([configuredAdmin.role, ...(user.roles || [])].filter(Boolean)));
+  user.status = "active";
+  await user.save();
+}
+
 function getRefreshExpiryDate() {
   const ttlDays = Number(process.env.JWT_REFRESH_TTL_DAYS || 7);
   return new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
@@ -200,15 +240,23 @@ async function register({ name, email, phone, password, role }, meta = {}) {
 async function login({ identifier, password }, meta = {}) {
   const id = String(identifier || "").trim();
   const isEmail = id.includes("@");
+  const configuredAdmin = getConfiguredAdminLogin(id, password);
 
-  const user = isEmail
+  let user = isEmail
     ? await userRepo.findByEmail(id, { includePassword: true })
     : await userRepo.findByPhone(id, { includePassword: true });
 
+  if (!user && configuredAdmin) {
+    user = await createConfiguredAdminUser(configuredAdmin);
+  }
   if (!user) throw new AppError("Invalid credentials", 401, "INVALID_CREDENTIALS");
   if (user.status !== "active") throw new AppError("Account disabled", 403, "ACCOUNT_DISABLED");
 
-  const ok = await bcrypt.compare(password, user.password);
+  let ok = await bcrypt.compare(password, user.password);
+  if (!ok && configuredAdmin) {
+    await repairConfiguredAdminPassword(user, configuredAdmin);
+    ok = true;
+  }
   if (!ok) throw new AppError("Invalid credentials", 401, "INVALID_CREDENTIALS");
 
   await assertInfluencerAccessAllowed(user.role);

@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { confirmAction } from "../services/notificationService";
 import {
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Link as LinkIcon,
+  Megaphone,
+  Settings,
+  Users,
+  Wallet,
+} from "lucide-react";
+import {
   createStaffRole,
   deleteStaffRole,
   getStaffPermissionCatalog,
@@ -18,12 +28,14 @@ export function StaffRolesPage() {
   const { hasPermission } = useStaffPermission();
   const formRef = useRef(null);
   const [catalog, setCatalog] = useState({});
+  const [catalogLayout, setCatalogLayout] = useState({});
   const [emptyPermissions, setEmptyPermissions] = useState({});
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState("");
+  const [expandedPermissionGroups, setExpandedPermissionGroups] = useState({});
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -45,11 +57,13 @@ export function StaffRolesPage() {
         if (!active) return;
 
         const nextCatalog = catalogResponse?.data?.catalog || catalogResponse?.catalog || {};
+        const nextCatalogLayout = catalogResponse?.data?.layout || catalogResponse?.layout || {};
         const nextEmptyPermissions =
           catalogResponse?.data?.emptyPermissions || catalogResponse?.emptyPermissions || {};
         const nextRoles = rolesResponse?.data?.roles || rolesResponse?.data || rolesResponse || [];
 
         setCatalog(nextCatalog);
+        setCatalogLayout(nextCatalogLayout);
         setEmptyPermissions(nextEmptyPermissions);
         setRoles(nextRoles);
         setForm({
@@ -129,7 +143,7 @@ export function StaffRolesPage() {
       permissions: {
         ...current.permissions,
         [moduleName]: Object.fromEntries(
-          Object.keys(current.permissions[moduleName] || {}).map((action) => [action, checked])
+          (catalog[moduleName] || Object.keys(current.permissions[moduleName] || {})).map((action) => [action, checked])
         ),
       },
     }));
@@ -139,12 +153,100 @@ export function StaffRolesPage() {
     setForm((current) => ({
       ...current,
       permissions: Object.fromEntries(
-        Object.entries(current.permissions).map(([moduleName, actions]) => [
+        Object.entries(catalog).map(([moduleName, actions]) => [
           moduleName,
-          Object.fromEntries(Object.keys(actions).map((action) => [action, checked])),
+          Object.fromEntries(actions.map((action) => [action, checked])),
         ])
       ),
     }));
+  }
+
+  function togglePermissionGroup(moduleName, groupLabel) {
+    const key = `${moduleName}:${groupLabel}`;
+    setExpandedPermissionGroups((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  }
+
+  function permissionGroupIcon(label) {
+    const icons = {
+      Overview: BarChart3,
+      People: Users,
+      Campaigns: Megaphone,
+      "Affiliate & Products": LinkIcon,
+      Finance: Wallet,
+      Configuration: Settings,
+    };
+    return icons[label] || BarChart3;
+  }
+
+  function renderNestedModuleCard(moduleName, layout, enabledCount) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Megaphone className="h-5 w-5 text-slate-600" />
+            <div>
+              <div className="text-base font-semibold text-slate-950">{layout.label || moduleName}</div>
+              <div className="text-xs text-slate-500">{enabledCount} permissions enabled</div>
+            </div>
+          </div>
+          <ChevronUp className="h-4 w-4 text-slate-500" />
+        </div>
+
+        <div className="mt-4 space-y-1">
+        {layout.groups.map((group) => (
+          <div key={group.label}>
+            <button
+              type="button"
+              onClick={() => togglePermissionGroup(moduleName, group.label)}
+              className="flex w-full items-center justify-between rounded-xl px-2 py-3 text-left transition hover:bg-white"
+            >
+              <span className="flex items-center gap-3">
+                {(() => {
+                  const Icon = permissionGroupIcon(group.label);
+                  return <Icon className="h-4 w-4 text-slate-500" />;
+                })()}
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {group.label}
+                </span>
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 text-slate-400 transition-transform ${
+                  expandedPermissionGroups[`${moduleName}:${group.label}`] ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {expandedPermissionGroups[`${moduleName}:${group.label}`] ? (
+              <div className="ml-8 mt-1 space-y-2 pb-2">
+              {(group.permissions || (group.items || []).flatMap((item) =>
+                (item.actions || ["view"]).map((action) => ({
+                  action: `${item.key}Read`,
+                  label: item.label,
+                  accessLabel: action === "view" ? "View" : action,
+                }))
+              )).map((permission) => (
+                <label
+                  key={permission.action}
+                  className="flex items-center gap-3 rounded-xl bg-white px-3 py-2 text-sm text-slate-700 shadow-sm ring-1 ring-slate-100"
+                >
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.permissions?.[moduleName]?.[permission.action])}
+                    onChange={(event) => updatePermission(moduleName, permission.action, event.target.checked)}
+                  />
+                  <span className="font-medium">{permission.label}</span>
+                </label>
+              ))}
+              </div>
+            ) : null}
+          </div>
+        ))}
+        </div>
+      </div>
+    );
   }
 
   async function handleSubmit(event) {
@@ -370,12 +472,21 @@ export function StaffRolesPage() {
             <div className="space-y-4">
               {modules.map(([moduleName, actions]) => {
                 const enabledCount = actions.filter((action) => form.permissions?.[moduleName]?.[action]).length;
+                const moduleLayout = catalogLayout[moduleName];
+
+                if (moduleLayout?.groups?.length) {
+                  return (
+                    <div key={moduleName}>
+                      {renderNestedModuleCard(moduleName, moduleLayout, enabledCount)}
+                    </div>
+                  );
+                }
 
                 return (
                   <div key={moduleName} className="rounded-xl border border-slate-200 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <div className="text-sm font-semibold capitalize text-slate-950">{moduleName}</div>
+                        <div className="text-sm font-semibold capitalize text-slate-950">{moduleLayout?.label || moduleName}</div>
                         <div className="text-xs text-slate-500">{enabledCount} permissions enabled</div>
                       </div>
                       <button

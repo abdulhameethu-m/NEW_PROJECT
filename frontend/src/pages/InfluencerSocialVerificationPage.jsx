@@ -85,7 +85,7 @@ function ProgressIndicator() {
           <div className="text-xs font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Step 2 of 6</div>
           <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">33% complete</div>
         </div>
-        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-200">Social Media Verification</span>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-200">Social Verification</span>
       </div>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
         <div className="h-full w-[33%] rounded-full bg-blue-600" />
@@ -99,7 +99,7 @@ function ProgressIndicator() {
               <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${current ? "bg-white text-slate-950 dark:bg-slate-950 dark:text-white" : completed ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500 dark:bg-slate-800"}`}>
                 {completed ? <Check className="h-3.5 w-3.5" /> : current ? "→" : index + 1}
               </span>
-              {step === "Social Profiles" ? "Social Media Verification" : step === "Payment Details" ? "Payment Information" : step === "Verification" ? "Identity Verification" : step}
+              {step}
             </li>
           );
         })}

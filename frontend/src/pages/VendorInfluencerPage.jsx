@@ -12,6 +12,7 @@ import {
   discoverVendorInfluencers,
   getVendorContentApprovals,
   getVendorDeliverableReviewQueue,
+  getVendorDeliveredProducts,
   getVendorInfluencerCampaigns,
   getVendorInfluencerCommerceConfiguration,
   getVendorInfluencerCommerceDashboard,
@@ -20,6 +21,7 @@ import {
   getVendorInfluencerPerformance,
   getVendorInfluencerRelationships,
   getVendorMediaLibrary,
+  getVendorReturnedProducts,
   getVendorInfluencerSubscriptionPlans,
   getVendorPromotionProducts,
   previewVendorInfluencerSubscriptionChange,
@@ -27,8 +29,10 @@ import {
   reviewVendorCampaignApplication,
   reviewVendorInfluencerContent,
   saveVendorInfluencer,
+  updateVendorDeliveredProductStatus,
   updateVendorInfluencerCampaignStatus,
   updateVendorInfluencerRelationship,
+  updateVendorReturnedProductStatus,
   visitVendorInfluencer,
   verifyVendorInfluencerSubscriptionPayment,
 } from "../services/influencerCommerceService";
@@ -56,6 +60,7 @@ const DiscoverView = lazy(() => import("./vendorInfluencer/DiscoverTab"));
 const SubscriptionView = lazy(() => import("./vendorInfluencer/SubscriptionTab"));
 const RelationshipsView = lazy(() => import("./vendorInfluencer/RelationshipsTab"));
 const CampaignsView = lazy(() => import("./vendorInfluencer/CampaignsTab"));
+const LogisticsView = lazy(() => import("./vendorInfluencer/LogisticsTab"));
 const MediaLibraryView = lazy(() => import("./vendorInfluencer/MediaLibraryTab"));
 const ContentView = lazy(() => import("./vendorInfluencer/ContentTab"));
 const PerformanceView = lazy(() => import("./vendorInfluencer/PerformanceTab"));
@@ -184,6 +189,8 @@ export function VendorInfluencerPage() {
         subscription: () => getVendorInfluencerSubscriptionPlans(),
         relationships: () => getVendorInfluencerRelationships(query),
         campaigns: () => getVendorInfluencerCampaigns(query),
+        "delivered-products": () => getVendorDeliveredProducts(query),
+        "returned-products": () => getVendorReturnedProducts(query),
         "media-library": () => getVendorMediaLibrary(query),
         content: async () => {
           const [contentResponse, deliverableResponse] = await Promise.all([
@@ -508,6 +515,12 @@ export function VendorInfluencerPage() {
     }
   }
 
+  async function updateLogisticsStatus(row, shipmentStatus, type = "delivery", payload = {}) {
+    const shipmentId = row.id || row._id;
+    const update = type === "return" ? updateVendorReturnedProductStatus : updateVendorDeliveredProductStatus;
+    return runAction(`logistics-${shipmentId}`, () => update(shipmentId, { ...payload, shipmentStatus }), "Logistics status updated.");
+  }
+
   function openCampaignBuilder({ influencer, influencerId = "", productId = "", preserveProduct = true, preserveInfluencer = true } = {}) {
     const nextInfluencerId = String(influencerId || influencerRowId(influencer) || (preserveInfluencer ? filters.influencerId : ""));
     const nextProductId = String(productId || (preserveProduct ? filters.productId : ""));
@@ -640,6 +653,8 @@ export function VendorInfluencerPage() {
         />
       ) : null}
       {tab === "campaigns" ? <CampaignsView campaigns={campaigns} pagination={data.campaigns?.pagination} products={products} influencers={campaignInfluencers} configuration={data.configuration || {}} selectedInfluencerId={filters.influencerId} selectedProductIds={filters.productId ? [filters.productId] : []} busyId={busyId} onPage={(page) => setFilters((current) => ({ ...current, page }))} onCreate={createCampaign} onReview={(campaign, application, decision) => runAction(`${campaign._id}-${application.influencerId}`, () => reviewVendorCampaignApplication(campaign._id, application.influencerId, { decision }), "Campaign application reviewed.")} onStatus={(campaign, action) => runAction(campaign._id, () => updateVendorInfluencerCampaignStatus(campaign._id, { action }), "Campaign status updated.")} onFund={openCampaignFunding} onDelete={(campaign) => runAction(`delete-${campaign._id}`, () => deleteVendorInfluencerCampaign(campaign._id), "Campaign deleted.")} /> : null}
+      {tab === "delivered-products" ? <LogisticsView type="delivery" data={data["delivered-products"] || {}} busyId={busyId} onPage={(page) => setFilters((current) => ({ ...current, page }))} onNextStatus={(row, status, payload) => updateLogisticsStatus(row, status, "delivery", payload)} /> : null}
+      {tab === "returned-products" ? <LogisticsView type="return" data={data["returned-products"] || {}} busyId={busyId} onPage={(page) => setFilters((current) => ({ ...current, page }))} onNextStatus={(row, status, payload) => updateLogisticsStatus(row, status, "return", payload)} /> : null}
       {tab === "media-library" ? (
         <MediaLibraryView
           data={data["media-library"] || {}}
