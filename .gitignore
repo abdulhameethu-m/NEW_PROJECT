@@ -34,7 +34,7 @@ frontend/coverage/
 frontend/dist/
 frontend/dist-ssr/
 frontend/dist-analyze/
-backend/public/
+# backend/public/  <-- Commented out so it can be pushed to Hostinger
 build/Release
 .tmp-chrome/
 dist/

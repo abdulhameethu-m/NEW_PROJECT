@@ -1,0 +1,1 @@
+function e(e=``){return String(e||`User`).split(` `).filter(Boolean).map(e=>e[0]).join(``).slice(0,2).toUpperCase()||`U`}function t(e){return e?new Date(e).toLocaleString(void 0,{day:`2-digit`,month:`short`,hour:`2-digit`,minute:`2-digit`}):`Recent activity`}function n(e){let t=Number(e||0);return t>=1e3?`${(t/1e3).toFixed(t>=1e4?0:1)}k`:String(t)}export{t as n,e as r,n as t};

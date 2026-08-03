@@ -1,0 +1,1 @@
+function e(e,{currency:t=`INR`,locale:n=`en-IN`}={}){let r=Number(e||0);return new Intl.NumberFormat(n,{style:`currency`,currency:t}).format(Number.isFinite(r)?r:0)}export{e as t};
