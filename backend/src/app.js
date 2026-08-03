@@ -57,14 +57,14 @@ function createApp() {
 
   // Local upload fallback (Cloudinary preferred)
   app.use("/uploads/private", (_req, res) => res.status(404).json({ success: false, message: "Not found" }));
-  app.use("/uploads", express.static(path.join(process.cwd(), "uploads", "public"), {
+  app.use("/uploads", express.static(path.join(__dirname, "..", "uploads", "public"), {
     setHeaders(res) {
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Accept-Ranges", "bytes");
     },
   }));
-  app.use("/uploads", express.static(path.join(process.cwd(), "uploads"), {
+  app.use("/uploads", express.static(path.join(__dirname, "..", "uploads"), {
     setHeaders(res) {
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       res.setHeader("Access-Control-Allow-Origin", "*");
@@ -110,7 +110,7 @@ function createApp() {
   app.use("/api", apiRoutes);
 
   // Serve static frontend files
-  app.use(express.static(path.join(process.cwd(), "public"), {
+  app.use(express.static(path.join(__dirname, "..", "public"), {
     setHeaders: (res, resourcePath) => {
       if (resourcePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'no-cache');
@@ -127,7 +127,14 @@ function createApp() {
     if (req.method !== 'GET' || req.path.startsWith("/api/") || req.path.startsWith("/uploads/")) {
       return next();
     }
-    res.sendFile(path.join(process.cwd(), "public", "index.html"));
+    res.sendFile(path.join(__dirname, "..", "public", "index.html"), (err) => {
+      if (err) {
+        // Send a simpler fallback or 404 string if index.html is truly missing
+        if (!res.headersSent) {
+          res.status(404).send("Frontend not built or index.html missing");
+        }
+      }
+    });
   });
 
   // Error Handling

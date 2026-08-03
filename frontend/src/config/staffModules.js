@@ -1,4 +1,4 @@
-export const STAFF_MODULES = [
+const STAFF_MODULES = [
   {
     key: "dashboard",
     name: "Dashboard",

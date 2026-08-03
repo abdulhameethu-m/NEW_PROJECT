@@ -358,11 +358,6 @@ export async function getVendorReturnedProducts(params = {}) {
   return data;
 }
 
-export async function updateVendorReturnedProductStatus(shipmentId, payload = {}) {
-  const { data } = await api.patch(`/api/vendor/influencer-commerce/returned-products/${shipmentId}/status`, payload);
-  return data;
-}
-
 export async function reviewVendorCampaignApplication(campaignId, influencerId, payload = {}) {
   const { data } = await api.patch(`/api/vendor/influencer-commerce/campaigns/${campaignId}/applications/${influencerId}`, payload);
   return data;
@@ -593,4 +588,9 @@ export async function trackAffiliateEvent(payload) {
 export async function getCommissionOverview() {
   const { data } = await api.get("/api/commission/admin/overview");
   return data;
+}
+
+export async function confirmInfluencerProductReturn(campaignId, payload = {}) {
+  const { data } = await api.post(`/api/campaign/influencer/${campaignId}/confirm-return`, payload);
+  return data?.data || data;
 }

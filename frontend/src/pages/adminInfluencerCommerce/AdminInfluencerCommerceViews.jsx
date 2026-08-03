@@ -947,7 +947,7 @@ function SettingsView({ data, runAction, busyId, capabilities = {} }) {
   );
 }
 
-export function AdminInfluencerCommerceModule({ moduleId, data, items, pagination, setFilters, runAction, busyId, requestAdminInput, confirmAdminAction, capabilities = {} }) {
+function AdminInfluencerCommerceModule({ moduleId, data, items, pagination, setFilters, runAction, busyId, requestAdminInput, confirmAdminAction, capabilities = {} }) {
   if (moduleId === "dashboard") return <DashboardView data={data} />;
   if (moduleId === "influencers") return <InfluencersView items={items} pagination={pagination} setFilters={setFilters} />;
   if (moduleId === "vendors") return <VendorsView items={items} pagination={pagination} setFilters={setFilters} />;

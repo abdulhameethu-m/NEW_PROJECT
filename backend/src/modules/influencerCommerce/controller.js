@@ -1,5 +1,6 @@
 const { ok } = require("../../utils/apiResponse");
 const { asyncHandler } = require("../../utils/asyncHandler");
+const { AppError } = require("../../utils/AppError");
 const service = require("./service");
 const productShippingService = require("../../services/campaign-product-shipping.service");
 
@@ -37,12 +38,16 @@ const escrowRefundDeliverables = asyncHandler(async (req, res) => ok(res, await 
 const getCampaignShipping = asyncHandler(async (req, res) => ok(res, await productShippingService.getVendorShipping(req.user.sub, req.params.campaignId), "Campaign product shipping loaded"));
 const saveCampaignShipping = asyncHandler(async (req, res) => ok(res, await productShippingService.upsertForCampaign({ userId: req.user.sub, campaignId: req.params.campaignId, payload: req.body }), "Campaign product shipping saved"));
 const dispatchCampaignProduct = asyncHandler(async (req, res) => ok(res, await productShippingService.dispatch(req.user.sub, req.params.campaignId, req.body), "Campaign product dispatched"));
-const updateCampaignReturn = asyncHandler(async (req, res) => ok(res, await productShippingService.updateReturn(req.user.sub, req.params.campaignId, req.body), "Campaign return updated"));
+const updateCampaignReturn = asyncHandler(async () => {
+  throw new AppError("Product returns are submitted by the influencer after the content creation period ends.", 403, "RETURN_MANAGED_BY_INFLUENCER");
+});
 const getCampaignTracking = asyncHandler(async (req, res) => ok(res, await productShippingService.getTracking(req.user.sub, req.params.campaignId), "Campaign tracking loaded"));
 const deliveredProducts = asyncHandler(async (req, res) => ok(res, await productShippingService.listVendorLogistics(req.user.sub, req.query, "delivery"), "Delivered products loaded"));
 const returnedProducts = asyncHandler(async (req, res) => ok(res, await productShippingService.listVendorLogistics(req.user.sub, req.query, "return"), "Returned products loaded"));
 const updateDeliveredProductStatus = asyncHandler(async (req, res) => ok(res, await productShippingService.updateVendorDeliveryStatus(req.user.sub, req.params.shipmentId, req.body), "Delivery status updated"));
-const updateReturnedProductStatus = asyncHandler(async (req, res) => ok(res, await productShippingService.updateVendorReturnStatus(req.user.sub, req.params.shipmentId, req.body), "Return status updated"));
+const updateReturnedProductStatus = asyncHandler(async () => {
+  throw new AppError("Product returns are submitted by the influencer after the content creation period ends.", 403, "RETURN_MANAGED_BY_INFLUENCER");
+});
 
 module.exports = {
   dashboard,

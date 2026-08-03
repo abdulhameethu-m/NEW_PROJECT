@@ -103,7 +103,7 @@ export function AdminCategoriesPage() {
         return { ...current, banners };
       });
       setError("");
-    } catch (err) {
+    } catch {
       setError("Failed to read file");
     }
   }
@@ -246,6 +246,7 @@ export function AdminCategoriesPage() {
                     <button
                       type="button"
                       onClick={async () => {
+                        // eslint-disable-next-line no-alert
                         if (!window.confirm("Delete this category? All its subcategories will also be deleted.")) return;
                         try {
                           await deleteCategory(category._id);

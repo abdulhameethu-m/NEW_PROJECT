@@ -6,7 +6,6 @@ import {
   getAdminInventoryProduct,
   updateAdminInventoryThreshold,
 } from "../services/adminApi";
-import { formatCurrency } from "../utils/formatCurrency";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Failed to load admin inventory";

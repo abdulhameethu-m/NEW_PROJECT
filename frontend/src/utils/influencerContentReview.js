@@ -1,6 +1,5 @@
 const INFLUENCER_STEP_SIX_STORAGE_KEY = "grm_influencer_register_step_6";
 
-export const contentNiches = ["Technology", "Fashion", "Gaming", "Beauty", "Fitness", "Education", "Lifestyle", "Travel", "Food", "Business", "Other"];
 
 export const initialInfluencerContentReviewForm = {
   applicationId: "",

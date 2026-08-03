@@ -174,6 +174,7 @@ function LogisticsTab({ type = "delivery", data = {}, busyId = "", onPage, onNex
   const [shippingModal, setShippingModal] = useState({ open: false, row: null, status: "", type });
 
   function handleStatus(row, status) {
+    if (isReturn) return;
     if (["shipped", "return_shipped"].includes(status)) {
       setShippingModal({ open: true, row, status, type });
       return;
@@ -188,7 +189,9 @@ function LogisticsTab({ type = "delivery", data = {}, busyId = "", onPage, onNex
 
   return (
     <div className="space-y-4">
-      <ShippingModal state={shippingModal} busy={Boolean(busyId)} onClose={() => setShippingModal({ open: false, row: null, status: "", type })} onSubmit={submitShipping} />
+      {!isReturn ? (
+        <ShippingModal state={shippingModal} busy={Boolean(busyId)} onClose={() => setShippingModal({ open: false, row: null, status: "", type })} onSubmit={submitShipping} />
+      ) : null}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3">
@@ -212,7 +215,7 @@ function LogisticsTab({ type = "delivery", data = {}, busyId = "", onPage, onNex
         ) : (
           <>
             <ResponsiveTable
-              headers={["Campaign", "Product", "Influencer", "Address", "Tracking", "Status", "Action"]}
+              headers={isReturn ? ["Campaign", "Product", "Influencer", "Address", "Tracking", "Status"] : ["Campaign", "Product", "Influencer", "Address", "Tracking", "Status", "Action"]}
               rows={rows}
               renderRow={(row) => {
                 const shipmentId = row.id || row._id;
@@ -249,17 +252,19 @@ function LogisticsTab({ type = "delivery", data = {}, busyId = "", onPage, onNex
                       ) : null}
                     </td>
                     <td className="px-3 py-3"><StatusBadge value={currentStatus} /></td>
-                    <td className="px-3 py-3">
-                      <button
-                        type="button"
-                        disabled={Boolean(busyId) || atEnd}
-                        onClick={() => handleStatus(row, targetStatus)}
-                        className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950"
-                      >
-                        {atEnd ? "Complete" : statusText(targetStatus)}
-                        {!atEnd ? <ArrowRight className="h-3.5 w-3.5" /> : null}
-                      </button>
-                    </td>
+                    {!isReturn ? (
+                      <td className="px-3 py-3">
+                        <button
+                          type="button"
+                          disabled={Boolean(busyId) || atEnd}
+                          onClick={() => handleStatus(row, targetStatus)}
+                          className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950"
+                        >
+                          {atEnd ? "Complete" : statusText(targetStatus)}
+                          {!atEnd ? <ArrowRight className="h-3.5 w-3.5" /> : null}
+                        </button>
+                      </td>
+                    ) : null}
                   </tr>
                 );
               }}

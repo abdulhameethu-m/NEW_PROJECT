@@ -32,7 +32,6 @@ import {
   updateVendorDeliveredProductStatus,
   updateVendorInfluencerCampaignStatus,
   updateVendorInfluencerRelationship,
-  updateVendorReturnedProductStatus,
   visitVendorInfluencer,
   verifyVendorInfluencerSubscriptionPayment,
 } from "../services/influencerCommerceService";
@@ -516,9 +515,9 @@ export function VendorInfluencerPage() {
   }
 
   async function updateLogisticsStatus(row, shipmentStatus, type = "delivery", payload = {}) {
+    if (type === "return") return false;
     const shipmentId = row.id || row._id;
-    const update = type === "return" ? updateVendorReturnedProductStatus : updateVendorDeliveredProductStatus;
-    return runAction(`logistics-${shipmentId}`, () => update(shipmentId, { ...payload, shipmentStatus }), "Logistics status updated.");
+    return runAction(`logistics-${shipmentId}`, () => updateVendorDeliveredProductStatus(shipmentId, { ...payload, shipmentStatus }), "Logistics status updated.");
   }
 
   function openCampaignBuilder({ influencer, influencerId = "", productId = "", preserveProduct = true, preserveInfluencer = true } = {}) {

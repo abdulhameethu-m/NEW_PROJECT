@@ -26,8 +26,7 @@ export function MaintenanceGuard({ children }) {
           description: err.response.data.message || "",
           allowAdmins: true
         });
-      } else {
-        console.error("Failed to fetch maintenance status", err);
+        // Failed to fetch maintenance status
       }
     } finally {
       setLoading(false);

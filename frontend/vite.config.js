@@ -184,6 +184,7 @@ export default defineConfig(({ mode }) => {
   const shouldAnalyze = mode === "analyze" || process.env.ANALYZE === "true";
 
   return {
+    base: "./",
     plugins: [react(), shouldAnalyze ? bundleAnalyzerPlugin() : null].filter(Boolean),
     build: {
       // Keep route-level lazy imports lazy at the network layer. Vite's default

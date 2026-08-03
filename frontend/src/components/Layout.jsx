@@ -91,7 +91,6 @@ export function Layout() {
   const [isDarkMode, setIsDarkMode] = useDarkMode();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileHeaderMinimized, setIsMobileHeaderMinimized] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.innerWidth < 1024;
@@ -134,23 +133,6 @@ export function Layout() {
   const showShopActions = !user || user?.role === "user";
   const wishlistHref = user?.role === "user" ? "/dashboard/user/wishlist" : "/wishlist";
 
-  // Detect scroll with requestAnimationFrame for smooth performance
-  useEffect(() => {
-    let ticking = false;
-
-    function handleScroll() {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          setIsScrolled(window.scrollY > 50);
-          ticking = false;
-        });
-        ticking = true;
-      }
-    }
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   const navItems = [
     { label: "Home", href: "/" },

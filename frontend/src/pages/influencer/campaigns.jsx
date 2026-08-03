@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars */
+ 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { requestInput } from "../../services/notificationService";
@@ -16,7 +16,6 @@ import {
   Save,
   Search,
   Send,
-  Truck,
   Undo2,
   Trash2,
 } from "lucide-react";
@@ -31,6 +30,7 @@ import {
   saveCampaignMarketplace,
   saveInfluencerDeliveryAddress,
   saveInfluencerServices,
+  confirmInfluencerProductReturn,
 } from "../../services/influencerCommerceService";
 import { CampaignLifecycleTimeline, campaignLifecycleLabel } from "../../components/campaign/CampaignLifecycleTimeline";
 import { formatCurrency } from "../../utils/formatCurrency";
@@ -104,7 +104,7 @@ function AddressBlock({ title, address = {} }) {
       <p className="font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</p>
       {lines.length ? (
         <address className="mt-1 space-y-0.5 not-italic text-slate-700 dark:text-slate-200">
-          {lines.map((line) => <p key={line}>{line}</p>)}
+          {lines.map((line, index) => <p key={index}>{line}</p>)}
         </address>
       ) : (
         <p className="mt-1 text-slate-500">Not available</p>
@@ -137,7 +137,7 @@ function ProductLogisticsSummary({ campaign }) {
   );
 }
 
-function CampaignProductLogisticsTable({ campaigns = [], type = "delivery", onViewDetails, onSubmitDeliverable }) {
+function CampaignProductLogisticsTable({ campaigns = [], type = "delivery", onViewDetails, onSubmitDeliverable, onProvideReturnTracking }) {
   const isReturn = type === "return";
   const Icon = isReturn ? Undo2 : PackageCheck;
   const title = isReturn ? "Returned Products" : "Delivered Products";
@@ -237,6 +237,14 @@ function CampaignProductLogisticsTable({ campaigns = [], type = "delivery", onVi
                               className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950"
                             >
                               Create Content
+                            </button>
+                          ) : ["return_placed", "return_pending", "return_packing", "return_ready_for_pickup", "return_shipped"].includes(String(shipping.shipmentStatus || "")) ? (
+                            <button
+                              type="button"
+                              onClick={() => onProvideReturnTracking(campaign)}
+                              className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 text-xs font-semibold text-white hover:bg-indigo-500"
+                            >
+                              Update Return
                             </button>
                           ) : null}
                         </div>
@@ -967,6 +975,7 @@ export default function InfluencerCampaignsPage() {
   const [commerceProfile, setCommerceProfile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState("");
+  const [returnTrackingCampaign, setReturnTrackingCampaign] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [filters, setFilters] = useState({ search: "", campaignType: "", sort: "newest" });
@@ -990,7 +999,7 @@ export default function InfluencerCampaignsPage() {
         setCommerceProfile(res?.data || null);
         return;
       }
-      const sourceTab = ["delivered-products", "returned-products"].includes(tab) ? "accepted" : tab;
+      const sourceTab = tab;
       const res = await listCampaignMarketplace({ tab: sourceTab, ...filters, limit: sourceTab === tab ? 24 : 100 });
       const rows = res?.data?.items || [];
       if (tab === "delivered-products") {
@@ -1154,6 +1163,24 @@ export default function InfluencerCampaignsPage() {
     }
   }
 
+  async function handleSubmitReturnTracking(campaign, payload) {
+    setBusyId("return-tracking");
+    setError("");
+    setMessage("");
+    try {
+      await confirmInfluencerProductReturn(campaignKey(campaign), payload);
+      setMessage("Return tracking details updated.");
+      setReturnTrackingCampaign(null);
+      const sourceTab = tab;
+      const res = await listCampaignMarketplace({ tab: sourceTab, ...filters, limit: sourceTab === tab ? 24 : 100 });
+      setCampaigns(res?.data?.items || []);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to update return tracking.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
@@ -1266,6 +1293,7 @@ export default function InfluencerCampaignsPage() {
           type={tab === "returned-products" ? "return" : "delivery"}
           onViewDetails={setSelectedCampaign}
           onSubmitDeliverable={handleSubmitDeliverable}
+          onProvideReturnTracking={setReturnTrackingCampaign}
         />
       ) : campaigns.length ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -1310,6 +1338,60 @@ export default function InfluencerCampaignsPage() {
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Revenue and commission totals come from existing campaign analytics and commission records.</p>
         </div>
       </section>
+
+      {returnTrackingCampaign && (
+        <ReturnTrackingModal
+          campaign={returnTrackingCampaign}
+          onClose={() => setReturnTrackingCampaign(null)}
+          onSubmit={(payload) => handleSubmitReturnTracking(returnTrackingCampaign, payload)}
+          busy={busyId === "return-tracking"}
+        />
+      )}
+    </div>
+  );
+}
+
+function ReturnTrackingModal({ campaign, onClose, onSubmit, busy }) {
+  const [courier, setCourier] = useState(campaign?.productShipping?.returnCourierCompany || "");
+  const [tracking, setTracking] = useState(campaign?.productShipping?.returnTrackingNumber || "");
+  const [trackingUrl, setTrackingUrl] = useState(campaign?.productShipping?.returnTrackingUrl || "");
+  const [shipDate, setShipDate] = useState(campaign?.productShipping?.returnShipmentDate ? new Date(campaign.productShipping.returnShipmentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+  const [estDate, setEstDate] = useState(campaign?.productShipping?.returnEstimatedDelivery ? new Date(campaign.productShipping.returnEstimatedDelivery).toISOString().split('T')[0] : "");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm overflow-y-auto">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900 my-8">
+        <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Provide Return Tracking</h3>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Enter the courier details for the returned product.</p>
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Courier Company</label>
+            <input type="text" value={courier} onChange={e => setCourier(e.target.value)} placeholder="e.g., FedEx" className="mt-1 block w-full rounded-xl border border-slate-300 p-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tracking Number</label>
+            <input type="text" value={tracking} onChange={e => setTracking(e.target.value)} placeholder="Tracking ID" className="mt-1 block w-full rounded-xl border border-slate-300 p-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tracking URL</label>
+            <input type="url" value={trackingUrl} onChange={e => setTrackingUrl(e.target.value)} placeholder="https://..." className="mt-1 block w-full rounded-xl border border-slate-300 p-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Dispatch Date</label>
+              <input type="date" value={shipDate} onChange={e => setShipDate(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-300 p-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Estimated Delivery</label>
+              <input type="date" value={estDate} onChange={e => setEstDate(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-300 p-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <button type="button" onClick={onClose} disabled={busy} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200 hover:bg-slate-50">Cancel</button>
+          <button type="button" onClick={() => onSubmit({ returnCourierCompany: courier, returnTrackingNumber: tracking, returnTrackingUrl: trackingUrl, returnShipmentDate: shipDate, returnEstimatedDelivery: estDate })} disabled={busy || !courier || !tracking || !trackingUrl || !shipDate || !estDate} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 hover:bg-indigo-500">Submit</button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -816,9 +816,11 @@ async function confirmReturn(userId, campaignId, payload = {}) {
         returnTrackingNumber: payload.returnTrackingNumber || payload.trackingNumber || "",
         returnTrackingUrl: payload.returnTrackingUrl || payload.trackingUrl || "",
         returnShipmentDate: normalizeDate(payload.returnShipmentDate || payload.shipmentDate) || new Date(),
+        returnEstimatedDelivery: normalizeDate(payload.returnEstimatedDelivery || payload.estimatedDelivery),
+        returnNotes: payload.returnNotes || payload.notes || "",
         returnProof: payload.returnProof || {},
       },
-      $push: { timeline: timeline(status, "Return dispatched by influencer", userId, "influencer", payload.note || "") },
+      $push: { timeline: timeline(status, "Return dispatched by influencer", userId, "influencer", payload.note || payload.returnNotes || payload.notes || "") },
     },
     { returnDocument: "after" }
   ).lean();

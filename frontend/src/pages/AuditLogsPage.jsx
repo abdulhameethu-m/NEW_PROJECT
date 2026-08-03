@@ -11,7 +11,7 @@ import { formatDateTime } from "../utils/adminUtils";
  * Audit Logs Viewer Page
  * Enterprise audit trail for compliance and security
  */
-export function AuditLogsPage() {
+function AuditLogsPage() {
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");

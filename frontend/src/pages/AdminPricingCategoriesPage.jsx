@@ -1,7 +1,7 @@
 import { BackButton } from "../components/BackButton";
 import { PricingCategoriesManager } from "../components/admin/PricingCategoriesManager";
 
-export function AdminPricingCategoriesPage() {
+function AdminPricingCategoriesPage() {
   return (
     <div className="grid min-w-0 max-w-full gap-4 sm:gap-6">
       <div className="flex items-center gap-3">

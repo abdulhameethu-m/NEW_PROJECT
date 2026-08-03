@@ -571,11 +571,12 @@ function buildMarketplaceQuery(profileId, query = {}) {
     and.push({ influencerId: profileId, state: { $in: INVITATION_OPEN_STATES } });
   }
   if (["accepted", "active", "delivered-products", "returned-products"].includes(tab)) {
+    const states = ["delivered-products", "returned-products"].includes(tab) ? [...ACCEPTED_STATES, WORKFLOW.COMPLETED, WORKFLOW.EXPIRED, WORKFLOW.CANCELLED] : ACCEPTED_STATES;
     and.push({
       $or: [
-        { influencerId: profileId, state: { $in: ACCEPTED_STATES } },
-        { state: { $in: [WORKFLOW.ACTIVE, ...ACCEPTED_STATES] }, applications: { $elemMatch: { influencerId: profileId, status: { $in: ["approved", WORKFLOW.ACCEPTED, WORKFLOW.ACTIVE] } } } },
-        ...(acceptedCampaignIds.length ? [{ _id: { $in: acceptedCampaignIds }, state: { $in: ACCEPTED_STATES } }] : []),
+        { influencerId: profileId, state: { $in: states } },
+        { state: { $in: [WORKFLOW.ACTIVE, ...states] }, applications: { $elemMatch: { influencerId: profileId, status: { $in: ["approved", WORKFLOW.ACCEPTED, WORKFLOW.ACTIVE, WORKFLOW.COMPLETED, WORKFLOW.EXPIRED, WORKFLOW.CANCELLED] } } } },
+        ...(acceptedCampaignIds.length ? [{ _id: { $in: acceptedCampaignIds }, state: { $in: states } }] : []),
       ],
     });
   }
@@ -966,7 +967,7 @@ class CampaignService {
     const skip = (page - 1) * limit;
     const tab = String(query.tab || "available").toLowerCase();
     const acceptedCampaignIds = ["accepted", "active", "completed", "delivered-products", "returned-products"].includes(tab)
-      ? (await CampaignAcceptance.find({ influencerId: profile._id, status: { $in: [WORKFLOW.ACCEPTED, WORKFLOW.ACTIVE] } }).select("campaignId").lean()).map((row) => row.campaignId).filter(Boolean)
+      ? (await CampaignAcceptance.find({ influencerId: profile._id, status: { $in: [WORKFLOW.ACCEPTED, WORKFLOW.ACTIVE, WORKFLOW.COMPLETED, WORKFLOW.EXPIRED, WORKFLOW.CANCELLED] } }).select("campaignId").lean()).map((row) => row.campaignId).filter(Boolean)
       : [];
     const filter = buildMarketplaceQuery(profile._id, { ...query, tab, acceptedCampaignIds });
     const [items, total] = await Promise.all([

@@ -21,7 +21,7 @@ function loadRazorpayCheckout() {
   });
 }
 
-export function CampaignPaymentModal({
+function CampaignPaymentModal({
   isOpen,
   onClose,
   campaign,

@@ -1,6 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
+const { uploadMany } = require("../utils/upload");
 
 let sharpInstance = null;
 let sharpLoadAttempted = false;
@@ -111,23 +112,58 @@ async function createDerivedImages(file, originalFilePath, outputDir, slot) {
 }
 
 async function persistBrandingAsset(file, { slot, tenantType, tenantKey }) {
-  const uploadsRoot = path.join(process.cwd(), "uploads", "branding", safeSegment(tenantType, "platform"), safeSegment(tenantKey, "default"));
+  const folderPath = `branding/${safeSegment(tenantType, "platform")}/${safeSegment(tenantKey, "default")}`;
+  
+  // Attempt to upload via uploadMany (which uses Cloudinary if configured)
+  const uploadedAssets = await uploadMany([file], { folder: folderPath });
+  const uploaded = uploadedAssets?.[0];
+
+  const checksum = crypto.createHash("sha256").update(file.buffer).digest("hex");
+
+  if (uploaded && uploaded.publicId) {
+    // Cloudinary upload successful
+    const baseUrl = uploaded.url;
+    // Inject Cloudinary transformations
+    const webpUrl = baseUrl.replace("/upload/", "/upload/f_webp,q_auto/");
+    const thumbUrl = baseUrl.replace("/upload/", "/upload/c_fit,w_160,h_160,f_webp,q_auto/");
+
+    return {
+      url: baseUrl,
+      webpUrl: webpUrl,
+      thumbnailUrl: thumbUrl,
+      originalName: file.originalname || "",
+      mimeType: file.mimetype || "",
+      size: uploaded.size,
+      width: 0,
+      height: 0,
+      checksum,
+      storageProvider: "cloudinary",
+      variants: {
+        original: { url: baseUrl, width: 0, height: 0, size: uploaded.size },
+        webp: { url: webpUrl, width: 0, height: 0, size: 0 },
+        thumbnail: { url: thumbUrl, width: 0, height: 0, size: 0 },
+      },
+      updatedAt: new Date(),
+    };
+  }
+
+  // Fallback to local processing if Cloudinary is disabled
+  const uploadsRoot = path.join(process.cwd(), "uploads", folderPath);
   ensureDir(uploadsRoot);
 
   const ext = detectExtension(file);
   const originalFilename = buildFileName(slot, "original", ext);
   const originalPath = path.join(uploadsRoot, originalFilename);
   const originalSize = await writeFile(originalPath, file.buffer);
-  const checksum = crypto.createHash("sha256").update(file.buffer).digest("hex");
   const derived = await createDerivedImages(file, originalPath, uploadsRoot, slot);
 
   return {
-    url: `/uploads/branding/${safeSegment(tenantType, "platform")}/${safeSegment(tenantKey, "default")}/${originalFilename}`,
+    url: `/uploads/${folderPath}/${originalFilename}`,
     webpUrl: derived.webp
-      ? `/uploads/branding/${safeSegment(tenantType, "platform")}/${safeSegment(tenantKey, "default")}/${derived.webp.filename}`
+      ? `/uploads/${folderPath}/${derived.webp.filename}`
       : "",
     thumbnailUrl: derived.thumbnail
-      ? `/uploads/branding/${safeSegment(tenantType, "platform")}/${safeSegment(tenantKey, "default")}/${derived.thumbnail.filename}`
+      ? `/uploads/${folderPath}/${derived.thumbnail.filename}`
       : "",
     originalName: file.originalname || "",
     mimeType: file.mimetype || "",
@@ -138,14 +174,14 @@ async function persistBrandingAsset(file, { slot, tenantType, tenantKey }) {
     storageProvider: "local",
     variants: {
       original: {
-        url: `/uploads/branding/${safeSegment(tenantType, "platform")}/${safeSegment(tenantKey, "default")}/${originalFilename}`,
+        url: `/uploads/${folderPath}/${originalFilename}`,
         width: derived.width || 0,
         height: derived.height || 0,
         size: originalSize,
       },
       webp: derived.webp
         ? {
-            url: `/uploads/branding/${safeSegment(tenantType, "platform")}/${safeSegment(tenantKey, "default")}/${derived.webp.filename}`,
+            url: `/uploads/${folderPath}/${derived.webp.filename}`,
             width: derived.width || 0,
             height: derived.height || 0,
             size: derived.webp.size,
@@ -153,7 +189,7 @@ async function persistBrandingAsset(file, { slot, tenantType, tenantKey }) {
         : {},
       thumbnail: derived.thumbnail
         ? {
-            url: `/uploads/branding/${safeSegment(tenantType, "platform")}/${safeSegment(tenantKey, "default")}/${derived.thumbnail.filename}`,
+            url: `/uploads/${folderPath}/${derived.thumbnail.filename}`,
             width: 0,
             height: 0,
             size: derived.thumbnail.size,

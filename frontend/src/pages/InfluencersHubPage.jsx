@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { confirmAction } from "../services/notificationService";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Bookmark,
   Compass,
@@ -14,7 +14,6 @@ import {
   Search,
   Store,
   TrendingUp,
-  UserRound,
   Users,
   Video,
   X,
