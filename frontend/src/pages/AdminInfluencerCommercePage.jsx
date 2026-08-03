@@ -23,7 +23,7 @@ import { MODULES, MODULE_IDS, defaultFilters, unwrap, ActionButton, Filters } fr
 import { useStaffPermission } from "../hooks/useStaffAuth";
 
 const AdminInfluencerCommerceModule = lazy(() =>
-  import("./adminInfluencerCommerce/AdminInfluencerCommerceViews").then((module) => ({ default: module.AdminInfluencerCommerceModule })),
+  import("./adminInfluencerCommerce/AdminInfluencerCommerceViews")
 );
 
 function AdminWorkflowModal({ request, busy, onCancel, onConfirm }) {

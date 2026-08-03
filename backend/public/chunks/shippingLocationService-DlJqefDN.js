@@ -1,0 +1,1 @@
+import{y as e}from"./authStore-C1lXAdRd.js";async function t(){return(await e.get(`/api/shipping/locations/states`)).data?.data?.states||[]}async function n(t){return t&&(await e.get(`/api/shipping/locations/districts`,{params:{state:t}})).data?.data?.districts||[]}export{t as n,n as t};

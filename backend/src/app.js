@@ -81,6 +81,26 @@ function createApp() {
 
   app.get("/health", (req, res) => res.json({ ok: true, status: 'healthy', timestamp: new Date().toISOString() }));
 
+  app.get("/api/debug-path", (req, res) => {
+    const fs = require("fs");
+    const targetPath = path.join(__dirname, "..", "public", "index.html");
+    const exists = fs.existsSync(targetPath);
+    let filesInPublic = "no public dir";
+    try {
+      if (fs.existsSync(path.join(__dirname, "..", "public"))) {
+        filesInPublic = fs.readdirSync(path.join(__dirname, "..", "public"));
+      }
+    } catch (e) { filesInPublic = e.message; }
+    res.json({
+      dirname: __dirname,
+      cwd: process.cwd(),
+      targetPath,
+      exists,
+      filesInPublic,
+      filesInParent: fs.readdirSync(path.join(__dirname, ".."))
+    });
+  });
+
   // Rate Limiting specific routes
   app.use("/api/auth/login", loginLimiter);
   app.use("/api/auth/register", authLimiter);
@@ -127,11 +147,19 @@ function createApp() {
     if (req.method !== 'GET' || req.path.startsWith("/api/") || req.path.startsWith("/uploads/")) {
       return next();
     }
-    res.sendFile(path.join(__dirname, "..", "public", "index.html"), (err) => {
+    const indexPath = path.join(__dirname, "..", "public", "index.html");
+    res.sendFile(indexPath, (err) => {
       if (err) {
-        // Send a simpler fallback or 404 string if index.html is truly missing
-        if (!res.headersSent) {
-          res.status(404).send("Frontend not built or index.html missing");
+        // Fallback: manually read and send to bypass res.sendFile quirks
+        try {
+          const fs = require('fs');
+          const content = fs.readFileSync(indexPath, 'utf-8');
+          res.setHeader('Content-Type', 'text/html');
+          return res.status(200).send(content);
+        } catch (readErr) {
+          if (!res.headersSent) {
+            res.status(404).send(`Frontend not built or index.html missing.\nSendFile Error: ${err.message}\nRead Error: ${readErr.message}`);
+          }
         }
       }
     });

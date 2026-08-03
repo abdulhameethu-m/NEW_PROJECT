@@ -1,1 +1,0 @@
-import{y as e}from"./authStore-Cmi_ALMa.js";import{p as t}from"../index-BOhiba_p.js";async function n(t){let{data:n}=await e.get(`/api/subcategories`,{params:{categoryId:t}});return n}async function r(){let{data:e}=await t.get(`/api/admin/subcategories`);return e}export{r as n,n as t};

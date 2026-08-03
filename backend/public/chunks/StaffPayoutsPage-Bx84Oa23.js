@@ -1,0 +1,1 @@
+import{r as e}from"./vendor-animation-BNkD-dWq.js";import{AdminPayoutsPage as t}from"./AdminPayoutsPage-BGixj0x9.js";var n=e();function r(){return(0,n.jsx)(t,{})}export{r as StaffPayoutsPage};
