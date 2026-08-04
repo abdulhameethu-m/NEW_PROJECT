@@ -1,0 +1,1 @@
+function e(e=``){return[`localhost`,`127.0.0.1`,`::1`,`[::1]`].includes(String(e).toLowerCase())}function t(){let t=`https://lavender-dove-793962.hostingersite.com`.replace(/\/$/,``);if(typeof window>`u`)return t;try{let n=new URL(t),r=window.location.hostname;if(e(n.hostname)&&r&&!e(r))return n.hostname=r,n.toString().replace(/\/$/,``)}catch{return t}return t}export{t};
