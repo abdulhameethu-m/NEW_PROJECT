@@ -75,6 +75,7 @@ const getProducts = asyncHandler(async (req, res) => {
   let filters = {
     page: parseInt(req.query.page) || 1,
     limit: parseInt(req.query.limit) || 20,
+    cursor: req.query.cursor,
     category: req.query.category,
     categoryId: req.query.categoryId,
     subCategoryId: req.query.subCategoryId,
@@ -119,6 +120,7 @@ const getPublicProducts = asyncHandler(async (req, res) => {
   const filters = {
     page: parseInt(req.query.page) || 1,
     limit: parseInt(req.query.limit) || 20,
+    cursor: req.query.cursor,
     category: req.query.category,
     categoryId: req.query.categoryId,
     subCategoryId: req.query.subCategoryId,
@@ -235,6 +237,7 @@ const getPendingProducts = asyncHandler(async (req, res) => {
   const filters = {
     page: parseInt(req.query.page) || 1,
     limit: parseInt(req.query.limit) || 20,
+    cursor: req.query.cursor,
   };
 
   const result = await productService.getPendingProducts(filters);

@@ -17,6 +17,7 @@ const {
 } = require("./jobs/payment-maintenance.job");
 const { initializeRecommendationJobs } = require("./modules/recommendation/job");
 const paymentService = require("./services/payment.service");
+const { scheduleFacetJob } = require("./workers/jobs/facetPrecalc.job");
 function shouldVerifyRazorpayOnStartup() {
   if (process.env.NODE_ENV === "production") return true;
   return process.env.RAZORPAY_VERIFY_ON_STARTUP === "true";

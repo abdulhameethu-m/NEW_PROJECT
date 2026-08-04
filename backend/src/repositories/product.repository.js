@@ -1,4 +1,5 @@
 const { Product } = require("../models/Product");
+const searchService = require("../services/search.service");
 const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
 
 const SELLER_PUBLIC_FIELDS = "companyName shopName storeSlug logoUrl bannerUrl status isStoreVisible storeThemeColor";
@@ -261,7 +262,8 @@ class ProductRepository {
     return await Product.findById(productId)
       .populate("sellerId", SELLER_PUBLIC_FIELDS)
       .populate("createdBy", "name email role")
-      .populate("approvedBy", "name email");
+      .populate("approvedBy", "name email")
+      .lean();
   }
 
   // Find product by slug
@@ -270,12 +272,12 @@ class ProductRepository {
     if (sellerId) {
       query.sellerId = sellerId;
     }
-    return await Product.findOne(query).populate("sellerId", SELLER_PUBLIC_FIELDS).populate("createdBy", "name email");
+    return await Product.findOne(query).populate("sellerId", SELLER_PUBLIC_FIELDS).populate("createdBy", "name email").lean();
   }
 
   // Find by SKU
   async findBySKU(sku) {
-    return await Product.findOne({ SKU: sku });
+    return await Product.findOne({ SKU: sku }).lean();
   }
 
   // List products with filters and pagination
@@ -326,7 +328,9 @@ class ProductRepository {
         .populate("createdBy", "name email")
         .sort(sortObj)
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .select("-__v -updatedAt")
+        .lean(),
       Product.countDocuments(query),
       buildFacetPayload(filterDefs, {
         category,
@@ -448,7 +452,7 @@ class ProductRepository {
 
     const skip = (page - 1) * limit;
     const [products, total] = await Promise.all([
-      Product.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Product.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       Product.countDocuments(query),
     ]);
 
@@ -491,7 +495,8 @@ class ProductRepository {
         .populate("createdBy", "name email")
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       Product.countDocuments(query),
     ]);
 
@@ -560,6 +565,7 @@ class ProductRepository {
       .sort({ "analytics.totalRevenue": -1, "analytics.salesCount": -1, createdAt: -1 })
       .limit(limit)
       .select("name category price analytics ratings status isActive")
+      .lean()
       .exec();
   }
 

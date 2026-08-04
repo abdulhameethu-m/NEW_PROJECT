@@ -31,6 +31,7 @@ class OrderRepository {
   }
 
   async list({
+    cursor = null,
     page = 1,
     limit = 20,
     status,
@@ -79,8 +80,20 @@ class OrderRepository {
 
     applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
-    const skip = (page - 1) * limit;
-    const sort = { [sortBy]: sortOrder };
+    if (cursor) {
+      try {
+        const cursorObj = JSON.parse(Buffer.from(cursor, 'base64').toString('utf8'));
+        const op = sortOrder === -1 ? '$lt' : '$gt';
+        if (cursorObj[sortBy] !== undefined && cursorObj._id) {
+          query.$or = [
+            { [sortBy]: { [op]: cursorObj[sortBy] } },
+            { [sortBy]: cursorObj[sortBy], _id: { [op]: cursorObj._id } }
+          ];
+        }
+      } catch (e) {}
+    }
+    const skip = cursor ? 0 : (page - 1) * limit;
+    const sort = { [sortBy]: sortOrder, _id: sortOrder };
 
     const [orders, total] = await Promise.all([
       Order.find(query)
@@ -147,6 +160,7 @@ class OrderRepository {
   }
 
   async listByUserId({
+    cursor = null,
     userId,
     page = 1,
     limit = 20,
@@ -166,8 +180,20 @@ class OrderRepository {
     if (pickupStatus) query.pickupStatus = pickupStatus;
     applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
-    const skip = (page - 1) * limit;
-    const sort = { [sortBy]: sortOrder };
+    if (cursor) {
+      try {
+        const cursorObj = JSON.parse(Buffer.from(cursor, 'base64').toString('utf8'));
+        const op = sortOrder === -1 ? '$lt' : '$gt';
+        if (cursorObj[sortBy] !== undefined && cursorObj._id) {
+          query.$or = [
+            { [sortBy]: { [op]: cursorObj[sortBy] } },
+            { [sortBy]: cursorObj[sortBy], _id: { [op]: cursorObj._id } }
+          ];
+        }
+      } catch (e) {}
+    }
+    const skip = cursor ? 0 : (page - 1) * limit;
+    const sort = { [sortBy]: sortOrder, _id: sortOrder };
 
     const [orders, total] = await Promise.all([
       Order.find(query)
@@ -193,6 +219,7 @@ class OrderRepository {
   }
 
   async listBySellerId({
+    cursor = null,
     sellerId,
     page = 1,
     limit = 20,
@@ -212,8 +239,20 @@ class OrderRepository {
     if (pickupStatus) query.pickupStatus = pickupStatus;
     applyDateRange(query, normalizeDateRange({ startDate, endDate }));
 
-    const skip = (page - 1) * limit;
-    const sort = { [sortBy]: sortOrder };
+    if (cursor) {
+      try {
+        const cursorObj = JSON.parse(Buffer.from(cursor, 'base64').toString('utf8'));
+        const op = sortOrder === -1 ? '$lt' : '$gt';
+        if (cursorObj[sortBy] !== undefined && cursorObj._id) {
+          query.$or = [
+            { [sortBy]: { [op]: cursorObj[sortBy] } },
+            { [sortBy]: cursorObj[sortBy], _id: { [op]: cursorObj._id } }
+          ];
+        }
+      } catch (e) {}
+    }
+    const skip = cursor ? 0 : (page - 1) * limit;
+    const sort = { [sortBy]: sortOrder, _id: sortOrder };
 
     const [orders, total] = await Promise.all([
       Order.find(query)

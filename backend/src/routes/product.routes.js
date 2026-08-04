@@ -3,6 +3,7 @@ const { authRequired, requireRole } = require("../middleware/auth");
 const { upload } = require("../middleware/upload");
 const { validate } = require("../middleware/validate");
 const { requireVendorPermission } = require("../middleware/vendorModuleAccess");
+const { cacheMiddleware } = require("../utils/cache");
 const productController = require("../controllers/product.controller");
 const {
   createProductSchema,
@@ -19,12 +20,12 @@ const router = express.Router();
  * GET /products/public
  * Get all approved and active products (PUBLIC STOREFRONT)
  */
-router.get("/public", productController.getPublicProducts);
+router.get("/public", cacheMiddleware(300), productController.getPublicProducts);
 /**
  * GET /products/filters
  * Get dynamic storefront filters for a category/subcategory
  */
-router.get("/filters", productController.getProductFilters);
+router.get("/filters", cacheMiddleware(300), productController.getProductFilters);
 /**
  * GET /products/generate-number
  * Preview next product number for category + subcategory
@@ -43,7 +44,7 @@ router.post(
  * Get single product by ID
  * (Anyone can view approved products)
  */
-router.get("/:id", productController.getProductById);
+router.get("/:id", cacheMiddleware(60), productController.getProductById);
 /**
  * ==========================================
  * USER ROUTES (All authenticated users)

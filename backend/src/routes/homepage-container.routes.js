@@ -1,4 +1,5 @@
 const express = require("express");
+const { cacheMiddleware } = require("../utils/cache");
 const homepageContainerController = require("../controllers/homepage-container.controller");
 const router = express.Router();
 router.post("/:id/track", express.json(), homepageContainerController.trackPublicContainerEvent);
