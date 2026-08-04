@@ -283,7 +283,7 @@ export function CartDrawer() {
                       >
                         <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
                           {itemImage ? (
-                            <img src={itemImage} alt={itemName} className="h-full w-full object-cover" />
+                            <img loading="lazy" decoding="async" src={itemImage} alt={itemName} className="h-full w-full object-cover" />
                           ) : (
                             <div className="text-slate-400 dark:text-slate-600">
                               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -388,8 +388,7 @@ export function CartDrawer() {
                       >
                         <div className="aspect-square overflow-hidden bg-slate-100 dark:bg-slate-800">
                           {recImage ? (
-                            <img
-                              src={recImage}
+                            <img loading="lazy" decoding="async" src={recImage}
                               alt={rec?.name || "Recommended product"}
                               className="h-full w-full object-cover transition duration-300 group-hover:scale-110"
                             />

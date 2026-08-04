@@ -218,7 +218,7 @@ export function SellerCard({ seller, compact = false }) {
     <div className={`rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${compact ? "p-3" : "p-4 sm:p-5"}`}>
       <div className="flex items-center gap-3 sm:gap-4">
         <div className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-          {logo ? <img src={logo} alt={`${normalized.name} logo`} className="h-full w-full object-cover" /> : <Store className="h-5 w-5 sm:h-6 sm:w-6 text-slate-400" />}
+          {logo ? <img loading="lazy" decoding="async" src={logo} alt={`${normalized.name} logo`} className="h-full w-full object-cover" /> : <Store className="h-5 w-5 sm:h-6 sm:w-6 text-slate-400" />}
         </div>
         <div className="min-w-0 flex-1">
           <SellerNameLink seller={normalized} showPrefix={false} preview={false} className="text-xs sm:text-sm" />
@@ -262,7 +262,7 @@ function SellerPreviewPopover({ seller }) {
       <span className="pointer-events-auto block rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
         <span className="flex items-center gap-3">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-            {logo ? <img src={logo} alt="" className="h-full w-full object-cover" /> : <Store className="h-5 w-5 text-slate-400" />}
+            {logo ? <img loading="lazy" decoding="async" src={logo} alt="" className="h-full w-full object-cover" /> : <Store className="h-5 w-5 text-slate-400" />}
           </span>
           <span className="min-w-0">
             <span className="flex items-center gap-1 text-sm font-bold text-slate-950 dark:text-white">

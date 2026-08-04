@@ -39,7 +39,7 @@ function ProductCard({ product, onLink, onSelect }) {
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="h-44 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-        {product.image ? <img src={resolveApiAssetUrl(product.image)} alt="" className="h-full w-full object-cover" /> : null}
+        {product.image ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(product.image)} alt="" className="h-full w-full object-cover" /> : null}
       </div>
       <div className="mt-3">
         <div className="flex items-start justify-between gap-2">

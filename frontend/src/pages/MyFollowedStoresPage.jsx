@@ -45,7 +45,7 @@ export function MyFollowedStoresPage() {
             <article key={vendor._id} className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[220px_minmax(0,1fr)_auto]">
               <div className="flex items-center gap-3">
                 <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-                  {logo ? <img src={logo} alt={`${vendor.vendorName} logo`} className="h-full w-full object-cover" /> : <Store className="h-6 w-6 text-slate-400" />}
+                  {logo ? <img loading="lazy" decoding="async" src={logo} alt={`${vendor.vendorName} logo`} className="h-full w-full object-cover" /> : <Store className="h-6 w-6 text-slate-400" />}
                 </div>
                 <div>
                   <div className="font-bold text-slate-950 dark:text-white">{vendor.vendorName}</div>
@@ -78,7 +78,7 @@ function MiniStrip({ title, products = [] }) {
         {products.length ? products.map((product) => (
           <Link key={product._id} to={`/product/${product._id}`} className="w-24 shrink-0">
             <div className="aspect-square overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
-              {product.images?.[0]?.url ? <img src={resolveApiAssetUrl(product.images[0].url)} alt={product.name} className="h-full w-full object-cover" /> : null}
+              {product.images?.[0]?.url ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(product.images[0].url)} alt={product.name} className="h-full w-full object-cover" /> : null}
             </div>
             <div className="mt-1 line-clamp-1 text-xs font-medium text-slate-700 dark:text-slate-200">{product.name}</div>
           </Link>

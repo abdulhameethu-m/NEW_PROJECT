@@ -145,8 +145,7 @@ export function ProductThumbnailList({
                 Video
               </div>
             ) : (
-              <img
-                src={resolveApiAssetUrl(item.url)}
+              <img loading="lazy" decoding="async" src={resolveApiAssetUrl(item.url)}
                 alt={item.altText || `${productName} thumbnail ${index + 1}`}
                 loading="lazy"
                 className="h-full w-full object-cover p-1 transition duration-200 group-hover:scale-[1.04]"

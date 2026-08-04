@@ -21,7 +21,7 @@ export function OrderSummaryCard({
       <div className="flex gap-4">
         <div className="h-24 w-24 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
           {item?.image ? (
-            <img src={resolveApiAssetUrl(item.image)} alt={item?.name || "Product"} className="h-full w-full object-cover" />
+            <img loading="lazy" decoding="async" src={resolveApiAssetUrl(item.image)} alt={item?.name || "Product"} className="h-full w-full object-cover" />
           ) : null}
         </div>
 

@@ -87,7 +87,7 @@ function ImageFileField({ label, field, value, uploading, onFile, onClear }) {
       </div>
       <div className="mt-1 flex min-h-28 items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
         <div className="flex h-20 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white dark:bg-slate-900">
-          {value ? <img src={resolveApiAssetUrl(value)} alt="" className="h-full w-full object-cover" /> : <Image className="h-5 w-5 text-slate-400" />}
+          {value ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(value)} alt="" className="h-full w-full object-cover" /> : <Image className="h-5 w-5 text-slate-400" />}
         </div>
         <div className="min-w-0 flex-1">
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white">
@@ -124,7 +124,7 @@ function CollectionCard({ collection, selected, onSelect, onStatus }) {
     >
       <div className="flex items-start gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-          {collection.media?.coverImage ? <img src={collection.media.coverImage} alt="" className="h-full w-full object-cover" /> : <Image className="h-5 w-5 text-slate-400" />}
+          {collection.media?.coverImage ? <img loading="lazy" decoding="async" src={collection.media.coverImage} alt="" className="h-full w-full object-cover" /> : <Image className="h-5 w-5 text-slate-400" />}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -194,7 +194,7 @@ function ProductPicker({ products, selectedProducts, setSelectedProducts, produc
               className={`flex items-center gap-3 rounded-2xl border p-3 text-left ${checked ? "border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30" : "border-slate-200 dark:border-slate-800"}`}
             >
               <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-                {product.image ? <img src={resolveApiAssetUrl(product.image)} alt="" className="h-full w-full object-cover" /> : <Boxes className="h-5 w-5 text-slate-400" />}
+                {product.image ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(product.image)} alt="" className="h-full w-full object-cover" /> : <Boxes className="h-5 w-5 text-slate-400" />}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">{product.name}</p>

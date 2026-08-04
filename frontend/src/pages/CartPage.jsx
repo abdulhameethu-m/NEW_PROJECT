@@ -167,8 +167,7 @@ export function CartPage() {
                     {/* Product Image - Fixed Size */}
                     <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
                       {img ? (
-                        <img
-                          src={img}
+                        <img loading="lazy" decoding="async" src={img}
                           alt={name}
                           className="h-full w-full object-cover cursor-pointer transition hover:opacity-80"
                           onClick={() => navigate(`/product/${id}`)}

@@ -228,7 +228,7 @@ export function AdminInvoiceSettingsPage() {
                 </div>
                 <div className="mt-4 flex min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
                   {form.logoUrl || logoPreviewUrl ? (
-                    <img src={logoPreviewUrl || form.logoUrl} alt="Logo preview" className="max-h-36 w-auto object-contain" />
+                    <img loading="lazy" decoding="async" src={logoPreviewUrl || form.logoUrl} alt="Logo preview" className="max-h-36 w-auto object-contain" />
                   ) : (
                     <div className="text-sm text-slate-400">No logo uploaded</div>
                   )}
@@ -252,7 +252,7 @@ export function AdminInvoiceSettingsPage() {
                 </div>
                 <div className="mt-4 flex min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
                   {form.signatureUrl || signaturePreviewUrl ? (
-                    <img src={signaturePreviewUrl || form.signatureUrl} alt="Signature preview" className="max-h-36 w-auto object-contain" />
+                    <img loading="lazy" decoding="async" src={signaturePreviewUrl || form.signatureUrl} alt="Signature preview" className="max-h-36 w-auto object-contain" />
                   ) : (
                     <div className="text-sm text-slate-400">No signature uploaded</div>
                   )}

@@ -288,7 +288,7 @@ function CampaignCard({ campaign, tab = "available", onApply, onAccept, onReject
     <article className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="h-28 bg-slate-100 dark:bg-slate-800">
         {campaign.banner ? (
-          <img src={campaign.banner} alt="" className="h-full w-full object-cover" loading="lazy" />
+          <img loading="lazy" decoding="async" src={campaign.banner} alt="" className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <div className="flex h-full items-center justify-center text-slate-400">
             <Megaphone className="h-8 w-8" />
@@ -523,7 +523,7 @@ function CampaignDetailsPanel({ campaign, onClose, onAccept, onReject, busyId })
           {products.length ? products.map((product) => (
             <div key={product.id || product._id || product.name} className="grid grid-cols-[72px_1fr] gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
               <div className="h-16 w-16 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
-                {product.image ? <img src={product.image} alt="" className="h-full w-full object-cover" /> : null}
+                {product.image ? <img loading="lazy" decoding="async" src={product.image} alt="" className="h-full w-full object-cover" /> : null}
               </div>
               <div className="min-w-0 text-sm">
                 <p className="font-semibold text-slate-950 dark:text-white">{product.name || "Product"}</p>

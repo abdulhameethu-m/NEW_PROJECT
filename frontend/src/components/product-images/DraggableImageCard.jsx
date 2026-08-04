@@ -26,8 +26,7 @@ export function DraggableImageCard({
       ].join(" ")}
     >
       <div className="relative aspect-square overflow-hidden bg-slate-100 dark:bg-slate-900">
-        <img
-          src={previewUrl}
+        <img loading="lazy" decoding="async" src={previewUrl}
           alt={image.altText || `Product image ${index + 1}`}
           loading="lazy"
           decoding="async"

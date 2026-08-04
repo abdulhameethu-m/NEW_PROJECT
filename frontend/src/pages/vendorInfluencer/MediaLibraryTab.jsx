@@ -72,7 +72,7 @@ function MediaPreview({ item }) {
     return <video src={mediaUrl} poster={previewUrl || undefined} controls preload="metadata" className="h-44 w-full rounded-lg bg-slate-950 object-cover" />;
   }
   if (previewUrl) {
-    return <img src={previewUrl} alt={item.title || "Content preview"} loading="lazy" className="h-44 w-full rounded-lg bg-slate-100 object-cover dark:bg-slate-800" />;
+    return <img loading="lazy" decoding="async" src={previewUrl} alt={item.title || "Content preview"} loading="lazy" className="h-44 w-full rounded-lg bg-slate-100 object-cover dark:bg-slate-800" />;
   }
   return (
     <div className="flex h-44 w-full items-center justify-center rounded-lg bg-slate-100 text-slate-400 dark:bg-slate-800">

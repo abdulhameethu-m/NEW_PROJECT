@@ -147,7 +147,7 @@ function CreatorPanel({ reel, followed, followBusy = false, onFollow, onProductO
       <section className="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 text-sm shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <Link to={profileHref} onClick={() => onStoreVisit?.(reel)} className="flex items-center gap-3">
             <div className="h-12 w-12 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              {creatorAvatar(reel) ? <img src={creatorAvatar(reel)} alt="" className="h-full w-full object-cover" /> : null}
+              {creatorAvatar(reel) ? <img loading="lazy" decoding="async" src={creatorAvatar(reel)} alt="" className="h-full w-full object-cover" /> : null}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -179,7 +179,7 @@ function CreatorPanel({ reel, followed, followBusy = false, onFollow, onProductO
                   onClick={() => onProductOpen?.(reel, product)}
                   className="flex min-h-20 w-full items-center gap-3 rounded-3xl bg-slate-50 p-3 text-left transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-70 dark:bg-slate-950 dark:hover:bg-slate-800"
                 >
-                  <img src={productImage(product)} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                  <img loading="lazy" decoding="async" src={productImage(product)} alt="" className="h-14 w-14 rounded-2xl object-cover" />
                   <span className="min-w-0 flex-1">
                     <span className="line-clamp-2 text-sm font-black leading-tight text-slate-950 dark:text-white">{product.name}</span>
                     <span className="mt-1 block text-base font-black text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span>
@@ -209,7 +209,7 @@ function VendorDetailsCard({ reel }) {
     <div className="rounded-3xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-center gap-3">
         <div className="h-12 w-12 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-          {logoUrl ? <img src={logoUrl} alt="" className="h-full w-full object-cover" /> : null}
+          {logoUrl ? <img loading="lazy" decoding="async" src={logoUrl} alt="" className="h-full w-full object-cover" /> : null}
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-black text-slate-950 dark:text-white">{vendorName}</p>
@@ -839,7 +839,7 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
                       <Link to={creatorSlug(reel) ? `/influencer/${creatorSlug(reel)}` : "/influencers"} className="flex items-center gap-2 min-w-0">
                         <span className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/20 bg-slate-800 flex items-center justify-center">
                           {creatorAvatar(reel) ? (
-                            <img src={creatorAvatar(reel)} alt="" className="h-full w-full object-cover" loading="lazy" />
+                            <img loading="lazy" decoding="async" src={creatorAvatar(reel)} alt="" className="h-full w-full object-cover" loading="lazy" />
                           ) : (
                             <span className="text-[11px] font-bold text-slate-300">
                               {creatorName(reel).charAt(0).toUpperCase()}
@@ -880,7 +880,7 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
                             onClick={() => handleProductOpen(reel, product)} 
                             className="flex min-w-[155px] max-w-[200px] shrink-0 items-center gap-2 rounded-xl bg-white/95 p-1.5 text-left text-slate-950 transition active:scale-95"
                           >
-                            <img src={productImage(product)} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                            <img loading="lazy" decoding="async" src={productImage(product)} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-[11px] font-bold">{product.name}</span>
                               <span className="text-[11px] font-black text-rose-600 leading-none">{formatCurrency(product.discountPrice || product.price || 0)}</span>

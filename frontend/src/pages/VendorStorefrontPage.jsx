@@ -54,7 +54,7 @@ function ReviewCard({ review }) {
     <article className="w-[72vw] max-w-[310px] shrink-0 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:w-[320px]">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-          {review.customerId?.avatarUrl ? <img src={resolveApiAssetUrl(review.customerId.avatarUrl)} alt="" className="h-full w-full rounded-full object-cover" /> : (review.customerId?.name || "C").slice(0, 1)}
+          {review.customerId?.avatarUrl ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(review.customerId.avatarUrl)} alt="" className="h-full w-full rounded-full object-cover" /> : (review.customerId?.name || "C").slice(0, 1)}
         </div>
         <div className="min-w-0">
           <div className="truncate text-sm font-bold text-slate-950 dark:text-white">{review.customerId?.name || "Marketplace customer"}</div>
@@ -69,7 +69,7 @@ function ReviewCard({ review }) {
 
       <div className="mt-4 flex items-center gap-3 rounded-lg bg-slate-50 p-2 dark:bg-slate-900">
         <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-slate-200 dark:bg-slate-800">
-          {imageUrl ? <img src={imageUrl} alt={product.name || ""} className="h-full w-full object-cover" /> : null}
+          {imageUrl ? <img loading="lazy" decoding="async" src={imageUrl} alt={product.name || ""} className="h-full w-full object-cover" /> : null}
         </div>
         <div className="min-w-0">
           <div className="line-clamp-1 text-xs font-semibold text-slate-700 dark:text-slate-200">{product.name || "Store product"}</div>
@@ -259,7 +259,7 @@ export function VendorStorefrontPage() {
             {data.collections.map((collection) => (
               <Link key={collection._id} to={`/vendor/${vendor.storeSlug}/products?category=${encodeURIComponent(collection.category || "")}`} className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
                 <div className="h-28 bg-slate-100 dark:bg-slate-800">
-                  {collection.imageUrl ? <img src={collection.imageUrl} alt={collection.title} className="h-full w-full object-cover" /> : null}
+                  {collection.imageUrl ? <img loading="lazy" decoding="async" src={collection.imageUrl} alt={collection.title} className="h-full w-full object-cover" /> : null}
                 </div>
                 <div className="p-3">
                   <div className="text-sm font-bold text-slate-950 dark:text-white">{collection.title}</div>

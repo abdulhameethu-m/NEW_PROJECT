@@ -307,7 +307,7 @@ export function VendorOrderDetailsPage() {
                 <div key={`${item.productId?._id || `${item.name}-${index}`}-${item.variantId || "base"}`} className="grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
                   <div className="h-16 w-16 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
                     {item.image ? (
-                      <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                      <img loading="lazy" decoding="async" src={item.image} alt={item.name} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">No image</div>
                     )}

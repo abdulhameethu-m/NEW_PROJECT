@@ -32,7 +32,7 @@ export default function MaintenancePage({ config, onRefresh }) {
 
       <div className="relative z-10 mx-auto w-full max-w-2xl px-6 py-12 text-center">
         {logo ? (
-          <img src={logo} alt="Company Logo" className="mx-auto mb-8 h-16 w-auto object-contain drop-shadow-md" />
+          <img loading="lazy" decoding="async" src={logo} alt="Company Logo" className="mx-auto mb-8 h-16 w-auto object-contain drop-shadow-md" />
         ) : (
           <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-900 shadow-xl shadow-indigo-900/20 border border-slate-800">
             {animation === "Gears" ? (

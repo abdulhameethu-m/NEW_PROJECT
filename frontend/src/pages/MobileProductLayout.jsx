@@ -91,7 +91,7 @@ function MobileGallery({ media }) {
       >
         {media.map((img, i) => (
           <div key={i} className="min-w-full shrink-0 snap-center">
-            <img src={img.url} alt={img.altText || `Product Image ${i + 1}`} className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal" loading={i === 0 ? "eager" : "lazy"} />
+            <img loading="lazy" decoding="async" src={img.url} alt={img.altText || `Product Image ${i + 1}`} className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal" loading={i === 0 ? "eager" : "lazy"} />
           </div>
         ))}
       </div>
@@ -115,7 +115,7 @@ function MobileGallery({ media }) {
               onClick={() => scrollTo(i)}
               className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${activeIndex === i ? "border-slate-800 dark:border-slate-200" : "border-transparent"}`}
             >
-              <img src={img.url} alt={`Thumbnail ${i + 1}`} className="h-full w-full object-cover" />
+              <img loading="lazy" decoding="async" src={img.url} alt={`Thumbnail ${i + 1}`} className="h-full w-full object-cover" />
               {activeIndex !== i && <div className="absolute inset-0 bg-white/40 dark:bg-black/40" />}
             </button>
           ))}

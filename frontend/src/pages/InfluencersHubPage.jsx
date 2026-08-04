@@ -685,8 +685,7 @@ function Stories({ creators = [] }) {
                 <span className="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-gradient-to-tr from-rose-500 via-amber-400 to-violet-500 p-[2.5px]">
                   <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white p-[2px] dark:bg-slate-950">
                     {influencerAvatar(creator) ? (
-                      <img
-                        src={influencerAvatar(creator)}
+                      <img loading="lazy" decoding="async" src={influencerAvatar(creator)}
                         alt={influencerName(creator)}
                         className="h-full w-full rounded-full object-cover"
                         loading="lazy"
@@ -737,7 +736,7 @@ function CreatorHeader({ creator, followedIds = {}, followBusy = {}, onFollow })
       <Link to={profileHref} className="flex min-w-0 items-center gap-2.5">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
           {influencerAvatar(creator) ? (
-            <img src={influencerAvatar(creator)} alt="" className="h-full w-full object-cover" loading="lazy" />
+            <img loading="lazy" decoding="async" src={influencerAvatar(creator)} alt="" className="h-full w-full object-cover" loading="lazy" />
           ) : (
             <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
               {influencerName(creator).charAt(0).toUpperCase()}
@@ -922,7 +921,7 @@ function ImageCarousel({ images = [], product }) {
   const current = list[Math.min(active, list.length - 1)];
   return (
     <div className="relative bg-slate-100 dark:bg-slate-950">
-      <img src={resolveApiAssetUrl(current)} alt="" className="max-h-[420px] w-full object-cover" loading="lazy" />
+      <img loading="lazy" decoding="async" src={resolveApiAssetUrl(current)} alt="" className="max-h-[420px] w-full object-cover" loading="lazy" />
       {list.length > 1 ? (
         <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
           {list.map((url, index) => (
@@ -947,7 +946,7 @@ function ProductChip({ reel, product, onOpen }) {
       onClick={() => onOpen?.(reel, product)}
       className="flex shrink-0 min-w-[150px] max-w-[200px] items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2 text-left transition hover:border-slate-200 hover:bg-white dark:border-slate-800 dark:bg-slate-950"
     >
-      <img src={productImage(product)} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" loading="lazy" />
+      <img loading="lazy" decoding="async" src={productImage(product)} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" loading="lazy" />
       <span className="min-w-0">
         <span className="block truncate text-[12px] font-bold text-slate-950 dark:text-white">{product.name}</span>
         <span className="block text-[11px] font-semibold text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span>
@@ -965,7 +964,7 @@ function CreatorCard({ creator, followed, busy, onFollow }) {
   return (
     <article className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <Link to={influencerHref(creator)} className="flex items-center gap-3">
-        <div className="h-16 w-16 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">{influencerAvatar(creator) ? <img src={influencerAvatar(creator)} alt="" className="h-full w-full object-cover" /> : null}</div>
+        <div className="h-16 w-16 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">{influencerAvatar(creator) ? <img loading="lazy" decoding="async" src={influencerAvatar(creator)} alt="" className="h-full w-full object-cover" /> : null}</div>
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-black text-slate-950 dark:text-white">{influencerName(creator)}</h3>
           <p className="text-xs text-slate-500">@{creator.username || "creator"} · {compact(creator.followers || 0)} followers</p>
@@ -983,7 +982,7 @@ function CreatorMini({ creator, followed, busy, onFollow }) {
   return (
     <div className="flex items-center gap-3">
       <Link to={influencerHref(creator)} className="h-11 w-11 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-        {influencerAvatar(creator) ? <img src={influencerAvatar(creator)} alt="" className="h-full w-full object-cover" /> : null}
+        {influencerAvatar(creator) ? <img loading="lazy" decoding="async" src={influencerAvatar(creator)} alt="" className="h-full w-full object-cover" /> : null}
       </Link>
       <Link to={influencerHref(creator)} className="min-w-0 flex-1">
         <p className="truncate text-sm font-black text-slate-950 dark:text-white">{influencerName(creator)}</p>
@@ -995,7 +994,7 @@ function CreatorMini({ creator, followed, busy, onFollow }) {
 }
 
 function ProductMini({ product }) {
-  return <Link to={`/product/${product._id || product.id}`} className="flex items-center gap-3"><img src={productImage(product)} alt="" className="h-12 w-12 rounded-xl object-cover" /><span className="min-w-0"><span className="block truncate text-sm font-black text-slate-950 dark:text-white">{product.name}</span><span className="text-xs font-bold text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span></span></Link>;
+  return <Link to={`/product/${product._id || product.id}`} className="flex items-center gap-3"><img loading="lazy" decoding="async" src={productImage(product)} alt="" className="h-12 w-12 rounded-xl object-cover" /><span className="min-w-0"><span className="block truncate text-sm font-black text-slate-950 dark:text-white">{product.name}</span><span className="text-xs font-bold text-rose-600">{formatCurrency(product.discountPrice || product.price || 0)}</span></span></Link>;
 }
 
 function MasonryGrid({ creators = [], reels = [], products = [] }) {
@@ -1007,7 +1006,7 @@ function MasonryGrid({ creators = [], reels = [], products = [] }) {
         const images = postImages(item);
         const content = (
           <>
-            {kind === "REEL" && item.videoUrl ? <video src={resolveApiAssetUrl(item.videoUrl)} className="w-full bg-black object-cover" muted loop playsInline /> : <img src={images[0] || productImage(item) || influencerAvatar(item)} alt="" className="min-h-36 w-full object-cover" />}
+            {kind === "REEL" && item.videoUrl ? <video src={resolveApiAssetUrl(item.videoUrl)} className="w-full bg-black object-cover" muted loop playsInline /> : <img loading="lazy" decoding="async" src={images[0] || productImage(item) || influencerAvatar(item)} alt="" className="min-h-36 w-full object-cover" />}
             <div className="p-3 text-sm font-black text-slate-950 dark:text-white">{item.name || item.title || item.storeSlug || "Explore"}</div>
           </>
         );

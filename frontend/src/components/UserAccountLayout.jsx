@@ -66,7 +66,7 @@ function Avatar({ user, className = "h-10 w-10 rounded-2xl", textClassName = "te
   const avatarUrl = resolveApiAssetUrl(user?.avatarUrl);
 
   if (avatarUrl) {
-    return <img src={avatarUrl} alt={user?.name || "User"} className={`${className} object-cover`} />;
+    return <img loading="lazy" decoding="async" src={avatarUrl} alt={user?.name || "User"} className={`${className} object-cover`} />;
   }
 
   return (

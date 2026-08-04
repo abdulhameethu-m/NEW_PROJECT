@@ -229,18 +229,18 @@ export function AdminRevenuePage() {
           >
             {vendors.map((vendor) => (
               <tr key={vendor.vendorId || vendor.vendorName} className="hover:bg-slate-50 dark:hover:bg-slate-950">
-                <td className="px-4 py-3">
+                <td className="px-4 py-3" style={{ flex: "1 1 0%" }} >
                   <div className="font-semibold text-slate-950 dark:text-white">{vendor.vendorName}</div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">{selectedVendor?.code || vendor.vendorCode || vendor.vendorId}</div>
                 </td>
-                <td className="px-4 py-3 text-right text-sm text-slate-700 dark:text-slate-200">{vendor.totalOrders}</td>
-                <td className="px-4 py-3 text-right text-sm font-semibold text-slate-950 dark:text-white">{formatCurrency(vendor.totalSales)}</td>
-                <td className="px-4 py-3 text-right text-sm text-emerald-700 dark:text-emerald-300">{formatCurrency(vendor.commission)}</td>
-                <td className="px-4 py-3 text-right text-sm text-slate-700 dark:text-slate-200">{formatCurrency(vendor.earnings)}</td>
-                <td className="px-4 py-3 text-right text-sm text-blue-700 dark:text-blue-300 font-medium">{formatCurrency(vendor.availableBalance)}</td>
-                <td className="px-4 py-3 text-right text-sm text-amber-700 dark:text-amber-300 font-medium">{formatCurrency(vendor.pendingBalance)}</td>
-                <td className="px-4 py-3 text-right text-sm text-purple-700 dark:text-purple-300 font-medium">{formatCurrency(vendor.totalEarnings)}</td>
-                <td className="px-4 py-3 text-right text-sm text-rose-700 dark:text-rose-300 font-medium">{formatCurrency(vendor.withdrawnAmount)}</td>
+                <td className="px-4 py-3 text-right text-sm text-slate-700 dark:text-slate-200" style={{ flex: "1 1 0%" }} >{vendor.totalOrders}</td>
+                <td className="px-4 py-3 text-right text-sm font-semibold text-slate-950 dark:text-white" style={{ flex: "1 1 0%" }} >{formatCurrency(vendor.totalSales)}</td>
+                <td className="px-4 py-3 text-right text-sm text-emerald-700 dark:text-emerald-300" style={{ flex: "1 1 0%" }} >{formatCurrency(vendor.commission)}</td>
+                <td className="px-4 py-3 text-right text-sm text-slate-700 dark:text-slate-200" style={{ flex: "1 1 0%" }} >{formatCurrency(vendor.earnings)}</td>
+                <td className="px-4 py-3 text-right text-sm text-blue-700 dark:text-blue-300 font-medium" style={{ flex: "1 1 0%" }} >{formatCurrency(vendor.availableBalance)}</td>
+                <td className="px-4 py-3 text-right text-sm text-amber-700 dark:text-amber-300 font-medium" style={{ flex: "1 1 0%" }} >{formatCurrency(vendor.pendingBalance)}</td>
+                <td className="px-4 py-3 text-right text-sm text-purple-700 dark:text-purple-300 font-medium" style={{ flex: "1 1 0%" }} >{formatCurrency(vendor.totalEarnings)}</td>
+                <td className="px-4 py-3 text-right text-sm text-rose-700 dark:text-rose-300 font-medium" style={{ flex: "1 1 0%" }} >{formatCurrency(vendor.withdrawnAmount)}</td>
               </tr>
             ))}
           </AdminTable>

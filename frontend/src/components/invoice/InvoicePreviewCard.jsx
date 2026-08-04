@@ -40,8 +40,7 @@ export function InvoicePreviewCard({ invoice, actionBar = null, printId = "invoi
         <div className="flex w-full min-w-0 flex-col items-start gap-4 md:flex-row">
           <div className="flex items-center justify-center md:mr-6 md:flex-shrink-0 md:justify-start">
             {invoice.organization?.logoUrl ? (
-              <img
-                src={invoice.organization.logoUrl}
+              <img loading="lazy" decoding="async" src={invoice.organization.logoUrl}
                 alt="Organization logo"
                 className="h-14 w-14 rounded-md object-contain"
               />

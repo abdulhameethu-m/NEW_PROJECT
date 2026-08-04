@@ -10,7 +10,7 @@ export function BrandLogo({ variant = "primary", className = "", imgClassName = 
   if (logoUrl) {
     return (
       <div className={`inline-flex items-center gap-3 ${className}`.trim()}>
-        <img src={resolveApiAssetUrl(logoUrl)} alt={name} className={imgClassName || "h-10 w-auto object-contain"} />
+        <img loading="lazy" decoding="async" src={resolveApiAssetUrl(logoUrl)} alt={name} className={imgClassName || "h-10 w-auto object-contain"} />
         {showName ? <span className="text-sm font-semibold tracking-[-0.03em]">{name}</span> : null}
       </div>
     );

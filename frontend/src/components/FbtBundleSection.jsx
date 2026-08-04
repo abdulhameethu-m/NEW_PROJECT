@@ -87,7 +87,7 @@ export function FbtBundleSection({ fbt, sourceProductId, surface = "product_page
               {index > 0 ? <Plus className="h-5 w-5 text-slate-400" /> : null}
               <div className="w-36 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
                 <div className="aspect-square overflow-hidden rounded-xl bg-white dark:bg-slate-900">
-                  {getImage(product) ? <img src={getImage(product)} alt={product.name} className="h-full w-full object-cover" /> : null}
+                  {getImage(product) ? <img loading="lazy" decoding="async" src={getImage(product)} alt={product.name} className="h-full w-full object-cover" /> : null}
                 </div>
                 <div className="mt-2 line-clamp-2 min-h-10 text-xs font-semibold text-slate-900 dark:text-white">{product.name}</div>
                 <div className="mt-1 text-sm font-bold text-slate-950 dark:text-white">{formatCurrency(product.price || 0)}</div>

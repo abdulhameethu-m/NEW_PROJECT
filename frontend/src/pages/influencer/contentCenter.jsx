@@ -171,7 +171,7 @@ function ContentCard({ item, onAction, onEdit, busy = false }) {
     <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="h-44 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
         {publicType === "POST" && imageSrc ? (
-          <img src={imageSrc} alt={item.title || "Post media"} className="h-full w-full object-cover" />
+          <img loading="lazy" decoding="async" src={imageSrc} alt={item.title || "Post media"} className="h-full w-full object-cover" />
         ) : item.videoUrl ? (
           <video key={videoSrc} poster={posterSrc} className="h-full w-full object-cover" controls playsInline preload="metadata">
             <source src={videoSrc} type="video/mp4" />
@@ -294,7 +294,7 @@ function MediaAssetCard({ asset, onDelete, onStatistics, busy = false }) {
     <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
       <div className="h-36 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
         {publicType === "POST" && (previewUrl || mediaUrl) ? (
-          <img src={previewUrl || mediaUrl} alt={asset.name || "Post media"} className="h-full w-full object-cover" />
+          <img loading="lazy" decoding="async" src={previewUrl || mediaUrl} alt={asset.name || "Post media"} className="h-full w-full object-cover" />
         ) : asset.url ? (
           <video key={mediaUrl} poster={previewUrl} className="h-full w-full object-cover" controls playsInline preload="metadata">
             <source src={mediaUrl} type="video/mp4" />
@@ -483,7 +483,7 @@ function StatisticsDrawer({ open, asset, data, loading, error, onClose, onRefres
               <AnalyticsSection title="1. Content Information">
                 <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
                   <div className="overflow-hidden rounded-2xl bg-slate-200 dark:bg-slate-800">
-                    {data.content?.thumbnailUrl ? <img src={resolveApiAssetUrl(data.content.thumbnailUrl)} alt="" className="h-44 w-full object-cover" /> : null}
+                    {data.content?.thumbnailUrl ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(data.content.thumbnailUrl)} alt="" className="h-44 w-full object-cover" /> : null}
                   </div>
                   <StatGrid rows={[
                     ["Content Type", titleCase(data.content?.contentType)],

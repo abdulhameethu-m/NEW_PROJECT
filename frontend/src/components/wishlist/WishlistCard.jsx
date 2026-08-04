@@ -14,7 +14,7 @@ export default function WishlistCard({ item, onMoveToCart, onRemove, busy }) {
       <div className="flex flex-col">
         <Link to={`/product/${product?._id || item.productId}`} className="block w-full">
           <div className="w-full overflow-hidden rounded-md bg-slate-100" style={{ aspectRatio: "3/4" }}>
-            {image ? <img src={image} alt={product?.name} className="h-full w-full object-contain p-2" /> : null}
+            {image ? <img loading="lazy" decoding="async" src={image} alt={product?.name} className="h-full w-full object-contain p-2" /> : null}
           </div>
         </Link>
         <div className="mt-2 flex flex-col gap-1">

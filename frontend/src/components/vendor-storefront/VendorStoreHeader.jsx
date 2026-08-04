@@ -142,7 +142,7 @@ export function VendorStoreHeader({ vendor, isFollowing, onFollowChange }) {
       <div className="md:hidden">
         <div className="relative h-[160px] overflow-hidden bg-slate-100 dark:bg-slate-900">
           {banner ? (
-            <img src={banner} alt={`${vendor.vendorName} banner`} className="h-full w-full object-cover" />
+            <img loading="lazy" decoding="async" src={banner} alt={`${vendor.vendorName} banner`} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#f8fafc,#e5e7eb_52%,#f1f5f9)] dark:bg-[linear-gradient(135deg,#0f172a,#1e293b_52%,#111827)]">
               <Image className="h-10 w-10 text-slate-300 dark:text-slate-700" strokeWidth={1.25} />
@@ -160,7 +160,7 @@ export function VendorStoreHeader({ vendor, isFollowing, onFollowChange }) {
           <div className="-mt-[60px] flex flex-col items-start gap-4">
             <div className="h-[120px] w-[120px] ml-3 shrink-0 flex items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white shadow-md ring-1 ring-slate-200 dark:border-slate-950 dark:bg-slate-900 dark:ring-slate-800 z-20">
               {logo ? (
-                <img src={logo} alt={`${vendor.vendorName} logo`} className="h-full w-full object-cover" />
+                <img loading="lazy" decoding="async" src={logo} alt={`${vendor.vendorName} logo`} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                   <span className="text-lg font-semibold tracking-wide">{vendor.vendorName?.slice(0, 3) || "GRM"}</span>
@@ -270,7 +270,7 @@ export function VendorStoreHeader({ vendor, isFollowing, onFollowChange }) {
       <div className="hidden md:block">
       <div className="relative h-44 overflow-hidden bg-slate-100 lg:h-52 dark:bg-slate-900">
         {banner ? (
-          <img src={banner} alt={`${vendor.vendorName} banner`} className="h-full w-full object-cover" />
+          <img loading="lazy" decoding="async" src={banner} alt={`${vendor.vendorName} banner`} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#f8fafc,#e5e7eb_52%,#f1f5f9)] dark:bg-[linear-gradient(135deg,#0f172a,#1e293b_52%,#111827)]">
             <Image className="h-20 w-20 text-slate-300 dark:text-slate-700" strokeWidth={1.25} />
@@ -283,7 +283,7 @@ export function VendorStoreHeader({ vendor, isFollowing, onFollowChange }) {
           <div className="flex min-w-0 flex-col items-center gap-3 text-center sm:flex-row sm:items-start sm:gap-4 sm:text-left">
             <div className="-mt-10 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-4 border-white bg-white text-center shadow-sm ring-1 ring-slate-200 dark:border-slate-950 dark:bg-slate-900 dark:ring-slate-800 sm:mt-0 sm:h-28 sm:w-28 sm:rounded-lg">
               {logo ? (
-                <img src={logo} alt={`${vendor.vendorName} logo`} className="h-full w-full object-contain p-2" />
+                <img loading="lazy" decoding="async" src={logo} alt={`${vendor.vendorName} logo`} className="h-full w-full object-contain p-2" />
               ) : (
                 <div className="grid gap-1 text-slate-700 dark:text-slate-200">
                   <span className="text-xl font-semibold tracking-wide">{vendor.vendorName?.slice(0, 3) || "GRM"}</span>

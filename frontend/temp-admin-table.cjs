@@ -1,5 +1,8 @@
+const fs = require('fs');
+const file = 'src/components/AdminTable.jsx';
 
-import { List as FixedSizeList } from "react-window";
+const replacement = `
+import { FixedSizeList } from 'react-window';
 import React, { forwardRef, useState } from 'react';
 
 const innerElementType = forwardRef(({ style, ...rest }, ref) => (
@@ -24,9 +27,9 @@ export function AdminTable({ columns, rows, renderRow, children }) {
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`whitespace-nowrap px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 ${
+                  className={\`whitespace-nowrap px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 \${
                     col.align === "right" ? "text-right" : ""
-                  }`}
+                  }\`}
                 >
                   {col.label}
                 </th>
@@ -54,10 +57,10 @@ export function AdminTable({ columns, rows, renderRow, children }) {
             {columns.map((col) => (
               <th
                 key={col.key}
-                style={{ flex: col.width ? `0 0 ${col.width}px` : '1 1 0%' }}
-                className={`whitespace-nowrap px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 ${
+                style={{ flex: col.width ? \`0 0 \${col.width}px\` : '1 1 0%' }}
+                className={\`whitespace-nowrap px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 \${
                   col.align === "right" ? "text-right" : ""
-                }`}
+                }\`}
               >
                 {col.label}
               </th>
@@ -78,3 +81,7 @@ export function AdminTable({ columns, rows, renderRow, children }) {
     </div>
   );
 }
+`;
+
+fs.writeFileSync(file, replacement);
+console.log('AdminTable virtualized');

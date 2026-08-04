@@ -1504,7 +1504,7 @@ function ContainerThumb({ container, large = false }) {
   const src = resolveContainerThumbnail(container);
   return (
     <span className={`${large ? "h-14 w-14" : "h-11 w-11"} flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100`}>
-      {src ? <img src={src} alt={getContainerLabel(container)} className="h-full w-full object-cover" loading="lazy" /> : <LayoutDashboard className="h-5 w-5 text-slate-400" />}
+      {src ? <img loading="lazy" decoding="async" src={src} alt={getContainerLabel(container)} className="h-full w-full object-cover" loading="lazy" /> : <LayoutDashboard className="h-5 w-5 text-slate-400" />}
     </span>
   );
 }

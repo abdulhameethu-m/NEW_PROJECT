@@ -33,7 +33,7 @@ export function VendorStoreFollowersPage() {
           {state.data.followers.map((item, index) => (
             <div key={`${item.customer?._id || index}-${item.followedAt}`} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
-                {item.customer?.avatarUrl ? <img src={item.customer.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" /> : item.customer?.name?.slice(0, 1) || "U"}
+                {item.customer?.avatarUrl ? <img loading="lazy" decoding="async" src={item.customer.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" /> : item.customer?.name?.slice(0, 1) || "U"}
               </div>
               <div>
                 <div className="text-sm font-semibold text-slate-950 dark:text-white">{item.customer?.name || "Marketplace customer"}</div>

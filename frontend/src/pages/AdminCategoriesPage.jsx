@@ -210,7 +210,7 @@ export function AdminCategoriesPage() {
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-lg dark:bg-slate-800 overflow-hidden">
                         {category.logo ? (
-                          <img src={category.logo} alt={category.name} className="h-full w-full object-cover" />
+                          <img loading="lazy" decoding="async" src={category.logo} alt={category.name} className="h-full w-full object-cover" />
                         ) : (
                           category.icon || category.name?.charAt(0) || "C"
                         )}
@@ -332,7 +332,7 @@ export function AdminCategoriesPage() {
             <div className="flex items-center gap-3">
               {form.logo ? (
                 <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950">
-                  <img src={form.logo} alt="Category logo preview" className="max-h-full max-w-full rounded" />
+                  <img loading="lazy" decoding="async" src={form.logo} alt="Category logo preview" className="max-h-full max-w-full rounded" />
                 </div>
               ) : null}
               <input
@@ -366,7 +366,7 @@ export function AdminCategoriesPage() {
                       <div className="flex items-center gap-3">
                         {banner.image ? (
                           <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950 overflow-hidden shrink-0">
-                            <img src={banner.image.startsWith('http') ? banner.image : (banner.image.startsWith('data:') ? banner.image : 'http://localhost:5000' + banner.image)} alt="Preview" className="h-full w-full object-cover" />
+                            <img loading="lazy" decoding="async" src={banner.image.startsWith('http') ? banner.image : (banner.image.startsWith('data:') ? banner.image : 'http://localhost:5000' + banner.image)} alt="Preview" className="h-full w-full object-cover" />
                           </div>
                         ) : null}
                         <input

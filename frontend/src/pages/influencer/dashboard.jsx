@@ -223,7 +223,7 @@ function TopProducts({ rows = [] }) {
         {rows.length ? rows.map((item) => (
           <div key={item.id} className="flex items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-              {item.image ? <img src={item.image} alt="" className="h-full w-full object-cover" /> : <Package className="h-5 w-5 text-slate-400" />}
+              {item.image ? <img loading="lazy" decoding="async" src={item.image} alt="" className="h-full w-full object-cover" /> : <Package className="h-5 w-5 text-slate-400" />}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">{item.name}</p>

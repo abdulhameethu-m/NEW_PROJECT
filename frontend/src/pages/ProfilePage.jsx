@@ -110,7 +110,7 @@ export function ProfilePage() {
         <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Profile photo</div>
         <div className="mt-5 flex flex-col items-center">
           {avatarPreview ? (
-            <img src={avatarPreview} alt={form.name || "User"} className="h-28 w-28 rounded-[2rem] object-cover" />
+            <img loading="lazy" decoding="async" src={avatarPreview} alt={form.name || "User"} className="h-28 w-28 rounded-[2rem] object-cover" />
           ) : (
             <div className="flex h-28 w-28 items-center justify-center rounded-[2rem] bg-slate-900 text-3xl font-bold text-white dark:bg-white dark:text-slate-950">
               {(form.name || "U").charAt(0).toUpperCase()}

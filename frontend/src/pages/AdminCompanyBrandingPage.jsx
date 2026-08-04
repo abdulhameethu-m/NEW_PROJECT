@@ -363,7 +363,7 @@ export function AdminCompanyBrandingPage() {
                     </div>
                     <div className="mt-4 flex min-h-[140px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
                       {preview ? (
-                        <img src={resolveApiAssetUrl(preview)} alt={asset.label} className="max-h-24 w-auto object-contain" />
+                        <img loading="lazy" decoding="async" src={resolveApiAssetUrl(preview)} alt={asset.label} className="max-h-24 w-auto object-contain" />
                       ) : (
                         <div className="text-sm text-slate-400">No asset uploaded</div>
                       )}

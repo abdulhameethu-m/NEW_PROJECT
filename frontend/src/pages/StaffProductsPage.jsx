@@ -224,7 +224,7 @@ export function StaffProductsPage() {
                     <td className="px-4 py-4">
                       <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                         {getPrimaryImage(product) ? (
-                          <img src={getPrimaryImage(product)} alt={product.name} className="h-full w-full object-contain" />
+                          <img loading="lazy" decoding="async" src={getPrimaryImage(product)} alt={product.name} className="h-full w-full object-contain" />
                         ) : (
                           <span className="text-[11px] text-slate-400">No image</span>
                         )}

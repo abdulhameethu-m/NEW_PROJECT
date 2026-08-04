@@ -183,7 +183,7 @@ export function RecommendationSection({
           >
             <div className="relative aspect-[16/7] min-h-64 overflow-hidden bg-slate-200 lg:aspect-auto">
               {heroImageUrl ? (
-                <img src={heroImageUrl} alt={heroProduct.name} className="h-full w-full object-cover transition duration-500 hover:scale-105" />
+                <img loading="lazy" decoding="async" src={heroImageUrl} alt={heroProduct.name} className="h-full w-full object-cover transition duration-500 hover:scale-105" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-slate-200 text-sm font-semibold text-slate-500">
                   Image coming soon

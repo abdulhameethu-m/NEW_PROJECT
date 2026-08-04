@@ -294,7 +294,7 @@ function CollectionsRail({ data, collections = [], selectedId = "", onSelect }) 
         {collections.map((collection) => (
           <button key={collection._id} type="button" onClick={() => onSelect?.(collection)} className={`group flex h-[238px] w-[220px] shrink-0 snap-start flex-col overflow-hidden rounded-lg border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg dark:bg-slate-950 sm:h-[252px] sm:w-[240px] ${selectedId === collection._id ? "border-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-950" : "border-slate-200 dark:border-slate-800"}`}>
             <div className="relative h-[132px] shrink-0 bg-slate-100 dark:bg-slate-800 sm:h-[144px]">
-              {mediaOf(collection) ? <img src={mediaOf(collection)} alt={collectionTitle(collection)} className="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" /> : null}
+              {mediaOf(collection) ? <img loading="lazy" decoding="async" src={mediaOf(collection)} alt={collectionTitle(collection)} className="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" /> : null}
               <span className="absolute bottom-2 left-2 rounded-full bg-slate-950/80 px-2.5 py-1 text-[11px] font-black text-white">{productCountOf(collection)} Products</span>
             </div>
             <div className="flex min-h-0 flex-1 flex-col p-3">
@@ -378,7 +378,7 @@ function CompactReelCard({ reel, username, surface = "creator-reels-grid", class
       className={`group relative shrink-0 snap-start overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm outline-none transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-800 dark:bg-slate-900 ${className}`}
     >
       <div className="relative aspect-[9/16] bg-slate-950">
-        {mediaOf(reel) ? <img src={mediaOf(reel)} alt={reel.title || reel.caption || "Creator reel"} className="h-full w-full object-cover opacity-90 transition group-hover:scale-105" loading="lazy" /> : null}
+        {mediaOf(reel) ? <img loading="lazy" decoding="async" src={mediaOf(reel)} alt={reel.title || reel.caption || "Creator reel"} className="h-full w-full object-cover opacity-90 transition group-hover:scale-105" loading="lazy" /> : null}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/20" />
         {reel.durationSeconds ? <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-bold text-white">{formatDuration(reel.durationSeconds)}</span> : null}
         <div className="absolute inset-0 flex items-center justify-center">
@@ -503,7 +503,7 @@ function PostsGrid({ data, posts = [], compactMode = false, onRequireAuth }) {
         {posts.map((post) => (
           <article key={post._id} className="group overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
             <div className="aspect-square bg-slate-100 dark:bg-slate-800">
-              {mediaOf(post) ? <img src={mediaOf(post)} alt={post.caption || "Creator post"} className="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" /> : null}
+              {mediaOf(post) ? <img loading="lazy" decoding="async" src={mediaOf(post)} alt={post.caption || "Creator post"} className="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" /> : null}
             </div>
             <div className="space-y-2 p-3">
               <p className="line-clamp-2 text-sm text-slate-700 dark:text-slate-200">{post.caption || "Creator post"}</p>
@@ -543,7 +543,7 @@ function Sidebar({ data, following, followBusy = false, onFollow, onShare, canEd
     <aside className="hidden lg:block space-y-4 lg:sticky lg:top-24 lg:w-[290px] lg:shrink-0">
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto h-28 w-28 overflow-hidden rounded-full bg-slate-100 shadow-inner dark:bg-slate-800">
-          {resolveApiAssetUrl(data.profile.avatarUrl) ? <img src={resolveApiAssetUrl(data.profile.avatarUrl)} alt={data.profile.name} className="h-full w-full object-cover" /> : null}
+          {resolveApiAssetUrl(data.profile.avatarUrl) ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(data.profile.avatarUrl)} alt={data.profile.name} className="h-full w-full object-cover" /> : null}
         </div>
         <div className="mt-4 flex items-center justify-center gap-1">
           <h1 className="text-xl font-black text-slate-950 dark:text-white">{data.profile.name}</h1>
@@ -712,7 +712,7 @@ function CollectionDetail({ data, collection, showSearch = true }) {
         <div className="min-w-0 flex-1">
           <div className="relative overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
             <div className="aspect-[21/7] min-h-36">
-              {mediaOf(collection) ? <img src={mediaOf(collection)} alt={collectionTitle(collection)} className="h-full w-full object-cover" /> : null}
+              {mediaOf(collection) ? <img loading="lazy" decoding="async" src={mediaOf(collection)} alt={collectionTitle(collection)} className="h-full w-full object-cover" /> : null}
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-transparent to-transparent" />
             <div className="absolute bottom-4 left-4 right-4 text-white">
@@ -941,7 +941,7 @@ function PublicStoreNav({ data, search, setSearch }) {
         <div className="flex flex-1 items-center gap-2.5 min-w-0">
           <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
             {avatarUrl
-              ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+              ? <img loading="lazy" decoding="async" src={avatarUrl} alt="" className="h-full w-full object-cover" />
               : <span className="text-xs font-black text-slate-500">{(data.profile.name || "C").charAt(0).toUpperCase()}</span>
             }
           </span>
@@ -1122,7 +1122,7 @@ export function InfluencerPublicStorefrontPage() {
       <div className="flex items-center gap-3">
         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800 ring-2 ring-indigo-100 dark:ring-indigo-900">
           {resolveApiAssetUrl(data.profile.avatarUrl)
-            ? <img src={resolveApiAssetUrl(data.profile.avatarUrl)} alt={data.profile.name} className="h-full w-full object-cover" />
+            ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(data.profile.avatarUrl)} alt={data.profile.name} className="h-full w-full object-cover" />
             : <span className="flex h-full w-full items-center justify-center text-lg font-black text-slate-400">{(data.profile.name || "C").charAt(0).toUpperCase()}</span>
           }
         </div>

@@ -6,7 +6,7 @@ export default function CollectionHeader({ title, description, count, imageUrl }
     <header className="mx-auto w-full max-w-3xl px-3 py-3">
       <div className="flex items-center gap-3 rounded-xl bg-white/95 p-3 shadow-sm dark:bg-slate-900/80">
         {imageUrl ? (
-          <img src={imageUrl} alt={title} className="h-16 w-16 flex-shrink-0 rounded-md object-cover" />
+          <img loading="lazy" decoding="async" src={imageUrl} alt={title} className="h-16 w-16 flex-shrink-0 rounded-md object-cover" />
         ) : (
           <div className="h-16 w-16 flex-shrink-0 rounded-md bg-slate-100 dark:bg-slate-800" />
         )}

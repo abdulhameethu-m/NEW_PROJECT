@@ -372,7 +372,7 @@ export function VendorSettingsPage() {
             <div className="grid gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
               <div className="flex items-center gap-3">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 text-xs text-slate-400 dark:bg-slate-900">
-                  {form.logoUrl ? <img src={resolveApiAssetUrl(form.logoUrl)} alt="Store logo preview" className="h-full w-full object-contain" /> : "Logo"}
+                  {form.logoUrl ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(form.logoUrl)} alt="Store logo preview" className="h-full w-full object-contain" /> : "Logo"}
                 </div>
                 <input type="file" accept="image/*" onChange={(e) => handleStoreMediaUpload("logoUrl", "logo", e.target.files?.[0])} className="min-w-0 flex-1 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white dark:file:bg-white dark:file:text-slate-950" />
               </div>
@@ -385,7 +385,7 @@ export function VendorSettingsPage() {
             "Banner Image",
             <div className="grid gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
               <div className="aspect-[5/1] overflow-hidden rounded-lg bg-slate-100 text-xs text-slate-400 dark:bg-slate-900">
-                {form.bannerUrl ? <img src={resolveApiAssetUrl(form.bannerUrl)} alt="Store banner preview" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center">Banner preview</div>}
+                {form.bannerUrl ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(form.bannerUrl)} alt="Store banner preview" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center">Banner preview</div>}
               </div>
               <input type="file" accept="image/*" onChange={(e) => handleStoreMediaUpload("bannerUrl", "banner", e.target.files?.[0])} className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white dark:file:bg-white dark:file:text-slate-950" />
               <input value={form.bannerUrl || ""} onChange={(e) => setField("bannerUrl", e.target.value)} placeholder="Or paste banner URL" className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950" />

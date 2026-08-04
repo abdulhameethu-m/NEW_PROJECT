@@ -320,8 +320,7 @@ export function AdminProductsPage() {
                         <td className="px-4 py-4">
                           <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/60">
                             {getPrimaryImage(product) ? (
-                              <img
-                                src={getPrimaryImage(product)}
+                              <img loading="lazy" decoding="async" src={getPrimaryImage(product)}
                                 alt={product.name}
                                 className="h-full w-full object-contain"
                               />
@@ -420,8 +419,7 @@ export function AdminProductsPage() {
                                       key={image.url + idx}
                                       className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
                                     >
-                                      <img
-                                        src={image.url}
+                                      <img loading="lazy" decoding="async" src={image.url}
                                         alt={image.altText || product.name}
                                         className="h-28 w-full object-contain"
                                       />

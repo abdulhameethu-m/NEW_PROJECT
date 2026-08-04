@@ -42,7 +42,7 @@ function DiscoverView({ rows, pagination, subscriptionData = {}, busyId, onSubsc
             <article key={rowId} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
               <div className="flex items-start gap-3">
                 <div className="h-12 w-12 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-                  {row.profilePicture ? <img src={resolveApiAssetUrl(row.profilePicture)} alt="" className="h-full w-full object-cover" /> : null}
+                  {row.profilePicture ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(row.profilePicture)} alt="" className="h-full w-full object-cover" /> : null}
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate font-semibold text-slate-950 dark:text-white">{row.name}</h3>

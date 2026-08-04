@@ -79,7 +79,7 @@ export function ComparePage() {
                 const imageUrl = resolveApiAssetUrl(product?.images?.[0]?.url || product?.thumbnail || "");
                 return imageUrl ? (
                   <Link to={`/product/${productId}`} className="block h-32 w-32 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-900">
-                    <img src={imageUrl} alt={product?.name || "Product"} className="h-full w-full object-cover" loading="lazy" />
+                    <img loading="lazy" decoding="async" src={imageUrl} alt={product?.name || "Product"} className="h-full w-full object-cover" loading="lazy" />
                   </Link>
                 ) : (
                   <div className="flex h-32 w-32 items-center justify-center rounded-xl bg-slate-100 text-xs text-slate-400 dark:bg-slate-900">No image</div>

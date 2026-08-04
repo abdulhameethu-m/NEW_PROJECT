@@ -113,8 +113,7 @@ export function SearchBar({ className = "" }) {
                   >
                     <div className="h-14 w-14 flex-none overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
                       {product.images?.[0]?.url ? (
-                        <img
-                          src={resolveApiAssetUrl(product.images[0].url)}
+                        <img loading="lazy" decoding="async" src={resolveApiAssetUrl(product.images[0].url)}
                           alt={product.images?.[0]?.altText || product.name}
                           loading="lazy"
                           className="h-full w-full object-cover"

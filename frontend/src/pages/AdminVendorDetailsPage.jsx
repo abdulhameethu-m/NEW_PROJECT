@@ -204,8 +204,7 @@ export function AdminVendorDetailsPage() {
                     Image unavailable
                   </div>
                 ) : (
-                  <img
-                    src={resolveApiAssetUrl(image.url)}
+                  <img loading="lazy" decoding="async" src={resolveApiAssetUrl(image.url)}
                     alt={`Shop ${idx + 1}`}
                     loading="lazy"
                     className="h-44 w-full object-cover"

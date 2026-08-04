@@ -226,7 +226,7 @@ export function ReviewsPage() {
             <div className="flex flex-wrap gap-3 sm:col-span-2">
               {photoPreviews.map((preview, index) => (
                 <div key={`${preview.file.name}-${index}`} className="relative h-20 w-20 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-800">
-                  <img src={preview.url} alt={preview.file.name} className="h-full w-full object-cover" />
+                  <img loading="lazy" decoding="async" src={preview.url} alt={preview.file.name} className="h-full w-full object-cover" />
                 </div>
               ))}
             </div>
@@ -266,7 +266,7 @@ export function ReviewsPage() {
                 className="flex min-h-24 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-blue-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
               >
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-                  {item.image ? <img src={resolveApiAssetUrl(item.image)} alt={item.productName || "Product"} className="h-full w-full object-cover" /> : null}
+                  {item.image ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(item.image)} alt={item.productName || "Product"} className="h-full w-full object-cover" /> : null}
                 </div>
                 <div className="min-w-0">
                   <div className="line-clamp-2 text-sm font-semibold text-slate-950 dark:text-white">{item.productName}</div>
@@ -330,7 +330,7 @@ export function ReviewsPage() {
               <div className="flex flex-wrap gap-3 sm:col-span-2">
                 {photoPreviews.map((preview, index) => (
                   <div key={`${preview.file.name}-${index}`} className="relative h-20 w-20 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-800">
-                    <img src={preview.url} alt={preview.file.name} className="h-full w-full object-cover" />
+                    <img loading="lazy" decoding="async" src={preview.url} alt={preview.file.name} className="h-full w-full object-cover" />
                   </div>
                 ))}
               </div>
@@ -353,7 +353,7 @@ export function ReviewsPage() {
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-800">
                     {review.productId?.images?.[0]?.url ? (
-                      <img src={resolveApiAssetUrl(review.productId.images[0].url)} alt={review.productId?.name || "Product"} className="h-full w-full object-cover" />
+                      <img loading="lazy" decoding="async" src={resolveApiAssetUrl(review.productId.images[0].url)} alt={review.productId?.name || "Product"} className="h-full w-full object-cover" />
                     ) : null}
                   </div>
                   <div>
@@ -368,7 +368,7 @@ export function ReviewsPage() {
                 <div className="mt-4 flex flex-wrap gap-3">
                   {review.images.map((image, index) => (
                     <a key={`${image.url}-${index}`} href={resolveApiAssetUrl(image.url)} target="_blank" rel="noreferrer" className="h-20 w-20 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-800">
-                      <img src={resolveApiAssetUrl(image.url)} alt="Review photo" className="h-full w-full object-cover" loading="lazy" />
+                      <img loading="lazy" decoding="async" src={resolveApiAssetUrl(image.url)} alt="Review photo" className="h-full w-full object-cover" loading="lazy" />
                     </a>
                   ))}
                 </div>

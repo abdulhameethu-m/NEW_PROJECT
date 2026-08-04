@@ -1593,7 +1593,7 @@ function MediaUploadField({ field, value, onChange }) {
           {field.type === "video" || /video/i.test(field.name || "") || /\.(mp4|webm|mov)$/i.test(String(mediaUrl)) ? (
             <video src={resolveApiAssetUrl(mediaUrl)} controls className="max-h-56 w-full object-cover" />
           ) : (
-            <img src={resolveApiAssetUrl(mediaUrl)} alt={field.label} className="max-h-56 w-full object-cover" />
+            <img loading="lazy" decoding="async" src={resolveApiAssetUrl(mediaUrl)} alt={field.label} className="max-h-56 w-full object-cover" />
           )}
         </div>
       ) : null}
@@ -1708,7 +1708,7 @@ function CategoryCardImageField({ value, onChange }) {
       <div className="mt-2 text-sm text-slate-500">{uploading ? "Uploading..." : value ? "Image ready" : "Optional image"}</div>
       {imageUrl ? (
         <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950/40">
-          <img src={imageUrl} alt="" className="max-h-48 w-full object-cover" />
+          <img loading="lazy" decoding="async" src={imageUrl} alt="" className="max-h-48 w-full object-cover" />
         </div>
       ) : null}
     </Field>
@@ -1813,7 +1813,7 @@ function ProductPickerField({ field, value = [], onChange, loadOptions }) {
                   >
                     <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
                       {imageUrl ? (
-                        <img src={imageUrl} alt={option.label} className="h-full w-full object-cover" />
+                        <img loading="lazy" decoding="async" src={imageUrl} alt={option.label} className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">No image</div>
                       )}
@@ -2088,7 +2088,7 @@ function BannerMediaAssetField({ label, helper, recommendation, value = "", fall
             {isVideo ? (
               <video src={resolveApiAssetUrl(previewValue)} controls className={`${previewClassName} object-contain`} />
             ) : (
-              <img src={resolveApiAssetUrl(previewValue)} alt={`${label} preview`} className={`${previewClassName} object-contain`} />
+              <img loading="lazy" decoding="async" src={resolveApiAssetUrl(previewValue)} alt={`${label} preview`} className={`${previewClassName} object-contain`} />
             )}
             {!value && fallbackValue && fallbackLabel ? (
               <span className="absolute left-2 top-2 rounded-full bg-slate-950/75 px-2.5 py-1 text-[11px] font-semibold text-white">{fallbackLabel}</span>
@@ -2135,7 +2135,7 @@ function BannerMediaPreview({ title, src, alt, mediaType = "image", previewVaria
       {mediaType === "video" ? (
         <video src={resolveApiAssetUrl(src)} controls className={mediaClassName} />
       ) : (
-        <img src={resolveApiAssetUrl(src)} alt={alt} className={mediaClassName} />
+        <img loading="lazy" decoding="async" src={resolveApiAssetUrl(src)} alt={alt} className={mediaClassName} />
       )}
     </div>
   );
@@ -2285,7 +2285,7 @@ function SlideEditor({ slides = [], onChange }) {
                   <div className="text-sm text-slate-500">{uploadingIndex === index ? "Uploading..." : slide.image ? "Image ready" : "No image"}</div>
                 </div>
                 {slide.image ? (
-                  <img src={resolveApiAssetUrl(slide.image)} alt={`Slide ${index + 1}`} className="mt-3 max-h-48 w-full rounded-2xl object-cover" />
+                  <img loading="lazy" decoding="async" src={resolveApiAssetUrl(slide.image)} alt={`Slide ${index + 1}`} className="mt-3 max-h-48 w-full rounded-2xl object-cover" />
                 ) : null}
               </Field>
             </div>

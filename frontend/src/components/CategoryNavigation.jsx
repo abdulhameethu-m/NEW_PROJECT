@@ -237,7 +237,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
                           return (
                             <BannerWrapper key={idx} {...wrapperProps} className="flex-1 flex flex-col group/promo cursor-pointer">
                               <div className="aspect-square w-full rounded-xl bg-slate-100 dark:bg-slate-800 mb-3 overflow-hidden relative shadow-sm border border-slate-100 dark:border-slate-700">
-                                <img src={resolveApiAssetUrl(banner.image)} className="w-full h-full object-cover group-hover/promo:scale-105 transition-transform duration-700" alt={banner.title || "Promo"} />
+                                <img loading="lazy" decoding="async" src={resolveApiAssetUrl(banner.image)} className="w-full h-full object-cover group-hover/promo:scale-105 transition-transform duration-700" alt={banner.title || "Promo"} />
                                 <div className="absolute inset-0 bg-black/5 group-hover/promo:bg-transparent transition-colors duration-500" />
                               </div>
                               {banner.title && <div className="font-bold text-slate-900 dark:text-white text-center text-sm">{banner.title}</div>}

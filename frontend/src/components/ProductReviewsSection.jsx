@@ -75,7 +75,7 @@ function ReviewProductTile({ product }) {
   return (
     <div className="mt-4 flex items-center gap-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-200 text-slate-400 dark:bg-slate-800">
-        {imageUrl ? <img src={resolveApiAssetUrl(imageUrl)} alt={product.name || "Reviewed product"} className="h-full w-full object-cover" loading="lazy" /> : <ImageIcon className="h-5 w-5" />}
+        {imageUrl ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(imageUrl)} alt={product.name || "Reviewed product"} className="h-full w-full object-cover" loading="lazy" /> : <ImageIcon className="h-5 w-5" />}
       </div>
       <div className="min-w-0">
         <div className="line-clamp-1 text-xs font-semibold text-slate-700 dark:text-slate-200">{product.name || "Reviewed product"}</div>
@@ -93,7 +93,7 @@ function HorizontalReviewCard({ review, product, onVote, onReport }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800">
-            {avatarUrl ? <img src={resolveApiAssetUrl(avatarUrl)} alt="" className="h-full w-full object-cover" /> : <UserCircle className="h-7 w-7" />}
+            {avatarUrl ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(avatarUrl)} alt="" className="h-full w-full object-cover" /> : <UserCircle className="h-7 w-7" />}
           </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-bold text-slate-950 dark:text-white">{customerName}</div>
@@ -262,7 +262,7 @@ export function ProductReviewsSection({ productId, product = null }) {
               {item.mimeType?.startsWith("video") ? (
                 <div className="flex h-full items-center justify-center text-slate-500"><Video size={22} /></div>
               ) : (
-                <img src={resolveApiAssetUrl(item.url)} alt="Review media" className="h-full w-full object-cover" loading="lazy" />
+                <img loading="lazy" decoding="async" src={resolveApiAssetUrl(item.url)} alt="Review media" className="h-full w-full object-cover" loading="lazy" />
               )}
             </a>
           ))}

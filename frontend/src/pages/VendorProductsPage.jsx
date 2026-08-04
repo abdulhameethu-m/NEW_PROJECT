@@ -212,7 +212,7 @@ export function VendorProductsPage() {
               render: (row) => (
                 <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950">
                   {row.image ? (
-                    <img src={row.image} alt={row.name} className="h-full w-full object-contain" />
+                    <img loading="lazy" decoding="async" src={row.image} alt={row.name} className="h-full w-full object-contain" />
                   ) : (
                     <span className="text-[11px] text-slate-400">No image</span>
                   )}

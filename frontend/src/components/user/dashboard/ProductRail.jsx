@@ -25,7 +25,7 @@ export function ProductRail({ title, products = [], emptyTitle = "Nothing here y
                 className="w-32 shrink-0 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm transition active:scale-[0.98] dark:border-slate-800 dark:bg-slate-900"
               >
                 <div className="relative aspect-square overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-                  {image ? <img src={image} alt={product.name || "Product"} className="h-full w-full object-cover" loading="lazy" /> : null}
+                  {image ? <img loading="lazy" decoding="async" src={image} alt={product.name || "Product"} className="h-full w-full object-cover" loading="lazy" /> : null}
                   <span className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-rose-600 shadow-sm">
                     <Heart className="h-3.5 w-3.5" />
                   </span>

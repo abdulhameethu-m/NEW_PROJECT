@@ -189,18 +189,18 @@ export function AdminOrdersPage() {
         >
           {orders.map((order) => (
             <tr key={order._id} className="hover:bg-slate-50 dark:hover:bg-slate-950">
-              <td className="px-4 py-3">
+              <td className="px-4 py-3" style={{ flex: "1 1 0%" }} >
                 <div className="font-semibold text-slate-950 dark:text-white">{order.orderNumber || order._id}</div>
                 <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{order._id}</div>
               </td>
-              <td className="px-4 py-3">
+              <td className="px-4 py-3" style={{ flex: "1 1 0%" }} >
                 <div className="text-sm font-semibold text-slate-950 dark:text-white">{order.userId?.name || "Unknown"}</div>
                 <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{order.userId?.email || ""}</div>
               </td>
-              <td className="px-4 py-3 text-right">
+              <td className="px-4 py-3 text-right" style={{ flex: "1 1 0%" }} >
                 <div className="text-sm font-semibold text-slate-950 dark:text-white">{formatCurrency(order.totalAmount || 0)}</div>
               </td>
-              <td className="px-4 py-3">
+              <td className="px-4 py-3" style={{ flex: "1 1 0%" }} >
                 <div className="text-sm font-semibold text-slate-950 dark:text-white">{order.shippingMode || "SELF"}</div>
                 <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   {order.shippingStatus || "NOT_SHIPPED"} {order.pickupStatus ? `· ${order.pickupStatus}` : ""}
@@ -209,16 +209,16 @@ export function AdminOrdersPage() {
                   {order.courierName || order.deliveryPartner || "Courier pending"}
                 </div>
               </td>
-              <td className="px-4 py-3">
+              <td className="px-4 py-3" style={{ flex: "1 1 0%" }} >
                 <OrderPaymentSummary order={order} />
               </td>
-              <td className="px-4 py-3">
+              <td className="px-4 py-3" style={{ flex: "1 1 0%" }} >
                 <StatusBadge value={order.status} />
               </td>
-              <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+              <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300" style={{ flex: "1 1 0%" }} >
                 {new Date(order.createdAt).toLocaleString()}
               </td>
-              <td className="px-4 py-3 text-right">
+              <td className="px-4 py-3 text-right" style={{ flex: "1 1 0%" }} >
                 <div className="inline-flex flex-wrap justify-end gap-2">
                   <Link
                     to={`${basePath}/orders/${order._id}`}

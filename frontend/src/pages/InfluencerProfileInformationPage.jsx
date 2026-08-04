@@ -142,7 +142,7 @@ function MediaUpload({ label, field, value, file, transform, error, recommended,
       </div>
       <label className={`mt-4 flex cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-950 ${aspectClass}`}>
         {previewUrl ? (
-          <img src={previewUrl} alt={`${label} preview`} className="h-full w-full object-cover" style={{ transform: `scale(${safeTransform.zoom}) rotate(${safeTransform.rotation}deg)` }} />
+          <img loading="lazy" decoding="async" src={previewUrl} alt={`${label} preview`} className="h-full w-full object-cover" style={{ transform: `scale(${safeTransform.zoom}) rotate(${safeTransform.rotation}deg)` }} />
         ) : (
           <span className="grid justify-items-center gap-2 text-sm font-bold"><Upload className="h-7 w-7" /> Drag & drop or browse files</span>
         )}
@@ -200,12 +200,12 @@ function ProfilePreview({ form, categories }) {
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="relative h-44 shrink-0 bg-slate-200 dark:bg-slate-800">
-        {bannerImage ? <img src={bannerImage} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-slate-400"><ImageIcon className="h-10 w-10" /></div>}
+        {bannerImage ? <img loading="lazy" decoding="async" src={bannerImage} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-slate-400"><ImageIcon className="h-10 w-10" /></div>}
       </div>
       <div className="relative min-h-[292px] p-5 pt-0">
         <div className="grid min-h-20 grid-cols-[7rem_minmax(0,1fr)] items-end gap-4">
           <div className="-mt-14 flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-3xl border-4 border-white bg-slate-100 text-slate-400 shadow-sm dark:border-slate-900 dark:bg-slate-800">
-            {profileImage ? <img src={profileImage} alt="" className="h-full w-full object-cover" /> : <Camera className="h-8 w-8" />}
+            {profileImage ? <img loading="lazy" decoding="async" src={profileImage} alt="" className="h-full w-full object-cover" /> : <Camera className="h-8 w-8" />}
           </div>
           <span className="mb-4 inline-flex h-8 w-fit max-w-full items-center rounded-full bg-blue-600 px-3 text-xs font-black text-white">Influencer Badge</span>
         </div>

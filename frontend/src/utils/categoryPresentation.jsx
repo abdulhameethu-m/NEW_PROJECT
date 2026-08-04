@@ -115,8 +115,7 @@ function getCategoryIconComponent(category) {
     
     return function LogoIcon() {
       return (
-        <img 
-          src={logoUrl} 
+        <img loading="lazy" decoding="async" src={logoUrl} 
           alt={category.name} 
           className="h-full w-full rounded-lg object-cover"
           loading="lazy"

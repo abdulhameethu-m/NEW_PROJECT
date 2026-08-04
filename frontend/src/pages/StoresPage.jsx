@@ -176,7 +176,7 @@ export function StoresPage() {
                         return (
                           <div key={product?._id || index} className="aspect-[4/3] overflow-hidden rounded-lg bg-slate-200 dark:bg-slate-700">
                             {image ? (
-                              <img src={image} alt={product?.name || ""} className="h-full w-full object-cover" />
+                              <img loading="lazy" decoding="async" src={image} alt={product?.name || ""} className="h-full w-full object-cover" />
                             ) : (
                               <div className="flex h-full items-center justify-center">
                                 <Image className="h-5 w-5 text-slate-400" />
@@ -190,7 +190,7 @@ export function StoresPage() {
                     <div className="p-4 sm:p-5">
                       <div className="flex items-start gap-4">
                         <Link to={storeUrl || "#"} className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
-                          {logo ? <img src={logo} alt={`${storeName} logo`} className="h-full w-full object-contain p-1.5" /> : <ShoppingBag className="h-8 w-8 text-slate-400" />}
+                          {logo ? <img loading="lazy" decoding="async" src={logo} alt={`${storeName} logo`} className="h-full w-full object-contain p-1.5" /> : <ShoppingBag className="h-8 w-8 text-slate-400" />}
                         </Link>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">

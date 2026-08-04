@@ -1,4 +1,7 @@
 
+import { List as FixedSizeList } from "react-window";
+import React, { forwardRef, useState } from 'react';
+
 export function VendorSection({ title, description, action, children }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
@@ -23,6 +26,15 @@ export function VendorMetricCard({ label, value, hint }) {
     </div>
   );
 }
+
+const innerElementType = forwardRef(({ style, ...rest }, ref) => (
+  <tbody
+    ref={ref}
+    style={{ ...style, position: 'relative' }}
+    className="divide-y divide-slate-100 dark:divide-slate-800"
+    {...rest}
+  />
+));
 
 export function VendorDataTable({ columns, rows, emptyMessage = "No records found." }) {
   if (!rows?.length) {

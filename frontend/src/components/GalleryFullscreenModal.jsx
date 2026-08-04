@@ -184,8 +184,7 @@ export function GalleryFullscreenModal({
                 aria-current={index === currentIndex}
               >
                 {item.type === "image" ? (
-                  <img
-                    src={resolveApiAssetUrl(item.url)}
+                  <img loading="lazy" decoding="async" src={resolveApiAssetUrl(item.url)}
                     alt={`Thumbnail ${index + 1}`}
                     className="h-full w-full object-cover"
                     loading="lazy"

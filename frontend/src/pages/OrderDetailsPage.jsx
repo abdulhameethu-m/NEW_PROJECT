@@ -404,7 +404,7 @@ export function OrderDetailsPage() {
                 {(order.items || []).map((item) => (
                   <div key={item.lineId || `${item.productId}-${item.variantId}`} className="print-product-row grid gap-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-800 sm:grid-cols-[88px_minmax(0,1fr)_auto]">
                     <div className="print-product-image h-22 w-22 overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-800">
-                      {item.image ? <img src={resolveApiAssetUrl(item.image)} alt={item.name} className="h-full w-full object-cover" /> : null}
+                      {item.image ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(item.image)} alt={item.name} className="h-full w-full object-cover" /> : null}
                     </div>
                     <div className="min-w-0">
                       <div className="print-compact-text text-base font-semibold text-slate-950 dark:text-white">{item.name}</div>
