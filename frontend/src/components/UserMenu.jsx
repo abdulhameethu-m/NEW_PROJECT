@@ -7,6 +7,7 @@ import * as authService from "../services/authService";
 import * as vendorService from "../services/vendorService";
 import { usePlatformFeatures } from "../context/PlatformFeaturesContext";
 import { getVendorAccessRedirect } from "../utils/vendorAccess";
+import { resolveApiAssetUrl } from "../utils/resolveUrl";
 
 export function UserMenu() {
   const { influencerCommerceEnabled, loading: commerceLoading } = usePlatformFeatures();
@@ -132,6 +133,7 @@ export function UserMenu() {
     user: "bg-slate-500",
   };
   const avatarBg = roleColors[user.role] || "bg-slate-500";
+  const avatarUrl = resolveApiAssetUrl(user.avatarUrl);
 
   const menuItemsByRole = {
     influencer: [
@@ -189,10 +191,14 @@ export function UserMenu() {
         aria-expanded={isOpen}
       >
         <div
-          className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-white ${avatarBg}`}
+          className={`flex h-6 w-6 overflow-hidden items-center justify-center rounded-full text-[11px] font-semibold text-white ${avatarBg}`}
           title={user.name}
         >
-          {initials}
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+          ) : (
+            initials
+          )}
         </div>
 
         <span className="hidden max-w-[8rem] truncate text-sm font-medium text-slate-700 sm:inline">
@@ -231,9 +237,13 @@ export function UserMenu() {
             <div className="border-b border-slate-100 px-4 py-3">
               <div className="flex items-center gap-3">
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarBg}`}
+                  className={`flex h-10 w-10 shrink-0 overflow-hidden items-center justify-center rounded-full text-sm font-semibold text-white ${avatarBg}`}
                 >
-                  {initials}
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+                  ) : (
+                    initials
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold text-slate-900">

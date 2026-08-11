@@ -288,6 +288,11 @@ export async function deleteReview(id) {
   return data;
 }
 
+export async function updateReviewStatus(id, status) {
+  const { data } = await adminHttp.put(`/api/reviews/${id}`, { status });
+  return data;
+}
+
 export async function updateOrderStatus(id, status) {
   const { data } = await adminHttp.patch(`/api/admin/orders/${id}/status`, { status });
   return data;

@@ -459,6 +459,10 @@ class CheckoutService {
     invalidatePreparedCheckoutCache(userId);
   }
 
+  clearAllCaches() {
+    preparedCheckoutCache.clear();
+  }
+
   async prepareGuestCheckout(guestCartItems = [], { currency, shippingAddress, paymentMethod } = {}) {
     if (!Array.isArray(guestCartItems) || guestCartItems.length === 0) {
       throw new AppError("Cart is empty", 400, "EMPTY_CART");

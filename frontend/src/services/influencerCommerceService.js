@@ -1,8 +1,9 @@
 import { api } from "./api";
 import { ensureCsrfToken } from "./csrf";
+import { getApiBaseUrl } from "../config/apiBaseUrl";
 
 function apiBaseUrl() {
-  return import.meta.env.VITE_API_URL || "http://localhost:5000";
+  return getApiBaseUrl();
 }
 
 function compactParams(params = {}) {

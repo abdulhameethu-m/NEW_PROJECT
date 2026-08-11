@@ -212,7 +212,6 @@ export function InfluencerPaymentCommissionPage() {
               <p className="mt-3 max-w-2xl text-base text-slate-600 dark:text-slate-300">Choose how you want to receive commissions. Account holder name is reused from your tax details when available.</p>
             </header>
 
-            <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <h2 className="text-xl font-black">Payout Method</h2>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -224,17 +223,6 @@ export function InfluencerPaymentCommissionPage() {
                 </div>
                 {errors.payoutMethod ? <div className="mt-2 text-xs font-semibold text-rose-600">{errors.payoutMethod}</div> : null}
               </section>
-
-              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <h2 className="text-xl font-black">Commission Settings</h2>
-                <div className="mt-5 grid gap-3 text-sm">
-                  <div className="flex justify-between rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-950"><span>Commission Percentage</span><strong>{commission.commissionPercentage}%</strong></div>
-                  <div className="flex justify-between rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-950"><span>Commission Model</span><strong>{commission.commissionModel}</strong></div>
-                  <div className="flex justify-between rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-950"><span>Minimum Payout</span><strong>{formatMoney(commission.minimumPayoutThreshold, commission.currency)}</strong></div>
-                  <div className="flex justify-between rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-950"><span>Payout Schedule</span><strong>{commission.payoutSchedule}</strong></div>
-                </div>
-              </section>
-            </div>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <h2 className="text-xl font-black">Payout Details</h2>
@@ -257,23 +245,8 @@ export function InfluencerPaymentCommissionPage() {
                 </div>
               ) : null}
 
-              {form.payoutMethod === "paypal" ? <div className="mt-5"><Field label="PayPal Email" required error={errors.paypalEmail}><input type="email" value={form.paypalEmail} onChange={(event) => update("paypalEmail", event.target.value)} className={inputClass(errors.paypalEmail)} /></Field></div> : null}
-              {form.payoutMethod === "payoneer" ? <div className="mt-5"><Field label="Payoneer Registered Email" required error={errors.payoneerEmail}><input type="email" value={form.payoneerEmail} onChange={(event) => update("payoneerEmail", event.target.value)} className={inputClass(errors.payoneerEmail)} /></Field></div> : null}
-              {["stripe_connect", "wise"].includes(form.payoutMethod) ? <div className="mt-5 rounded-2xl bg-blue-50 p-4 text-sm font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-200">This payout method will connect to the provider during final verification. Save your selection to continue.</div> : null}
-            </section>
 
-            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <h2 className="inline-flex items-center gap-2 text-xl font-black"><Calculator className="h-5 w-5" /> Commission Preview</h2>
-                <div className="mt-5">
-                  <Field label="Product Price"><input type="number" min="0" value={previewPrice} onChange={(event) => setPreviewPrice(event.target.value)} className={inputClass()} /></Field>
-                  <div className="mt-4 rounded-3xl bg-slate-50 p-5 dark:bg-slate-950">
-                    <div className="text-sm text-slate-500 dark:text-slate-400">You Earn</div>
-                    <div className="mt-1 text-3xl font-black text-emerald-600">{formatMoney(earnings, commission.currency)}</div>
-                    <div className="mt-2 text-sm font-semibold text-slate-500">{commission.commissionPercentage}% of {formatMoney(previewPrice, commission.currency)}</div>
-                  </div>
-                </div>
-              </section>
+            </section>
 
               <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <h2 className="text-xl font-black">Payment Agreements</h2>
@@ -283,7 +256,6 @@ export function InfluencerPaymentCommissionPage() {
                   <Agreement checked={form.agreements.taxCompliance} error={errors.taxCompliance} onChange={(value) => updateAgreement("taxCompliance", value)} label="I agree to tax compliance requirements." />
                 </div>
               </section>
-            </div>
 
             {pageError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200" role="alert">{pageError}</div> : null}
 
@@ -291,6 +263,7 @@ export function InfluencerPaymentCommissionPage() {
               <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">{lastSavedAt ? `Draft Saved ${new Date(lastSavedAt).toLocaleTimeString()}` : "Draft not saved yet"}</div>
               <div className="flex flex-wrap gap-3">
                 <button type="button" onClick={() => navigate("/influencer/register/business-information", { state: { applicationId: form.applicationId } })} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"><ArrowLeft className="h-4 w-4" /> Back</button>
+                <button type="button" onClick={() => setForm({ ...initialInfluencerPaymentForm, applicationId: form.applicationId })} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200">Reset</button>
                 <button type="button" onClick={() => persist(false)} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save Draft</button>
                 <button type="button" onClick={continueNext} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Continue</button>
               </div>

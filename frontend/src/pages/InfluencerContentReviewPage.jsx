@@ -70,24 +70,7 @@ function DropZone({ title, description, accept, multiple = true, files, onChange
   );
 }
 
-function StatusPanel({ status }) {
-  const score = status?.creatorScore || 0;
-  return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <h2 className="text-xl font-black">Guidelines & Status</h2>
-      <div className="mt-4 grid gap-3 text-sm text-slate-600 dark:text-slate-300">
-        <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">Upload at least 3 samples that represent your real creator work.</div>
-        <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">Identity documents are used for verification and admin review.</div>
-        <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">AI review hooks are queued for future spam, quality, and fraud analysis.</div>
-      </div>
-      <div className="mt-5 rounded-3xl bg-blue-50 p-5 dark:bg-blue-950">
-        <div className="text-sm font-bold text-blue-700 dark:text-blue-200">Overall Creator Score</div>
-        <div className="mt-2 text-4xl font-black text-blue-700 dark:text-blue-100">{score} / 100</div>
-        <div className="mt-1 text-sm font-semibold text-blue-700 dark:text-blue-200">{status?.qualityScores?.level || "Calculated after upload"}</div>
-      </div>
-    </section>
-  );
-}
+
 
 export function InfluencerContentReviewPage() {
   const navigate = useNavigate();
@@ -151,7 +134,16 @@ export function InfluencerContentReviewPage() {
 
   async function submit() {
     const response = await persist(true);
-    if (response) navigate(`/influencer/application-under-review/${form.applicationId}`, { state: { applicationId: form.applicationId } });
+    if (response) {
+      window.localStorage.removeItem("grm_influencer_register_step_1");
+      window.sessionStorage.removeItem("grm_influencer_register_step_1_session");
+      window.localStorage.removeItem("grm_influencer_register_step_2");
+      window.localStorage.removeItem("grm_influencer_register_step_3");
+      window.localStorage.removeItem("grm_influencer_register_step_4");
+      window.localStorage.removeItem("grm_influencer_register_step_5");
+      window.localStorage.removeItem("grm_influencer_register_step_6");
+      navigate(`/influencer/application-under-review/${form.applicationId}`, { state: { applicationId: form.applicationId } });
+    }
   }
 
   return (
@@ -166,53 +158,17 @@ export function InfluencerContentReviewPage() {
               <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Review & Submit</h1>
               <p className="mt-3 max-w-2xl text-base text-slate-600 dark:text-slate-300">Upload sample work and identity proof once. Your niche and profile details are reused from the creator profile step.</p>
             </header>
-            <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-              <div className="space-y-6">
-                <DropZone title="Upload Sample Content" description="Short videos, reels, photos, reviews, blog screenshots, tutorials, or livestream clips. Minimum 3 required." accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm,application/pdf" files={files.sampleContentFiles} error={errors.sampleContent} onChange={(next) => setFiles((current) => ({ ...current, sampleContentFiles: next }))} />
-                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                  <h2 className="text-xl font-black">Portfolio</h2>
-                  <div className="mt-5 grid gap-4">
-                    <label className="block"><span className="text-sm font-bold">Portfolio URL</span><input value={form.portfolioUrl} onChange={(event) => setForm((current) => ({ ...current, portfolioUrl: event.target.value }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-blue-950" placeholder="https://linktr.ee/creator" /></label>
-                    {errors.portfolioUrl ? <div className="text-xs font-semibold text-rose-600">{errors.portfolioUrl}</div> : null}
-                    <label className="block"><span className="text-sm font-bold">Portfolio Description</span><textarea value={form.portfolioDescription} onChange={(event) => setForm((current) => ({ ...current, portfolioDescription: event.target.value }))} rows={4} maxLength={1000} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-blue-950" /></label>
-                  </div>
-                </section>
-                <DropZone title="Brand Collaboration Proof" description="Optional campaign screenshots, brand emails, agreements, performance reports, or creator dashboards." accept="image/png,image/jpeg,image/webp,application/pdf" files={files.brandProofFiles} onChange={(next) => setFiles((current) => ({ ...current, brandProofFiles: next }))} />
-                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-xl font-black">Brand Collaborations</h2>
-                    <button type="button" onClick={() => setForm((current) => ({ ...current, brandCollaborations: [...current.brandCollaborations, { brandName: "", campaignName: "", campaignType: "", campaignDate: "", campaignResults: "" }] }))} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-slate-700">Add Entry</button>
-                  </div>
-                  <div className="mt-4 grid gap-4">
-                    {(form.brandCollaborations || []).map((item, index) => (
-                      <div key={index} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {[
-                            ["brandName", "Brand Name"],
-                            ["campaignName", "Campaign Name"],
-                            ["campaignType", "Campaign Type"],
-                            ["campaignDate", "Campaign Date"],
-                          ].map(([field, label]) => (
-                            <label key={field} className="block text-sm font-bold">{label}<input type={field === "campaignDate" ? "date" : "text"} value={item[field] || ""} onChange={(event) => setForm((current) => ({ ...current, brandCollaborations: current.brandCollaborations.map((entry, entryIndex) => entryIndex === index ? { ...entry, [field]: event.target.value } : entry) }))} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-950" /></label>
-                          ))}
-                        </div>
-                        <label className="mt-3 block text-sm font-bold">Campaign Results<textarea value={item.campaignResults || ""} onChange={(event) => setForm((current) => ({ ...current, brandCollaborations: current.brandCollaborations.map((entry, entryIndex) => entryIndex === index ? { ...entry, campaignResults: event.target.value } : entry) }))} rows={2} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-950" /></label>
-                      </div>
-                    ))}
-                    {!form.brandCollaborations?.length ? <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-500 dark:bg-slate-950">No brand collaborations added.</div> : null}
-                  </div>
-                </section>
-                <DropZone title="Identity Documents" description="Passport, National ID, Driving License, PAN Card, Aadhaar, Residence Permit, or Government ID. Required." accept="image/png,image/jpeg,image/webp,application/pdf" files={files.identityDocumentFiles} error={errors.identityDocuments} onChange={(next) => setFiles((current) => ({ ...current, identityDocumentFiles: next }))} />
-              </div>
-              <div className="space-y-6">
-                <StatusPanel status={status} />
-              </div>
+            <div className="space-y-6">
+              <DropZone title="Upload Sample Content" description="Short videos, reels, photos, reviews, blog screenshots, tutorials, or livestream clips. Minimum 3 required." accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm,application/pdf" files={files.sampleContentFiles} error={errors.sampleContent} onChange={(next) => setFiles((current) => ({ ...current, sampleContentFiles: next }))} />
+              <DropZone title="Brand Collaboration Proof" description="Optional campaign screenshots, brand emails, agreements, performance reports, or creator dashboards." accept="image/png,image/jpeg,image/webp,application/pdf" files={files.brandProofFiles} onChange={(next) => setFiles((current) => ({ ...current, brandProofFiles: next }))} />
+              <DropZone title="Identity Documents" description="Passport, National ID, Driving License, PAN Card, Aadhaar, Residence Permit, or Government ID. Required." accept="image/png,image/jpeg,image/webp,application/pdf" files={files.identityDocumentFiles} error={errors.identityDocuments} onChange={(next) => setFiles((current) => ({ ...current, identityDocumentFiles: next }))} />
             </div>
             {pageError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200" role="alert">{pageError}</div> : null}
             <div className="sticky bottom-4 z-10 flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">{lastSavedAt ? `Draft Saved ${new Date(lastSavedAt).toLocaleTimeString()}` : "Draft not saved yet"}</div>
               <div className="flex flex-wrap gap-3">
                 <button type="button" onClick={() => navigate("/influencer/register/payment-commission", { state: { applicationId: form.applicationId } })} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"><ArrowLeft className="h-4 w-4" /> Back</button>
+                <button type="button" onClick={() => { setForm({ ...initialInfluencerContentReviewForm, applicationId: form.applicationId }); setFiles({ sampleContentFiles: [], brandProofFiles: [], identityDocumentFiles: [] }); }} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200">Reset</button>
                 <button type="button" onClick={() => persist(false)} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save Draft</button>
                 <button type="button" onClick={submit} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Submit For Review</button>
               </div>

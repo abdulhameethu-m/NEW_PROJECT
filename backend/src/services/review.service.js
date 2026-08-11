@@ -359,7 +359,7 @@ class ReviewService {
             ? "no"
             : null,
       verifiedPurchase: true,
-      status: "approved",
+      status: "pending",
       moderatedAt: new Date(),
     });
 
@@ -603,6 +603,13 @@ class ReviewService {
     if (query.rating) filter.rating = normalizeRating(query.rating);
     if (query.vendorId) filter.vendorId = query.vendorId;
     if (query.productId) filter.productId = query.productId;
+    if (query.search) {
+      const searchRegex = new RegExp(query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [
+        { title: searchRegex },
+        { review: searchRegex }
+      ];
+    }
 
     const [reviews, total] = await Promise.all([
       ProductReview.find(filter)

@@ -361,14 +361,14 @@ export function InfluencerRegistrationStepOnePage() {
                   <div className="grid gap-5 md:grid-cols-2">
                     <TextInput id="email" label="Email Address" required type="email" value={form.email} error={errors.email} onChange={(event) => updateField("email", event.target.value)} autoComplete="email">
                       <input id="email" type="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} aria-invalid={Boolean(errors.email)} className="mt-2 h-14 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white" placeholder="creator@example.com" autoComplete="email" />
-                      {errors.email ? <span className="mt-2 block text-xs text-rose-600 dark:text-rose-300" role="alert">{errors.email}</span> : <FieldMessage state={emailState} />}
+                      {!errors.email && <FieldMessage state={emailState} />}
                     </TextInput>
                     <TextInput id="mobile" label="Mobile Number" required value={form.mobile} error={errors.mobile} onChange={(event) => updateField("mobile", normalizePhone(event.target.value))} inputMode="tel" autoComplete="tel" placeholder="+91 9876543210" />
                   </div>
 
                   <TextInput id="username" label="Username" required value={form.username} error={errors.username} onChange={(event) => updateField("username", normalizeUsername(event.target.value))} hint="Letters, numbers, and underscores only." autoComplete="username">
                     <input id="username" value={form.username} onChange={(event) => updateField("username", normalizeUsername(event.target.value))} aria-invalid={Boolean(errors.username)} className="mt-2 h-14 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white" placeholder="techguru2026" autoComplete="username" />
-                    {errors.username ? <span className="mt-2 block text-xs text-rose-600 dark:text-rose-300" role="alert">{errors.username}</span> : <FieldMessage state={usernameState} />}
+                    {!errors.username && <FieldMessage state={usernameState} />}
                   </TextInput>
 
                   <div className="grid gap-5 md:grid-cols-2">
@@ -380,14 +380,15 @@ export function InfluencerRegistrationStepOnePage() {
                         className="mt-2 h-14 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                         autoComplete="new-password"
                         aria-invalid={Boolean(errors.password)}
-                        disabled={isExistingApplication}
                       />
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" aria-hidden="true">
                         <div className={`h-full rounded-full ${passwordStrength.tone}`} style={{ width: `${passwordStrength.percent}%` }} />
                       </div>
-                      <div className={`mt-2 text-xs font-semibold ${errors.password ? "text-rose-600 dark:text-rose-300" : "text-slate-500 dark:text-slate-400"}`} role={errors.password ? "alert" : "status"}>
-                        {errors.password || (isExistingApplication && !form.password ? "Password is already saved for this application." : `Strength: ${passwordStrength.label}`)}
-                      </div>
+                      {!errors.password && (
+                        <div className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400" role="status">
+                          {isExistingApplication && !form.password ? "Password is already saved. Enter a new one to change it." : `Strength: ${passwordStrength.label}`}
+                        </div>
+                      )}
                     </TextInput>
                     <TextInput id="confirmPassword" label="Confirm Password" required={!isExistingApplication} error={errors.confirmPassword}>
                       <PasswordField
@@ -397,15 +398,14 @@ export function InfluencerRegistrationStepOnePage() {
                         className="mt-2 h-14 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                         autoComplete="new-password"
                         aria-invalid={Boolean(errors.confirmPassword)}
-                        disabled={isExistingApplication}
                       />
-                      <span className={`mt-2 block min-h-4 text-xs ${errors.confirmPassword ? "text-rose-600 dark:text-rose-300" : form.confirmPassword && form.confirmPassword === form.password ? "text-emerald-600 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`} role={errors.confirmPassword ? "alert" : "status"}>
-                        {errors.confirmPassword || (form.confirmPassword && form.confirmPassword === form.password ? "Passwords match." : "")}
-                      </span>
+                      {!errors.confirmPassword && form.confirmPassword && form.confirmPassword === form.password && (
+                        <span className="mt-2 block min-h-4 text-xs text-emerald-600 dark:text-emerald-300" role="status">
+                          Passwords match.
+                        </span>
+                      )}
                     </TextInput>
                   </div>
-
-                  <TextInput id="referralCode" label="Referral Code" value={form.referralCode} error={errors.referralCode} onChange={(event) => updateField("referralCode", event.target.value.toUpperCase())} hint="Optional. We will validate this with the referral system when available." />
 
                   <fieldset className="grid gap-3 rounded-3xl bg-slate-50 p-4 dark:bg-slate-950">
                     <legend className="sr-only">Terms and communication preferences</legend>
@@ -428,17 +428,20 @@ export function InfluencerRegistrationStepOnePage() {
 
                   {pageError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100" role="alert">{pageError}</div> : null}
 
-                  <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-                    <button type="button" disabled className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-400 disabled:cursor-not-allowed dark:border-slate-800">Back</button>
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <button type="button" onClick={handleSaveDraft} disabled={saving || continuing} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
-                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save Draft
-                      </button>
-                      <button type="submit" disabled={continuing || featureLoading || !influencerCommerceEnabled} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950">
-                        {continuing ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Continue <ArrowRight className="h-4 w-4" />
-                      </button>
+                    <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+                      <button type="button" disabled className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-400 disabled:cursor-not-allowed dark:border-slate-800">Back</button>
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <button type="button" onClick={() => setForm({ ...initialInfluencerStepOneForm, applicationId: form.applicationId })} disabled={saving || continuing} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                          Reset
+                        </button>
+                        <button type="button" onClick={handleSaveDraft} disabled={saving || continuing} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save Draft
+                        </button>
+                        <button type="submit" disabled={continuing || featureLoading || !influencerCommerceEnabled} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950">
+                          {continuing ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Continue <ArrowRight className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
                 </form>
               )}
             </section>

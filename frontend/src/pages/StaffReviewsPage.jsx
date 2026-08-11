@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { confirmAction } from "../services/notificationService";
-import { deleteReview, listReviews } from "../services/adminApi";
+import { deleteReview, listReviews, updateReviewStatus } from "../services/adminApi";
 import { useStaffPermission, useRequirePermission } from "../hooks/useStaffAuth";
+import { useAuthStore } from "../context/authStore";
 
 function normalizeError(error) {
   return error?.response?.data?.message || error?.message || "Request failed";
@@ -42,12 +43,29 @@ export function StaffReviewsPage() {
     };
   }, [searchTerm]);
 
-  const canDelete = hasPermission("reviews.delete");
+  const legacyAuth = useAuthStore((state) => state.user);
+  const isLegacyAdmin = legacyAuth && ["admin", "super_admin", "support_admin"].includes(legacyAuth.role?.toLowerCase());
+  const canDelete = isLegacyAdmin || hasPermission("reviews.delete");
 
   const filteredReviews = useMemo(() => {
     if (statusFilter === "all") return reviews;
-    return reviews.filter(() => "approved" === statusFilter);
+    return reviews.filter((review) => review.status === statusFilter);
   }, [reviews, statusFilter]);
+
+  async function handleUpdateStatus(reviewId, status) {
+    if (!(await confirmAction({ message: `Mark this review as ${status}?`, confirmLabel: "Confirm" }))) return;
+
+    setBusyId(reviewId);
+    setError("");
+    try {
+      await updateReviewStatus(reviewId, status);
+      setReviews((current) => current.map((r) => (r._id === reviewId ? { ...r, status } : r)));
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setBusyId("");
+    }
+  }
 
   async function handleDelete(reviewId) {
     if (!(await confirmAction({ message: "Delete this review?", tone: "danger", confirmLabel: "Confirm" }))) return;
@@ -87,7 +105,9 @@ export function StaffReviewsPage() {
           className="rounded-xl border border-slate-200 px-4 py-2 text-sm focus:border-amber-500 focus:outline-none"
         >
           <option value="all">All Status</option>
+          <option value="pending">Pending</option>
           <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
         </select>
       </div>
 
@@ -124,20 +144,50 @@ export function StaffReviewsPage() {
                       ))}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-slate-600">by {review.userId?.name || "Unknown customer"}</p>
+                  <p className="mt-1 text-sm text-slate-600">by {review.customerId?.name || review.userId?.name || "Unknown customer"}</p>
                   {review.title ? <p className="mt-3 text-sm font-medium text-slate-800">{review.title}</p> : null}
-                  <p className="mt-2 text-sm text-slate-700">{review.comment || "No comment provided."}</p>
+                  <p className="mt-2 text-sm text-slate-700">{review.review || review.comment || "No review provided."}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    Approved
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                      review.status === "approved"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : review.status === "rejected"
+                          ? "bg-rose-50 text-rose-700"
+                          : "bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    {review.status ? review.status.charAt(0).toUpperCase() + review.status.slice(1) : "Pending"}
                   </span>
+                  
+                  {review.status === "pending" && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={busyId === review._id}
+                        onClick={() => handleUpdateStatus(review._id, "approved")}
+                        className="text-sm font-medium text-emerald-600 hover:text-emerald-800 disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyId === review._id}
+                        onClick={() => handleUpdateStatus(review._id, "rejected")}
+                        className="text-sm font-medium text-rose-600 hover:text-rose-800 disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+
                   {canDelete && (
                     <button
                       type="button"
                       disabled={busyId === review._id}
                       onClick={() => handleDelete(review._id)}
-                      className="text-sm font-medium text-rose-700 hover:text-rose-900 disabled:opacity-50"
+                      className="mt-2 text-sm font-medium text-rose-700 hover:text-rose-900 disabled:opacity-50"
                     >
                       Delete
                     </button>

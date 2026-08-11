@@ -361,7 +361,7 @@ export function DesktopProductLayout({
 
       <ProductReviewsSection productId={product._id} product={product} />
 
-      <section className="relative left-1/2 w-screen max-w-none -translate-x-1/2 space-y-6">
+      <section className="w-full space-y-6">
         <div className="w-full space-y-6">
           <RecommendationSection
             title="Frequently Bought Together"

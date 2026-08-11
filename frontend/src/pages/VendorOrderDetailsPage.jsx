@@ -115,7 +115,13 @@ export function VendorOrderDetailsPage() {
   };
   const unifiedPricingBreakdown = order?.unifiedPricingBreakdown || null;
 
-  function validateTrackingFields() {
+  function validateTrackingFields(nextStatus) {
+    if (nextStatus === "Shipped") {
+      if (!trackingId.trim() || !courierName.trim() || !trackingUrl.trim()) {
+        return "Courier name, Tracking ID, and Tracking URL are required to mark the order as Shipped.";
+      }
+    }
+
     if (trackingUrl.trim()) {
       try {
         const parsed = new URL(trackingUrl.trim());
@@ -147,11 +153,11 @@ export function VendorOrderDetailsPage() {
   }
 
   async function saveChanges(statusOverride) {
-    const nextFieldError = validateTrackingFields();
+    const nextStatus = statusOverride || status;
+    const nextFieldError = validateTrackingFields(nextStatus);
     setFieldError(nextFieldError);
     if (nextFieldError) return;
 
-    const nextStatus = statusOverride || status;
     const requests = [];
     const currentStatus = order?.status || "Placed";
     const statusChanged = nextStatus !== currentStatus;

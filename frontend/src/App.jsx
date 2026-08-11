@@ -376,6 +376,7 @@ export default function App() {
               <Route path="pricing" element={<AdminPricingPage />} />
               <Route path="commission" element={<AdminCommissionManagementPage />} />
               <Route path="pricing-categories" element={<AdminPricingCategoriesPage />} />
+              <Route path="reviews" element={<StaffReviewsPage />} />
               <Route path="roles" element={<AdminRolesPage />} />
               <Route path="staff" element={<AdminStaffPage />} />
               <Route path="influencers" element={<AdminInfluencerPage />} />

@@ -108,26 +108,7 @@ function ProgressIndicator() {
   );
 }
 
-function CreatorScoreCard({ accounts }) {
-  const score = useMemo(() => calculateCreatorScore(accounts), [accounts]);
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-bold text-slate-500 dark:text-slate-400">Creator Score</div>
-          <div className="mt-1 text-4xl font-black text-slate-950 dark:text-white">{score.score}/100</div>
-        </div>
-        <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-200">{score.level}</span>
-      </div>
-      <div className="mt-4 grid gap-2 text-xs text-slate-600 dark:text-slate-300">
-        <div>Followers Score: {score.followersScore}</div>
-        <div>Engagement Score: {score.engagementScore}</div>
-        <div>Content Consistency Score: {score.consistencyScore}</div>
-        <div>Platform Diversity Score: {score.diversityScore}</div>
-      </div>
-    </div>
-  );
-}
+
 
 function StatusBadge({ status }) {
   const normalized = status || "pending";
@@ -214,16 +195,6 @@ function PlatformCard({ account, errors = {}, metricState, onChange, onRemove, o
           {account.platform === "youtube" ? "Channel Name" : "Username"}
           <input value={account.platform === "youtube" ? account.channelName : account.username} onChange={(event) => update(account.platform === "youtube" ? "channelName" : "username", event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-950" />
         </label>
-        {account.platform === "instagram" ? (
-          <label className="block text-sm font-bold text-slate-900 dark:text-white">
-            Account Type
-            <select value={account.accountType} onChange={(event) => update("accountType", event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-950">
-              <option value="creator">Creator</option>
-              <option value="business">Business</option>
-              <option value="personal">Personal</option>
-            </select>
-          </label>
-        ) : null}
       </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -233,48 +204,6 @@ function PlatformCard({ account, errors = {}, metricState, onChange, onRemove, o
         <MetricInput label="Average Comments" value={account.averageComments} onChange={(value) => update("averageComments", value)} />
       </div>
 
-      {isOther ? (
-        <label className="mt-5 block text-sm font-bold text-slate-900 dark:text-white">
-          Description
-          <textarea value={account.description} onChange={(event) => update("description", event.target.value)} rows={3} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
-        </label>
-      ) : null}
-
-      <div className="mt-5 grid gap-4 rounded-2xl bg-slate-50 p-4 dark:bg-slate-950 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        <div>
-          <div className="text-sm font-black text-slate-950 dark:text-white">Ownership Verification</div>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Place this code in your profile bio or channel description, then click Verify. If API validation is unavailable, upload proof for admin review.</p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <input value={account.verificationCode} readOnly className="h-11 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black tracking-wide dark:border-slate-700 dark:bg-slate-900" placeholder="Generate Unique Code" />
-            <button type="button" onClick={() => update("verificationCode", generateOwnershipCode())} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold hover:bg-white dark:border-slate-700 dark:hover:bg-slate-900">Generate Code</button>
-          </div>
-          {errors.verification ? <div className="mt-2 text-xs font-semibold text-rose-600" role="alert">{errors.verification}</div> : null}
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <label htmlFor={proofInputId} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800">
-            <Upload className="h-4 w-4" /> Upload Proof
-            <input id={proofInputId} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (!file) return;
-              if (file.size > 10 * 1024 * 1024) {
-                update("proofFileName", "File is larger than 10MB");
-                return;
-              }
-              onChange({
-                ...account,
-                proofFile: file,
-                proofFileName: file.name,
-                manualProofSubmitted: true,
-                verificationStatus: "under_review",
-              });
-            }} />
-          </label>
-          <button type="button" onClick={() => onVerify(account)} disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Verify
-          </button>
-        </div>
-        {account.proofFileName ? <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500"><FileImage className="h-4 w-4" /> {account.proofFileName}</div> : null}
-      </div>
     </article>
   );
 }
@@ -485,7 +414,7 @@ export function InfluencerSocialVerificationPage() {
       return;
     }
     if (!canContinueSocialVerification(accounts)) {
-      setPageError("Continue is available after at least one verified platform or submitted manual proof.");
+      setPageError("Please add at least one social profile with a valid URL.");
       return;
     }
     const ok = await saveDraft();
@@ -516,7 +445,6 @@ export function InfluencerSocialVerificationPage() {
         <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
           <div className="grid gap-5">
             <ProgressIndicator />
-            <CreatorScoreCard accounts={accounts} />
           </div>
 
           <main className="grid gap-5">
@@ -563,11 +491,11 @@ export function InfluencerSocialVerificationPage() {
                 <ArrowLeft className="h-4 w-4" /> Back
               </button>
               <div className="flex flex-col gap-3 sm:flex-row">
+                <button type="button" onClick={() => setAccounts(defaultSocialAccounts)} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                  Reset
+                </button>
                 <button type="button" onClick={() => saveDraft()} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save Draft
-                </button>
-                <button type="button" onClick={() => Promise.all(accounts.map((account) => verifyAccount(account)))} disabled={Boolean(verifyingKey)} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-60">
-                  <ShieldCheck className="h-4 w-4" /> Verify Accounts
                 </button>
                 <button type="button" onClick={handleContinue} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-slate-950/10 hover:-translate-y-0.5 dark:bg-white dark:text-slate-950">
                   Continue <ArrowRight className="h-4 w-4" />

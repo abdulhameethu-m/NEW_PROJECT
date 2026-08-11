@@ -132,7 +132,13 @@ export function AdminOrderDetailsPage() {
   const canSave = useMemo(() => !!order && !saving && !loading, [order, saving, loading]);
   const hasTrackingFields = Boolean(trackingId.trim() && trackingUrl.trim());
 
-  function validateTrackingFields() {
+  function validateTrackingFields(nextStatus) {
+    if (nextStatus === "Shipped") {
+      if (!trackingId.trim() || !courierName.trim() || !trackingUrl.trim()) {
+        return "Courier name, Tracking ID, and Tracking URL are required to mark the order as Shipped.";
+      }
+    }
+
     if ((trackingId.trim() && !trackingUrl.trim()) || (!trackingId.trim() && trackingUrl.trim())) {
       return "Tracking ID and Tracking URL must be added together.";
     }
@@ -152,11 +158,11 @@ export function AdminOrderDetailsPage() {
   }
 
   async function onSave(statusOverride) {
-    const nextFieldError = validateTrackingFields();
+    const nextStatus = statusOverride || status;
+    const nextFieldError = validateTrackingFields(nextStatus);
     setFieldError(nextFieldError);
     if (nextFieldError) return;
 
-    const nextStatus = statusOverride || status;
     setSaving(true);
     setError("");
     try {
@@ -409,11 +415,27 @@ export function AdminOrderDetailsPage() {
                   onChange={(e) => setStatus(e.target.value)}
                   className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 >
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
+                  {STATUS_OPTIONS.map((s) => {
+                    const currentStatus = order?.status;
+                    let isDisabled = false;
+                    if (currentStatus && currentStatus !== s) {
+                      const transitions = {
+                        "Placed": ["Packed", "Cancelled"],
+                        "Packed": ["Shipped", "Cancelled"],
+                        "Shipped": ["Out for Delivery", "Cancelled"],
+                        "Out for Delivery": ["Delivered", "Cancelled"],
+                        "Delivered": ["Returned"],
+                        "Cancelled": [],
+                        "Returned": []
+                      };
+                      isDisabled = !(transitions[currentStatus] || []).includes(s);
+                    }
+                    return (
+                      <option key={s} value={s} disabled={isDisabled}>
+                        {s}
+                      </option>
+                    );
+                  })}
                 </select>
               </label>
 

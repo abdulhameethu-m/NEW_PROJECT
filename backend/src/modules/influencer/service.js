@@ -562,11 +562,10 @@ function sanitizeBusinessPayload(payload = {}, uploaded = {}) {
 }
 
 function validateBusiness(payload = {}) {
-  const required = ["country", "state", "city", "address1", "postalCode", "businessType", "legalName", "dateOfBirth", "nationality"];
+  const required = ["country", "state", "city", "address1", "postalCode", "legalName", "dateOfBirth", "nationality"];
   for (const field of required) {
     if (!payload[field]) throw new AppError(`${field} is required`, 400, "VALIDATION_ERROR");
   }
-  if (payload.businessType === "other" && !payload.customBusinessType) throw new AppError("Custom business type is required", 400, "VALIDATION_ERROR");
   if (payload.country === "IN") {
     if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(payload.panNumber)) throw new AppError("Valid PAN number is required for India", 400, "VALIDATION_ERROR");
     if (payload.gstNumber && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(payload.gstNumber)) throw new AppError("GST number format is invalid", 400, "VALIDATION_ERROR");
@@ -604,8 +603,6 @@ function validatePayment(payload = {}, existingPayment = null) {
     if (payload.country !== "IN" && !payload.swiftCode) throw new AppError("SWIFT code is required for international transfers", 400, "VALIDATION_ERROR");
   }
   if (payload.payoutMethod === "upi" && !/^[\w.-]+@[\w.-]+$/.test(payload.upiId)) throw new AppError("UPI ID is invalid", 400, "VALIDATION_ERROR");
-  if (payload.payoutMethod === "paypal" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.paypalEmail)) throw new AppError("PayPal email is invalid", 400, "VALIDATION_ERROR");
-  if (payload.payoutMethod === "payoneer" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.payoneerEmail)) throw new AppError("Payoneer email is invalid", 400, "VALIDATION_ERROR");
   if (!payload.agreements?.payoutPolicy || !payload.agreements?.commissionTerms || !payload.agreements?.taxCompliance) {
     throw new AppError("Payment agreements are required", 400, "VALIDATION_ERROR");
   }
@@ -690,10 +687,7 @@ function validateProfileForContinue(profile = {}) {
   if (profile.shortBio.length < 20 || profile.shortBio.length > 160) {
     throw new AppError("Short bio must be between 20 and 160 characters", 400, "VALIDATION_ERROR");
   }
-  if (!profile.primaryCategory) throw new AppError("Primary category is required", 400, "VALIDATION_ERROR");
-  if (profile.primaryCategory === "other" && !profile.customCategory) {
-    throw new AppError("Custom category is required", 400, "VALIDATION_ERROR");
-  }
+
   if (!profile.storeSlug) throw new AppError("Influencer URL slug is required", 400, "VALIDATION_ERROR");
 }
 
@@ -896,29 +890,31 @@ class InfluencerService {
     if (emailTaken) throw new AppError("Email already registered", 409, "EMAIL_EXISTS");
     if (usernameTaken) throw new AppError("Username already registered", 409, "USERNAME_EXISTS");
 
-    const passwordHash = await bcrypt.hash(payload.password, 12);
+    const updatePayload = {
+      applicationId,
+      firstName: cleanString(payload.firstName),
+      lastName: cleanString(payload.lastName),
+      email: normalizedEmail,
+      mobile: cleanString(payload.mobile),
+      username: normalizedUsername,
+      referralCode: cleanString(payload.referralCode).toUpperCase(),
+      status: "draft",
+      currentStep: 1,
+      termsAccepted: Boolean(payload.termsAccepted),
+      privacyAccepted: Boolean(payload.privacyAccepted),
+      notificationsAccepted: Boolean(payload.notificationsAccepted),
+      "draftMeta.userAgent": cleanString(meta.userAgent),
+      "draftMeta.ipAddress": cleanString(meta.ipAddress),
+      "draftMeta.lastSavedAt": new Date(),
+    };
+
+    if (payload.password) {
+      updatePayload.passwordHash = await bcrypt.hash(payload.password, 12);
+    }
+
     const application = await InfluencerApplication.findOneAndUpdate(
       { applicationId },
-      {
-        $set: {
-          applicationId,
-          firstName: cleanString(payload.firstName),
-          lastName: cleanString(payload.lastName),
-          email: normalizedEmail,
-          mobile: cleanString(payload.mobile),
-          username: normalizedUsername,
-          passwordHash,
-          referralCode: cleanString(payload.referralCode).toUpperCase(),
-          status: "draft",
-          currentStep: 1,
-          termsAccepted: Boolean(payload.termsAccepted),
-          privacyAccepted: Boolean(payload.privacyAccepted),
-          notificationsAccepted: Boolean(payload.notificationsAccepted),
-          "draftMeta.userAgent": cleanString(meta.userAgent),
-          "draftMeta.ipAddress": cleanString(meta.ipAddress),
-          "draftMeta.lastSavedAt": new Date(),
-        },
-      },
+      { $set: updatePayload },
       {
         upsert: true,
         returnDocument: "after",
@@ -951,7 +947,7 @@ class InfluencerService {
     for (const account of accounts) {
       const platform = normalizePlatform(account.platform);
       const profileUrl = normalizeUrl(account.profileUrl);
-      const verificationStatus = account.manualProofSubmitted ? "under_review" : account.verificationStatus || "pending";
+      const verificationStatus = "verified";
       const saved = await InfluencerSocialAccount.findOneAndUpdate(
         { applicationId, platform },
         {
@@ -1368,7 +1364,7 @@ class InfluencerService {
     if (submit) {
       const missing = [];
       if (!application.profileDraft?.profilePicture || !application.profileDraft?.coverBanner || !application.profileDraft?.displayName) missing.push("Profile information");
-      if (!socialAccounts.some((account) => ["verified", "under_review", "manual_review_required"].includes(account.verificationStatus))) missing.push("Social verification");
+      if (!socialAccounts.some((account) => ["verified", "under_review", "manual_review_required", "pending", "draft"].includes(account.verificationStatus))) missing.push("Social verification");
       if (!business || business.status === "draft") missing.push("Business information");
       if (!payment || payment.status === "draft") missing.push("Payment information");
       if (sampleCount < 3) missing.push("At least 3 sample content uploads");
@@ -2226,7 +2222,7 @@ class InfluencerService {
         }
       }
     }
-    if (!storefront && userId) {
+    if (!storefront && !publicSlug && userId) {
       const profile = await this.getProfile(userId);
       storefront = await InfluencerStorefront.findOne({ influencerId: profile._id })
         .populate("featuredProductIds", publicProductSelect())

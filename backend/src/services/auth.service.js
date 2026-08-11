@@ -196,7 +196,7 @@ async function assertInfluencerAccessAllowed(role) {
 }
 
 async function register({ name, email, phone, password, role }, meta = {}) {
-  const normalizedEmail = email ? String(email).toLowerCase() : null;
+  const normalizedEmail = email ? String(email).toLowerCase() : undefined;
   const normalizedPassword = assertStrongPassword(password);
 
   await assertInfluencerAccessAllowed(role);

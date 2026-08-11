@@ -18,7 +18,42 @@ const { ProductReviewSummary } = require("../models/ProductReviewSummary");
 const { Product } = require("../models/Product");
 const { ReturnRequest } = require("../models/ReturnRequest");
 const { AuditLog } = require("../models/AuditLog");
+const productAnalyticsService = require("./product-analytics.service");
+const cancellationPolicyService = require("./cancellation-policy.service");
 const notificationService = require("./notification.service");
+
+function getOrderStage(order) {
+  const normalized = String(order.status || "").trim().toUpperCase().replace(/\s+/g, "_");
+  if (normalized === "PENDING" || normalized === "PLACED") return "PLACED";
+  if (normalized === "CONFIRMED") return "CONFIRMED";
+  if (normalized === "PACKED") return "PACKED";
+  if (normalized === "SHIPPED") return "SHIPPED";
+  if (normalized === "OUT_FOR_DELIVERY") return "OUT_FOR_DELIVERY";
+  if (normalized === "DELIVERED") return "DELIVERED";
+  return "PLACED";
+}
+
+function getPaymentMethodKey(order) {
+  return String(order.paymentMethod || "").toUpperCase() === "COD" ? "COD" : "RAZORPAY";
+}
+
+function isOrderCancellationEligible(order, policy) {
+  if (!policy) return false;
+  if (order.status === "Cancelled" || order.cancellation?.status === "CANCELLED") return false;
+  
+  const stage = getOrderStage(order);
+  const paymentMethod = getPaymentMethodKey(order);
+  
+  const stageRule = (policy.stages || []).find((item) => item.stage === stage);
+  if (!stageRule?.cancellationEnabled) return false;
+  
+  const flags = policy.featureFlags || {};
+  if (paymentMethod === "COD" && flags.codCancellationEnabled === false) return false;
+  if (paymentMethod === "RAZORPAY" && flags.razorpayCancellationEnabled === false) return false;
+  
+  return true;
+}
+
 const orderLifecycleService = require("./order.service");
 const {
   buildOrderSnapshot,
@@ -365,7 +400,7 @@ class UserService {
   }
 
   async listOrders(userId, query = {}) {
-    return await orderRepo.listByUserId({
+    const result = await orderRepo.listByUserId({
       userId,
       page: Number(query.page || 1),
       limit: Math.min(Number(query.limit || 10), 50),
@@ -373,6 +408,19 @@ class UserService {
       sortBy: query.sortBy || "createdAt",
       sortOrder: query.sortOrder === "asc" ? 1 : -1,
     });
+    
+    try {
+      const policy = await cancellationPolicyService.getActivePolicy();
+      result.orders = result.orders.map((o) => {
+        const doc = typeof o.toObject === "function" ? o.toObject() : { ...o };
+        doc.cancellationEligible = isOrderCancellationEligible(doc, policy);
+        return doc;
+      });
+    } catch (err) {
+      // ignore
+    }
+    
+    return result;
   }
 
   async getOrder(userId, orderId) {
@@ -404,6 +452,14 @@ class UserService {
       order.orderSnapshot = order.orderSnapshot || snapshot;
     }
 
+    let cancellationEligible = false;
+    try {
+      const policy = await cancellationPolicyService.getActivePolicy();
+      cancellationEligible = isOrderCancellationEligible(order, policy);
+    } catch (err) {
+      // ignore
+    }
+
     return {
       ...buildOrderSummary(order, {
         user,
@@ -412,6 +468,7 @@ class UserService {
       }),
       sellerId: order.sellerId,
       totalAmount: order.totalAmount,
+      cancellationEligible,
     };
   }
 
@@ -728,7 +785,7 @@ class UserService {
       review: payload.comment || payload.review || "",
       images: photos,
       verifiedPurchase: true,
-      status: "approved",
+      status: "pending",
       moderatedAt: new Date(),
     });
 

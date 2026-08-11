@@ -171,8 +171,8 @@ export function AdminPaymentsPage() {
       {codSettings ? (
         <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-950">COD settings</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-4">
-            <label className="flex items-center gap-2 text-sm text-slate-700">
+          <div className="mt-4 grid gap-4 md:grid-cols-5 items-end">
+            <label className="flex h-11 items-center gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
                 checked={Boolean(codSettings.isEnabled)}
@@ -180,27 +180,46 @@ export function AdminPaymentsPage() {
               />
               Enable COD
             </label>
-            <input
-              type="number"
-              value={codSettings.maxOrderValue ?? 50000}
-              onChange={(event) => setCodSettings((current) => ({ ...current, maxOrderValue: Number(event.target.value || 0) }))}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-              placeholder="Max order value"
-            />
-            <input
-              type="number"
-              value={codSettings.defaultFeeValue ?? 0}
-              onChange={(event) => setCodSettings((current) => ({ ...current, defaultFeeValue: Number(event.target.value || 0) }))}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-              placeholder="Default COD fee"
-            />
-            <input
-              type="number"
-              value={codSettings.vendorHoldDays ?? 3}
-              onChange={(event) => setCodSettings((current) => ({ ...current, vendorHoldDays: Number(event.target.value || 0) }))}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-              placeholder="Vendor hold days"
-            />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-slate-500">Minimum order value</span>
+              <input
+                type="number"
+                value={codSettings.minOrderValue ?? 0}
+                onChange={(event) => setCodSettings((current) => ({ ...current, minOrderValue: Number(event.target.value || 0) }))}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                placeholder="Minimum order value"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-slate-500">Maximum order value</span>
+              <input
+                type="number"
+                value={codSettings.maxOrderValue ?? 50000}
+                onChange={(event) => setCodSettings((current) => ({ ...current, maxOrderValue: Number(event.target.value || 0) }))}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                placeholder="Maximum order value (0 for no limit)"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-slate-500">Default COD fee</span>
+              <input
+                type="number"
+                value={codSettings.defaultFeeValue ?? 0}
+                onChange={(event) => setCodSettings((current) => ({ ...current, defaultFeeValue: Number(event.target.value || 0) }))}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                placeholder="Default COD fee"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-slate-500">Vendor hold days</span>
+              <input
+                type="number"
+                value={codSettings.vendorHoldDays ?? 3}
+                onChange={(event) => setCodSettings((current) => ({ ...current, vendorHoldDays: Number(event.target.value || 0) }))}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                placeholder="Vendor hold days"
+              />
+            </div>
           </div>
           <button
             type="button"
@@ -216,8 +235,8 @@ export function AdminPaymentsPage() {
       {razorpaySettings ? (
         <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-950">Razorpay settings</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-4">
-            <label className="flex items-center gap-2 text-sm text-slate-700">
+          <div className="mt-4 grid gap-4 md:grid-cols-4 items-end">
+            <label className="flex h-11 items-center gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
                 checked={Boolean(razorpaySettings.isEnabled)}
@@ -225,22 +244,31 @@ export function AdminPaymentsPage() {
               />
               Enable Razorpay
             </label>
-            <input
-              type="number"
-              value={razorpaySettings.sessionTimeoutMinutes ?? 15}
-              onChange={(event) => setRazorpaySettings((current) => ({ ...current, sessionTimeoutMinutes: Number(event.target.value || 15) }))}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-              placeholder="Session timeout (min)"
-            />
-            <input
-              type="text"
-              value={razorpaySettings.webhookUrl ?? ""}
-              onChange={(event) => setRazorpaySettings((current) => ({ ...current, webhookUrl: event.target.value }))}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-              placeholder="Webhook URL"
-            />
-            <div className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-600">
-              Webhook secret: {razorpaySettings.webhookSecretConfigured ? "Configured" : "Missing"}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-slate-500">Session timeout (min)</span>
+              <input
+                type="number"
+                value={razorpaySettings.sessionTimeoutMinutes ?? 15}
+                onChange={(event) => setRazorpaySettings((current) => ({ ...current, sessionTimeoutMinutes: Number(event.target.value || 15) }))}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                placeholder="Session timeout (min)"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-slate-500">Webhook URL</span>
+              <input
+                type="text"
+                value={razorpaySettings.webhookUrl ?? ""}
+                onChange={(event) => setRazorpaySettings((current) => ({ ...current, webhookUrl: event.target.value }))}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                placeholder="Webhook URL"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-slate-500">Webhook Status</span>
+              <div className="flex h-11 items-center rounded-xl border border-slate-200 px-4 text-sm text-slate-600">
+                Secret: {razorpaySettings.webhookSecretConfigured ? "Configured" : "Missing"}
+              </div>
             </div>
           </div>
           <button

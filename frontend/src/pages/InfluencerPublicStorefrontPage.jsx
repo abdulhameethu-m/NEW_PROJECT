@@ -209,7 +209,7 @@ function CreatorProductCard({ product, data, surface = "storefront", collectionI
 
   const attribute = useCallback(async (eventType = "product_click") => {
     if (!productId) return null;
-    await trackPublicInfluencerEvent(data.profile.username, {
+    await trackPublicInfluencerEvent((data.profile.storeSlug || data.profile.username), {
       eventType,
       surface,
       productId,
@@ -229,7 +229,7 @@ function CreatorProductCard({ product, data, surface = "storefront", collectionI
     if (payload.anonymousId) window.localStorage.setItem("anonInfluencerId", payload.anonymousId);
     saveTrackingContext({ trackingToken: payload.trackingToken, anonymousId: payload.anonymousId, productId, influencerId: data.profile._id });
     return payload;
-  }, [collectionId, data.profile._id, data.profile.username, data.storefront._id, postId, productId, surface]);
+  }, [collectionId, data.profile._id, (data.profile.storeSlug || data.profile.username), data.storefront._id, postId, productId, surface]);
 
   return (
     <div className="w-[182px] shrink-0 sm:w-[190px]">
@@ -285,7 +285,7 @@ function CollectionsRail({ data, collections = [], selectedId = "", onSelect }) 
           <p className="mt-1 text-sm font-semibold text-slate-500">Curated picks by {data.profile.name}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link to={`/influencer/${data.profile.username}/collections`} className="hidden rounded-md border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-200 sm:inline-flex">View all</Link>
+          <Link to={`/influencer/${(data.profile.storeSlug || data.profile.username)}/collections`} className="hidden rounded-md border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-200 sm:inline-flex">View all</Link>
           <button type="button" onClick={() => move(-1)} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200" aria-label="Previous collection"><ChevronLeft className="h-4 w-4" /></button>
           <button type="button" onClick={() => move(1)} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200" aria-label="Next collection"><ChevronRight className="h-4 w-4" /></button>
         </div>
@@ -331,18 +331,18 @@ function ReelsRail({ data, reels = [] }) {
     if (!node) return;
     node.addEventListener("scroll", updateScrollState, { passive: true });
     window.addEventListener("resize", updateScrollState);
-    trackPublicInfluencerEvent(data.profile.username, { eventType: "carousel_view", surface: "storefront-reels-shelf" }).catch(() => null);
+    trackPublicInfluencerEvent((data.profile.storeSlug || data.profile.username), { eventType: "carousel_view", surface: "storefront-reels-shelf" }).catch(() => null);
     return () => {
       node.removeEventListener("scroll", updateScrollState);
       window.removeEventListener("resize", updateScrollState);
     };
-  }, [data.profile.username, reels.length, updateScrollState]);
+  }, [(data.profile.storeSlug || data.profile.username), reels.length, updateScrollState]);
 
   function scrollByPage(direction) {
     const node = railRef.current;
     if (!node) return;
     node.scrollBy({ left: direction * Math.max(280, node.clientWidth * 0.86), behavior: "smooth" });
-    trackPublicInfluencerEvent(data.profile.username, { eventType: "carousel_navigation", surface: "storefront-reels-shelf", metadata: { direction: direction > 0 ? "next" : "previous" } }).catch(() => null);
+    trackPublicInfluencerEvent((data.profile.storeSlug || data.profile.username), { eventType: "carousel_navigation", surface: "storefront-reels-shelf", metadata: { direction: direction > 0 ? "next" : "previous" } }).catch(() => null);
   }
 
   return (
@@ -350,7 +350,7 @@ function ReelsRail({ data, reels = [] }) {
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 id="latest-reels-heading" className="text-xl font-black text-slate-950 dark:text-white">Latest Reels</h2>
         <div className="flex items-center gap-2">
-          <Link to={`/influencer/${data.profile.username}/reels`} onClick={() => trackPublicInfluencerEvent(data.profile.username, { eventType: "reel_view", surface: "storefront-reels-view-all" }).catch(() => null)} className="rounded-full px-3 py-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800">View All</Link>
+          <Link to={`/influencer/${(data.profile.storeSlug || data.profile.username)}/reels`} onClick={() => trackPublicInfluencerEvent((data.profile.storeSlug || data.profile.username), { eventType: "reel_view", surface: "storefront-reels-view-all" }).catch(() => null)} className="rounded-full px-3 py-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800">View All</Link>
           <button type="button" onClick={() => scrollByPage(-1)} disabled={!canPrev} aria-label="Previous reels" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -361,7 +361,7 @@ function ReelsRail({ data, reels = [] }) {
       </div>
       <div ref={railRef} tabIndex={0} onKeyDown={(event) => { if (event.key === "ArrowRight") scrollByPage(1); if (event.key === "ArrowLeft") scrollByPage(-1); }} className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
         {reels.map((reel) => (
-          <CompactReelCard key={reel._id} reel={reel} username={data.profile.username} surface="storefront-reels-shelf" className="w-[140px] sm:w-[160px] xl:w-[180px]" />
+          <CompactReelCard key={reel._id} reel={reel} username={(data.profile.storeSlug || data.profile.username)} surface="storefront-reels-shelf" className="w-[140px] sm:w-[160px] xl:w-[180px]" />
         ))}
         {!reels.length ? <EmptyState label="No reels published yet." /> : null}
       </div>
@@ -441,11 +441,11 @@ function PostActionButtons({ data, post, onRequireAuth }) {
     try {
       if (action === "share") {
         const result = await shareStorefrontResource({
-          username: data.profile.username,
+          username: (data.profile.storeSlug || data.profile.username),
           eventType: "share",
           surface: "post-card",
           title: post.caption || data.profile.name,
-          url: `${window.location.origin}/influencer/${data.profile.username}/posts#${postId}`,
+          url: `${window.location.origin}/influencer/${(data.profile.storeSlug || data.profile.username)}/posts#${postId}`,
           payload: { postId, metadata: { action: "share" } },
         });
         if (result.shared) setCounts((current) => ({ ...current, shares: current.shares + 1 }));
@@ -459,7 +459,7 @@ function PostActionButtons({ data, post, onRequireAuth }) {
       toggleStoredAction(action === "like" ? "creator_post_likes" : "creator_post_saves", nextValue);
       setCounts((current) => ({ ...current, [metric]: Math.max(0, current[metric] + (nextValue ? 1 : -1)) }));
 
-      await trackPublicInfluencerEvent(data.profile.username, {
+      await trackPublicInfluencerEvent((data.profile.storeSlug || data.profile.username), {
         eventType: "post_engagement",
         surface: "post-card",
         postId,
@@ -498,7 +498,7 @@ function PostActionButtons({ data, post, onRequireAuth }) {
 function PostsGrid({ data, posts = [], compactMode = false, onRequireAuth }) {
   return (
     <section>
-      {!compactMode ? null : <SectionHeader title="Latest Posts" to={`/influencer/${data.profile.username}/posts`} />}
+      {!compactMode ? null : <SectionHeader title="Latest Posts" to={`/influencer/${(data.profile.storeSlug || data.profile.username)}/posts`} />}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {posts.map((post) => (
           <article key={post._id} className="group overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -531,7 +531,7 @@ function Sidebar({ data, following, followBusy = false, onFollow, onShare, canEd
     event.preventDefault();
     setStatus("");
     try {
-      await subscribePublicInfluencerNewsletter(data.profile.username, email);
+      await subscribePublicInfluencerNewsletter((data.profile.storeSlug || data.profile.username), email);
       setStatus("Subscribed");
       setEmail("");
     } catch (err) {
@@ -549,7 +549,7 @@ function Sidebar({ data, following, followBusy = false, onFollow, onShare, canEd
           <h1 className="text-xl font-black text-slate-950 dark:text-white">{data.profile.name}</h1>
           {data.badge || data.profile.verified ? <BadgeCheck className="h-5 w-5 fill-indigo-600 text-white" aria-label="Verified creator" /> : null}
         </div>
-        <p className="mt-1 text-sm font-semibold text-slate-500">@{data.profile.username}</p>
+        <p className="mt-1 text-sm font-semibold text-slate-500">@{(data.profile.storeSlug || data.profile.username)}</p>
         <p className="mt-1 text-xs font-bold text-indigo-600">{data.profile.primaryCategory || categories.slice(0, 3).join(" | ") || "Creator Store"}</p>
         {location ? <p className="mt-2 inline-flex items-center justify-center gap-1 text-xs font-semibold text-slate-500"><MapPin className="h-3.5 w-3.5" /> {location}</p> : null}
 
@@ -577,7 +577,7 @@ function Sidebar({ data, following, followBusy = false, onFollow, onShare, canEd
         {bio.length > 180 ? <button onClick={() => setExpanded((value) => !value)} className="mt-2 text-sm font-bold text-indigo-600">{expanded ? "Show Less" : "Show More"}</button> : null}
         <div className="mt-4 flex justify-center gap-2 text-slate-500">
           {(data.socialLinks || []).slice(0, 5).map((link) => (
-            <a key={`${link.platform}-${link.url}`} href={link.url} target="_blank" rel="noreferrer" onClick={() => trackPublicInfluencerEvent(data.profile.username, { eventType: "social_click", metadata: { platform: link.platform } })} className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-xs font-black uppercase hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700">
+            <a key={`${link.platform}-${link.url}`} href={link.url} target="_blank" rel="noreferrer" onClick={() => trackPublicInfluencerEvent((data.profile.storeSlug || data.profile.username), { eventType: "social_click", metadata: { platform: link.platform } })} className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-xs font-black uppercase hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700">
               {link.platform?.slice(0, 1) || "S"}
             </a>
           ))}
@@ -602,7 +602,7 @@ function Sidebar({ data, following, followBusy = false, onFollow, onShare, canEd
         <h2 className="font-black text-slate-950 dark:text-white">Top Categories</h2>
         <div className="mt-3 space-y-3">
           {(categoryRows.length ? categoryRows : ["Fashion", "Footwear", "Accessories", "Lifestyle", "Grooming"].map((name) => ({ name, count: 0 }))).map((category) => (
-            <Link key={category.name} to={`/influencer/${data.profile.username}/storefront?search=${encodeURIComponent(category.name)}`} className="flex items-center justify-between gap-3 rounded-md px-1 py-1 text-sm font-semibold text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 dark:text-slate-300 dark:hover:bg-slate-800">
+            <Link key={category.name} to={`/influencer/${(data.profile.storeSlug || data.profile.username)}/storefront?search=${encodeURIComponent(category.name)}`} className="flex items-center justify-between gap-3 rounded-md px-1 py-1 text-sm font-semibold text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 dark:text-slate-300 dark:hover:bg-slate-800">
               <span className="flex min-w-0 items-center gap-2">
                 <span className="h-1 w-1 shrink-0 rounded-full bg-slate-400" />
                 <span className="truncate">{category.name}</span>
@@ -611,7 +611,7 @@ function Sidebar({ data, following, followBusy = false, onFollow, onShare, canEd
             </Link>
           ))}
         </div>
-        <Link to={`/influencer/${data.profile.username}/storefront`} className="mt-5 inline-flex w-full items-center justify-center gap-2 text-sm font-black text-indigo-600 hover:text-indigo-700">
+        <Link to={`/influencer/${(data.profile.storeSlug || data.profile.username)}/storefront`} className="mt-5 inline-flex w-full items-center justify-center gap-2 text-sm font-black text-indigo-600 hover:text-indigo-700">
           View all categories <ChevronRight className="h-4 w-4" />
         </Link>
       </section>
@@ -734,7 +734,7 @@ function CollectionDetail({ data, collection, showSearch = true }) {
           <h3 className="text-lg font-black text-slate-950 dark:text-white">{collectionTitle(collection)} Products</h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">{productCountOf(collection)} selected products for this collection</p>
         </div>
-        <button type="button" onClick={() => shareStorefrontResource({ username: data.profile.username, eventType: "share", surface: "collection-detail", title: collectionTitle(collection), url: `${window.location.origin}/influencer/${data.profile.username}/collections#${collection.slug}`, payload: { collectionId: collection._id } })} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-black text-slate-700 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-200"><Share2 className="h-4 w-4" /> Share Collection</button>
+        <button type="button" onClick={() => shareStorefrontResource({ username: (data.profile.storeSlug || data.profile.username), eventType: "share", surface: "collection-detail", title: collectionTitle(collection), url: `${window.location.origin}/influencer/${(data.profile.storeSlug || data.profile.username)}/collections#${collection.slug}`, payload: { collectionId: collection._id } })} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-black text-slate-700 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-200"><Share2 className="h-4 w-4" /> Share Collection</button>
       </div>
       {showSearch ? <div className="mt-4"><ProductToolbar categories={categories} category={category} setCategory={setCategory} sort={sort} setSort={setSort} view={view} setView={setView} search={search} setSearch={setSearch} /></div> : null}
       <div className={`mt-5 ${view === "grid" ? "flex gap-4 overflow-x-auto pb-2" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"}`}>
@@ -759,11 +759,11 @@ function StorefrontTab({ data, initialCollectionSlug = "" }) {
     <div className="space-y-5">
       <CollectionsRail data={data} collections={collections} selectedId={selectedCollection?._id} onSelect={(collection) => {
         setSelectedId(collection._id);
-        trackPublicInfluencerEvent(data.profile.username, { eventType: "collection_view", surface: "storefront-collections", collectionId: collection._id }).catch(() => null);
+        trackPublicInfluencerEvent((data.profile.storeSlug || data.profile.username), { eventType: "collection_view", surface: "storefront-collections", collectionId: collection._id }).catch(() => null);
       }} />
       {selectedCollection ? <CollectionDetail data={data} collection={selectedCollection} /> : null}
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <SectionHeader title="Featured Products" to={`/influencer/${data.profile.username}/collections`} />
+        <SectionHeader title="Featured Products" to={`/influencer/${(data.profile.storeSlug || data.profile.username)}/collections`} />
         <div className="flex gap-4 overflow-x-auto pb-2">
           {products.map((product) => <CreatorProductCard key={product._id} product={product} data={data} surface="storefront" />)}
           {!products.length ? <EmptyState label="No featured products yet." /> : null}
@@ -828,8 +828,8 @@ function CollectionsTab({ data, initialCollectionSlug = "" }) {
       </section>
       <CollectionsRail data={data} collections={collections} selectedId={selected?._id} onSelect={(collection) => {
         setSelectedId(collection._id);
-        if (collection.slug) navigate(`/influencer/${data.profile.username}/collections/${collection.slug}`, { replace: false });
-        trackPublicInfluencerEvent(data.profile.username, { eventType: "collection_view", surface: "collections-tab", collectionId: collection._id }).catch(() => null);
+        if (collection.slug) navigate(`/influencer/${(data.profile.storeSlug || data.profile.username)}/collections/${collection.slug}`, { replace: false });
+        trackPublicInfluencerEvent((data.profile.storeSlug || data.profile.username), { eventType: "collection_view", surface: "collections-tab", collectionId: collection._id }).catch(() => null);
       }} />
       {selected ? <CollectionDetail data={data} collection={selected} /> : <EmptyState label="No public collections found." />}
     </div>
@@ -875,7 +875,7 @@ function ReelsTab({ data }) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-        {reels.map((reel) => <CompactReelCard key={reel._id} reel={reel} username={data.profile.username} surface="creator-reels-grid" className="w-full" />)}
+        {reels.map((reel) => <CompactReelCard key={reel._id} reel={reel} username={(data.profile.storeSlug || data.profile.username)} surface="creator-reels-grid" className="w-full" />)}
         {!reels.length ? <EmptyState label="No creator reels found." /> : null}
       </div>
     </div>
@@ -947,11 +947,11 @@ function PublicStoreNav({ data, search, setSearch }) {
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-black text-slate-950 dark:text-white leading-none">{data.profile.name}</p>
-            <p className="truncate text-[11px] font-semibold text-slate-500 leading-tight">@{data.profile.username}</p>
+            <p className="truncate text-[11px] font-semibold text-slate-500 leading-tight">@{(data.profile.storeSlug || data.profile.username)}</p>
           </div>
         </div>
         <Link
-          to={`/influencer/${data.profile.username}/reels`}
+          to={`/influencer/${(data.profile.storeSlug || data.profile.username)}/reels`}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition"
           aria-label="View Reels"
         >
@@ -980,7 +980,7 @@ function PublicStoreNav({ data, search, setSearch }) {
         <nav className="hidden items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200 lg:flex">
           <Link to="/categories" className="inline-flex items-center gap-2 rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800"><Grid2X2 className="h-4 w-4" /> Categories</Link>
           <Link to="/influencers" className="inline-flex items-center gap-2 rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800"><TrendingUp className="h-4 w-4" /> Explore</Link>
-          <Link to={`/influencer/${data.profile.username}/reels`} className="inline-flex items-center gap-2 rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800"><Play className="h-4 w-4" /> Reels</Link>
+          <Link to={`/influencer/${(data.profile.storeSlug || data.profile.username)}/reels`} className="inline-flex items-center gap-2 rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800"><Play className="h-4 w-4" /> Reels</Link>
           <Link to="/offers" className="inline-flex items-center gap-2 rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800"><Percent className="h-4 w-4" /> Offers</Link>
         </nav>
       </div>
@@ -1072,7 +1072,7 @@ export function InfluencerPublicStorefrontPage() {
   async function handleShareProfile() {
     if (!data) return;
     const result = await shareStorefrontResource({
-      username: data.profile.username,
+      username: (data.profile.storeSlug || data.profile.username),
       eventType: "share",
       surface: "profile-header",
       title: data.profile.name,
@@ -1087,7 +1087,7 @@ export function InfluencerPublicStorefrontPage() {
     const nextOpen = !filtersOpen;
     setFiltersOpen(nextOpen);
     if (nextOpen && data) {
-      trackPublicInfluencerEvent(data.profile.username, {
+      trackPublicInfluencerEvent((data.profile.storeSlug || data.profile.username), {
         eventType: "search",
         surface: "storefront-filters",
         metadata: { action: "open_filters", activeTab: active, search },
@@ -1131,7 +1131,7 @@ export function InfluencerPublicStorefrontPage() {
             <p className="truncate text-base font-black text-slate-950 dark:text-white">{data.profile.name}</p>
             {data.badge || data.profile.verified ? <BadgeCheck className="h-4 w-4 shrink-0 fill-indigo-600 text-white" aria-label="Verified" /> : null}
           </div>
-          <p className="text-[12px] font-semibold text-slate-500">@{data.profile.username}</p>
+          <p className="text-[12px] font-semibold text-slate-500">@{(data.profile.storeSlug || data.profile.username)}</p>
           <div className="mt-1 flex items-center gap-3 text-[11px] font-bold text-slate-600 dark:text-slate-400">
             <span><span className="font-black text-slate-950 dark:text-white">{compact(data.stats.followers)}</span> Followers</span>
             <span><span className="font-black text-slate-950 dark:text-white">{compact(data.stats.ordersGenerated)}</span> Orders</span>
@@ -1166,7 +1166,7 @@ export function InfluencerPublicStorefrontPage() {
           {/* Mobile: full-width sticky tabs bar */}
           <div className="sticky top-[57px] z-20 bg-white dark:bg-slate-950 lg:static lg:z-auto lg:rounded-lg lg:border lg:border-slate-200 lg:bg-white lg:p-4 lg:shadow-sm lg:dark:border-slate-800 lg:dark:bg-slate-900">
             <div className="flex items-center justify-between gap-2 lg:gap-3">
-              <Tabs username={data.profile.username} active={active} />
+              <Tabs username={(data.profile.storeSlug || data.profile.username)} active={active} />
               <button type="button" onClick={handleShareProfile} className="hidden shrink-0 items-center justify-center gap-2 rounded-md border border-indigo-200 px-4 py-2 text-sm font-black text-indigo-600 hover:bg-indigo-50 dark:border-indigo-800 dark:hover:bg-indigo-950/40 lg:inline-flex"><Share2 className="h-4 w-4" /> Share Store</button>
             </div>
           </div>
@@ -1178,8 +1178,8 @@ export function InfluencerPublicStorefrontPage() {
                   {TABS.map(([key, label]) => (
                     <Link
                       key={key}
-                      to={key === "storefront" ? `/influencer/${data.profile.username}/storefront` : `/influencer/${data.profile.username}/${key}`}
-                      onClick={() => trackPublicInfluencerEvent(data.profile.username, { eventType: "search", surface: "storefront-filters", metadata: { action: "select_filter_tab", tab: key } }).catch(() => null)}
+                      to={key === "storefront" ? `/influencer/${(data.profile.storeSlug || data.profile.username)}/storefront` : `/influencer/${(data.profile.storeSlug || data.profile.username)}/${key}`}
+                      onClick={() => trackPublicInfluencerEvent((data.profile.storeSlug || data.profile.username), { eventType: "search", surface: "storefront-filters", metadata: { action: "select_filter_tab", tab: key } }).catch(() => null)}
                       className={`rounded-full px-3 py-2 text-xs font-black ${active === key ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "border border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}
                     >
                       {label}

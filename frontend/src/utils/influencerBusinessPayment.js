@@ -16,10 +16,6 @@ export const businessTypes = [
 export const payoutMethods = [
   { value: "bank_transfer", label: "Bank Transfer" },
   { value: "upi", label: "UPI" },
-  { value: "paypal", label: "PayPal" },
-  { value: "stripe_connect", label: "Stripe Connect" },
-  { value: "wise", label: "Wise" },
-  { value: "payoneer", label: "Payoneer" },
 ];
 
 export const initialInfluencerBusinessForm = {
@@ -30,8 +26,6 @@ export const initialInfluencerBusinessForm = {
   address1: "",
   address2: "",
   postalCode: "",
-  businessType: "individual_creator",
-  customBusinessType: "",
   gstNumber: "",
   panNumber: "",
   taxId: "",
@@ -124,10 +118,9 @@ function validateIfsc(value = "") {
 
 export function validateBusinessInformation(values = {}) {
   const errors = {};
-  ["country", "state", "city", "address1", "postalCode", "businessType", "legalName", "dateOfBirth", "nationality"].forEach((field) => {
+  ["country", "state", "city", "address1", "postalCode", "legalName", "dateOfBirth", "nationality"].forEach((field) => {
     if (!String(values[field] || "").trim()) errors[field] = "This field is required.";
   });
-  if (values.businessType === "other" && !String(values.customBusinessType || "").trim()) errors.customBusinessType = "Enter your business type.";
   if (String(values.address1 || "").length > 255) errors.address1 = "Address line 1 must be 255 characters or fewer.";
   if (String(values.address2 || "").length > 255) errors.address2 = "Address line 2 must be 255 characters or fewer.";
   if (values.country === "IN") {
@@ -156,8 +149,6 @@ export function validatePaymentInformation(values = {}) {
     if (values.country !== "IN" && !String(values.swiftCode || "").trim()) errors.swiftCode = "SWIFT code is required.";
   }
   if (values.payoutMethod === "upi" && !validateUpi(values.upiId)) errors.upiId = "Enter a valid UPI ID, for example creator@okaxis.";
-  if (values.payoutMethod === "paypal" && !validateEmail(values.paypalEmail)) errors.paypalEmail = "Enter a valid PayPal email.";
-  if (values.payoutMethod === "payoneer" && !validateEmail(values.payoneerEmail)) errors.payoneerEmail = "Enter a valid Payoneer email.";
   if (!values.agreements?.payoutPolicy) errors.payoutPolicy = "Payout policy agreement is required.";
   if (!values.agreements?.commissionTerms) errors.commissionTerms = "Commission terms agreement is required.";
   if (!values.agreements?.taxCompliance) errors.taxCompliance = "Tax compliance agreement is required.";

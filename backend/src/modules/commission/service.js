@@ -128,24 +128,7 @@ function campaignCommissionInput(payload = {}, pricing = {}) {
   };
   const deliverableCommissionRates = deliverableCommissionInput(payload, pricing, dynamicFields);
   return {
-    maxCampaignBudget: parseAmount(
-      paymentInput.maxCampaignBudget ??
-        paymentInput.expectedBudget ??
-        dynamicFields.maxCampaignBudget ??
-        dynamicFields.expectedBudget ??
-        payload.maxCampaignBudget ??
-        payload.budget ??
-        pricing.pricing?.commissionReserve ??
-        pricing.pricing?.totalBudget,
-      0
-    ),
-    commissionCap: parseAmount(
-      paymentInput.commissionCap ??
-        dynamicFields.commissionCap ??
-        payload.commissionCap ??
-        pricing.paymentModel?.commissionCap,
-      0
-    ),
+
     returnWindowDays: Math.max(
       0,
       Number(
@@ -1848,111 +1831,22 @@ class CommissionService {
           pendingCommission: 0,
           approvedCommission: 0,
           paidCommission: 0,
-          remainingBudget: 0,
-          remainingCap: 0,
+
           status: "ACTIVE",
         },
       },
       { upsert: true, returnDocument: "after", setDefaultsOnInsert: true, session: session || undefined }
     );
 
-    const maxBudget = roundMoney(tracker.maxCampaignBudget || 0);
-    const commissionCap = roundMoney(tracker.commissionCap || 0);
     const approvedAfter = roundMoney(Number(tracker.approvedCommission || 0) + amount);
     const paidAfter = roundMoney(Number(tracker.paidCommission || 0) + amount);
-
-    if (maxBudget > 0 && approvedAfter > maxBudget) {
-      await CommissionEarning.updateOne(
-        { orderId: order._id },
-        { $set: { status: "BLOCKED", blockedReason: "Campaign budget exhausted" } },
-        { session: session || undefined }
-      );
-      await CommissionRecord.updateOne(
-        { _id: record._id },
-        { $set: { state: "CANCELLED", reversedAt: new Date(), "metadata.blockedReason": "Campaign budget exhausted" } },
-        { session: session || undefined }
-      );
-      await Promise.all([
-        CommissionLedger.updateMany(
-          { orderId: order._id, state: "PENDING" },
-          { $set: { state: "REVERSED", reason: "Campaign budget exhausted" } },
-          { session: session || undefined }
-        ),
-        AffiliateConversion.updateOne(
-          { orderId: order._id },
-          { $set: { status: "CANCELLED", "metadata.blockedReason": "Campaign budget exhausted" } },
-          { session: session || undefined }
-        ),
-      ]);
-      await this.closeCommissionCampaign({
-        campaignId: campaign._id,
-        status: "BUDGET_EXHAUSTED",
-        reason: "Campaign budget exhausted before next commission credit",
-        session,
-      });
-      await notificationService.notifyVendorUser(record.vendorId || campaign.vendorId, {
-        module: "GROWTH",
-        subModule: "INFLUENCER_COMMERCE",
-        type: "COMMISSION_BUDGET_REACHED",
-        title: "Campaign budget exhausted",
-        message: `${campaign.title || "Commission campaign"} was auto-closed because the next commission would exceed the budget.`,
-        referenceId: campaign._id,
-        meta: { campaignId: String(campaign._id), nextCommission: amount },
-      }).catch(() => null);
-      return { approved: false, reason: "CAMPAIGN_BUDGET_EXHAUSTED" };
-    }
-
-    if (commissionCap > 0 && paidAfter > commissionCap) {
-      await CommissionEarning.updateOne(
-        { orderId: order._id },
-        { $set: { status: "BLOCKED", blockedReason: "Commission cap reached" } },
-        { session: session || undefined }
-      );
-      await CommissionRecord.updateOne(
-        { _id: record._id },
-        { $set: { state: "CANCELLED", reversedAt: new Date(), "metadata.blockedReason": "Commission cap reached" } },
-        { session: session || undefined }
-      );
-      await Promise.all([
-        CommissionLedger.updateMany(
-          { orderId: order._id, state: "PENDING" },
-          { $set: { state: "REVERSED", reason: "Commission cap reached" } },
-          { session: session || undefined }
-        ),
-        AffiliateConversion.updateOne(
-          { orderId: order._id },
-          { $set: { status: "CANCELLED", "metadata.blockedReason": "Commission cap reached" } },
-          { session: session || undefined }
-        ),
-      ]);
-      await this.closeCommissionCampaign({
-        campaignId: campaign._id,
-        status: "COMMISSION_CAP_REACHED",
-        reason: "Commission cap reached before next wallet credit",
-        session,
-      });
-      await notificationService.notifyVendorUser(record.vendorId || campaign.vendorId, {
-        module: "GROWTH",
-        subModule: "INFLUENCER_COMMERCE",
-        type: "COMMISSION_CAP_REACHED",
-        title: "Commission cap reached",
-        message: `${campaign.title || "Commission campaign"} was auto-closed because the next commission would exceed the cap.`,
-        referenceId: campaign._id,
-        meta: { campaignId: String(campaign._id), nextCommission: amount },
-      }).catch(() => null);
-      return { approved: false, reason: "COMMISSION_CAP_REACHED" };
-    }
-
-    const remainingBudget = maxBudget > 0 ? Math.max(0, roundMoney(maxBudget - approvedAfter)) : 0;
-    const remainingCap = commissionCap > 0 ? Math.max(0, roundMoney(commissionCap - paidAfter)) : 0;
     await CampaignBudgetTracker.updateOne(
       { campaignId: campaign._id },
       {
         $set: {
           approvedCommission: approvedAfter,
           paidCommission: paidAfter,
-          remainingBudget,
-          remainingCap,
+
           status: "ACTIVE",
         },
       },

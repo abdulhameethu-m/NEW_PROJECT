@@ -1,0 +1,1 @@
+import{q as e}from"./vendor-BUehZjfm.js";import{u as t}from"./vendor-router-DBNyN2gS.js";import{t as n}from"./ReelFeed-CG1pWV_f.js";var r=e();function i(){let{reelId:e}=t();return(0,r.jsx)(n,{detailId:e||``})}export{i as ReelsPage};

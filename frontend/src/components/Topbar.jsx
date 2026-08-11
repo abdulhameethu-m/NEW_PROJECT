@@ -3,17 +3,24 @@ import * as staffAuthService from "../services/staffAuthService";
 import { useAuthStore } from "../context/authStore";
 import { useStaffAuthStore } from "../context/staffAuthStore";
 import { useAdminSession } from "../hooks/useAdminSession";
+import { resolveApiAssetUrl } from "../utils/resolveUrl";
 
 export function Topbar({ title, subtitle, onMenuToggle, sidebarOpen }) {
+  const authUser = useAuthStore((s) => s.user);
   const authLogout = useAuthStore((s) => s.logout);
   const staffLogout = useStaffAuthStore((s) => s.logout);
   const { currentUser, sessionType } = useAdminSession();
 
-  const initials = currentUser?.name
+  const activeUser = currentUser || authUser;
+
+  const initials = activeUser?.name
     ?.split(" ")
     .map((part) => part[0])
     .join("")
+    .slice(0, 2)
     .toUpperCase() || "A";
+
+  const avatarUrl = resolveApiAssetUrl(activeUser?.avatarUrl);
 
   async function handleLogout() {
     if (sessionType === "staff") {
@@ -66,13 +73,17 @@ export function Topbar({ title, subtitle, onMenuToggle, sidebarOpen }) {
         {/* Right section: User info + Logout */}
         <div className="flex flex-shrink-0 items-center justify-between gap-2 sm:gap-3 md:ml-auto lg:ml-0">
           <div className="hidden text-right sm:block">
-            <div className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white">{currentUser?.name || "Admin"}</div>
+            <div className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white">{activeUser?.name || "User"}</div>
             <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              {sessionType === "staff" ? currentUser?.role?.name || "staff" : currentUser?.role || "admin"}
+              {sessionType === "staff" ? activeUser?.role?.name || "staff" : activeUser?.role || "user"}
             </div>
           </div>
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs sm:text-sm font-semibold text-white dark:bg-white dark:text-slate-950">
-            {initials}
+          <div className="flex h-10 w-10 flex-shrink-0 overflow-hidden items-center justify-center rounded-full bg-slate-900 text-xs sm:text-sm font-semibold text-white dark:bg-white dark:text-slate-950">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={activeUser?.name || "User"} className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
           </div>
           <button
             type="button"

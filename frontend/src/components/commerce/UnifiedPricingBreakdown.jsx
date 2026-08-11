@@ -43,7 +43,7 @@ function SourceDetails({ source }) {
   );
 }
 
-function BreakdownLine({ component, currency }) {
+function BreakdownLine({ component, currency, showDiagnostics }) {
   if (!component) return null;
   return (
     <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800">
@@ -56,12 +56,12 @@ function BreakdownLine({ component, currency }) {
           {formatCurrency(component.amount || 0, { currency })}
         </div>
       </div>
-      <SourceDetails source={component.source} />
+      {showDiagnostics && <SourceDetails source={component.source} />}
     </div>
   );
 }
 
-export function UnifiedPricingBreakdown({ breakdown, title = "Pricing Breakdown", compact = false }) {
+export function UnifiedPricingBreakdown({ breakdown, title = "Pricing Breakdown", compact = false, showDiagnostics = false }) {
   if (!breakdown) return null;
 
   const currency = breakdown.currency || "INR";
@@ -88,7 +88,7 @@ export function UnifiedPricingBreakdown({ breakdown, title = "Pricing Breakdown"
 
       <div className="mt-4 grid gap-3">
         {components.map((component) => (
-          <BreakdownLine key={component.key || component.label} component={component} currency={currency} />
+          <BreakdownLine key={component.key || component.label} component={component} currency={currency} showDiagnostics={showDiagnostics} />
         ))}
       </div>
 
@@ -113,7 +113,7 @@ export function UnifiedPricingBreakdown({ breakdown, title = "Pricing Breakdown"
             <span>Balance Collectable</span>
             <span>{formatCurrency(breakdown.codAdvance.remainingCODAmount || 0, { currency })}</span>
           </div>
-          <SourceDetails source={breakdown.codAdvance.source} />
+          {showDiagnostics && <SourceDetails source={breakdown.codAdvance.source} />}
         </div>
       ) : null}
 
@@ -128,7 +128,7 @@ export function UnifiedPricingBreakdown({ breakdown, title = "Pricing Breakdown"
         </div>
       </div>
 
-      {timeline.length ? (
+      {showDiagnostics && timeline.length ? (
         <div className="mt-4 rounded-2xl bg-slate-50 p-3 dark:bg-slate-950/70">
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Pricing timeline</div>
           <div className="mt-3 grid gap-3">

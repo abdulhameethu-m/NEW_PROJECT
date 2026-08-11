@@ -123,49 +123,48 @@ export function CancelOrderModal({
 
             {preview ? (
               <div className="space-y-3">
+                <TextRow 
+                  label="Subtotal" 
+                  value={formatCurrency(preview?.order?.subtotal || (orderTotal - (preview.preview.breakdown?.shipping || 0) - (preview.preview.breakdown?.platformFee || 0) - (preview.preview.breakdown?.taxes || 0) - (preview.preview.breakdown?.gatewayFee || 0)), { currency: amountCurrency })} 
+                />
+                
+                {Number(preview.preview.breakdown?.shipping || 0) > 0 && <TextRow label="Shipping fee" value={formatCurrency(preview.preview.breakdown.shipping, { currency: amountCurrency })} />}
+                {Number(preview.preview.breakdown?.taxes || 0) > 0 && <TextRow label="Tax" value={formatCurrency(preview.preview.breakdown.taxes, { currency: amountCurrency })} />}
+                {Number(preview.preview.breakdown?.platformFee || 0) > 0 && <TextRow label="Platform fee" value={formatCurrency(preview.preview.breakdown.platformFee, { currency: amountCurrency })} />}
+                {Number(preview.preview.breakdown?.gatewayFee || 0) > 0 && <TextRow label="Payment gateway fee" value={formatCurrency(preview.preview.breakdown.gatewayFee, { currency: amountCurrency })} />}
+                
+                <div className="my-2 border-t border-dashed border-slate-300 pt-2 pb-1">
+                  <TextRow label="Total" value={formatCurrency(orderTotal || preview.preview.grossAmount || 0, { currency: amountCurrency })} />
+                </div>
+
                 {isCodAdvance ? (
                   <>
-                    <SectionTitle>Order amount</SectionTitle>
-                    <TextRow label="Full order value" value={formatCurrency(orderTotal || 0, { currency: amountCurrency })} />
                     <TextRow label="Already paid as COD advance" value={formatCurrency(advancePaid || 0, { currency: amountCurrency })} tone="positive" />
                     <TextRow label="Unpaid COD balance cancelled" value={formatCurrency(balanceOnDelivery || 0, { currency: amountCurrency })} />
+                    <div className="rounded-2xl bg-amber-50 px-4 py-3 mt-2 text-xs leading-5 text-amber-800">
+                      Cancellation charges are deducted only from the COD advance paid. The unpaid COD balance is not charged.
+                    </div>
                   </>
-                ) : (
-                  <TextRow label={requiresCancellationFeePayment ? "Order value" : "Order amount"} value={formatCurrency(requiresCancellationFeePayment ? orderTotal : preview.preview.grossAmount || 0, { currency: amountCurrency })} />
-                )}
-                <SectionTitle>Charges included in order</SectionTitle>
-                <TextRow label="Shipping charge" value={formatCurrency(preview.preview.breakdown?.shipping || 0, { currency: amountCurrency })} />
-                <TextRow label="Tax" value={formatCurrency(preview.preview.breakdown?.taxes || 0, { currency: amountCurrency })} />
-                <TextRow label="Platform fee" value={formatCurrency(preview.preview.breakdown?.platformFee || 0, { currency: amountCurrency })} />
-                <TextRow label="Payment gateway fee" value={formatCurrency(preview.preview.breakdown?.gatewayFee || 0, { currency: amountCurrency })} />
-                {isCodAdvance ? (
-                  <div className="rounded-2xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
-                    Cancellation charges are deducted only from the COD advance paid. The unpaid COD balance is not charged.
-                  </div>
                 ) : null}
+
                 {deductionRows.map((item) => (
                   <TextRow
                     key={`${item.type}-${item.label}`}
-                    label={item.label || "Cancellation charge"}
+                    label={item.label || "Cancellation fee"}
                     value={`- ${formatCurrency(item.amount || 0, { currency: amountCurrency })}`}
                     tone="negative"
                   />
                 ))}
-                <div className="border-t border-dashed border-slate-300 pt-3">
-                  <TextRow
-                    label={requiresCancellationFeePayment ? "Cancellation fee payable" : "Total cancellation charges"}
-                    value={`${requiresCancellationFeePayment ? "" : "- "}${formatCurrency(preview.preview.deductionAmount || 0, { currency: amountCurrency })}`}
-                    tone="negative"
-                  />
-                </div>
+
                 {requiresCancellationFeePayment ? (
-                  <div className="rounded-2xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                  <div className="rounded-2xl bg-amber-50 px-4 py-3 mt-2 text-xs leading-5 text-amber-800">
                     You must pay {formatCurrency(cancellationFee, { currency: amountCurrency })} through Razorpay before this COD cancellation can be completed.
                   </div>
                 ) : null}
-                <div className="rounded-2xl bg-emerald-50 p-4">
+
+                <div className="rounded-2xl bg-emerald-50 p-4 mt-2">
                   <TextRow
-                    label="Final refund to customer"
+                    label="Remaining amount"
                     value={formatCurrency(preview.preview.refundAmount || 0, { currency: amountCurrency })}
                     tone="positive"
                   />

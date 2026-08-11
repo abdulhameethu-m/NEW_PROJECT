@@ -3,6 +3,7 @@ import { useAuthStore } from "../context/authStore";
 import { useStaffAuthStore } from "../context/staffAuthStore";
 import { refreshAuthSessionRequest } from "./api";
 import { attachCsrfHeader } from "./csrf";
+import { getApiBaseUrl } from "../config/apiBaseUrl";
 
 function resolveAuthContext() {
   const authState = useAuthStore.getState();
@@ -26,7 +27,7 @@ function resolveAuthContext() {
 }
 
 export const adminHttp = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
+  baseURL: getApiBaseUrl(),
   timeout: 20000,
   withCredentials: true,
 });

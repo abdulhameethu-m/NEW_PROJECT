@@ -380,7 +380,13 @@ export function VendorInfluencerPage() {
   async function visitInfluencerProfile(row) {
     const influencerId = influencerRowId(row);
     const ok = await runAction(`visit-${influencerId}`, () => visitVendorInfluencer(influencerId), "Influencer visit recorded.");
-    if (ok && row.username) navigate(`/influencer/${encodeURIComponent(row.username)}`);
+    if (ok) {
+      if (row.storeSlug) {
+        navigate(`/influencer/${encodeURIComponent(row.storeSlug)}`);
+      } else {
+        toast.error("This influencer has not set up a public storefront yet.");
+      }
+    }
   }
 
   async function purchaseSubscription(plan, billingCycle = "monthly") {

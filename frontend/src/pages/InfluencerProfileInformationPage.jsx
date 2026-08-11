@@ -157,15 +157,6 @@ function MediaUpload({ label, field, value, file, transform, error, recommended,
         }} />
       </label>
       {error || localError ? <div className="mt-2 text-xs font-semibold text-rose-600" role="alert">{error || localError}</div> : null}
-      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-        <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
-          Zoom
-          <input type="range" min="1" max="3" step="0.1" value={safeTransform.zoom} onChange={(event) => onTransform({ ...safeTransform, zoom: Number(event.target.value) })} className="mt-2 w-full" />
-        </label>
-        <button type="button" onClick={() => onTransform({ ...safeTransform, rotation: (safeTransform.rotation + 90) % 360 })} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold dark:border-slate-700">
-          <RotateCw className="h-3.5 w-3.5" /> Rotate
-        </button>
-      </div>
     </section>
   );
 }
@@ -196,7 +187,7 @@ function MultiSelect({ label, options, values, max, onChange }) {
 function ProfilePreview({ form, categories }) {
   const profileImage = usePreviewUrl(form.profilePictureFile, form.profilePicture);
   const bannerImage = usePreviewUrl(form.coverBannerFile, form.coverBanner);
-  const category = categories.find((item) => String(item._id || item.slug) === form.primaryCategory)?.name || form.customCategory || "Category";
+  const category = form.secondaryCategories?.[0] || "Category";
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="relative h-44 shrink-0 bg-slate-200 dark:bg-slate-800">
@@ -422,47 +413,20 @@ export function InfluencerProfileInformationPage() {
             />
 
             <section className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="grid gap-5 md:grid-cols-2">
-                <label className="text-sm font-bold">Display Name *
-                  <input value={form.displayName} onChange={(event) => updateField("displayName", event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-950" placeholder="Tech Guru Reviews" />
-                  {errors.displayName ? <span className="mt-2 block text-xs text-rose-600">{errors.displayName}</span> : null}
-                </label>
-                <label className="text-sm font-bold">Personal Website
-                  <input value={form.website} onChange={(event) => updateField("website", event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-950" placeholder="https://example.com" />
-                  {errors.website ? <span className="mt-2 block text-xs text-rose-600">{errors.website}</span> : null}
-                </label>
-              </div>
+              <label className="text-sm font-bold">Display Name *
+                <input value={form.displayName} onChange={(event) => updateField("displayName", event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-950" placeholder="Tech Guru Reviews" />
+                {errors.displayName ? <span className="mt-2 block text-xs text-rose-600">{errors.displayName}</span> : null}
+              </label>
               <label className="text-sm font-bold">Short Bio *
                 <textarea value={form.shortBio} onChange={(event) => updateField("shortBio", event.target.value.slice(0, 160))} rows={3} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Helping shoppers discover the best technology products and gadgets." />
                 <span className={`mt-2 block text-xs ${errors.shortBio ? "text-rose-600" : "text-slate-500"}`}>{errors.shortBio || `${form.shortBio.length}/160 characters`}</span>
               </label>
-              <label className="text-sm font-bold">Long Bio
-                <textarea value={form.longBio} onChange={(event) => updateField("longBio", event.target.value.slice(0, 2000))} rows={6} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Paragraphs, links, and lists can be added here." />
-                <span className="mt-2 block text-xs text-slate-500">{form.longBio.length}/2000 characters</span>
-              </label>
             </section>
 
             <section className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="grid gap-5 md:grid-cols-2">
-                <label className="text-sm font-bold">Primary Category *
-                  <select value={form.primaryCategory} onChange={(event) => updateField("primaryCategory", event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-950">
-                    <option value="">{loadingCategories ? "Loading categories..." : "Select category"}</option>
-                    {categoryOptions.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
-                  </select>
-                  {errors.primaryCategory ? <span className="mt-2 block text-xs text-rose-600">{errors.primaryCategory}</span> : null}
-                </label>
-                {form.primaryCategory === "other" ? (
-                  <label className="text-sm font-bold">Custom Category *
-                    <input value={form.customCategory} onChange={(event) => updateField("customCategory", event.target.value)} maxLength={100} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-950" />
-                    {errors.customCategory ? <span className="mt-2 block text-xs text-rose-600">{errors.customCategory}</span> : null}
-                  </label>
-                ) : null}
-              </div>
               <MultiSelect label="Secondary Categories" options={categoryOptions.filter((item) => item.value !== "other").map((item) => item.label)} values={form.secondaryCategories} max={5} onChange={(value) => updateField("secondaryCategories", value)} />
               {errors.secondaryCategories ? <span className="text-xs text-rose-600">{errors.secondaryCategories}</span> : null}
               <MultiSelect label="Languages" options={defaultLanguages} values={form.languages} onChange={(value) => updateField("languages", value)} />
-              <MultiSelect label="Content Niche" options={defaultContentNiches} values={form.contentNiche} onChange={(value) => updateField("contentNiche", value)} />
-              <MultiSelect label="Content Style" options={defaultContentStyles} values={form.contentStyle} onChange={(value) => updateField("contentStyle", value)} />
             </section>
 
             <section className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -477,29 +441,16 @@ export function InfluencerProfileInformationPage() {
               </div>
             </section>
 
-            <section className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <h3 className="text-lg font-black">SEO Settings</h3>
-              <input value={form.metaTitle} onChange={(event) => updateField("metaTitle", event.target.value.slice(0, 160))} className="h-12 rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-950" placeholder="Meta Title" />
-              <textarea value={form.metaDescription} onChange={(event) => updateField("metaDescription", event.target.value.slice(0, 300))} rows={3} className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Meta Description" />
-              <MediaUpload
-                label="Social Sharing Image"
-                field="socialSharingImage"
-                value={form.socialSharingImage}
-                file={form.socialSharingImageFile}
-                transform={{ zoom: 1, rotation: 0 }}
-                recommended="1200 x 630 px"
-                maxSize="5 MB"
-                aspectClass="aspect-[16/9] min-h-40"
-                onChange={(file) => updateField("socialSharingImageFile", file)}
-                onTransform={() => {}}
-              />
-            </section>
+
 
             {pageError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100" role="alert">{pageError}</div> : null}
 
             <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
               <button type="button" onClick={() => navigate("/influencer/register/social-verification", { state: { applicationId: form.applicationId } })} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"><ArrowLeft className="h-4 w-4" /> Back</button>
               <div className="flex flex-col gap-3 sm:flex-row">
+                <button type="button" onClick={() => setForm({ ...initialInfluencerProfileForm, applicationId: form.applicationId })} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                  Reset
+                </button>
                 <button type="button" onClick={() => saveDraft()} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save Draft</button>
                 <button type="button" onClick={handleContinue} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-slate-950/10 hover:-translate-y-0.5 disabled:opacity-60 dark:bg-white dark:text-slate-950">Continue <ArrowRight className="h-4 w-4" /></button>
               </div>

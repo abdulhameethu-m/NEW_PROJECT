@@ -3,10 +3,6 @@ const INFLUENCER_STEP_SIX_STORAGE_KEY = "grm_influencer_register_step_6";
 
 export const initialInfluencerContentReviewForm = {
   applicationId: "",
-  portfolioUrl: "",
-  portfolioDescription: "",
-  manualNiche: "",
-  brandCollaborations: [],
 };
 
 export function saveInfluencerContentReviewDraftLocal(values, storage = window.localStorage) {
@@ -34,13 +30,5 @@ export function validateContentReview(values = {}, files = {}, existingDocuments
   const identityCount = (files.identityDocumentFiles || []).length + existingDocuments.filter((item) => item.documentType === "identity_document").length;
   if (sampleCount < 3) errors.sampleContent = "Upload at least 3 sample content files.";
   if (identityCount < 1) errors.identityDocuments = "Upload at least one identity document.";
-  if (values.portfolioUrl) {
-    try {
-      new URL(values.portfolioUrl);
-    } catch {
-      errors.portfolioUrl = "Enter a valid portfolio URL.";
-    }
-  }
-  if (String(values.portfolioDescription || "").length > 1000) errors.portfolioDescription = "Portfolio description must be 1000 characters or fewer.";
   return errors;
 }

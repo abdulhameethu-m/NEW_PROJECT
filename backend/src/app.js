@@ -33,7 +33,8 @@ function createApp() {
   app.disable("x-powered-by");
   app.use(helmet({
     crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
-    crossOriginResourcePolicy: { policy: "cross-origin" }
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false
   }));
   app.use(compression());
   app.use(apiTimingMiddleware);

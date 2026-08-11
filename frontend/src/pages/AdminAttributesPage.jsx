@@ -409,26 +409,39 @@ export function AdminAttributesPage() {
             ? "Update this field's configuration."
             : "Choose the destination module, then define the reusable field once for multiple categories and subcategories."}
         </p>
-        <form onSubmit={handleSubmit} className="mt-4 grid gap-3">
-          <input className="rounded-xl border px-3 py-2 text-sm" placeholder="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
-          <div>
-            <input className="rounded-xl border px-3 py-2 text-sm w-full" placeholder="Key (e.g. color, ram, screen_size)" value={form.key} onChange={(e) => setForm((p) => ({ ...p, key: e.target.value.toLowerCase().replace(/[^a-z0-9_,]/g, "") }))} required />
-            <p className="mt-1 text-xs text-slate-400">Lowercase letters, numbers, underscores, and commas allowed.</p>
+        <form onSubmit={handleSubmit} className="mt-4 grid gap-4">
+          <div className="grid gap-1.5">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Name</label>
+            <input className="rounded-xl border px-3 py-2 text-sm" placeholder="e.g. Color" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
           </div>
-          <select className="rounded-xl border px-3 py-2 text-sm" value={form.moduleKey} onChange={(e) => setForm((p) => ({ ...p, moduleKey: e.target.value }))} required>
-            <option value="">{modules.length ? "Select module" : "Create a module first"}</option>
-            {modules.map((moduleDef) => (
-              <option key={moduleDef._id} value={moduleDef.key}>
-                {moduleDef.name}
-              </option>
-            ))}
-          </select>
-          <select className="rounded-xl border px-3 py-2 text-sm" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}>
-            {["text", "number", "select", "multi-select", "boolean", "color"].map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-          <input className="rounded-xl border px-3 py-2 text-sm" placeholder="Options (comma separated)" value={form.options} onChange={(e) => setForm((p) => ({ ...p, options: e.target.value }))} />
+          <div className="grid gap-1.5">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Key</label>
+            <input className="rounded-xl border px-3 py-2 text-sm w-full" placeholder="e.g. color, ram, screen_size" value={form.key} onChange={(e) => setForm((p) => ({ ...p, key: e.target.value.toLowerCase().replace(/[^a-z0-9_,]/g, "") }))} required />
+            <p className="text-xs text-slate-400">Lowercase letters, numbers, underscores, and commas allowed.</p>
+          </div>
+          <div className="grid gap-1.5">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Module</label>
+            <select className="rounded-xl border px-3 py-2 text-sm" value={form.moduleKey} onChange={(e) => setForm((p) => ({ ...p, moduleKey: e.target.value }))} required>
+              <option value="">{modules.length ? "Select module" : "Create a module first"}</option>
+              {modules.map((moduleDef) => (
+                <option key={moduleDef._id} value={moduleDef.key}>
+                  {moduleDef.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-1.5">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Type</label>
+            <select className="rounded-xl border px-3 py-2 text-sm" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}>
+              {["text", "number", "select", "multi-select", "boolean", "color"].map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-1.5">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Options (comma separated)</label>
+            <input className="rounded-xl border px-3 py-2 text-sm" placeholder="e.g. Red, Blue, Green" value={form.options} onChange={(e) => setForm((p) => ({ ...p, options: e.target.value }))} />
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={form.isVariant} onChange={(e) => setForm((p) => ({ ...p, isVariant: e.target.checked }))} />
             Use as variant type
@@ -445,36 +458,51 @@ export function AdminAttributesPage() {
           </div>
           {form.isVariant ? (
             <>
-              <select className="rounded-xl border px-3 py-2 text-sm" value={form.variantDisplayType} onChange={(e) => setForm((p) => ({ ...p, variantDisplayType: e.target.value }))}>
-                {["button", "swatch", "image-swatch"].map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
+              <div className="grid gap-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Variant Display Type</label>
+                <select className="rounded-xl border px-3 py-2 text-sm" value={form.variantDisplayType} onChange={(e) => setForm((p) => ({ ...p, variantDisplayType: e.target.value }))}>
+                  {["button", "swatch", "image-swatch"].map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.variantAffectsImage} onChange={(e) => setForm((p) => ({ ...p, variantAffectsImage: e.target.checked }))} />
                 Variant changes image gallery
               </label>
             </>
           ) : null}
-          <input className="rounded-xl border px-3 py-2 text-sm" placeholder="Template (optional)" value={form.template} onChange={(e) => setForm((p) => ({ ...p, template: e.target.value }))} />
-          <input className="rounded-xl border px-3 py-2 text-sm" type="number" min="0" value={form.order} onChange={(e) => setForm((p) => ({ ...p, order: e.target.value }))} />
+          <div className="grid gap-1.5">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Template</label>
+            <input className="rounded-xl border px-3 py-2 text-sm" placeholder="e.g. {{value}}GB" value={form.template} onChange={(e) => setForm((p) => ({ ...p, template: e.target.value }))} />
+          </div>
+          <div className="grid gap-1.5">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Order</label>
+            <input className="rounded-xl border px-3 py-2 text-sm" type="number" min="0" value={form.order} onChange={(e) => setForm((p) => ({ ...p, order: e.target.value }))} />
+          </div>
 
           {/* Category & Subcategory Selection */}
           {editingId ? (
             <>
               {/* Single select for edit mode */}
-              <select className="rounded-xl border px-3 py-2 text-sm" value={form.categoryId} onChange={(e) => setForm((p) => ({ ...p, categoryId: e.target.value, subCategoryId: "" }))} required>
-                <option value="">Select category</option>
-                {categories.map((category) => (
-                  <option key={category._id} value={category._id}>{category.name}</option>
-                ))}
-              </select>
-              <select className="rounded-xl border px-3 py-2 text-sm" value={form.subCategoryId} onChange={(e) => setForm((p) => ({ ...p, subCategoryId: e.target.value }))}>
-                <option value="">All subcategories</option>
-                {availableSubcategories.map((subcategory) => (
-                  <option key={subcategory._id} value={subcategory._id}>{subcategory.name}</option>
-                ))}
-              </select>
+              <div className="grid gap-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Category</label>
+                <select className="rounded-xl border px-3 py-2 text-sm" value={form.categoryId} onChange={(e) => setForm((p) => ({ ...p, categoryId: e.target.value, subCategoryId: "" }))} required>
+                  <option value="">Select category</option>
+                  {categories.map((category) => (
+                    <option key={category._id} value={category._id}>{category.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Subcategory</label>
+                <select className="rounded-xl border px-3 py-2 text-sm" value={form.subCategoryId} onChange={(e) => setForm((p) => ({ ...p, subCategoryId: e.target.value }))}>
+                  <option value="">All subcategories</option>
+                  {availableSubcategories.map((subcategory) => (
+                    <option key={subcategory._id} value={subcategory._id}>{subcategory.name}</option>
+                  ))}
+                </select>
+              </div>
             </>
           ) : (
             <>

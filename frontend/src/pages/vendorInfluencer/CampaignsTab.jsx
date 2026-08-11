@@ -128,9 +128,28 @@ function toDateInputValue(date = new Date()) {
   return next.toISOString().slice(0, 10);
 }
 
+function generateTimeOptions() {
+  const options = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const hh = h.toString().padStart(2, "0");
+      const mm = m.toString().padStart(2, "0");
+      const ampm = h >= 12 ? "PM" : "AM";
+      const hour12 = h % 12 || 12;
+      options.push({
+        value: `${hh}:${mm}`,
+        label: `${hour12.toString().padStart(2, "0")}:${mm} ${ampm}`,
+      });
+    }
+  }
+  options.push({ value: "23:59", label: "11:59 PM" });
+  return options;
+}
+
 function addDaysToInputDate(value, days = 0) {
   if (!value) return "";
-  const [year, month, day] = String(value).split("-").map(Number);
+  const dateOnly = String(value).split("T")[0];
+  const [year, month, day] = dateOnly.split("-").map(Number);
   if (!year || !month || !day) return "";
   const next = new Date(year, month - 1, day);
   next.setDate(next.getDate() + Number(days || 0));
@@ -139,8 +158,9 @@ function addDaysToInputDate(value, days = 0) {
 
 function dateRangeLabel(value = "") {
   if (!value) return "";
-  const [year, month, day] = String(value).split("-");
-  return year && month && day ? `${day}-${month}-${year}` : value;
+  const datePart = String(value).split("T")[0];
+  const [year, month, day] = datePart.split("-");
+  return year && month && day ? `${day}-${month}-${year}` : datePart;
 }
 
 function isInputDateInRange(value, start, end) {
@@ -257,7 +277,7 @@ function withoutSelectionKey(item = {}) {
 
 function emptyProductShipping() {
   return {
-    productRequired: false,
+    productRequired: true,
     returnRequired: true,
     deliveryAddressSnapshot: { name: "", phone: "", addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "", country: "India" },
     returnAddressSnapshot: { name: "", phone: "", addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "", country: "India" },
@@ -266,7 +286,7 @@ function emptyProductShipping() {
 
 function buildProductShippingPayload(productShipping = {}) {
   return {
-    productRequired: Boolean(productShipping.productRequired),
+    productRequired: true,
     returnRequired: productShipping.returnRequired !== false,
     deliveryAddressSnapshot: productShipping.deliveryAddressSnapshot || emptyProductShipping().deliveryAddressSnapshot,
     returnAddressSnapshot: productShipping.returnAddressSnapshot || emptyProductShipping().returnAddressSnapshot,
@@ -418,9 +438,10 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   const minimumDeliverableDueDate = useMemo(() => {
     const today = toDateInputValue(new Date());
     if (!contentCreationWindow.start) return today;
-    return contentCreationWindow.start > today ? contentCreationWindow.start : today;
+    const start = contentCreationWindow.start.split("T")[0];
+    return start > today ? start : today;
   }, [contentCreationWindow.start]);
-  const maximumDeliverableDueDate = contentCreationWindow.end;
+  const maximumDeliverableDueDate = contentCreationWindow.end ? contentCreationWindow.end.split("T")[0] : "";
   const campaignContentCreationWindow = useMemo(() => {
     if (!form.invitationDeadline) return { start: "", end: "", firstCampaignEndDate: "" };
     const start = form.invitationDeadline;
@@ -466,13 +487,12 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     "deliverableCommissionRates",
     "commissionRules",
     "attributionDays",
-    "expectedBudget",
-    "maximumBudget",
+
     "productValue",
     "shippingCost",
     "affiliateTrackingEnabled",
   ]);
-  const genericDynamicFields = dynamicFields.filter((field) => !handledDynamicNames.has(field.fieldName || field.key));
+  const genericDynamicFields = dynamicFields.filter((field) => !handledDynamicNames.has(field.fieldName || field.key) && (field.fieldName || field.key) !== "expectedBudget" && (field.fieldName || field.key) !== "commissionCap");
 
   useEffect(() => {
     setForm((current) => {
@@ -495,7 +515,6 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
         attributionDays,
         commissionPercent,
         fixedFee: current.fixedFee,
-        expectedBudget: current.expectedBudget,
         productValue: current.productValue,
         shippingCost: current.shippingCost,
       };
@@ -537,7 +556,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   }
 
   function setCampaignEndDate(value) {
-    if (value && minimumCampaignEndDate && value < minimumCampaignEndDate) return;
+    if (value && minimumCampaignEndDate && value.split("T")[0] < minimumCampaignEndDate.split("T")[0]) return;
     setForm((current) => {
       return {
         ...current,
@@ -551,7 +570,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   useEffect(() => {
     if (!minimumCampaignEndDate) return;
     setForm((current) => {
-      if (!current.endDate || current.endDate >= minimumCampaignEndDate) return current;
+      if (!current.endDate || current.endDate.split("T")[0] >= minimumCampaignEndDate.split("T")[0]) return current;
       return {
         ...current,
         endDate: "",
@@ -656,14 +675,19 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
     });
   }
 
-  function setDeliverableDueDate(selectionKey, dueDate) {
+  function setDeliverableDueDate(selectionKey, dueDate, index = 0, maxQuantity = 1) {
     if (dueDate && !isInputDateInRange(dueDate, minimumDeliverableDueDate, maximumDeliverableDueDate)) return;
     setForm((current) => {
-      const selectedServices = current.selectedServices.map((item) => (
-        String(item.selectionKey || "") === String(selectionKey || "")
-          ? { ...item, dueDate }
-          : item
-      ));
+      const selectedServices = current.selectedServices.map((item) => {
+        if (String(item.selectionKey || "") !== String(selectionKey || "")) return item;
+
+        if (maxQuantity > 1) {
+          const dueDates = [...(item.dueDates || Array.from({ length: maxQuantity }).map(() => item.dueDate || ""))];
+          dueDates[index] = dueDate;
+          return { ...item, dueDates, dueDate: dueDates[0] || dueDate };
+        }
+        return { ...item, dueDate };
+      });
       return {
         ...current,
         selectedServices,
@@ -759,8 +783,6 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
         calculatedFixedReward: source.paymentType === "fixed" ? fixedReward : undefined,
         commissionPercentage: fallbackCommissionPercent,
         attributionDays: Number(source.attributionDays || 0),
-        expectedBudget: Number(source.expectedBudget || 0),
-        commissionCap: Number(dynamicFieldValues.commissionCap || 0),
         productValue: Number(source.productValue || 0),
         shippingCost: Number(source.shippingCost || 0),
         shippingDetails: dynamicFieldValues.shippingDetails || "",
@@ -829,14 +851,24 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
   }
 
   const fixedNeedsDeliverables = form.paymentType === "fixed" && !form.selectedServices.length;
-  const commissionNeedsDeliverables = ["commission", "hybrid"].includes(form.paymentType) && !form.selectedServices.length;
+  const commissionNeedsDeliverables = ["commission", "hybrid"].includes(form.paymentType) && Boolean(form.influencerId) && !form.selectedServices.length;
   const commissionNeedsRates = ["commission", "hybrid"].includes(form.paymentType) && form.selectedServices.some((item) => Number(item.commissionPercentage || 0) <= 0);
   const needsScheduling = ["fixed", "hybrid"].includes(form.paymentType) || form.selectedServices.length > 0;
   const missingInvitationDeadline = Boolean(form.influencerId) && !form.invitationDeadline;
   const missingCampaignDates = needsScheduling && !form.endDate;
   const invalidCampaignEndDate = Boolean(form.endDate && minimumCampaignEndDate && form.endDate < minimumCampaignEndDate);
-  const missingDeliverableDueDates = needsScheduling && form.selectedServices.some((item) => !item.dueDate);
+  const missingDeliverableDueDates = needsScheduling && form.selectedServices.some((item) => {
+    const qty = Math.max(1, Number(item.packageQuantity || item.snapshot?.package?.packageQuantity || 1));
+    if (qty > 1) {
+      return !item.dueDates || item.dueDates.length !== qty || item.dueDates.some((d) => !d);
+    }
+    return !item.dueDate;
+  });
   const invalidDeliverableDueDates = needsScheduling && form.selectedServices.some((item) => {
+    const qty = Math.max(1, Number(item.packageQuantity || item.snapshot?.package?.packageQuantity || 1));
+    if (qty > 1 && item.dueDates) {
+      return item.dueDates.some((d) => d && !isInputDateInRange(d, minimumDeliverableDueDate, maximumDeliverableDueDate));
+    }
     if (!item.dueDate) return false;
     return !isInputDateInRange(item.dueDate, minimumDeliverableDueDate, maximumDeliverableDueDate);
   });
@@ -888,12 +920,26 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
           </label>
           <label className="block space-y-1.5">
             <FieldLabel>Invitation Acceptance Date Before</FieldLabel>
-            <input type="date" min={toDateInputValue(new Date())} value={form.invitationDeadline} onChange={(event) => setField("invitationDeadline", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Invitation acceptance date before" />
+            <div className="flex gap-2">
+              <input type="date" min={toDateInputValue(new Date())} value={(form.invitationDeadline || "").split("T")[0] || ""} onChange={(event) => setField("invitationDeadline", `${event.target.value}T${(form.invitationDeadline || "").split("T")[1] || "23:59"}`)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Invitation acceptance date before" />
+              <select value={(form.invitationDeadline || "").split("T")[1] || "23:59"} onChange={(event) => setField("invitationDeadline", `${(form.invitationDeadline || "").split("T")[0] || toDateInputValue(new Date())}T${event.target.value}`)} className="h-11 w-40 shrink-0 rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                {generateTimeOptions().map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
             <FieldHint>The influencer must accept before this date, otherwise the invitation expires automatically.</FieldHint>
           </label>
           <label className="block space-y-1.5">
             <FieldLabel>Campaign End Date</FieldLabel>
-            <input type="date" min={minimumCampaignEndDate || undefined} value={form.endDate} onChange={(event) => setCampaignEndDate(event.target.value)} disabled={!minimumCampaignEndDate} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-900" aria-label="Campaign end date" />
+            <div className="flex gap-2">
+              <input type="date" min={minimumCampaignEndDate ? minimumCampaignEndDate.split("T")[0] : undefined} value={(form.endDate || "").split("T")[0] || ""} onChange={(event) => setCampaignEndDate(`${event.target.value}T${(form.endDate || "").split("T")[1] || "23:59"}`)} disabled={!minimumCampaignEndDate} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-900" aria-label="Campaign end date" />
+              <select value={(form.endDate || "").split("T")[1] || "23:59"} onChange={(event) => setCampaignEndDate(`${(form.endDate || "").split("T")[0] || (minimumCampaignEndDate ? minimumCampaignEndDate.split("T")[0] : toDateInputValue(new Date()))}T${event.target.value}`)} disabled={!minimumCampaignEndDate} className="h-11 w-40 shrink-0 rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-900">
+                {generateTimeOptions().map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
             <FieldHint>{campaignEndDateHint}</FieldHint>
           </label>
           <label className="block space-y-1.5">
@@ -901,11 +947,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
             <input type="number" min="1" max="365" value={form.contentCreationDays} onChange={(event) => setField("contentCreationDays", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Content creation days" />
             <FieldHint>Countdown starts after the influencer accepts.</FieldHint>
           </label>
-          <label className="block space-y-1.5">
-            <FieldLabel>Live Campaign Days</FieldLabel>
-            <input type="number" min="1" max="3650" value={form.campaignDurationDays} onChange={(event) => setField("campaignDurationDays", event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Live campaign days" />
-            <FieldHint>Runtime starts only after approved content is published.</FieldHint>
-          </label>
+
           <label className="block space-y-1.5">
             <FieldLabel>Visibility</FieldLabel>
             <span className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200">
@@ -967,7 +1009,7 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                   <input type="number" min="0" value={form.fixedFee} onChange={(event) => setField("fixedFee", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Fixed fee" />
                 </label>
               ) : null}
-              {(dynamicNames.has("commissionPercent") || dynamicNames.has("commissionPercentage")) && form.paymentType !== "commission" ? (
+              {(dynamicNames.has("commissionPercent") || dynamicNames.has("commissionPercentage")) && (!form.influencerId || form.paymentType !== "commission") ? (
                 <label className="block space-y-1.5">
                   <FieldLabel>{dynamicFields.find((field) => ["commissionPercent", "commissionPercentage"].includes(field.fieldName || field.key))?.label || "Commission %"}</FieldLabel>
                   <input type="number" min="0" max="50" value={form.commissionPercent} onChange={(event) => setField("commissionPercent", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Commission percent" />
@@ -979,12 +1021,6 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                   <select value={form.attributionDays} onChange={(event) => setField("attributionDays", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Attribution window">
                     {attributionWindows.map((window) => <option key={window.key || window.days} value={window.days}>{window.label || `${window.days} days`}</option>)}
                   </select>
-                </label>
-              ) : null}
-              {(dynamicNames.has("expectedBudget") || dynamicNames.has("maximumBudget")) ? (
-                <label className="block space-y-1.5">
-                  <FieldLabel>{dynamicFields.find((field) => ["expectedBudget", "maximumBudget"].includes(field.fieldName || field.key))?.label || "Maximum Budget"}</FieldLabel>
-                  <input type="number" min="0" value={form.expectedBudget} onChange={(event) => setField("expectedBudget", Number(event.target.value || 0))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Expected budget" />
                 </label>
               ) : null}
               {dynamicNames.has("productValue") ? (
@@ -1057,7 +1093,9 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
             <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold dark:border-slate-700">
               <input
                 type="checkbox"
-                checked={Boolean(form.productShipping?.productRequired)}
+                checked={true}
+                disabled
+                className="cursor-not-allowed opacity-50"
                 onChange={(event) => setProductShippingField("productRequired", event.target.checked)}
               />
               Product Required
@@ -1160,17 +1198,20 @@ function CampaignForm({ influencers, products, configuration = {}, onCreate, bus
                             <span className="text-xs text-slate-500">Package: {pkg.packageName || pkg.name || "Package"} · Quantity: {packageQuantity(pkg)} · Unit Price: {formatCurrency(packageUnitPrice(pkg, service))} · {pkg.deliveryDays ?? service.deliveryDays ?? 0}d · {pkg.revisionCount ?? service.revisionCount ?? 0} rev</span>
                             {selected && needsScheduling ? (
                               <span className="mt-2 grid max-w-56 gap-1" onClick={(event) => event.stopPropagation()}>
-                                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Due Date</span>
-                                <input
-                                  type="date"
-                                  min={minimumDeliverableDueDate || undefined}
-                                  max={maximumDeliverableDueDate || undefined}
-                                  value={selectedItem?.dueDate || ""}
-                                  disabled={!contentCreationWindow.start || !contentCreationWindow.end}
-                                  onChange={(event) => setDeliverableDueDate(selectedItem.selectionKey, event.target.value)}
-                                  className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                                  aria-label={`${pkg.packageName || service.serviceName} due date`}
-                                />
+                                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Due Date{packageQuantity(pkg) > 1 ? "s" : ""}</span>
+                                {Array.from({ length: packageQuantity(pkg) }).map((_, i) => (
+                                  <input
+                                    key={i}
+                                    type="date"
+                                    min={minimumDeliverableDueDate || undefined}
+                                    max={maximumDeliverableDueDate || undefined}
+                                    value={(selectedItem?.dueDates && selectedItem.dueDates[i]) || (packageQuantity(pkg) === 1 ? selectedItem?.dueDate : "") || ""}
+                                    disabled={!contentCreationWindow.start || !contentCreationWindow.end}
+                                    onChange={(event) => setDeliverableDueDate(selectedItem.selectionKey, event.target.value, i, packageQuantity(pkg))}
+                                    className="h-9 mb-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                                    aria-label={`${pkg.packageName || service.serviceName} due date ${i + 1}`}
+                                  />
+                                ))}
                                 <span className="text-[11px] font-medium text-slate-500">{contentCreationWindowLabel}</span>
                               </span>
                             ) : null}

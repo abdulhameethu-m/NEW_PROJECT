@@ -196,7 +196,7 @@ export function OrdersPage() {
         <div className="grid gap-4">
           {orders.map((order) => {
             const cancellationLocked = ["REQUESTED", "APPROVED", "CANCELLED"].includes(order?.cancellation?.status);
-            const canCancel = ["Pending", "Placed"].includes(order.status) && !cancellationLocked;
+            const canCancel = typeof order?.cancellationEligible === "boolean" ? order.cancellationEligible : (["Pending", "Placed"].includes(order.status) && !cancellationLocked);
             const canReturn = order.status === "Delivered";
 
             return (

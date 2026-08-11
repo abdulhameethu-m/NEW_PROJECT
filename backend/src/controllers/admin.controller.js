@@ -193,10 +193,11 @@ const listPayouts = asyncHandler(async (req, res) => {
 });
 
 const listReviews = asyncHandler(async (req, res) => {
-  const reviews = await adminService.listReviews({
+  const result = await require("../services/review.service").listAdminReviews({
     search: req.query.search,
+    ...req.query
   });
-  return ok(res, reviews, "Reviews loaded");
+  return ok(res, result.reviews || [], "Reviews loaded");
 });
 
 const getOrderById = asyncHandler(async (req, res) => {
@@ -324,10 +325,9 @@ const retryRefundCase = asyncHandler(async (req, res) => {
 });
 
 const deleteReview = asyncHandler(async (req, res) => {
-  const result = await adminService.deleteReview(req.params.id, req.user, {
-    ipAddress: req.ip,
-    userAgent: req.get("user-agent"),
-  });
+  const actor = { sub: req.user?.sub, role: req.user?.role };
+  const meta = { ipAddress: req.ip, userAgent: req.get("user-agent") };
+  const result = await require("../services/review.service").deleteReview(actor, req.params.id, meta);
   return ok(res, result, "Review deleted");
 });
 

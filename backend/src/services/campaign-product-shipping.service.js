@@ -275,6 +275,7 @@ function contentWindowEnded(campaign = {}, now = new Date()) {
 }
 
 function logisticsVisibleForCampaign(campaign = {}) {
+  if (!campaign) return false;
   return Boolean(campaign.acceptedAt || [
     "accepted",
     "active",

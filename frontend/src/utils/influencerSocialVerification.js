@@ -16,8 +16,6 @@ export const socialPlatforms = [
 
 export const defaultSocialAccounts = [
   createSocialAccount("instagram"),
-  createSocialAccount("youtube"),
-  createSocialAccount("tiktok"),
 ];
 
 export function createSocialAccount(platform = "other") {
@@ -102,9 +100,7 @@ export function validateSocialVerification(values = {}, { requireVerification = 
     }
     if (platform && seenPlatforms.has(platform)) entryErrors.platform = "Duplicate platform entries are not allowed.";
     if (url && seenUrls.has(url)) entryErrors.profileUrl = "Duplicate profile URLs are not allowed.";
-    if (requireVerification && !account.verificationCode && !account.manualProofSubmitted && account.verificationStatus !== "verified") {
-      entryErrors.verification = "Generate a code or upload proof before verification.";
-    }
+
 
     seenPlatforms.add(platform);
     seenUrls.add(url);
@@ -132,7 +128,5 @@ export function calculateCreatorScore(accounts = []) {
 }
 
 export function canContinueSocialVerification(accounts = []) {
-  return accounts.some((account) =>
-    ["verified", "under_review", "manual_review_required"].includes(account.verificationStatus) || account.manualProofSubmitted
-  );
+  return accounts.some((account) => account.profileUrl);
 }

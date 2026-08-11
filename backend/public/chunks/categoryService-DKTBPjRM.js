@@ -1,1 +1,0 @@
-import{y as e}from"./authStore-Cmi_ALMa.js";import{p as t}from"../index-DL0-JtrD.js";async function n(){let{data:t}=await e.get(`/api/categories`);return t}async function r(){let{data:e}=await t.get(`/api/admin/categories`);return e}export{n,r as t};

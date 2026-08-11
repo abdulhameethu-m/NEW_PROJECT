@@ -37,7 +37,7 @@ export default function WishlistCard({ item, onMoveToCart, onRemove, busy }) {
               aria-label="Remove"
               className="inline-flex items-center justify-center rounded-md border border-slate-200 p-2 text-slate-700 dark:border-slate-700"
             >
-              <Heart size={16} />
+              <Heart size={16} className="fill-rose-500 text-rose-500" />
             </button>
           </div>
         </div>

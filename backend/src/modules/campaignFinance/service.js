@@ -157,7 +157,7 @@ class CampaignFinanceService {
     const platformRevenue = money(realizedOrders.reduce((sum, order) => sum + Number(order.platformFee || 0) + Number(order.platformCommissionAmount || 0), 0));
     const completedDeliverables = deliverables.filter((row) => ["approved", "completed"].includes(row.status) || row.approvalStatus === "approved").length;
     const productValue = money(campaign.pricing?.productCost || campaign.pricing?.productValue || campaign.paymentModelSnapshot?.productValue || 0);
-    const commissionCap = money(budget?.commissionCap || campaign.commissionConfig?.commissionCap || campaign.commissionConfig?.maxCampaignBudget || 0);
+
     const metrics = finalizeMetrics({
       ...emptyMetrics(),
       campaignRevenue,
@@ -176,9 +176,7 @@ class CampaignFinanceService {
       commissionPaid,
       pendingCommission,
       attributedRevenue: campaignRevenue,
-      commissionCap,
-      commissionCapUtilized: commissionGenerated,
-      remainingCommissionBudget: commissionCap > 0 ? money(Math.max(0, commissionCap - commissionGenerated)) : 0,
+
       fixedReleasedAmount,
       fixedUnreleasedAmount,
       commissionEarnings: commissionGenerated,

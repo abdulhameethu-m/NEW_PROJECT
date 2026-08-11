@@ -75,7 +75,10 @@ function campaignKey(campaign = {}) {
 }
 
 function formatDate(value) {
-  return value ? new Date(value).toLocaleDateString() : "Not set";
+  if (!value) return "Not set";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not set";
+  return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function formatDateTime(value) {
@@ -472,7 +475,18 @@ function CampaignDetailsPanel({ campaign, onClose, onAccept, onReject, busyId })
   const pricing = campaign.pricing || {};
   const deliverables = [
     ...(campaign.requiredDeliverables || []),
-    ...((paymentModel.selectedServices || paymentModel.services || []).map((service) => `${service.serviceName || service.serviceTypeKey || "Service"}: ${service.quantity || service.units || 1}`)),
+    ...((paymentModel.selectedServices || paymentModel.services || paymentModel.snapshot?.input?.selectedServices || paymentModel.paymentModel?.config?.selectedServices || paymentModel.config?.selectedServices || []).flatMap((service) => {
+      const quantity = Number(service.quantity || service.units || 1);
+      const name = service.serviceName || service.serviceTypeKey || "Service";
+      if (quantity > 1 && Array.isArray(service.dueDates) && service.dueDates.length === quantity) {
+        return service.dueDates.map((date, index) => {
+          const base = `${name} ${index + 1} of ${quantity}`;
+          return date ? `${base} (Due: ${formatDate(date)})` : base;
+        });
+      }
+      const base = `${name}: ${quantity}`;
+      return service.dueDate ? `${base} (Due: ${formatDate(service.dueDate)})` : base;
+    })),
   ].filter(Boolean);
   const timeline = campaign.timeline || {};
 
@@ -511,10 +525,10 @@ function CampaignDetailsPanel({ campaign, onClose, onAccept, onReject, busyId })
           ["Brand", campaign.brandName || "Brand"],
           ["Vendor", campaign.brandName || "Vendor"],
           ["Category", campaign.category || "General"],
-          ["Invitation date", formatDate(campaign.invitedAt || campaign.invitationDate)],
+          ["Invitation date", formatDateTime(campaign.invitedAt || campaign.invitationDate)],
           ["Start date", formatDate(timeline.campaignStart)],
-          ["End date", formatDate(timeline.campaignEndDate || campaign.deadline)],
-          ["Application deadline", formatDate(campaign.applicationDeadline || campaign.deadline)],
+          ["End date", formatDateTime(timeline.campaignEndDate || campaign.deadline)],
+          ["Application deadline", formatDateTime(campaign.applicationDeadline || campaign.deadline)],
         ]} />
       </DetailBlock>
 
@@ -554,7 +568,7 @@ function CampaignDetailsPanel({ campaign, onClose, onAccept, onReject, busyId })
             ["Content submission", formatDate(timeline.contentSubmissionDeadline)],
             ["Revision deadline", formatDate(timeline.revisionDeadline)],
             ["Publishing deadline", formatDate(timeline.publishingDeadline)],
-            ["Campaign end", formatDate(timeline.campaignEndDate)],
+            ["Campaign end", formatDateTime(timeline.campaignEndDate)],
             ["Attribution end", formatDate(timeline.attributionEndDate)],
           ]} />
         </DetailBlock>
@@ -643,13 +657,9 @@ function AnalyticsPanel({ analytics, loading }) {
 function defaultPackage(service = {}, template = {}) {
   return {
     packageName: template.packageName || template.label || "Single Deliverable",
-    quantity: Number(template.quantity || 1),
-    price: Number(service.price || 0),
-    currency: service.currency || "INR",
-    deliveryDays: Number(template.defaultDeliveryDays ?? service.deliveryDays ?? 3),
-    revisionCount: Number(template.defaultRevisionCount ?? service.revisionCount ?? 1),
+    price: Number(template.defaultPrice || service.price || 0),
+    currency: template.currency || service.currency || "INR",
     description: "",
-    status: "active",
   };
 }
 
@@ -666,10 +676,6 @@ function defaultService(serviceTypes = [], packageTemplates = []) {
   const template = packageTemplates[0] || {};
   return {
     ...seed,
-    serviceCategory: first.group || "",
-    minimumNoticePeriod: 0,
-    contentApprovalRequired: false,
-    brandApprovalRequired: false,
     description: "",
     status: "active",
     packages: [defaultPackage(seed, template)],
@@ -683,10 +689,7 @@ function servicePackageRows(service = {}) {
     quantity: 1,
     price: Number(service.price || 0),
     currency: service.currency || "INR",
-    deliveryDays: Number(service.deliveryDays || 0),
-    revisionCount: Number(service.revisionCount || 0),
     description: "",
-    status: service.status || "active",
   }];
 }
 
@@ -797,14 +800,9 @@ function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServic
         patch.serviceTypeId = selected?._id || "";
         patch.serviceName = selected?.label || service.serviceName || "Custom Service";
         patch.currency = service.currency || selected?.defaultCurrency || "INR";
-        patch.deliveryDays = service.deliveryDays || selected?.defaultDeliveryDays || 0;
-        patch.revisionCount = service.revisionCount ?? selected?.defaultRevisionCount ?? 0;
-        patch.serviceCategory = service.serviceCategory || selected?.group || "";
         patch.packages = servicePackageRows(service).map((pkg) => ({
           ...pkg,
           currency: pkg.currency || patch.currency,
-          deliveryDays: pkg.deliveryDays ?? patch.deliveryDays,
-          revisionCount: pkg.revisionCount ?? patch.revisionCount,
         }));
       }
       return patch;
@@ -822,8 +820,6 @@ function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServic
         packages,
         price: Number(firstPackage.price || 0),
         currency: firstPackage.currency || service.currency || "INR",
-        deliveryDays: Number(firstPackage.deliveryDays ?? service.deliveryDays ?? 0),
-        revisionCount: Number(firstPackage.revisionCount ?? service.revisionCount ?? 0),
       };
     });
     patchServices(next);
@@ -874,31 +870,30 @@ function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServic
             const packages = servicePackageRows(service);
             return (
               <div key={service._id || service.id || index} className="p-4">
-                <div className="grid gap-3 lg:grid-cols-[180px_minmax(180px,1fr)_140px_120px_120px_auto]">
-                  <select value={service.serviceTypeKey || ""} onChange={(event) => updateService(index, "serviceTypeKey", event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white">
-                    {serviceTypes.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
-                    <option value="custom_service">Custom Service</option>
-                  </select>
-                  <input value={service.serviceName || ""} onChange={(event) => updateService(index, "serviceName", event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" placeholder="Service name" />
-                  <input value={service.serviceCategory || ""} onChange={(event) => updateService(index, "serviceCategory", event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" placeholder="Category" />
-                  <input type="number" min="0" value={service.minimumNoticePeriod ?? 0} onChange={(event) => updateService(index, "minimumNoticePeriod", Number(event.target.value || 0))} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" aria-label="Minimum notice period" />
-                  <select value={service.status || "active"} onChange={(event) => updateService(index, "status", event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm capitalize dark:border-slate-700 dark:bg-slate-950 dark:text-white">
-                    {["active", "draft", "inactive", "archived"].map((status) => <option key={status} value={status}>{status}</option>)}
-                  </select>
-                  <button type="button" onClick={() => patchServices(services.filter((_, serviceIndex) => serviceIndex !== index))} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900/50 dark:hover:bg-rose-950/30" aria-label="Remove service">
+                <div className="grid items-end gap-4 lg:grid-cols-[200px_1fr_150px_auto]">
+                  <label className="grid gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Service Type
+                    <select value={service.serviceTypeKey || ""} onChange={(event) => updateService(index, "serviceTypeKey", event.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                      {serviceTypes.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
+                      <option value="custom_service">Custom Service</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Service Name
+                    <input value={service.serviceName || ""} onChange={(event) => updateService(index, "serviceName", event.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" placeholder="Service name" />
+                  </label>
+                  <label className="grid gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Status
+                    <select value={service.status || "active"} onChange={(event) => updateService(index, "status", event.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm capitalize dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                      {["active", "draft", "inactive", "archived"].map((status) => <option key={status} value={status}>{status}</option>)}
+                    </select>
+                  </label>
+                  <button type="button" onClick={() => patchServices(services.filter((_, serviceIndex) => serviceIndex !== index))} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900/50 dark:hover:bg-rose-950/30" aria-label="Remove service">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
                 <textarea value={service.description || ""} onChange={(event) => updateService(index, "description", event.target.value)} className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" rows={2} placeholder="Description" />
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-200">
-                    <input type="checkbox" checked={Boolean(service.contentApprovalRequired)} onChange={(event) => updateService(index, "contentApprovalRequired", event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600" />
-                    Content approval
-                  </label>
-                  <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-200">
-                    <input type="checkbox" checked={Boolean(service.brandApprovalRequired)} onChange={(event) => updateService(index, "brandApprovalRequired", event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600" />
-                    Brand approval
-                  </label>
                   <button type="button" onClick={() => addPackage(index, packageTemplates[0] || {})} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
                     <PlusCircle className="h-3.5 w-3.5" />
                     Add Package
@@ -908,40 +903,23 @@ function ServicesPanel({ commerceProfile, setCommerceProfile, busy, onSaveServic
                   <table className="min-w-full text-sm">
                     <thead className="text-xs uppercase tracking-wide text-slate-500">
                       <tr>
-                        <th className="px-2 py-2 text-left">Package</th>
-                        <th className="px-2 py-2 text-left">Qty</th>
-                        <th className="px-2 py-2 text-left">Price</th>
-                        <th className="px-2 py-2 text-left">Delivery</th>
-                        <th className="px-2 py-2 text-left">Revisions</th>
-                        <th className="px-2 py-2 text-left">Status</th>
-                        <th className="px-2 py-2 text-right">Action</th>
+                        <th className="px-2 py-2 text-left w-1/2">Package</th>
+                        <th className="px-2 py-2 text-left w-[120px]">Qty</th>
+                        <th className="px-2 py-2 text-left w-[150px]">Price</th>
+                        <th className="px-2 py-2 text-right w-[80px]">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {packages.map((pkg, packageIndex) => (
                         <tr key={pkg._id || pkg.id || packageIndex}>
                           <td className="px-2 py-2">
-                            <input value={pkg.packageName || ""} onChange={(event) => updatePackage(index, packageIndex, "packageName", event.target.value)} className="w-48 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" placeholder="Package name" />
+                            <input value={pkg.packageName || ""} onChange={(event) => updatePackage(index, packageIndex, "packageName", event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" placeholder="Package name" />
                           </td>
                           <td className="px-2 py-2">
-                            <input type="number" min="1" value={pkg.quantity ?? 1} onChange={(event) => updatePackage(index, packageIndex, "quantity", Number(event.target.value || 1))} className="w-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+                            <input type="number" min="1" value={pkg.quantity ?? 1} onChange={(event) => updatePackage(index, packageIndex, "quantity", Number(event.target.value || 1))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
                           </td>
                           <td className="px-2 py-2">
-                            <div className="flex gap-2">
-                              <input type="number" min="0" value={pkg.price ?? 0} onChange={(event) => updatePackage(index, packageIndex, "price", Number(event.target.value || 0))} className="w-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
-                              <input value={pkg.currency || service.currency || "INR"} onChange={(event) => updatePackage(index, packageIndex, "currency", event.target.value.toUpperCase())} className="w-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
-                            </div>
-                          </td>
-                          <td className="px-2 py-2">
-                            <input type="number" min="0" value={pkg.deliveryDays ?? 0} onChange={(event) => updatePackage(index, packageIndex, "deliveryDays", Number(event.target.value || 0))} className="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
-                          </td>
-                          <td className="px-2 py-2">
-                            <input type="number" min="0" value={pkg.revisionCount ?? 0} onChange={(event) => updatePackage(index, packageIndex, "revisionCount", Number(event.target.value || 0))} className="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
-                          </td>
-                          <td className="px-2 py-2">
-                            <select value={pkg.status || "active"} onChange={(event) => updatePackage(index, packageIndex, "status", event.target.value)} className="w-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm capitalize dark:border-slate-700 dark:bg-slate-950 dark:text-white">
-                              {["active", "draft", "inactive", "archived"].map((status) => <option key={status} value={status}>{status}</option>)}
-                            </select>
+                            <input type="number" min="0" value={pkg.price ?? 0} onChange={(event) => updatePackage(index, packageIndex, "price", Number(event.target.value || 0))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
                           </td>
                           <td className="px-2 py-2 text-right">
                             <button type="button" onClick={() => removePackage(index, packageIndex)} className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900/50 dark:hover:bg-rose-950/30" aria-label="Remove package">

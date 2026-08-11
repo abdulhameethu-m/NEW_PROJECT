@@ -45,7 +45,12 @@ function cleanSettings(value = {}) {
 
 function parseDate(value, field) {
   if (!value) return null;
-  const date = new Date(value);
+  let dateValue = value;
+  // If the value is a string with "YYYY-MM-DDTHH:mm" format (missing 'Z' or offset), append "Z" to parse it as UTC
+  if (typeof dateValue === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/.test(dateValue)) {
+    dateValue += "Z";
+  }
+  const date = new Date(dateValue);
   if (Number.isNaN(date.getTime())) {
     throw new AppError(`Invalid ${field}`, 400, "VALIDATION_ERROR", { field });
   }
@@ -249,6 +254,10 @@ function validateDeliverableDueDate(dueDate, campaign = {}, { now = new Date() }
     );
   }
   if (end && due.getTime() >= endOfUtcDay(end).getTime()) {
+    console.log("VALIDATION ERROR: Campaign end date must be after all deliverable due dates.");
+    console.log("due:", due.toISOString());
+    console.log("end:", end.toISOString());
+    console.log("endOfUtcDay(end):", endOfUtcDay(end).toISOString());
     throw new AppError("Campaign end date must be after all deliverable due dates.", 400, "DELIVERABLE_DUE_DATE_INVALID", { field: "dueDate" });
   }
   return due;

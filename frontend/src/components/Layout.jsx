@@ -86,7 +86,7 @@ export function Layout() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const guestCartCount = useGuestCartStore((s) => s.getTotalQuantity());
+  const guestCartCount = useGuestCartStore((s) => s.getItemCount());
   const guestWishlistCount = useGuestWishlistStore((s) => s.getItemCount());
   const [isDarkMode, setIsDarkMode] = useDarkMode();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -160,7 +160,7 @@ export function Layout() {
       try {
         const response = await cartService.getCart();
         const normalized = normalizeCartPayload(response);
-        const nextCount = normalized.totalQuantity;
+        const nextCount = normalized.itemCount;
         if (!cancelled) {
           setCartCount(nextCount);
         }
@@ -174,7 +174,7 @@ export function Layout() {
     loadCartCount();
 
     function handleCartChanged(event) {
-      setCartCount(normalizeCartPayload(event?.detail).totalQuantity);
+      setCartCount(normalizeCartPayload(event?.detail).itemCount);
     }
 
     window.addEventListener("cart:changed", handleCartChanged);

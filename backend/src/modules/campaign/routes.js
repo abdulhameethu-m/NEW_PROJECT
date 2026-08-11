@@ -79,7 +79,6 @@ router.post(
         commissionPercentage: Joi.number().min(0).max(50).optional(),
         commissionPercent: Joi.number().min(0).max(50).optional(),
         attributionDays: Joi.number().integer().min(1).max(365).optional(),
-        expectedBudget: Joi.number().min(0).optional(),
         productValue: Joi.number().min(0).optional(),
         shippingCost: Joi.number().min(0).optional(),
         taxes: Joi.number().min(0).optional(),

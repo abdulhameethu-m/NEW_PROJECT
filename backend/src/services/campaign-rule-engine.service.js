@@ -27,16 +27,12 @@ const FALLBACK_FIELD_MATRIX = {
     { fieldName: "attributionDays", label: "Attribution Window", fieldType: "select", required: true, defaultValue: 30 },
     { fieldName: "selectedServices", label: "Deliverables", fieldType: "service_selector" },
     { fieldName: "commissionRules", label: "Commission Rules", fieldType: "textarea" },
-    { fieldName: "expectedBudget", label: "Maximum Budget", fieldType: "currency" },
-    { fieldName: "commissionCap", label: "Commission Cap", fieldType: "currency" },
     { fieldName: "affiliateTrackingEnabled", label: "Affiliate Tracking Enabled", fieldType: "boolean", defaultValue: true },
   ],
   hybrid: [
     { fieldName: "fixedFee", label: "Fixed Fee", fieldType: "currency", required: true },
     { fieldName: "commissionPercent", label: "Commission %", fieldType: "percentage", required: true, defaultValue: 10 },
     { fieldName: "attributionDays", label: "Attribution Window", fieldType: "select", required: true, defaultValue: 30 },
-    { fieldName: "expectedBudget", label: "Maximum Budget", fieldType: "currency" },
-    { fieldName: "commissionCap", label: "Commission Cap", fieldType: "currency" },
     { fieldName: "milestonePayment", label: "Milestone Payment", fieldType: "boolean" },
     { fieldName: "selectedServices", label: "Deliverables", fieldType: "service_selector" },
   ],
@@ -119,7 +115,6 @@ function fieldValue(payload = {}, fieldName = "") {
   const aliases = {
     fixedAmount: "fixedFee",
     commissionPercentage: "commissionPercent",
-    maximumBudget: "expectedBudget",
     product: "productIds",
     deliverables: "selectedServices",
   };
@@ -335,11 +330,6 @@ class CampaignRuleEngineService {
     }
     if (paymentType === "free_product" && (!Array.isArray(payload.productIds) || !payload.productIds.length)) {
       throw new AppError("Free product campaigns require at least one product", 400, "PRODUCT_REQUIRED");
-    }
-    const commissionCap = numericValue(fieldValue(payload, "commissionCap"));
-    const maximumBudget = numericValue(fieldValue(payload, "maximumBudget") || fieldValue(payload, "expectedBudget"));
-    if (commissionCap > 0 && maximumBudget > 0 && commissionCap > maximumBudget) {
-      throw new AppError("Commission cap cannot exceed the maximum budget", 400, "INVALID_COMMISSION_CAP");
     }
   }
 }

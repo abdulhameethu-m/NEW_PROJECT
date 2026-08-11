@@ -109,8 +109,44 @@ function normalizeServiceDeliverable(row = {}, campaign = {}) {
   const total = money(row.total || row.totalPrice || row.price || row.packagePrice || 0);
   const unitPrice = money(row.unitPrice || (quantity ? total / quantity : total));
   const serviceName = row.serviceName || row.packageName || row.serviceType || row.serviceTypeKey || row.type || "Deliverable";
+  
+  if (Array.isArray(row.dueDates) && row.dueDates.length > 0) {
+    return row.dueDates.map((due, i) => {
+      const singleQuantity = 1;
+      return {
+        deliverableType: String(row.serviceTypeKey || row.serviceType || row.type || serviceName).toLowerCase().replace(/\s+/g, "_"),
+        title: `${serviceName} (Part ${i + 1})`,
+        quantity: singleQuantity,
+        unitPrice,
+        totalPrice: unitPrice,
+        currency: row.currency || campaign.pricing?.currency || "INR",
+        expectedCompletionDate: due,
+        dueDate: due,
+        dueTime: row.dueTime || row.deliveryTime || "",
+        source: "selected_services",
+        snapshot: row,
+      };
+    });
+  }
+
   const dueDate = row.dueDate || row.deliveryDate || row.expectedCompletionDate || campaign.endDate || campaign.deadline || undefined;
-  return {
+  if (quantity > 1) {
+    return Array.from({ length: quantity }).map((_, i) => ({
+      deliverableType: String(row.serviceTypeKey || row.serviceType || row.type || serviceName).toLowerCase().replace(/\s+/g, "_"),
+      title: `${serviceName} (Part ${i + 1})`,
+      quantity: 1,
+      unitPrice,
+      totalPrice: unitPrice,
+      currency: row.currency || campaign.pricing?.currency || "INR",
+      expectedCompletionDate: dueDate,
+      dueDate,
+      dueTime: row.dueTime || row.deliveryTime || "",
+      source: "selected_services",
+      snapshot: row,
+    }));
+  }
+
+  return [{
     deliverableType: String(row.serviceTypeKey || row.serviceType || row.type || serviceName).toLowerCase().replace(/\s+/g, "_"),
     title: serviceName,
     quantity,
@@ -122,18 +158,18 @@ function normalizeServiceDeliverable(row = {}, campaign = {}) {
     dueTime: row.dueTime || row.deliveryTime || "",
     source: "selected_services",
     snapshot: row,
-  };
+  }];
 }
 function dedupeDeliverables(rows = []) {
   const map = new Map();
   rows.forEach((row) => {
-    const key = [row.deliverableType, row.title, row.quantity, row.totalPrice].join(":");
+    const key = [row.deliverableType, row.title, row.quantity, row.totalPrice, row.dueDate].join(":");
     if (!map.has(key)) map.set(key, row);
   });
   return [...map.values()];
 }
 function deriveDeliverables(campaign = {}) {
-  const rows = dedupeDeliverables(serviceRows(campaign).map((row) => normalizeServiceDeliverable(row, campaign)));
+  const rows = dedupeDeliverables(serviceRows(campaign).flatMap((row) => normalizeServiceDeliverable(row, campaign)));
   if (rows.length) return rows;
   return fallbackDeliverables(campaign);
 }

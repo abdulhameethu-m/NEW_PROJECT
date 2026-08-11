@@ -230,11 +230,20 @@ const stepOneSchema = Joi.object({
     .min(8)
     .max(128)
     .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/)
-    .required()
+    .allow("")
+    .when("applicationId", {
+      is: Joi.exist().not(""),
+      then: Joi.optional(),
+      otherwise: Joi.required(),
+    })
     .messages({
       "string.pattern.base": "Password must include uppercase, lowercase, number, and special character",
     }),
-  confirmPassword: Joi.string().valid(Joi.ref("password")).required().messages({
+  confirmPassword: Joi.string().valid(Joi.ref("password")).allow("").when("applicationId", {
+    is: Joi.exist().not(""),
+    then: Joi.optional(),
+    otherwise: Joi.required(),
+  }).messages({
     "any.only": "Confirm password must match password",
   }),
   referralCode: Joi.string().trim().alphanum().max(40).allow("").default(""),
@@ -416,11 +425,7 @@ const servicePackageSchema = Joi.object({
   quantity: Joi.number().integer().min(1).default(1),
   price: Joi.number().min(0).default(0),
   currency: Joi.string().trim().max(8).default("INR"),
-  deliveryDays: Joi.number().integer().min(0).default(0),
-  deliveryLabel: Joi.string().trim().max(120).allow("").optional(),
-  revisionCount: Joi.number().integer().min(0).default(0),
   description: Joi.string().trim().max(1200).allow("").default(""),
-  status: Joi.string().valid("draft", "active", "inactive", "archived").default("active"),
   metadata: Joi.object().unknown(true).default({}),
 }).unknown(true);
 const serviceItemSchema = Joi.object({
@@ -432,17 +437,11 @@ const serviceItemSchema = Joi.object({
   key: Joi.string().trim().max(120).allow("").optional(),
   serviceName: Joi.string().trim().max(160).allow("").optional(),
   name: Joi.string().trim().max(160).allow("").optional(),
-  serviceCategory: Joi.string().trim().max(120).allow("").optional(),
-  category: Joi.string().trim().max(120).allow("").optional(),
   price: Joi.number().min(0).default(0),
   currency: Joi.string().trim().max(8).default("INR"),
   deliveryDays: Joi.number().integer().min(0).default(0),
   deliveryLabel: Joi.string().trim().max(120).allow("").optional(),
   revisionCount: Joi.number().integer().min(0).default(0),
-  minimumNoticePeriod: Joi.number().integer().min(0).default(0),
-  minNoticePeriod: Joi.number().integer().min(0).optional(),
-  contentApprovalRequired: Joi.boolean().default(false),
-  brandApprovalRequired: Joi.boolean().default(false),
   approvalRequired: Joi.boolean().optional(),
   active: Joi.boolean().optional(),
   description: Joi.string().trim().max(1200).allow("").default(""),

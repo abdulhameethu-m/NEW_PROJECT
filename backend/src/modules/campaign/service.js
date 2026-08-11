@@ -102,7 +102,7 @@ function selectedDeliverablesFromPayload(payload = {}) {
     ...(Array.isArray(payload.paymentModel?.services) ? payload.paymentModel.services : []),
   ];
   const seen = new Set();
-  return rows.filter((row) => {
+  const filtered = rows.filter((row) => {
     const key = [
       row.selectionKey,
       row.serviceId,
@@ -114,6 +114,12 @@ function selectedDeliverablesFromPayload(payload = {}) {
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
+  });
+  return filtered.flatMap((row) => {
+    if (Array.isArray(row.dueDates) && row.dueDates.length > 0) {
+      return row.dueDates.map((due) => ({ ...row, dueDate: due }));
+    }
+    return row;
   });
 }
 function validateDeliverableDueDates(payload, { contentStart, contentDeadline }) {
@@ -453,6 +459,14 @@ function presentCampaign(campaign, profileId) {
   const visibleStatus = INVITATION_OPEN_STATES.includes(campaignState)
     ? invitation?.status || application?.status || campaignState
     : application?.status || campaignState || invitation?.status;
+
+  const services = paymentModel?.selectedServices || paymentModel?.services || paymentModel?.snapshot?.input?.selectedServices || paymentModel?.paymentModel?.config?.selectedServices || paymentModel?.config?.selectedServices || [];
+  const maxServiceDueDate = services.reduce((max, s) => {
+    if (!s.dueDate) return max;
+    const d = new Date(s.dueDate);
+    return !max || d > new Date(max) ? s.dueDate : max;
+  }, null);
+
   return {
     id: campaign._id,
     _id: campaign._id,
@@ -524,7 +538,7 @@ function presentCampaign(campaign, profileId) {
     rejectionReason: invitation?.rejectionReason || "",
     timeline: {
       campaignStart: campaign.startDate || campaign.createdAt,
-      contentSubmissionDeadline: campaign.deadline || campaign.endDate || null,
+      contentSubmissionDeadline: campaign.contentCreationDeadline || maxServiceDueDate || campaign.deadline || campaign.endDate || null,
       revisionDeadline: null,
       publishingDeadline: null,
       campaignEndDate: campaign.endDate || campaign.deadline || campaign.marketplace?.applicationDeadline || null,
@@ -652,11 +666,6 @@ class CampaignService {
     validateCampaignEndDate(schedule.endDate || payload.endDate || payload.deadline, {
       invitationDeadline,
       contentCreationDays,
-    });
-    await ensureInfluencerCalendarOpen({
-      influencerId: influencer._id,
-      windowStart: createdAt,
-      windowEnd: invitationDeadline,
     });
     const requiresFunding = ["fixed", "hybrid"].includes(pricing.paymentType);
     const initialState = WORKFLOW.INVITATION_SENT;

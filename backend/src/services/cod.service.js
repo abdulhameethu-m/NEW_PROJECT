@@ -155,6 +155,13 @@ class CODService {
     const config = await this.getConfig();
     Object.assign(config, payload, { updatedBy: actorId || config.updatedBy });
     await config.save();
+    
+    // Clear checkout cache so the new COD settings are immediately reflected
+    const checkoutService = require("./checkout.service");
+    if (checkoutService && checkoutService.clearAllCaches) {
+      checkoutService.clearAllCaches();
+    }
+    
     return config;
   }
 

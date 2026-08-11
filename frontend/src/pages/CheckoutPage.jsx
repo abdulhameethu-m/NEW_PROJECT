@@ -1200,7 +1200,17 @@ export function CheckoutPage() {
                         <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">{option.description}</div>
                         {option.value === "COD" && codAvailability?.codAvailable === false ? (
                           <div className="mt-2 text-xs font-medium text-rose-600">
-                            COD unavailable: {(codAvailability.reasons || []).join(", ")}
+                            COD unavailable: {(codAvailability.reasons || []).map(r => {
+                              if (r === "ORDER_VALUE_BELOW_MINIMUM") return "Order value is below the minimum required";
+                              if (r === "ORDER_VALUE_EXCEEDED") return "Order value exceeded maximum allowed";
+                              if (r === "PINCODE_RESTRICTED") return "Not available for your pincode";
+                              if (r === "ZONE_RESTRICTED") return "Not available in your region";
+                              if (r === "COD_DISABLED") return "Temporarily disabled";
+                              if (r === "ADDRESS_REQUIRED") return "Address is required";
+                              if (String(r).startsWith("PRODUCT_RESTRICTED")) return "Some items don't support COD";
+                              if (String(r).startsWith("VENDOR_RESTRICTED")) return "A seller doesn't accept COD";
+                              return r;
+                            }).join(", ")}.
                           </div>
                         ) : null}
                       </div>
@@ -1221,11 +1231,7 @@ export function CheckoutPage() {
           <aside className="xl:sticky xl:top-24 xl:self-start">
             <div className="grid gap-4">
               <PriceBreakdown breakdown={priceBreakdown} />
-              {paymentMethod === "COD" && codAvailability?.codAvailable === false ? (
-                <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                  Cash on Delivery is unavailable for this address right now.
-                </div>
-              ) : null}
+
               {paymentMethod === "COD" && codAdvance?.enabled ? (
                 <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
                   <div className="flex items-center justify-between gap-4">

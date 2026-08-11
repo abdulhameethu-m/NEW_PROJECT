@@ -19,7 +19,6 @@ export const initialInfluencerStepOneForm = {
   username: "",
   password: "",
   confirmPassword: "",
-  referralCode: "",
   termsAccepted: false,
   privacyAccepted: false,
   notificationsAccepted: true,
@@ -103,7 +102,7 @@ export function validateInfluencerStepOne(values = {}, availability = {}) {
 
   if (firstName.length < 2) errors.firstName = "First name must be at least 2 characters.";
   if (firstName.length > 50) errors.firstName = "First name must be 50 characters or fewer.";
-  if (lastName.length < 2) errors.lastName = "Last name must be at least 2 characters.";
+  if (lastName.length < 1) errors.lastName = "Last name must be at least 1 character.";
   if (lastName.length > 50) errors.lastName = "Last name must be 50 characters or fewer.";
 
   if (!email) errors.email = "Email address is required.";

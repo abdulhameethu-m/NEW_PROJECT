@@ -142,8 +142,6 @@ const campaignSchema = new mongoose.Schema(
     commissionConfig: {
       commissionPercentage: { type: Number, min: 0, max: 50, default: 0 },
       attributionWindowDays: { type: Number, min: 0, default: 0 },
-      maxCampaignBudget: { type: Number, min: 0, default: 0 },
-      commissionCap: { type: Number, min: 0, default: 0 },
       deliverableCommissionRates: { type: [mongoose.Schema.Types.Mixed], default: [] },
       returnWindowDays: { type: Number, min: 0, default: 0 },
       currency: { type: String, trim: true, uppercase: true, default: "INR" },

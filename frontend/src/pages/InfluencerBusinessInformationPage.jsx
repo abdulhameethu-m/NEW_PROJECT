@@ -245,17 +245,7 @@ export function InfluencerBusinessInformationPage() {
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <h2 className="text-xl font-black">Business Type</h2>
-                <div className="mt-5 grid gap-4">
-                  <Field label="Business Type" required error={errors.businessType}>
-                    <select value={form.businessType} onChange={(event) => update("businessType", event.target.value)} className={inputClass(errors.businessType)}>
-                      {businessTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-                    </select>
-                  </Field>
-                  {form.businessType === "other" ? <Field label="Custom Business Type" required error={errors.customBusinessType}><input value={form.customBusinessType} onChange={(event) => update("customBusinessType", event.target.value)} maxLength={100} className={inputClass(errors.customBusinessType)} /></Field> : null}
-                </div>
-              </section>
+
 
               <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <h2 className="text-xl font-black">Tax Information</h2>
@@ -277,16 +267,7 @@ export function InfluencerBusinessInformationPage() {
               </section>
             </div>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <h2 className="text-xl font-black">Document Uploads</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Optional. PDF, PNG, JPG, or WEBP up to 10 MB.</p>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <DocumentUpload label="GST Certificate" file={files.gstCertificateFile} onChange={(file) => setFiles((current) => ({ ...current, gstCertificateFile: file }))} />
-                <DocumentUpload label="Business Registration" file={files.businessRegistrationFile} onChange={(file) => setFiles((current) => ({ ...current, businessRegistrationFile: file }))} />
-                <DocumentUpload label="Tax Registration" file={files.taxRegistrationFile} onChange={(file) => setFiles((current) => ({ ...current, taxRegistrationFile: file }))} />
-                <DocumentUpload label="Address Proof" file={files.addressProofFile} onChange={(file) => setFiles((current) => ({ ...current, addressProofFile: file }))} />
-              </div>
-            </section>
+
 
             {pageError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200" role="alert">{pageError}</div> : null}
 
@@ -294,6 +275,7 @@ export function InfluencerBusinessInformationPage() {
               <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">{lastSavedAt ? `Draft Saved ${new Date(lastSavedAt).toLocaleTimeString()}` : "Draft not saved yet"}</div>
               <div className="flex flex-wrap gap-3">
                 <button type="button" onClick={() => navigate("/influencer/register/profile-information", { state: { applicationId: form.applicationId } })} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"><ArrowLeft className="h-4 w-4" /> Back</button>
+                <button type="button" onClick={() => setForm({ ...initialInfluencerBusinessForm, applicationId: form.applicationId })} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200">Reset</button>
                 <button type="button" onClick={() => persist(false)} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save Draft</button>
                 <button type="button" onClick={continueNext} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Continue</button>
               </div>

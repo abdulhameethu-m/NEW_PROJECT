@@ -126,6 +126,7 @@ export const ADMIN_SECTION_ITEMS = [
       { name: "Inventory", path: "/admin/inventory", permission: "products.read", icon: Package2, notificationModule: "MANAGEMENT", notificationSubModule: "INVENTORY" },
       { name: "Orders", path: "/admin/orders", permission: "orders.read", icon: ShoppingCart, notificationModule: "MANAGEMENT", notificationSubModule: "ORDERS" },
       { name: "Pickups", path: "/admin/pickups", permission: "orders.read", icon: Truck, notificationModule: "MANAGEMENT", notificationSubModule: "DELIVERY" },
+      { name: "Reviews", path: "/admin/reviews", permission: "products.read", icon: Star, notificationModule: "MANAGEMENT", notificationSubModule: "REVIEWS" },
     ],
   },
   {

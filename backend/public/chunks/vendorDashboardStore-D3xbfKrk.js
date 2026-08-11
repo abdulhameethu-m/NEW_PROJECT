@@ -1,0 +1,1 @@
+import{n as e}from"./vendor-state-KGXyX27X.js";import{s as t}from"./vendorDashboardService-DzbY1w3p.js";var n=e(e=>({sidebarOpen:!0,dashboard:null,setSidebarOpen:t=>e({sidebarOpen:t}),fetchDashboard:async(n={})=>{let r=await t(n);return e({dashboard:r.data}),r.data}}));export{n as t};
