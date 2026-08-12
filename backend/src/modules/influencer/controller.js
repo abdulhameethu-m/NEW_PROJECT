@@ -37,6 +37,12 @@ const socialStatus = asyncHandler(async (req, res) =>
 const checkProfileSlug = asyncHandler(async (req, res) =>
   ok(res, await influencerService.checkProfileSlug(req.query.slug, req.query.applicationId), "Influencer profile slug checked")
 );
+const getSettings = asyncHandler(async (req, res) => 
+  ok(res, await influencerService.getSettings(req.user.sub), "Influencer settings loaded")
+);
+const updateSettings = asyncHandler(async (req, res) => 
+  ok(res, await influencerService.updateSettings(req.user.sub, req.body, req.files || []), "Influencer settings updated")
+);
 const getProfileDraft = asyncHandler(async (req, res) =>
   ok(res, await influencerService.getProfileDraft(req.query.applicationId), "Influencer profile draft loaded")
 );
@@ -157,6 +163,8 @@ module.exports = {
   fetchSocialMetrics,
   verifySocial,
   socialStatus,
+  getSettings,
+  updateSettings,
   checkProfileSlug,
   getProfileDraft,
   saveProfileDraft,

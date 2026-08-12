@@ -507,6 +507,11 @@ router.post("/profile", proofUpload.fields([
   { name: "coverBanner", maxCount: 1 },
   { name: "socialSharingImage", maxCount: 1 },
 ]), validate(profileSaveSchema), controller.saveProfileStep);
+
+router.get("/settings", authRequired, requireRole("influencer"), controller.getSettings);
+router.put("/settings", authRequired, requireRole("influencer"), proofUpload.fields([
+  { name: "profilePicture", maxCount: 1 },
+]), controller.updateSettings);
 router.get("/countries", controller.countries);
 router.get("/commission-settings", controller.commissionSettings);
 router.get("/business", validate(applicationQuerySchema, "query"), controller.getBusiness);

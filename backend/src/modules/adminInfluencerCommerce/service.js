@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 const auditService = require("../../services/audit.service");
 const notificationService = require("../../services/notification.service");
 const { isInfluencerCommerceEnabled, invalidateInfluencerCommerceConfigCache } = require("../../services/influencer-commerce-config.service");
@@ -10,8 +11,7 @@ const {
   InfluencerProfile,
   InfluencerApplication,
   InfluencerSocialAccount,
-  
-  
+  InfluencerPaymentProfile,
   InfluencerProductAssignment,
 } = require("../influencer/model");
 const {
@@ -27,6 +27,46 @@ const {
 } = require("../commission/models");
 const { TrackingSession } = require("../tracking/model");
 const { emitDomainEvent } = require("../events/event-bus");
+
+function encryptionKey() {
+  return crypto.createHash("sha256").update(process.env.DATA_ENCRYPTION_KEY || process.env.JWT_SECRET || "dev-influencer-key").digest();
+}
+function decryptSensitive(encryptedData = "") {
+  if (!encryptedData || typeof encryptedData !== "string") return "";
+  const parts = encryptedData.split(":");
+  if (parts.length !== 3) return "";
+  try {
+    const iv = Buffer.from(parts[0], "hex");
+    const tag = Buffer.from(parts[1], "hex");
+    const text = Buffer.from(parts[2], "hex");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", encryptionKey(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(text), decipher.final()]).toString("utf8");
+  } catch (e) {
+    return "";
+  }
+}
+
+
+function encryptionKey() {
+  return crypto.createHash("sha256").update(process.env.DATA_ENCRYPTION_KEY || process.env.JWT_SECRET || "dev-influencer-key").digest();
+}
+function decryptSensitive(encryptedData = "") {
+  if (!encryptedData || typeof encryptedData !== "string") return "";
+  const parts = encryptedData.split(":");
+  if (parts.length !== 3) return "";
+  try {
+    const iv = Buffer.from(parts[0], "hex");
+    const tag = Buffer.from(parts[1], "hex");
+    const text = Buffer.from(parts[2], "hex");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", encryptionKey(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(text), decipher.final()]).toString("utf8");
+  } catch (e) {
+    return "";
+  }
+}
+
 async function upsertProductAssignments({ campaign, influencerId, status = "approved", source = "admin_manual", actorId = null }) {
   const now = new Date();
   await Promise.all((campaign.productIds || []).map((productId) => InfluencerProductAssignment.findOneAndUpdate(
@@ -1144,16 +1184,43 @@ class AdminInfluencerCommerceService {
         .limit(100)
         .lean(),
     ]);
-    const accountIds = wallets.map((wallet) => wallet.influencerId?._id || wallet.influencerId);
+        const accountIds = wallets.map((wallet) => wallet.influencerId?._id || wallet.influencerId);
     const accounts = await InfluencerPayoutAccount.find({ influencerId: { $in: accountIds }, isActive: true }).lean();
     const accountMap = new Map(accounts.map((account) => [String(account.influencerId), account]));
+    
+    const withdrawalInfluencerIds = [...new Set(withdrawals.map(w => String(w.influencerId?._id || w.influencerId)))];
+    const paymentProfiles = await InfluencerPaymentProfile.find({ influencerId: { $in: withdrawalInfluencerIds } }).lean();
+    const paymentProfileMap = new Map(paymentProfiles.map(p => [String(p.influencerId), p]));
+
     return {
       items: wallets.map((wallet) => ({ ...wallet, influencerName: influencerName(wallet.influencerId), payoutAccount: accountMap.get(String(wallet.influencerId?._id || wallet.influencerId)) })),
-      withdrawalRequests: withdrawals.map((request) => ({
-        ...request,
-        influencerName: influencerName(request.influencerId),
-        accountLabel: request.bankAccountId?.bankName || request.bankAccountId?.paymentMethod || "",
-      })),
+      withdrawalRequests: withdrawals.map((request) => {
+        let accountLabel = request.bankAccountId?.bankName || request.bankAccountId?.paymentMethod || "";
+        let bankAccountDetails = request.bankAccountId || null;
+        
+        if (request.metadata?.selectedAccountId) {
+          const profile = paymentProfileMap.get(String(request.influencerId?._id || request.influencerId));
+          if (profile && profile.additionalBankAccounts) {
+            const selected = profile.additionalBankAccounts.find(acc => String(acc._id) === String(request.metadata.selectedAccountId));
+            if (selected) {
+              accountLabel = selected.bankName || selected.payoutMethod || "Saved Account";
+              bankAccountDetails = {
+                ...selected,
+                upiId: selected.upiIdEncrypted ? decryptSensitive(selected.upiIdEncrypted) : "",
+                paypalEmail: selected.paypalEmailEncrypted ? decryptSensitive(selected.paypalEmailEncrypted) : "",
+                accountNumber: selected.accountNumberEncrypted ? decryptSensitive(selected.accountNumberEncrypted) : "",
+              };
+            }
+          }
+        }
+        
+        return {
+          ...request,
+          influencerName: influencerName(request.influencerId),
+          accountLabel,
+          bankAccountDetails,
+        };
+      }),
       pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     };
   }

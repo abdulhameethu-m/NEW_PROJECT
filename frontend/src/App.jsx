@@ -67,6 +67,7 @@ const OrderSuccessPage = lazyNamed(() => import("./pages/OrderSuccessPage"), "Or
 const InfluencerPublicStorefrontPage = lazyNamed(() => import("./pages/InfluencerPublicStorefrontPage"), "InfluencerPublicStorefrontPage");
 const InfluencerLayout = lazyNamed(() => import("./pages/influencer/InfluencerLayout"), "InfluencerLayout");
 const InfluencerDashboardPage = lazyDefault(() => import("./pages/influencer/dashboard.jsx"));
+const InfluencerSettingsPage = lazyDefault(() => import("./pages/influencer/settings.jsx"));
 const InfluencerEarningsWithdrawalsPage = lazyDefault(() => import("./pages/influencer/earningsWithdrawals.jsx"));
 const InfluencerCampaignEarningsPage = lazyNamed(() => import("./pages/CampaignFinancePages"), "InfluencerCampaignEarningsPage");
 const InfluencerCollectionsPage = lazyDefault(() => import("./pages/influencer/collections.jsx"));
@@ -257,6 +258,7 @@ export default function App() {
             <Route path="/influencer" element={<Navigate to="/influencer/dashboard" replace />} />
             <Route element={<InfluencerLayout />}>
               <Route path="/influencer/dashboard" element={<InfluencerDashboardPage />} />
+              <Route path="/influencer/settings" element={<InfluencerSettingsPage />} />
               <Route path="/influencer/earnings-withdrawals" element={<InfluencerEarningsWithdrawalsPage />} />
               <Route path="/influencer/finance/campaign-earnings" element={<InfluencerCampaignEarningsPage />} />
               <Route path="/influencer/collections" element={<InfluencerCollectionsPage />} />

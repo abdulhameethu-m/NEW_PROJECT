@@ -847,7 +847,27 @@ function PayoutsView({ items, withdrawalRequests = [], pagination, setFilters, r
               <td className="px-3 py-3">{formatCurrency(row.amount || 0)}</td>
               <td className="px-3 py-3"><StatusBadge value={row.status} /></td>
               <td className="px-3 py-3">{dateValue(row.requestedAt)}</td>
-              <td className="px-3 py-3">{text(row.accountLabel || row.bankAccountId?.bankName || row.bankAccountId?.paymentMethod)}</td>
+              <td className="px-3 py-3">
+                <div className="font-medium text-slate-800 dark:text-slate-200">
+                  {text(row.accountLabel || row.bankAccountId?.bankName || row.bankAccountId?.paymentMethod)}
+                </div>
+                {row.bankAccountDetails && (
+                  <div className="mt-1.5 space-y-0.5 rounded-md bg-slate-50 p-2 text-xs text-slate-600 dark:bg-slate-900/50 dark:text-slate-400">
+                    {row.bankAccountDetails.payoutMethod === "upi" ? (
+                      <div><span className="font-semibold text-slate-500">UPI ID:</span> {row.bankAccountDetails.upiId || "-"}</div>
+                    ) : row.bankAccountDetails.payoutMethod === "paypal" ? (
+                      <div><span className="font-semibold text-slate-500">PayPal:</span> {row.bankAccountDetails.paypalEmail || "-"}</div>
+                    ) : (
+                      <>
+                        {row.bankAccountDetails.bankName && <div><span className="font-semibold text-slate-500">Bank:</span> {row.bankAccountDetails.bankName}</div>}
+                        {row.bankAccountDetails.accountNumber && <div><span className="font-semibold text-slate-500">A/C:</span> {row.bankAccountDetails.accountNumber}</div>}
+                        {row.bankAccountDetails.ifscCode && <div><span className="font-semibold text-slate-500">IFSC:</span> {row.bankAccountDetails.ifscCode}</div>}
+                        {row.bankAccountDetails.accountHolderName && <div><span className="font-semibold text-slate-500">Name:</span> {row.bankAccountDetails.accountHolderName}</div>}
+                      </>
+                    )}
+                  </div>
+                )}
+              </td>
               <td className="px-3 py-3">{text(row.transactionReference)}</td>
               <td className="px-3 py-3">
                 <div className="flex flex-wrap gap-2">

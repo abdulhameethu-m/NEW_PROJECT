@@ -384,6 +384,20 @@ const influencerPaymentProfileSchema = new mongoose.Schema(
     upiIdEncrypted: { type: String, trim: true, default: "" },
     paypalEmailEncrypted: { type: String, trim: true, default: "" },
     payoneerEmailEncrypted: { type: String, trim: true, default: "" },
+    additionalBankAccounts: [{
+      payoutMethod: { type: String, enum: ["bank_transfer", "upi", "paypal", "stripe_connect", "wise", "payoneer"], default: "bank_transfer" },
+      accountHolderName: { type: String, trim: true, default: "" },
+      bankName: { type: String, trim: true, default: "" },
+      branchName: { type: String, trim: true, default: "" },
+      accountNumberEncrypted: { type: String, trim: true, default: "" },
+      accountNumberMask: { type: String, trim: true, default: "" },
+      ifscCode: { type: String, trim: true, uppercase: true, default: "" },
+      swiftCode: { type: String, trim: true, uppercase: true, default: "" },
+      routingNumber: { type: String, trim: true, default: "" },
+      upiIdEncrypted: { type: String, trim: true, default: "" },
+      paypalEmailEncrypted: { type: String, trim: true, default: "" },
+      isPrimary: { type: Boolean, default: false }
+    }],
     agreements: {
       payoutPolicy: { type: Boolean, default: false },
       commissionTerms: { type: Boolean, default: false },

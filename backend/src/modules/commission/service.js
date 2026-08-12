@@ -3286,17 +3286,33 @@ class CommissionService {
       isVerified: Boolean(account.isVerified),
       verificationStatus: account.verificationStatus,
     }));
-    if (!bankAccounts.length && paymentProfile) {
-      bankAccounts.push({
-        id: "",
-        label: paymentProfile.bankName || paymentProfile.payoutMethod || "Registered payment profile",
-        paymentMethod: paymentProfile.payoutMethod,
-        accountHolderName: paymentProfile.accountHolderName,
-        accountNumberMask: paymentProfile.accountNumberMask || "",
-        isDefault: true,
-        isVerified: paymentProfile.status === "verified",
-        verificationStatus: String(paymentProfile.status || "draft").toUpperCase(),
-      });
+
+    if (paymentProfile) {
+      if (paymentProfile.additionalBankAccounts && paymentProfile.additionalBankAccounts.length) {
+        paymentProfile.additionalBankAccounts.forEach((acc) => {
+          bankAccounts.push({
+            id: String(acc._id),
+            label: acc.bankName || acc.payoutMethod || "Saved Payment Method",
+            paymentMethod: acc.payoutMethod,
+            accountHolderName: acc.accountHolderName,
+            accountNumberMask: acc.accountNumberMask || (acc.upiIdEncrypted ? "UPI" : acc.paypalEmailEncrypted ? "PayPal" : ""),
+            isDefault: acc.isPrimary,
+            isVerified: paymentProfile.status === "verified",
+            verificationStatus: String(paymentProfile.status || "draft").toUpperCase(),
+          });
+        });
+      } else if (!bankAccounts.length) {
+        bankAccounts.push({
+          id: "",
+          label: paymentProfile.bankName || paymentProfile.payoutMethod || "Registered payment profile",
+          paymentMethod: paymentProfile.payoutMethod,
+          accountHolderName: paymentProfile.accountHolderName,
+          accountNumberMask: paymentProfile.accountNumberMask || "",
+          isDefault: true,
+          isVerified: paymentProfile.status === "verified",
+          verificationStatus: String(paymentProfile.status || "draft").toUpperCase(),
+        });
+      }
     }
 
     const kycApproved = ["active", "verified"].includes(String(profile.state || "").toLowerCase()) || businessProfile?.status === "verified";
@@ -3470,9 +3486,30 @@ class CommissionService {
       InfluencerWithdrawalRequest.findOne({ influencerId, status: { $in: ["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING"] } }).lean(),
     ]);
 
+    let selectedAdditionalAccount = null;
+    if (paymentProfile && paymentProfile.additionalBankAccounts) {
+      selectedAdditionalAccount = paymentProfile.additionalBankAccounts.find(acc => String(acc._id) === payload.bankAccountId);
+    }
+    
+    console.log("DEBUG WITHDRAWAL:", {
+      bankAccountId: payload.bankAccountId,
+      hasPaymentProfile: !!paymentProfile,
+      additionalAccountsLength: paymentProfile?.additionalBankAccounts?.length,
+      selectedAdditionalAccount: !!selectedAdditionalAccount,
+      payoutAccountFound: !!payoutAccount,
+      paymentProfileStatus: paymentProfile?.status
+    });
+
     const kycApproved = ["active", "verified"].includes(String(profile.state || "").toLowerCase()) || businessProfile?.status === "verified";
     if (!kycApproved) throw new AppError("KYC must be approved before withdrawal", 400, "KYC_NOT_APPROVED");
-    const bankVerified = Boolean(payoutAccount?.isVerified || payoutAccount?.verificationStatus === "VERIFIED" || paymentProfile?.status === "verified");
+    
+    const bankVerified = Boolean(
+      payoutAccount?.isVerified || 
+      payoutAccount?.verificationStatus === "VERIFIED" || 
+      paymentProfile?.status === "verified" ||
+      selectedAdditionalAccount // Treat user-saved additional accounts as valid for withdrawal request submission
+    );
+    
     if (!bankVerified) throw new AppError("Verified bank account is required before withdrawal", 400, "BANK_ACCOUNT_NOT_VERIFIED");
     if (pendingRequest) throw new AppError("A withdrawal request is already pending review", 409, "PENDING_WITHDRAWAL_EXISTS");
 
@@ -3499,6 +3536,7 @@ class CommissionService {
         metadata: {
           requestedBy: actor?.sub || actor?._id || userId,
           ipAddress: meta?.ipAddress || "",
+          selectedAccountId: payload.bankAccountId || null,
         },
       }], { session: session || undefined });
 
@@ -3510,7 +3548,10 @@ class CommissionService {
 
       const updatedWallet = await InfluencerWallet.findByIdAndUpdate(
         wallet._id,
-        { $set: { availableBalance: Math.max(0, nextAvailable) } },
+        { 
+          $set: { availableBalance: Math.max(0, nextAvailable) },
+          $inc: { pendingBalance: amount }
+        },
         { returnDocument: "after", runValidators: true, session: session || undefined }
       );
 

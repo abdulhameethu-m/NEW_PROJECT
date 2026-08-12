@@ -151,6 +151,22 @@ export async function getInfluencerCommerceProfile() {
   return data;
 }
 
+export async function getInfluencerSettings() {
+  const { data } = await api.get("/api/influencer/settings");
+  return data;
+}
+
+export async function updateInfluencerSettings(payload) {
+  if (payload instanceof FormData) {
+    const { data } = await api.put("/api/influencer/settings", payload, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  }
+  const { data } = await api.put("/api/influencer/settings", payload);
+  return data;
+}
+
 export async function saveInfluencerServices(payload = {}) {
   const { data } = await api.put("/api/influencer/services", payload);
   return data;

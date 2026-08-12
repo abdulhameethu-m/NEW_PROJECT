@@ -82,6 +82,13 @@ const INFLUENCER_SECTIONS = [
       { name: "Campaign Analytics", path: "/influencer/campaigns", matchSearch: "?tab=analytics", icon: BarChart3 },
     ],
   },
+  {
+    section: "Settings",
+    key: "settings",
+    items: [
+      { name: "Profile Settings", path: "/influencer/settings", icon: Settings },
+    ],
+  },
 ];
 
 function withQueryPath(item) {
@@ -99,6 +106,10 @@ const pageMeta = {
   "/influencer/dashboard": {
     title: "Dashboard",
     subtitle: "Track earnings, campaign performance, and creator growth metrics.",
+  },
+  "/influencer/settings": {
+    title: "Profile Settings",
+    subtitle: "Manage your public profile, storefront, and account preferences.",
   },
   "/influencer/collections": {
     title: "Collections",

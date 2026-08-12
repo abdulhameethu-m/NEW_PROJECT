@@ -533,6 +533,23 @@ function encryptSensitive(value = "") {
   return `${iv.toString("hex")}:${tag.toString("hex")}:${encrypted.toString("hex")}`;
 }
 
+function decryptSensitive(encryptedData = "") {
+  if (!encryptedData || typeof encryptedData !== "string") return "";
+  const parts = encryptedData.split(":");
+  if (parts.length !== 3) return "";
+  try {
+    const iv = Buffer.from(parts[0], "hex");
+    const tag = Buffer.from(parts[1], "hex");
+    const text = Buffer.from(parts[2], "hex");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", encryptionKey(), iv);
+    decipher.setAuthTag(tag);
+    const decrypted = Buffer.concat([decipher.update(text), decipher.final()]);
+    return decrypted.toString("utf8");
+  } catch (err) {
+    return "";
+  }
+}
+
 function maskAccount(value = "") {
   const text = cleanString(value);
   if (!text) return "";
@@ -1120,6 +1137,186 @@ class InfluencerService {
       requirements: DEFAULT_SOCIAL_REQUIREMENTS,
       canContinue: accounts.some((account) => account.verificationStatus === "verified" || account.verificationStatus === "under_review"),
     };
+  }
+
+  async getSettings(userId) {
+    const profile = await InfluencerProfile.findOne({ userId }).lean();
+    if (!profile) throw new AppError("Influencer profile not found", 404, "NOT_FOUND");
+    
+    const [businessProfile, paymentProfile] = await Promise.all([
+      InfluencerBusinessProfile.findOne({ influencerId: profile._id }).lean(),
+      InfluencerPaymentProfile.findOne({ influencerId: profile._id }).lean()
+    ]);
+    if (paymentProfile && paymentProfile.additionalBankAccounts) {
+      paymentProfile.additionalBankAccounts = paymentProfile.additionalBankAccounts.map(acc => {
+        if (acc.upiIdEncrypted) acc.upiId = decryptSensitive(acc.upiIdEncrypted);
+        if (acc.paypalEmailEncrypted) acc.paypalEmail = decryptSensitive(acc.paypalEmailEncrypted);
+        return acc;
+      });
+    }
+
+    return {
+      ...profile,
+      businessProfile: businessProfile || {},
+      paymentProfile: paymentProfile || {}
+    };
+  }
+
+  async updateSettings(userId, payload = {}, files = []) {
+    const profile = await InfluencerProfile.findOne({ userId });
+    if (!profile) throw new AppError("Influencer profile not found", 404, "NOT_FOUND");
+
+    if (payload.displayName) profile.displayName = String(payload.displayName).substring(0, 100);
+    if (payload.shortBio !== undefined) profile.shortBio = String(payload.shortBio).substring(0, 160);
+    if (payload.longBio !== undefined) profile.longBio = String(payload.longBio).substring(0, 2000);
+    if (payload.bio !== undefined) profile.bio = String(payload.bio).substring(0, 1200);
+    if (payload.primaryCategory) profile.primaryCategory = String(payload.primaryCategory);
+    
+    if (payload.socialHandles) {
+      const handles = typeof payload.socialHandles === "string" ? JSON.parse(payload.socialHandles) : payload.socialHandles;
+      profile.socialHandles = {
+        ...profile.socialHandles,
+        ...handles
+      };
+    }
+
+    if (payload.location) {
+      const loc = typeof payload.location === "string" ? JSON.parse(payload.location) : payload.location;
+      profile.location = {
+        ...profile.location,
+        ...loc
+      };
+    }
+    
+    if (payload.storeName) profile.storeName = String(payload.storeName).substring(0, 120);
+    if (payload.storeSlug) {
+      const newSlug = slugify(String(payload.storeSlug));
+      if (newSlug !== profile.storeSlug) {
+        const [existingProfile, existingApp] = await Promise.all([
+          InfluencerProfile.findOne({ storeSlug: newSlug }).select("_id").lean(),
+          InfluencerApplication.findOne({ "profileDraft.storeSlug": newSlug }).select("_id").lean(),
+        ]);
+        if (existingProfile || existingApp) throw new AppError("Store slug is already in use", 400, "SLUG_UNAVAILABLE");
+        profile.storeSlug = newSlug;
+      }
+    }
+
+    if (payload.seo) {
+      const seo = typeof payload.seo === "string" ? JSON.parse(payload.seo) : payload.seo;
+      profile.seo = {
+        ...profile.seo,
+        ...seo
+      };
+    }
+
+    if (payload.preferences) {
+      const pref = typeof payload.preferences === "string" ? JSON.parse(payload.preferences) : payload.preferences;
+      profile.preferences = {
+        ...profile.preferences,
+        ...pref
+      };
+    }
+
+    if (payload.privacy) {
+      const priv = typeof payload.privacy === "string" ? JSON.parse(payload.privacy) : payload.privacy;
+      profile.privacy = {
+        ...profile.privacy,
+        ...priv
+      };
+    }
+
+    if (payload.addressDetails) {
+      const address = typeof payload.addressDetails === "string" ? JSON.parse(payload.addressDetails) : payload.addressDetails;
+      await InfluencerBusinessProfile.updateOne(
+        { influencerId: profile._id },
+        {
+          $set: {
+            country: address.country || "",
+            state: address.state || "",
+            city: address.city || "",
+            address1: address.address1 || "",
+            address2: address.address2 || "",
+            postalCode: address.postalCode || "",
+            phone: address.phone || "",
+          }
+        },
+        { upsert: true }
+      );
+    }
+
+    if (payload.accountDetails) {
+      const account = typeof payload.accountDetails === "string" ? JSON.parse(payload.accountDetails) : payload.accountDetails;
+      const paymentUpdate = {
+        payoutMethod: account.payoutMethod || "bank_transfer",
+        accountHolderName: account.accountHolderName || "",
+        bankName: account.bankName || "",
+        branchName: account.branchName || "",
+        ifscCode: account.ifscCode || "",
+        swiftCode: account.swiftCode || "",
+        routingNumber: account.routingNumber || "",
+      };
+      
+      if (account.accountNumber && account.accountNumber.indexOf("X") === -1) {
+        paymentUpdate.accountNumberEncrypted = encryptSensitive(account.accountNumber);
+        paymentUpdate.accountNumberMask = maskAccount(account.accountNumber);
+      }
+      
+      if (account.upiId && account.upiId.indexOf("X") === -1) {
+        paymentUpdate.upiIdEncrypted = encryptSensitive(account.upiId);
+      }
+      
+      if (account.paypalEmail && account.paypalEmail.indexOf("X") === -1) {
+        paymentUpdate.paypalEmailEncrypted = encryptSensitive(account.paypalEmail);
+      }
+
+      if (account.additionalBankAccounts && Array.isArray(account.additionalBankAccounts)) {
+        paymentUpdate.additionalBankAccounts = account.additionalBankAccounts.map((acc) => {
+          const processedAcc = {
+            payoutMethod: acc.payoutMethod || "bank_transfer",
+            accountHolderName: acc.accountHolderName || "",
+            bankName: acc.bankName || "",
+            branchName: acc.branchName || "",
+            ifscCode: acc.ifscCode || "",
+            swiftCode: acc.swiftCode || "",
+            routingNumber: acc.routingNumber || "",
+            isPrimary: acc.isPrimary || false,
+            accountNumberEncrypted: acc.accountNumberEncrypted || "",
+            accountNumberMask: acc.accountNumberMask || "",
+            upiIdEncrypted: acc.upiIdEncrypted || "",
+            paypalEmailEncrypted: acc.paypalEmailEncrypted || "",
+          };
+
+          if (acc.accountNumber && acc.accountNumber.indexOf("X") === -1) {
+            processedAcc.accountNumberEncrypted = encryptSensitive(acc.accountNumber);
+            processedAcc.accountNumberMask = maskAccount(acc.accountNumber);
+          }
+          if (acc.upiId && acc.upiId.indexOf("X") === -1) {
+            processedAcc.upiIdEncrypted = encryptSensitive(acc.upiId);
+          }
+          if (acc.paypalEmail && acc.paypalEmail.indexOf("X") === -1) {
+            processedAcc.paypalEmailEncrypted = encryptSensitive(acc.paypalEmail);
+          }
+          
+          return processedAcc;
+        });
+      }
+      
+      console.log("DEBUG: paymentUpdate before save:", JSON.stringify(paymentUpdate, null, 2));
+
+      await InfluencerPaymentProfile.updateOne(
+        { influencerId: profile._id },
+        { $set: paymentUpdate },
+        { upsert: true }
+      );
+    }
+
+    const pictureFile = files.find((f) => f.fieldname === "profilePicture");
+    if (pictureFile) {
+      profile.profilePicture = `/uploads/influencer/profile/${pictureFile.filename}`;
+    }
+
+    await profile.save();
+    return profile.toObject();
   }
 
   async checkProfileSlug(slug, applicationId = "") {
