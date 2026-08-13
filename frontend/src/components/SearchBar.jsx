@@ -66,7 +66,7 @@ export function SearchBar({ className = "" }) {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => searchQuery.trim().length > 0 && setShowResults(true)}
-          className="w-full rounded-full border border-slate-200/80 bg-white/95 py-3.5 pl-11 pr-12 text-sm text-slate-900 shadow-[0_14px_40px_-28px_rgba(15,23,42,0.5)] outline-none transition duration-300 placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-100 dark:border-white/10 dark:bg-slate-900/80 dark:text-white dark:focus:border-indigo-400/30 dark:focus:ring-indigo-500/10"
+          className="w-full rounded-full border bg-[var(--theme-search-background,#FFFFFF)] border-[var(--theme-navbar-border,#DBEAFE)] text-[var(--theme-search-text,#1F2937)] py-3.5 pl-11 pr-12 text-sm shadow-none outline-none transition duration-300 focus:ring-4 focus:ring-indigo-100"
         />
         {searchQuery && (
           <button
@@ -115,7 +115,6 @@ export function SearchBar({ className = "" }) {
                       {product.images?.[0]?.url ? (
                         <img loading="lazy" decoding="async" src={resolveApiAssetUrl(product.images[0].url)}
                           alt={product.images?.[0]?.altText || product.name}
-                          loading="lazy"
                           className="h-full w-full object-cover"
                         />
                       ) : null}

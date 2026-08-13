@@ -39,7 +39,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isHovering, setIsHovering] = useState(false);
   const productId = useMemo(() => extractProductId(product), [product]);
-  
+
   // Get all product images
   const allImages = useMemo(() => product?.images?.filter((img) => img?.url) || [], [product?.images]);
   const imageUrl = resolveApiAssetUrl(allImages[currentImageIndex]?.url || allImages[0]?.url || "");
@@ -202,8 +202,8 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
 
   return (
     <Motion.article
-    whileHover={{ y: -4 }}
-    transition={{ type: "spring", stiffness: 280, damping: 24 }}
+      whileHover={{ y: -4 }}
+      transition={{ type: "spring", stiffness: 280, damping: 24 }}
       onClick={navigateToProduct}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -216,8 +216,12 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
       role="link"
       tabIndex={0}
       className={`group relative flex flex-col h-full overflow-hidden rounded-2xl transition-all duration-300 ${cardStyleClass}`}
+      style={{
+        backgroundColor: "var(--theme-product-card-background)",
+        borderColor: "var(--theme-product-card-border)"
+      }}
     >
-      <div 
+      <div
         className={`relative w-full ${imageAspectClass} bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-slate-800 overflow-hidden flex-shrink-0`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -286,11 +290,10 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
             <Heart
               size={13}
               strokeWidth={1.5}
-              className={`transition-all duration-300 ${
-                isInWishlist
-                  ? "fill-red-500 text-red-500"
-                  : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-              }`}
+              className={`transition-all duration-300 ${isInWishlist
+                ? "fill-red-500 text-red-500"
+                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                }`}
             />
           </button>
 
@@ -301,6 +304,10 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
             className="flex items-center justify-center w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             title={inStock ? `Add ${product?.name || product?.title || "item"} to cart` : "Out of stock"}
             aria-label={inStock ? `Add ${product?.name || product?.title || "item"} to cart` : "Out of stock"}
+            style={{
+              backgroundColor: "var(--theme-product-button-background)",
+              color: "var(--theme-product-button-text)"
+            }}
           >
             <ShoppingCart size={12} strokeWidth={2} />
           </button>
@@ -314,7 +321,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
 
         {/* Product Name */}
         <div className="min-h-[2.5rem]">
-          <h3 className={titleTextClass} title={product.name}>{product.name}</h3>
+          <h3 className={titleTextClass} title={product.name} style={{ color: "var(--theme-product-title)" }}>{product.name}</h3>
         </div>
 
         {!inStock && (
@@ -329,8 +336,8 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         {/* Rating */}
         {product?.ratings?.averageRating > 0 ? (
           <div className="flex items-center gap-1">
-            <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-amber-500 text-amber-500" />
-            <span className={ratingTextClass}>
+            <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-amber-500 text-amber-500" style={{ fill: "var(--theme-product-rating)", color: "var(--theme-product-rating)" }} />
+            <span className={ratingTextClass} style={{ color: "var(--theme-product-rating)" }}>
               {Number(product.ratings.averageRating).toFixed(1)}
             </span>
           </div>
@@ -339,17 +346,17 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         {/* Pricing */}
         <div className="space-y-0.5">
           <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-            <span className={`${priceCurrentClass} text-[13px] sm:text-sm`}>
+            <span className={`${priceCurrentClass} text-[13px] sm:text-sm`} style={{ color: "var(--theme-product-price)" }}>
               {formatCurrency(product.discountPrice || product.price)}
             </span>
             {product.discountPrice && (
-              <span className={priceOriginalClass}>
+              <span className={priceOriginalClass} style={{ color: "var(--theme-product-old-price)" }}>
                 {formatCurrency(product.price)}
               </span>
             )}
             {discountPercent > 0 && (
-              <div className="shrink-0 rounded bg-gradient-to-br from-orange-500 to-red-500 px-1 py-0.5 shadow-sm">
-                <div className="text-[9px] font-bold text-white leading-none tracking-wider">{discountPercent}% OFF</div>
+              <div className="shrink-0 rounded bg-gradient-to-br from-orange-500 to-red-500 px-1 py-0.5 shadow-sm" style={{ background: "var(--theme-product-discount-background)" }}>
+                <div className="text-[9px] font-bold text-white leading-none tracking-wider" style={{ color: "var(--theme-product-discount-text)" }}>{discountPercent}% OFF</div>
               </div>
             )}
           </div>

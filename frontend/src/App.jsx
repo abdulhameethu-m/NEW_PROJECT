@@ -145,6 +145,7 @@ const AdminProductAnalyticsDetailPage = lazyNamed(() => import("./pages/AdminPro
 const AdminRevenuePage = lazyNamed(() => import("./pages/AdminRevenuePage"), "AdminRevenuePage");
 const AuditLogsPage = lazyNamed(() => import("./pages/AuditLogsPage"), "AuditLogsPage");
 const AdminSettingsPage = lazyNamed(() => import("./pages/AdminSettingsPage"), "AdminSettingsPage");
+const AdminDynamicThemePage = lazyNamed(() => import("./pages/AdminDynamicThemePage"), "AdminDynamicThemePage");
 const AdminCompanyBrandingPage = lazyNamed(() => import("./pages/AdminCompanyBrandingPage"), "AdminCompanyBrandingPage");
 const AdminMaintenancePage = lazyNamed(() => import("./pages/AdminMaintenancePage"), "AdminMaintenancePage");
 const AdminCatalogRequestsPage = lazyNamed(() => import("./pages/AdminCatalogRequestsPage"), "AdminCatalogRequestsPage");
@@ -373,6 +374,7 @@ export default function App() {
               <Route path="revenue" element={<AdminRevenuePage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
+              <Route path="settings/dynamic-theme" element={<AdminDynamicThemePage />} />
               <Route path="settings/company-branding" element={<AdminCompanyBrandingPage />} />
               <Route path="settings/maintenance" element={<AdminMaintenancePage />} />
               <Route path="pricing" element={<AdminPricingPage />} />

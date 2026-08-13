@@ -20,14 +20,79 @@ input[type="password"]::-ms-clear {
 
 body {
   font-family: "Manrope", sans-serif;
-  @apply bg-slate-50 text-slate-900 antialiased;
+  background: var(--theme-background, #f8fafc);
+  color: var(--theme-text, #0f172a);
+  @apply antialiased;
 }
 
 :root {
-  --commerce-accent: #0f766e;
-  --commerce-accent-soft: rgba(15, 118, 110, 0.08);
-  --commerce-accent-warm: #fbbf24;
-  --surface-glow: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(236, 72, 153, 0.08));
+  /* Core Brand Colors */
+  --theme-primary: #1D4ED8;       /* Primary Blue */
+  --theme-secondary: #0F2A43;     /* Dark Navy */
+  --theme-accent: #F97316;        /* Orange */
+  
+  /* Additional Palette Colors */
+  --theme-light-blue: #3B82F6;
+  --theme-pale-blue: #DBEAFE;
+  --theme-light-orange: #FFE0D5;
+  --theme-pale-bg: #FFF4F6;
+  
+  /* Gradients from Palette */
+  --theme-gradient-primary: linear-gradient(135deg, #1D4ED8 0%, #F97316 100%);
+  --theme-gradient-secondary: linear-gradient(135deg, #0F2A43 0%, #1D4ED8 55%, #F97316 100%);
+  
+  --commerce-accent: #F97316;
+  --commerce-accent-soft: rgba(249, 115, 22, 0.08);
+  --commerce-accent-warm: #FFE0D5;
+  --surface-glow: linear-gradient(135deg, rgba(29, 78, 216, 0.15), rgba(249, 115, 22, 0.08));
+
+  /* Dynamic Theme Fallbacks */
+  --theme-background: #F8FAFC;
+  --theme-surface: #FFFFFF;
+  --theme-text: #1F2937;
+  --theme-muted-text: #3B82F6;
+  --theme-border: #DBEAFE;
+
+  --theme-navbar-background: #FFFFFF;
+  --theme-navbar-text: #0F2A43;
+  --theme-navbar-hover: #F97316;
+  --theme-navbar-active: #1D4ED8;
+  --theme-navbar-icon: #0F2A43;
+  --theme-navbar-border: #DBEAFE;
+  
+  --theme-search-background: #FFF4F6;
+  --theme-search-text: #1F2937;
+
+  --theme-footer-background: #0F2A43;
+  --theme-footer-text: #DBEAFE;
+  --theme-footer-heading: #FFFFFF;
+  --theme-footer-link: #3B82F6;
+  --theme-footer-link-hover: #F97316;
+  --theme-footer-border: #1D4ED8;
+  
+  --theme-newsletter-background: #1D4ED8;
+  --theme-newsletter-button: #F97316;
+  --theme-newsletter-text: #FFFFFF;
+
+  --theme-product-card-background: #FFFFFF;
+  --theme-product-card-border: #DBEAFE;
+  --theme-product-title: #0F2A43;
+  --theme-product-price: #1D4ED8;
+  --theme-product-old-price: #9CA3AF;
+  --theme-product-discount-background: #F97316;
+  --theme-product-discount-text: #FFFFFF;
+  --theme-product-rating: #F97316;
+  --theme-product-button-background: #1D4ED8;
+  --theme-product-button-text: #FFFFFF;
+  --theme-product-button-hover: #0F2A43;
+  
+  --theme-primary-button: #F97316;
+  --theme-primary-button-text: #FFFFFF;
+  --theme-primary-button-hover: #ea580c;
+  --theme-secondary-button: #DBEAFE;
+  --theme-secondary-button-text: #0F2A43;
+  --theme-secondary-button-hover: #BFDBFE;
+  --theme-button-border: #DBEAFE;
 }
 
 h1,

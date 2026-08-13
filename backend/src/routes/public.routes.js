@@ -7,6 +7,8 @@ const { Vendor } = require("../models/Vendor");
 const { Product } = require("../models/Product");
 const { ProductReview } = require("../models/ProductReview");
 const { VendorFollower } = require("../models/VendorFollower");
+const dynamicThemeController = require("../controllers/dynamic-theme.controller");
+const { cacheMiddleware } = require("../utils/cache");
 
 const router = express.Router();
 router.get(
@@ -120,5 +122,8 @@ router.get(
     return ok(res, enriched, "OK");
   })
 );
+
+// Get active dynamic theme
+router.get("/themes/active", cacheMiddleware(3600), dynamicThemeController.getActiveTheme);
 
 module.exports = router;

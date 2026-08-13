@@ -289,7 +289,7 @@ export function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div className="min-h-screen transition-colors" style={{ backgroundColor: "var(--theme-background)", color: "var(--theme-text)" }}>
       <div className="px-3 pb-3">
         <CategoryChips
           categories={categories}
@@ -482,11 +482,10 @@ export function ProductsPage() {
                                 next.set("page", "1");
                               });
                             }}
-                            className={`rounded-2xl border px-3 py-3 text-left text-sm transition ${
-                              values.includes(option.value)
-                                ? "border-blue-600 bg-blue-600 text-white"
-                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
-                            }`}
+                            className={`rounded-2xl border px-3 py-3 text-left text-sm transition ${values.includes(option.value)
+                              ? "border-blue-600 bg-blue-600 text-white"
+                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                              }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span>{option.value}</span>
@@ -539,11 +538,10 @@ export function ProductsPage() {
                               next.set("page", "1");
                             });
                           }}
-                          className={`rounded-2xl border px-3 py-3 text-left text-sm transition ${
-                            searchParams.get(def.key) === option.value
-                              ? "border-blue-600 bg-blue-600 text-white"
-                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
-                          }`}
+                          className={`rounded-2xl border px-3 py-3 text-left text-sm transition ${searchParams.get(def.key) === option.value
+                            ? "border-blue-600 bg-blue-600 text-white"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                            }`}
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span>{option.value}</span>
@@ -586,15 +584,15 @@ export function ProductsPage() {
           <div className={`flex-1 grid gap-3 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${isDesktopFilterOpen ? "lg:grid-cols-4 xl:grid-cols-4" : "lg:grid-cols-8 xl:grid-cols-8"}`}>
             {loading && !products.length
               ? Array.from({ length: 8 }).map((_, index) => (
-                  <div key={index} className="animate-pulse rounded-3xl bg-white p-4 shadow-sm dark:bg-slate-900">
-                    <div className="mb-3 h-40 rounded-3xl bg-slate-100 dark:bg-slate-800" />
-                    <div className="space-y-2">
-                      <div className="h-3 w-3/4 rounded-full bg-slate-200 dark:bg-slate-800" />
-                      <div className="h-3 w-1/2 rounded-full bg-slate-200 dark:bg-slate-800" />
-                      <div className="h-8 rounded-2xl bg-slate-200 dark:bg-slate-800" />
-                    </div>
+                <div key={index} className="animate-pulse rounded-3xl bg-white p-4 shadow-sm dark:bg-slate-900">
+                  <div className="mb-3 h-40 rounded-3xl bg-slate-100 dark:bg-slate-800" />
+                  <div className="space-y-2">
+                    <div className="h-3 w-3/4 rounded-full bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-3 w-1/2 rounded-full bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-8 rounded-2xl bg-slate-200 dark:bg-slate-800" />
                   </div>
-                ))
+                </div>
+              ))
               : products.map((product) => <ProductCard key={product._id} product={product} />)}
           </div>
         </div>
@@ -739,86 +737,84 @@ function FilterSidebar({
             {groupName}
           </div>
           {defs.map((def) => {
-          const facet = facetMap[def.key];
-          if (def.type === "range") {
-            const { minKey, maxKey } = toRangeKeys(def.key);
-            return (
-              <RangeFacetCard
-                key={def.key}
-                title={def.name}
-                min={Number(searchParams.get(minKey) || facet?.min || def.rangeConfig?.min || 0)}
-                max={Number(searchParams.get(maxKey) || facet?.max || def.rangeConfig?.max || 0)}
-                floor={Number(facet?.min ?? def.rangeConfig?.min ?? 0)}
-                ceiling={Number(facet?.max ?? def.rangeConfig?.max ?? 100)}
-                step={Number(def.rangeConfig?.step || 1)}
-                formatSuffix={def.unit || ""}
-                onApply={(min, max) => onFilterChange(def.key, { min, max }, "range")}
-              />
-            );
-          }
+            const facet = facetMap[def.key];
+            if (def.type === "range") {
+              const { minKey, maxKey } = toRangeKeys(def.key);
+              return (
+                <RangeFacetCard
+                  key={def.key}
+                  title={def.name}
+                  min={Number(searchParams.get(minKey) || facet?.min || def.rangeConfig?.min || 0)}
+                  max={Number(searchParams.get(maxKey) || facet?.max || def.rangeConfig?.max || 0)}
+                  floor={Number(facet?.min ?? def.rangeConfig?.min ?? 0)}
+                  ceiling={Number(facet?.max ?? def.rangeConfig?.max ?? 100)}
+                  step={Number(def.rangeConfig?.step || 1)}
+                  formatSuffix={def.unit || ""}
+                  onApply={(min, max) => onFilterChange(def.key, { min, max }, "range")}
+                />
+              );
+            }
 
             if (def.type === "checkbox") {
-            const selected = getCheckboxValues(searchParams, def.key);
+              const selected = getCheckboxValues(searchParams, def.key);
+              return (
+                <details key={def.key} open className="rounded-2xl border border-slate-200 px-3 py-3 dark:border-slate-800">
+                  <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {def.name}
+                  </summary>
+                  <div className="mt-3 space-y-2">
+                    {(facet?.options || def.options?.map((option) => ({ value: option, count: 0 })) || []).map((option) => (
+                      <label key={option.value} className="flex items-center justify-between gap-3 text-sm text-slate-700 dark:text-slate-300">
+                        <span className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selected.includes(option.value)}
+                            onChange={(event) => {
+                              const next = event.target.checked
+                                ? [...selected, option.value]
+                                : selected.filter((item) => item !== option.value);
+                              onFilterChange(def.key, next, "checkbox");
+                            }}
+                          />
+                          {option.value}
+                        </span>
+                        <span className={`text-xs ${option.count === 0 ? "text-slate-300" : "text-slate-400"}`}>{option.count}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
+              );
+            }
+
             return (
               <details key={def.key} open className="rounded-2xl border border-slate-200 px-3 py-3 dark:border-slate-800">
                 <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900 dark:text-slate-100">
                   {def.name}
                 </summary>
-                <div className="mt-3 space-y-2">
+                <div className="mt-3 grid gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onFilterChange(def.key, "", def.type)}
+                    className={`rounded-xl border px-3 py-2 text-left text-sm ${!searchParams.get(def.key) ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200"
+                      }`}
+                  >
+                    All
+                  </button>
                   {(facet?.options || def.options?.map((option) => ({ value: option, count: 0 })) || []).map((option) => (
-                    <label key={option.value} className="flex items-center justify-between gap-3 text-sm text-slate-700 dark:text-slate-300">
-                      <span className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(option.value)}
-                          onChange={(event) => {
-                            const next = event.target.checked
-                              ? [...selected, option.value]
-                              : selected.filter((item) => item !== option.value);
-                            onFilterChange(def.key, next, "checkbox");
-                          }}
-                        />
-                        {option.value}
-                      </span>
-                      <span className={`text-xs ${option.count === 0 ? "text-slate-300" : "text-slate-400"}`}>{option.count}</span>
-                    </label>
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => onFilterChange(def.key, option.value, def.type)}
+                      className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left text-sm ${searchParams.get(def.key) === option.value ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200"
+                        }`}
+                    >
+                      <span>{option.value}</span>
+                      <span className="text-xs opacity-70">{option.count}</span>
+                    </button>
                   ))}
                 </div>
               </details>
             );
-          }
-
-          return (
-            <details key={def.key} open className="rounded-2xl border border-slate-200 px-3 py-3 dark:border-slate-800">
-              <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {def.name}
-              </summary>
-              <div className="mt-3 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => onFilterChange(def.key, "", def.type)}
-                  className={`rounded-xl border px-3 py-2 text-left text-sm ${
-                    !searchParams.get(def.key) ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200"
-                  }`}
-                >
-                  All
-                </button>
-                {(facet?.options || def.options?.map((option) => ({ value: option, count: 0 })) || []).map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => onFilterChange(def.key, option.value, def.type)}
-                    className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left text-sm ${
-                      searchParams.get(def.key) === option.value ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200"
-                    }`}
-                  >
-                    <span>{option.value}</span>
-                    <span className="text-xs opacity-70">{option.count}</span>
-                  </button>
-                ))}
-              </div>
-            </details>
-          );
           })}
         </div>
       ))}
@@ -1037,13 +1033,17 @@ const ProductCard = memo(function ProductCard({ product }) {
   return (
     <Link
       to={`/product/${productId}`}
-      className="group/card flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition-all duration-200 hover:border-slate-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:shadow-slate-950/50"
+      className="group/card flex flex-col overflow-hidden rounded-lg border transition-all duration-200 hover:shadow-lg"
+      style={{
+        backgroundColor: "var(--theme-product-card-background)",
+        borderColor: "var(--theme-product-card-border)",
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div 
-        className="group relative w-full overflow-hidden bg-slate-100 dark:bg-slate-800" 
-        style={{ aspectRatio: "3/4" }}
+      <div
+        className="group relative w-full overflow-hidden"
+        style={{ aspectRatio: "3/4", backgroundColor: "var(--theme-product-card-background)" }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -1059,79 +1059,95 @@ const ProductCard = memo(function ProductCard({ product }) {
             }}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-slate-400 text-xs">No Image</div>
+          <div className="flex h-full w-full items-center justify-center text-xs" style={{ color: "var(--theme-muted-text)" }}>No Image</div>
         )}
 
         {/* Image Navigation - Visible on Hover */}
         {hasMultipleImages && isHovering && shouldScroll && (
           <>
-            {/* Previous Button */}
             <button
               onClick={handlePrevImage}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-8 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm shadow-lg hover:bg-white dark:hover:bg-slate-700 transition-all duration-200 hover:scale-110"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-lg hover:bg-white transition-all duration-200 hover:scale-110"
               aria-label="Previous image"
               tabIndex={-1}
               type="button"
             >
-              <ChevronLeft size={16} className="text-slate-700 dark:text-slate-200" />
+              <ChevronLeft size={16} className="text-slate-700" />
             </button>
-
-            {/* Next Button */}
             <button
               onClick={handleNextImage}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-8 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm shadow-lg hover:bg-white dark:hover:bg-slate-700 transition-all duration-200 hover:scale-110"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-lg hover:bg-white transition-all duration-200 hover:scale-110"
               aria-label="Next image"
               tabIndex={-1}
               type="button"
             >
-              <ChevronRight size={16} className="text-slate-700 dark:text-slate-200" />
+              <ChevronRight size={16} className="text-slate-700" />
             </button>
           </>
         )}
-        <div className="absolute top-2 right-2 z-10 flex flex-col gap-2 opacity-100 translate-y-0 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0 transition-all duration-300 ease-out">
+
+        {/* Wishlist + Cart action stack */}
+        <div className="absolute top-2 right-2 z-10 flex flex-col gap-2 opacity-100 translate-y-0 sm:opacity-0 sm:group-hover/card:opacity-100 sm:translate-y-2 sm:group-hover/card:translate-y-0 transition-all duration-300 ease-out">
           <button
             onClick={handleWishlist}
             disabled={isSubmitting}
-            className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/95 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
             aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
           >
             <Heart
               size={13}
               strokeWidth={1.5}
-              className={`transition-all duration-300 ${
-                isInWishlist
-                  ? "fill-red-500 text-red-500"
-                  : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-              }`}
+              className={`transition-all duration-300 ${isInWishlist ? "fill-red-500 text-red-500" : "text-slate-700 hover:text-slate-900"
+                }`}
+              style={!isInWishlist ? { color: "var(--theme-product-wishlist, #475569)" } : undefined}
             />
           </button>
 
           <button
             onClick={handleAddToCart}
             disabled={isSubmitting || !hasAvailableVariants || availableStock <= 0}
-            className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             title={hasAvailableVariants ? "Add to cart" : "Out of stock"}
             aria-label="Add to cart"
+            style={{
+              backgroundColor: "var(--theme-product-button-background)",
+              color: "var(--theme-product-button-text)",
+            }}
           >
             <ShoppingCart size={12} strokeWidth={2} />
           </button>
         </div>
       </div>
 
+      {/* Info section */}
       <div className="flex flex-1 flex-col gap-1.5 p-2 sm:p-2.5">
         <div className="flex-1">
           <div className="flex items-start justify-between gap-1.5">
-            <h3 className="line-clamp-2 text-xs font-medium text-slate-900 dark:text-slate-100 sm:text-xs leading-tight flex-1">
+            <h3
+              className="line-clamp-2 text-xs font-medium sm:text-xs leading-tight flex-1"
+              style={{ color: "var(--theme-product-title)" }}
+            >
               {product.name}
             </h3>
             {discountPercent > 0 ? (
-              <div className="shrink-0 rounded bg-gradient-to-br from-orange-500 to-red-500 px-1 py-0.5 shadow-sm mt-0.5">
-                <div className="text-[9px] font-bold text-white leading-none tracking-wider">{discountPercent}% OFF</div>
+              <div
+                className="shrink-0 rounded px-1 py-0.5 shadow-sm mt-0.5"
+                style={{ background: "var(--theme-product-discount-background)" }}
+              >
+                <div
+                  className="text-[9px] font-bold leading-none tracking-wider"
+                  style={{ color: "var(--theme-product-discount-text)" }}
+                >
+                  {discountPercent}% OFF
+                </div>
               </div>
             ) : null}
           </div>
-          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+          <p
+            className="mt-0.5 text-[11px] line-clamp-1"
+            style={{ color: "var(--theme-muted-text)" }}
+          >
             {product.category}
           </p>
           <SellerNameLink seller={product?.sellerId} className="mt-1 text-[11px]" disableLink={true} />
@@ -1139,37 +1155,65 @@ const ProductCard = memo(function ProductCard({ product }) {
 
         {product.ratings?.averageRating > 0 && (
           <div className="flex items-center gap-0.5">
-            <span className="text-xs font-semibold text-yellow-500">★ {product.ratings.averageRating.toFixed(1)}</span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">({product.ratings.totalReviews})</span>
+            <span
+              className="text-xs font-semibold"
+              style={{ color: "var(--theme-product-rating)" }}
+            >
+              ★ {product.ratings.averageRating.toFixed(1)}
+            </span>
+            <span
+              className="text-[10px]"
+              style={{ color: "var(--theme-muted-text)" }}
+            >
+              ({product.ratings.totalReviews})
+            </span>
           </div>
         )}
 
-        <div className="space-y-0.5 border-t border-slate-100 pt-1 dark:border-slate-800">
+        <div
+          className="space-y-0.5 border-t pt-1"
+          style={{ borderColor: "var(--theme-product-card-border)" }}
+        >
           {product.discountPrice ? (
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-slate-900 dark:text-slate-100 sm:text-sm">
+              <span
+                className="text-xs font-bold sm:text-sm"
+                style={{ color: "var(--theme-product-price)" }}
+              >
                 {formatCurrency(product.discountPrice)}
               </span>
-              <span className="text-[10px] text-slate-500 line-through dark:text-slate-400">
+              <span
+                className="text-[10px] line-through"
+                style={{ color: "var(--theme-product-old-price)" }}
+              >
                 {formatCurrency(product.price)}
               </span>
             </div>
           ) : (
-            <span className="text-xs font-bold text-slate-900 dark:text-slate-100 sm:text-sm">
+            <span
+              className="text-xs font-bold sm:text-sm"
+              style={{ color: "var(--theme-product-price)" }}
+            >
               {formatCurrency(product.price)}
             </span>
           )}
-          
+
           <div className="text-[10px] font-medium">
             {product.stock > 0 ? (
-              <span className="text-green-600 dark:text-green-400">In Stock</span>
+              <span className="text-green-600">In Stock</span>
             ) : (
-              <span className="text-red-600 dark:text-red-400">Out of Stock</span>
+              <span className="text-red-600">Out of Stock</span>
             )}
           </div>
         </div>
 
-        <button className="mt-auto w-full rounded-md bg-blue-600 px-2 py-1.5 text-center text-[11px] font-semibold text-white transition-all duration-200 hover:bg-blue-700 active:scale-95 dark:hover:bg-blue-500 sm:text-xs">
+        <button
+          className="mt-auto w-full rounded-md px-2 py-1.5 text-center text-[11px] font-semibold transition-all duration-200 active:scale-95 sm:text-xs hover:opacity-90"
+          style={{
+            backgroundColor: "var(--theme-product-button-background)",
+            color: "var(--theme-product-button-text)",
+          }}
+        >
           View
         </button>
       </div>
