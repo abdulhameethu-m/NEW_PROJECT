@@ -60,6 +60,7 @@ const companyBrandingController = require("../controllers/company-branding.contr
 const vendorStorefrontController = require("../controllers/vendor-storefront.controller");
 const { validateBrandingFiles } = require("../utils/validators/company-branding.validation");
 const adminInfluencerCommerceRoutes = require("../modules/adminInfluencerCommerce/routes");
+const adminDynamicThemeRoutes = require("./admin-dynamic-theme.routes");
 
 const router = express.Router();
 const brandingUpload = multer({
@@ -486,6 +487,171 @@ router.put(
   express.json(),
   pricingController.updatePricingCategory
 );
+router.put(
+  "/pricing/:id",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  pricingController.updatePricingConfig
+);
+router.post(
+  "/pricing/initialize",
+  requireWorkspacePermission("settings.create", { legacyPermission: "settings:update" }),
+  pricingController.initializePricingConfig
+);
+// Dynamic Pricing Rules endpoints (NEW)
+router.get(
+  "/pricing-rules",
+  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
+  pricingController.getAllPricingRules
+);
+router.post(
+  "/pricing-rules",
+  requireWorkspacePermission("settings.create", { legacyPermission: "settings:update" }),
+  express.json(),
+  pricingController.createPricingRule
+);
+router.get(
+  "/pricing-rules/:id",
+  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
+  pricingController.getPricingRule
+);
+router.put(
+  "/pricing-rules/:id",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  pricingController.updatePricingRule
+);
+router.patch(
+  "/pricing-rules/:id/active",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  pricingController.togglePricingRuleActive
+);
+router.delete(
+  "/pricing-rules/:id",
+  requireWorkspacePermission("settings.delete", { legacyPermission: "settings:update" }),
+  pricingController.deletePricingRule
+);
+router.patch(
+  "/pricing-rules/batch/toggle-active",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  pricingController.toggleMultipleRulesActive
+);
+router.get(
+  "/company-branding",
+  requireWorkspacePermission("branding.view", { legacyPermission: "branding:view" }),
+  companyBrandingController.getAdminConfig
+);
+router.post(
+  "/company-branding",
+  requireWorkspacePermission("branding.create", { legacyPermission: "branding:create" }),
+  brandingUpload.fields([
+    { name: "primaryLogo", maxCount: 1 },
+    { name: "darkLogo", maxCount: 1 },
+    { name: "mobileLogo", maxCount: 1 },
+    { name: "favicon", maxCount: 1 },
+    { name: "emailLogo", maxCount: 1 },
+    { name: "invoiceLogo", maxCount: 1 },
+    { name: "organizationLogo", maxCount: 1 },
+  ]),
+  (req, _res, next) => {
+    try {
+      validateBrandingFiles(req.files || {});
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  companyBrandingController.saveAdminConfig
+);
+router.put(
+  "/company-branding/:id",
+  requireWorkspacePermission("branding.update", { legacyPermission: "branding:update" }),
+  brandingUpload.fields([
+    { name: "primaryLogo", maxCount: 1 },
+    { name: "darkLogo", maxCount: 1 },
+    { name: "mobileLogo", maxCount: 1 },
+    { name: "favicon", maxCount: 1 },
+    { name: "emailLogo", maxCount: 1 },
+    { name: "invoiceLogo", maxCount: 1 },
+    { name: "organizationLogo", maxCount: 1 },
+  ]),
+  (req, _res, next) => {
+    try {
+      validateBrandingFiles(req.files || {});
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  companyBrandingController.saveAdminConfig
+);
+router.delete(
+  "/company-branding/logo/:id",
+  requireWorkspacePermission("branding.delete", { legacyPermission: "branding:delete" }),
+  express.json(),
+  companyBrandingController.removeLogo
+);
+router.get(
+  "/company-branding/:id/versions",
+  requireWorkspacePermission("branding.view", { legacyPermission: "branding:view" }),
+  companyBrandingController.getVersions
+);
+router.post(
+  "/company-branding/:id/rollback/:versionId",
+  requireWorkspacePermission("branding.update", { legacyPermission: "branding:update" }),
+  companyBrandingController.rollback
+);
+router.get(
+  "/pricing-categories",
+  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
+  pricingController.getPricingCategories
+);
+router.get(
+  "/commission/rules",
+  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
+  commissionController.listRules
+);
+router.post(
+  "/commission/rules",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  commissionController.createRule
+);
+router.put(
+  "/commission/rules/:id",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  commissionController.updateRule
+);
+router.patch(
+  "/commission/rules/:id/active",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  commissionController.toggleRule
+);
+router.delete(
+  "/commission/rules/:id",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  commissionController.deleteRule
+);
+router.get(
+  "/commission/analytics",
+  requireWorkspacePermission("analytics.read", { legacyPermission: "dashboard:read" }),
+  commissionController.getAdminAnalytics
+);
+router.post(
+  "/pricing-categories",
+  requireWorkspacePermission("settings.create", { legacyPermission: "settings:update" }),
+  express.json(),
+  pricingController.createPricingCategory
+);
+router.put(
+  "/pricing-categories/:id",
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  express.json(),
+  pricingController.updatePricingCategory
+);
 router.delete(
   "/pricing-categories/:id",
   requireWorkspacePermission("settings.delete", { legacyPermission: "settings:update" }),
@@ -493,4 +659,8 @@ router.delete(
 );
 // Shipping Configuration routes
 router.use("/shipping-config", shippingConfigRoutes);
-module.exports = router;
+
+// Dynamic Themes routes
+router.use("/dynamic-themes", adminDynamicThemeRoutes);
+
+module.exports = router;

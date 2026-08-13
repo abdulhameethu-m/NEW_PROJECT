@@ -4,18 +4,21 @@ import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App.jsx";
 import { BrandingProvider } from "./context/BrandingContext.jsx";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import ScrollToTop from "./components/ScrollToTop.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrandingProvider>
-      <NotificationProvider>
-        <BrowserRouter>
-          <ScrollToTop />
-          <App />
-        </BrowserRouter>
-      </NotificationProvider>
+      <ThemeProvider>
+        <NotificationProvider>
+          <BrowserRouter>
+            <ScrollToTop />
+            <App />
+          </BrowserRouter>
+        </NotificationProvider>
+      </ThemeProvider>
     </BrandingProvider>
   </StrictMode>,
 );
