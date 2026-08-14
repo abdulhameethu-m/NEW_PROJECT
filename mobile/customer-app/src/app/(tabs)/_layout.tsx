@@ -13,8 +13,6 @@ export default function TabLayout() {
           borderTopColor: '#f3f4f6', // Gray-100
           elevation: 0,
           shadowOpacity: 0,
-          height: 60,
-          paddingBottom: 8,
           paddingTop: 8,
         },
         tabBarLabelStyle: {

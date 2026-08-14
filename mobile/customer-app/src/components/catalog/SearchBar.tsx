@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, TextInput, Pressable } from 'react-native';
 import { Search, X } from 'lucide-react-native';
 import { useCatalogStore } from '../../stores/catalogStore';
+import { ResponsiveContainer } from '../layout/ResponsiveContainer';
 
 export const SearchBar = ({ 
   onPress,
@@ -37,24 +38,26 @@ export const SearchBar = ({
   }, [currentSearch]);
 
   const Content = (
-    <View className="flex-row items-center bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 mx-4 my-2 border border-slate-200 dark:border-slate-700">
-      <Search size={20} className="text-slate-400" />
-      <TextInput
-        className="flex-1 ml-2 text-base text-slate-900 dark:text-slate-100 py-1"
-        placeholder="Search products..."
-        placeholderTextColor="#94a3b8"
-        value={localValue}
-        onChangeText={setLocalValue}
-        returnKeyType="search"
-        editable={editable}
-        pointerEvents={editable ? 'auto' : 'none'}
-      />
-      {localValue.length > 0 && editable && (
-        <Pressable onPress={() => setLocalValue('')} className="p-1">
-          <X size={18} className="text-slate-400" />
-        </Pressable>
-      )}
-    </View>
+    <ResponsiveContainer className="my-2" withPadding={true}>
+      <View className="flex-row items-center bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-700 w-full">
+        <Search size={20} className="text-slate-400" />
+        <TextInput
+          className="flex-1 ml-2 text-base text-slate-900 dark:text-slate-100 py-1"
+          placeholder="Search products..."
+          placeholderTextColor="#94a3b8"
+          value={localValue}
+          onChangeText={setLocalValue}
+          returnKeyType="search"
+          editable={editable}
+          pointerEvents={editable ? 'auto' : 'none'}
+        />
+        {localValue.length > 0 && editable && (
+          <Pressable onPress={() => setLocalValue('')} className="p-1">
+            <X size={18} className="text-slate-400" />
+          </Pressable>
+        )}
+      </View>
+    </ResponsiveContainer>
   );
 
   if (onPress) {

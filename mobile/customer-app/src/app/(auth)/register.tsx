@@ -7,7 +7,9 @@ import { registerSchema, RegisterFormData } from '../../utils/validation';
 import { authApi } from '../../api/auth';
 import { useAuthStore } from '../../stores/authStore';
 import { Eye, EyeOff, AlertCircle, ChevronLeft, User, Mail, Smartphone, Lock, ArrowRight, ShieldCheck, Percent, Headphones, Square, CheckSquare } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
+import { KeyboardAwareScreen } from '../../components/layout/KeyboardAwareScreen';
+import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer';
 import { AxiosError } from 'axios';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -72,12 +74,9 @@ export default function RegisterScreen() {
         <View className="absolute top-10 -right-20 w-80 h-80 bg-purple-100 rounded-full blur-3xl opacity-50" />
       </View>
 
-      <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-          className="flex-1"
-        >
-          <ScrollView className="flex-1" contentContainerStyle={{ padding: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <SafeAreaScreen className="flex-1" edges={['top', 'bottom']} backgroundColor="transparent">
+        <KeyboardAwareScreen>
+          <ResponsiveContainer style={{ paddingBottom: 40, paddingTop: 24 }}>
             
             {/* Header Area */}
             <View className="relative mb-6">
@@ -371,9 +370,9 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+          </ResponsiveContainer>
+        </KeyboardAwareScreen>
+      </SafeAreaScreen>
     </View>
   );
 }

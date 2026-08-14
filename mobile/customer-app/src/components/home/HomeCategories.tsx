@@ -5,6 +5,8 @@ import { Category } from '../../types/catalog';
 import { useCatalogStore } from '../../stores/catalogStore';
 import { useRouter } from 'expo-router';
 import { Store } from 'lucide-react-native';
+import { ResponsiveContainer } from '../layout/ResponsiveContainer';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface HomeCategoriesProps {
   categories: Category[];
@@ -14,17 +16,20 @@ interface HomeCategoriesProps {
 export const HomeCategories = ({ categories, isLoading }: HomeCategoriesProps) => {
   const setCategory = useCatalogStore((state) => state.setCategory);
   const router = useRouter();
+  const { horizontalPadding } = useResponsive();
 
   if (isLoading) {
     return (
-      <View className="py-4 px-4 flex-row">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <View key={i} className="items-center mr-6">
-            <View className="w-16 h-16 rounded-full bg-slate-200 dark:bg-slate-800 mb-3" />
-            <View className="w-14 h-3 bg-slate-200 dark:bg-slate-800 rounded-full" />
-          </View>
-        ))}
-      </View>
+      <ResponsiveContainer className="py-4" withPadding={true}>
+        <View className="flex-row">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <View key={i} className="items-center mr-6">
+              <View className="w-16 h-16 rounded-full bg-slate-200 dark:bg-slate-800 mb-3" />
+              <View className="w-14 h-3 bg-slate-200 dark:bg-slate-800 rounded-full" />
+            </View>
+          ))}
+        </View>
+      </ResponsiveContainer>
     );
   }
 
@@ -38,14 +43,14 @@ export const HomeCategories = ({ categories, isLoading }: HomeCategoriesProps) =
   };
 
   return (
-    <View className="py-4">
-      <View className="px-4 mb-3 flex-row justify-between items-end">
+    <ResponsiveContainer className="py-4" withPadding={false}>
+      <View className="mb-3 flex-row justify-between items-end" style={{ paddingHorizontal: horizontalPadding }}>
         <Text className="text-lg font-bold text-slate-900 dark:text-white">Categories</Text>
         <Pressable onPress={() => { setCategory(undefined); router.push('/(tabs)/shop'); }}>
           <Text className="text-amber-600 dark:text-amber-500 font-semibold text-sm">See All</Text>
         </Pressable>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: horizontalPadding }}>
         {categories.map((category) => (
           <Pressable
             key={category._id}
@@ -69,6 +74,6 @@ export const HomeCategories = ({ categories, isLoading }: HomeCategoriesProps) =
           </Pressable>
         ))}
       </ScrollView>
-    </View>
+    </ResponsiveContainer>
   );
 };

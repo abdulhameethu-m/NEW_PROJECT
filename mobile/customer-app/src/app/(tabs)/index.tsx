@@ -1,6 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
+import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer';
 import { useHome } from '../../hooks/useHome';
 import { useCategories } from '../../hooks/useCategories';
 import { useProducts } from '../../hooks/useProducts';
@@ -161,7 +163,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
+    <SafeAreaScreen className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
       <HomeHeader />
       
       <ScrollView
@@ -171,6 +173,6 @@ export default function HomeScreen() {
         <SearchBar onPress={handleSearchPress} editable={false} />
         {renderContent()}
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaScreen>
   );
 }

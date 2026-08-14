@@ -2,6 +2,8 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useAuthStore } from '../../stores/authStore';
 import { authApi } from '../../api/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
+import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer';
 import { User, Mail, Phone, LogOut } from 'lucide-react-native';
 
 export default function ProfileScreen() {
@@ -15,7 +17,7 @@ export default function ProfileScreen() {
   if (!user) return null;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaScreen className="flex-1 bg-gray-50">
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
         <Text className="text-3xl font-bold text-gray-900 mb-8">Profile</Text>
 
@@ -70,6 +72,6 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaScreen>
   );
 }

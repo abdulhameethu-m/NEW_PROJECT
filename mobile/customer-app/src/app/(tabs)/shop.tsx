@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, ActivityIndicator, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
+import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer';
 import { useProducts } from '../../hooks/useProducts';
 import { useCatalogStore } from '../../stores/catalogStore';
 import { ProductCard } from '../../components/catalog/ProductCard';
@@ -69,7 +71,7 @@ export default function ShopScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
+    <SafeAreaScreen className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
       <SearchBar />
       
       <View className="flex-row items-center justify-between px-4 py-2 border-b border-slate-100 dark:border-slate-800">
@@ -116,6 +118,6 @@ export default function ShopScreen() {
 
       <FilterModal visible={isFilterVisible} onClose={() => setFilterVisible(false)} />
       <SortModal visible={isSortVisible} onClose={() => setSortVisible(false)} />
-    </SafeAreaView>
+    </SafeAreaScreen>
   );
 }

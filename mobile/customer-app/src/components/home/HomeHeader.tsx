@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, Pressable, Image, Text } from 'react-native';
 import { Heart, ShoppingBag } from 'lucide-react-native';
+import { ResponsiveContainer } from '../layout/ResponsiveContainer';
 
 export function HomeHeader() {
   return (
-    <View className="flex-row items-center justify-between px-4 py-3 bg-white dark:bg-slate-950">
+    <ResponsiveContainer className="flex-row items-center justify-between py-3 bg-white dark:bg-slate-950">
       <View className="flex-row items-center">
         <Image 
           source={require('../../../assets/images/logo.png')} 
@@ -33,6 +34,6 @@ export function HomeHeader() {
           <View className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-amber-500 border border-white dark:border-slate-950" />
         </Pressable>
       </View>
-    </View>
+    </ResponsiveContainer>
   );
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { ResponsiveContainer } from '../layout/ResponsiveContainer';
 import { ProductCard } from '../catalog/ProductCard';
 import { ProductSkeleton } from '../catalog/ProductSkeleton';
 import { Product } from '../../types/catalog';
@@ -36,7 +37,7 @@ export const HomeFeatured = ({ products, isLoading, title = "Explore Products" }
   }
 
   return (
-    <View className="py-4">
+    <ResponsiveContainer className="py-4" withPadding={false}>
       <View className="px-4 mb-3 flex-row justify-between items-end">
         <Text className="text-lg font-bold text-slate-900 dark:text-white">{title}</Text>
         <Pressable onPress={() => router.push('/(tabs)/shop')}>
@@ -45,11 +46,11 @@ export const HomeFeatured = ({ products, isLoading, title = "Explore Products" }
       </View>
       <View className="flex-row flex-wrap px-3">
         {products.map((product) => (
-          <View key={product._id} className="w-1/2 p-1">
+          <View key={product._id} className="w-1/2 expanded:w-1/3 p-1">
             <ProductCard product={product} />
           </View>
         ))}
       </View>
-    </View>
+    </ResponsiveContainer>
   );
 };
