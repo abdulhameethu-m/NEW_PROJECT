@@ -30,7 +30,14 @@ export function SellerNameLink({ seller, className = "", showPrefix = true, prev
   if (!normalized) return null;
   const content = (
     <span className={`group/seller relative inline-flex items-center gap-1.5 ${className}`}>
-      {showPrefix ? <span className="text-slate-500 dark:text-slate-400">Sold By:</span> : null}
+      {showPrefix ? (
+        <span 
+          className="font-medium"
+          style={{ background: "var(--theme-product-seller, #64748b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
+        >
+          Sold By:
+        </span>
+      ) : null}
       {normalized.storeUrl && !disableLink ? (
         <Link
           to={normalized.storeUrl}
@@ -38,15 +45,19 @@ export function SellerNameLink({ seller, className = "", showPrefix = true, prev
             event.stopPropagation();
             trackVendorStoreEvent(normalized.storeSlug, { eventType: "STORE_CLICK", path: window.location.pathname }).catch(() => {});
           }}
-          className="inline-flex items-center gap-1 font-semibold text-blue-700 underline-offset-4 transition hover:underline dark:text-blue-300"
+          className="inline-flex items-center gap-1 font-semibold underline-offset-4 transition hover:opacity-80"
+          style={{ background: "var(--theme-product-seller, #1d4ed8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
         >
-          <Store className="h-3.5 w-3.5" />
+          <Store className="h-3.5 w-3.5" style={{ color: "var(--theme-product-seller, #1d4ed8)" }} />
           {normalized.name}
           {normalized.verified ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> : null}
         </Link>
       ) : (
-        <span className="inline-flex items-center gap-1 font-semibold text-blue-700 dark:text-blue-300">
-          <Store className="h-3.5 w-3.5" />
+        <span 
+          className="inline-flex items-center gap-1 font-semibold"
+          style={{ background: "var(--theme-product-seller, #1d4ed8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
+        >
+          <Store className="h-3.5 w-3.5" style={{ color: "var(--theme-product-seller, #1d4ed8)" }} />
           {normalized.name}
           {normalized.verified ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> : null}
         </span>
@@ -63,8 +74,8 @@ export function VisitStoreButton({ seller, children = "View Profile", className 
   
   const baseStyles = "inline-flex items-center justify-center rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition";
   const variantStyles = variant === "primary" 
-    ? "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
-    : "border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800";
+    ? "btn-theme-primary"
+    : "btn-theme-secondary";
   
   return (
     <Link
@@ -186,8 +197,8 @@ export function FollowStoreButton({ seller, initialFollowing = false, className 
       }}
       className={`group inline-flex items-center justify-center gap-1.5 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition disabled:opacity-60 ${
         following 
-          ? "bg-slate-200 text-slate-900 hover:bg-rose-100 hover:text-rose-900 dark:bg-slate-700 dark:text-white dark:hover:bg-rose-600" 
-          : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800"
+          ? "btn-theme-secondary opacity-80" 
+          : "btn-theme-secondary"
       } ${className}`}
     >
       {loading ? (

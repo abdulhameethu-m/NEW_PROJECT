@@ -432,7 +432,7 @@ export function LocationSelector({ variant = "default" }) {
                     <button
                       type="button"
                       onClick={closePanel}
-                      className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="btn-theme-primary rounded-xl px-4 py-2 text-sm font-medium shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       Done
                     </button>

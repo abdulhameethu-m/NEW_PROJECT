@@ -59,6 +59,14 @@ function applyThemeVariables(theme) {
     setVar("newsletter-background", theme.footer.newsletterBackground);
     setVar("newsletter-button", theme.footer.newsletterButton);
     setVar("newsletter-text", theme.footer.newsletterText);
+    setVar("newsletter-input-background", theme.footer.newsletterInputBackground);
+    setVar("newsletter-input-text", theme.footer.newsletterInputText);
+    setVar("footer-button-background", theme.footer.footerButtonBackground);
+    setVar("footer-button-text", theme.footer.footerButtonText);
+    setVar("footer-widget-background", theme.footer.footerWidgetBackground);
+    setVar("footer-widget-text", theme.footer.footerWidgetText);
+    setVar("footer-badge-background", theme.footer.footerBadgeBackground);
+    setVar("footer-badge-text", theme.footer.footerBadgeText);
   }
 
   // Product Grid
@@ -74,6 +82,10 @@ function applyThemeVariables(theme) {
     setVar("product-button-background", theme.productGrid.buttonBackground);
     setVar("product-button-text", theme.productGrid.buttonText);
     setVar("product-button-hover", theme.productGrid.buttonHover);
+    setVar("product-category", theme.productGrid.category);
+    setVar("product-seller", theme.productGrid.seller);
+    setVar("product-stock-in", theme.productGrid.stockIn);
+    setVar("product-stock-out", theme.productGrid.stockOut);
     setVar("product-wishlist", theme.productGrid.wishlist);
     setVar("product-wishlist-active", theme.productGrid.wishlistActive);
   }

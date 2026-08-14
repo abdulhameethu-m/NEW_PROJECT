@@ -235,7 +235,13 @@ export function Layout() {
         {!hideShopChrome ? (
           <>
             {/* Desktop Header */}
-            <header className="hidden lg:block sticky top-0 z-30 border-b border-slate-100 bg-white dark:border-white/10 dark:bg-slate-950">
+            <header 
+              className="hidden lg:block sticky top-0 z-30 border-b transition-colors"
+              style={{ 
+                background: "var(--theme-navbar-background, #ffffff)",
+                borderColor: "var(--theme-navbar-border, #f1f5f9)"
+              }}
+            >
               <div className="w-full px-4 py-3 lg:px-6 mx-auto">
                 <div className="flex items-center gap-4 xl:gap-8">
                   {/* Logo */}
@@ -249,11 +255,11 @@ export function Layout() {
 
                   {/* Search Bar - Next to Logo */}
                   <div className="w-[280px] shrink-0">
-                    <SearchBar className="[&_input]:py-2.5 [&_input]:!bg-[#F4F7FB] [&_input]:dark:!bg-slate-900 [&_input]:!border-transparent [&_input]:text-[13px] [&_input]:!text-[#0F2A43] [&_input::placeholder]:text-slate-400 [&_span]:!text-[#1D4ED8]" />
+                    <SearchBar className="[&_input]:py-2.5 [&_input]:!border-transparent [&_input]:text-[13px] [&_input::placeholder]:text-slate-400 [&_span]:!text-[#1D4ED8]" />
                   </div>
 
                   {/* Nav Links */}
-                  <nav className="hidden lg:flex items-center rounded-full p-1 bg-[#F4F7FB] dark:bg-slate-900 mx-auto">
+                  <nav className="hidden lg:flex items-center rounded-full p-1 bg-black/5 dark:bg-white/5 mx-auto">
                     {navItems.map((item) => {
                       const isActive =
                         location.pathname === item.href ||
@@ -263,7 +269,11 @@ export function Layout() {
                         <Link
                           key={item.href}
                           to={item.href}
-                          className={`rounded-full px-5 py-2 text-[13px] font-semibold transition ${isActive ? "bg-[#1D4ED8] text-white shadow-sm" : "text-[#0F2A43] hover:bg-slate-200/50 dark:text-slate-300 dark:hover:bg-slate-800"}`}
+                          style={{
+                            color: isActive ? "var(--theme-navbar-background, #FFFFFF)" : "var(--theme-navbar-text, #0F2A43)",
+                            background: isActive ? "var(--theme-navbar-active, #1D4ED8)" : "transparent",
+                          }}
+                          className={`rounded-full px-5 py-2 text-[13px] font-semibold transition ${isActive ? "shadow-sm" : "hover:text-[var(--theme-navbar-hover,#F97316)] hover:bg-black/5 dark:hover:bg-white/5"}`}
                         >
                           {item.label}
                         </Link>
@@ -276,7 +286,8 @@ export function Layout() {
                     <button
                       type="button"
                       onClick={() => setIsDarkMode(!isDarkMode)}
-                      className="text-[#1D4ED8] transition hover:opacity-80 dark:text-blue-400"
+                      style={{ color: "var(--theme-navbar-icon, #0F2A43)" }}
+                      className="transition hover:opacity-80"
                     >
                       {isDarkMode ? <SunMedium className="h-[22px] w-[22px]" /> : <MoonStar className="h-[22px] w-[22px]" />}
                     </button>
@@ -292,10 +303,10 @@ export function Layout() {
                         {showShopActions ? (
                           <>
                             <HeaderIconLink to={wishlistHref} label="Wishlist" badge={wishlistCount}>
-                              <Heart className="h-[22px] w-[22px] text-[#1D4ED8]" />
+                              <Heart className="h-[22px] w-[22px]" style={{ color: "var(--theme-navbar-icon, #0F2A43)" }} />
                             </HeaderIconLink>
                             <HeaderIconLink to="/cart" label="Cart" badge={cartCount}>
-                              <ShoppingCart className="h-[22px] w-[22px] text-[#1D4ED8]" />
+                              <ShoppingCart className="h-[22px] w-[22px]" style={{ color: "var(--theme-navbar-icon, #0F2A43)" }} />
                             </HeaderIconLink>
                           </>
                         ) : null}
@@ -304,19 +315,21 @@ export function Layout() {
                     ) : (
                       <>
                         <HeaderIconLink to={wishlistHref} label="Wishlist" badge={wishlistCount}>
-                          <Heart className="h-[22px] w-[22px] text-[#1D4ED8]" />
+                          <Heart className="h-[22px] w-[22px]" style={{ color: "var(--theme-navbar-icon, #0F2A43)" }} />
                         </HeaderIconLink>
                         <HeaderIconLink to="/cart" label="Cart" badge={cartCount}>
-                          <ShoppingCart className="h-[22px] w-[22px] text-[#1D4ED8]" />
+                          <ShoppingCart className="h-[22px] w-[22px]" style={{ color: "var(--theme-navbar-icon, #0F2A43)" }} />
                         </HeaderIconLink>
                         <Link
-                          className="text-[14px] font-semibold text-[#1D4ED8] hover:opacity-80 transition ml-1"
+                          className="text-[14px] font-semibold hover:opacity-80 transition ml-1"
+                          style={{ color: "var(--theme-navbar-active, #1D4ED8)" }}
                           to="/login"
                         >
                           Login
                         </Link>
                         <Link
-                          className="rounded-full bg-gradient-to-r from-[#1D4ED8] to-[#F97316] px-6 py-2 text-[14px] font-semibold text-white transition hover:opacity-90 shadow-md shadow-orange-500/20"
+                          className="rounded-full px-6 py-2 text-[14px] font-semibold text-white transition hover:opacity-90 shadow-md shadow-orange-500/20"
+                          style={{ background: "var(--theme-navbar-active, #1D4ED8)" }}
                           to="/role"
                         >
                           Start
@@ -333,14 +346,19 @@ export function Layout() {
             {/* Mobile Sticky Header */}
             {!isPublicInfluencerPage && (
               <header
-                className="block lg:hidden sticky top-0 z-30 border-b border-slate-100 bg-white dark:border-white/10 dark:bg-slate-950"
+                className="block lg:hidden sticky top-0 z-30 border-b transition-colors"
+                style={{
+                  background: "var(--theme-navbar-background, #ffffff)",
+                  borderColor: "var(--theme-navbar-border, #f1f5f9)"
+                }}
               >
                 <div className="px-3 py-2.5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setIsMenuOpen(true)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-[#0F2A43] dark:text-slate-300 transition active:scale-95"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-95"
+                      style={{ color: "var(--theme-navbar-icon, #0F2A43)" }}
                       aria-label="Open navigation menu"
                     >
                       <Menu className="h-[22px] w-[22px]" />
@@ -355,7 +373,8 @@ export function Layout() {
                     <button
                       type="button"
                       onClick={() => setIsDarkMode(!isDarkMode)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95 text-[#0F2A43] dark:text-slate-300"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-95"
+                      style={{ color: "var(--theme-navbar-icon, #0F2A43)" }}
                       aria-label={isDarkMode ? "Enable light mode" : "Enable dark mode"}
                     >
                       {isDarkMode ? <SunMedium className="h-[20px] w-[20px]" /> : <MoonStar className="h-[20px] w-[20px]" />}
@@ -363,10 +382,10 @@ export function Layout() {
                     {showShopActions && (
                       <>
                         <HeaderIconLinkMobile to={wishlistHref} label="Wishlist" badge={wishlistCount}>
-                          <Heart className="h-[20px] w-[20px] text-[#0F2A43] dark:text-slate-300" />
+                          <Heart className="h-[20px] w-[20px]" style={{ color: "var(--theme-navbar-icon, #0F2A43)" }} />
                         </HeaderIconLinkMobile>
                         <HeaderIconLinkMobile to="/cart" label="Cart" badge={cartCount}>
-                          <ShoppingCart className="h-[20px] w-[20px] text-[#0F2A43] dark:text-slate-300" />
+                          <ShoppingCart className="h-[20px] w-[20px]" style={{ color: "var(--theme-navbar-icon, #0F2A43)" }} />
                         </HeaderIconLinkMobile>
                       </>
                     )}
@@ -375,7 +394,8 @@ export function Layout() {
                     ) : (
                       <Link
                         to="/login"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[#0F2A43] dark:text-slate-300"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
+                        style={{ color: "var(--theme-navbar-icon, #0F2A43)" }}
                         aria-label="Login"
                       >
                         <UserRound className="h-[20px] w-[20px]" />
@@ -387,12 +407,18 @@ export function Layout() {
                 {/* Mobile Full-width Search Bar */}
                 <div className={`overflow-hidden transition-all duration-300 ${isMobileHeaderMinimized ? 'max-h-0 opacity-0' : 'max-h-20 opacity-100'}`}>
                   <div className="px-3 pb-3 pt-0.5">
-                    <SearchBar className="!max-w-none [&_input]:py-2.5 [&_input]:!bg-[#F4F7FB] [&_input]:dark:!bg-slate-900 [&_input]:!border-transparent [&_input]:text-[13px] [&_input]:!text-[#0F2A43] [&_input::placeholder]:text-slate-400 [&_span]:!text-[#1D4ED8]" />
+                    <SearchBar className="!max-w-none [&_input]:py-2.5 [&_input]:!border-transparent [&_input]:text-[13px] [&_input::placeholder]:text-slate-400 [&_span]:!text-[#1D4ED8]" />
                   </div>
                 </div>
 
                 {/* Mobile Compact Delivery Location Row */}
-                <div className={`overflow-hidden transition-all duration-300 ${isMobileHeaderMinimized ? 'max-h-0 opacity-0' : 'max-h-20 opacity-100 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-white/5'}`}>
+                <div 
+                  className={`overflow-hidden transition-all duration-300 border-t ${isMobileHeaderMinimized ? 'max-h-0 opacity-0' : 'max-h-20 opacity-100'}`}
+                  style={{
+                    background: "var(--theme-navbar-background, #ffffff)",
+                    borderColor: "var(--theme-navbar-border, #f1f5f9)"
+                  }}
+                >
                   <div className="[&_.text-slate-900]:!text-[#0F2A43] [&_.text-indigo-500]:!text-[#1D4ED8] [&_.bg-white]:!bg-transparent">
                     <LocationSelector variant="compact" />
                   </div>

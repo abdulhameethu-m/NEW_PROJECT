@@ -217,7 +217,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
       tabIndex={0}
       className={`group relative flex flex-col h-full overflow-hidden rounded-2xl transition-all duration-300 ${cardStyleClass}`}
       style={{
-        backgroundColor: "var(--theme-product-card-background)",
+        background: "var(--theme-product-card-background)",
         borderColor: "var(--theme-product-card-border)"
       }}
     >
@@ -305,7 +305,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
             title={inStock ? `Add ${product?.name || product?.title || "item"} to cart` : "Out of stock"}
             aria-label={inStock ? `Add ${product?.name || product?.title || "item"} to cart` : "Out of stock"}
             style={{
-              backgroundColor: "var(--theme-product-button-background)",
+              background: "var(--theme-product-button-background)",
               color: "var(--theme-product-button-text)"
             }}
           >
@@ -317,15 +317,29 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
       {/* Product Info Section */}
       <div className={`flex flex-col flex-grow ${dense ? "p-2 gap-1" : "p-2.5 sm:p-4 gap-1 sm:gap-2"}`}>
         {/* Category */}
-        <p className={categoryTextClass}>{product.category || "Featured"}</p>
+        <p 
+          className={categoryTextClass}
+          style={{ background: "var(--theme-product-category, #64748B)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
+        >
+          {product.category || "Featured"}
+        </p>
 
         {/* Product Name */}
         <div className="min-h-[2.5rem]">
-          <h3 className={titleTextClass} title={product.name} style={{ color: "var(--theme-product-title)" }}>{product.name}</h3>
+          <h3 
+            className={titleTextClass} 
+            title={product.name} 
+            style={{ background: "var(--theme-product-title, #1A202C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
+          >
+            {product.name}
+          </h3>
         </div>
 
         {!inStock && (
-          <div className={`text-[10px] sm:text-xs font-semibold ${stockOutClass}`}>
+          <div 
+            className={`text-[10px] sm:text-xs font-semibold ${stockOutClass}`}
+            style={{ background: "var(--theme-product-stock-out, #DC2626)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
+          >
             Out of stock
           </div>
         )}
@@ -346,11 +360,17 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         {/* Pricing */}
         <div className="space-y-0.5">
           <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-            <span className={`${priceCurrentClass} text-[13px] sm:text-sm`} style={{ color: "var(--theme-product-price)" }}>
+            <span 
+              className={`${priceCurrentClass} text-[13px] sm:text-sm`} 
+              style={{ background: "var(--theme-product-price, #1A202C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
+            >
               {formatCurrency(product.discountPrice || product.price)}
             </span>
             {product.discountPrice && (
-              <span className={priceOriginalClass} style={{ color: "var(--theme-product-old-price)" }}>
+              <span 
+                className={priceOriginalClass} 
+                style={{ background: "var(--theme-product-old-price, #A0AEC0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
+              >
                 {formatCurrency(product.price)}
               </span>
             )}

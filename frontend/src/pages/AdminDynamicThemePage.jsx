@@ -24,7 +24,7 @@ export function AdminDynamicThemePage() {
   } = useThemeStore();
 
   const [previewMode, setPreviewMode] = useState("desktop"); // desktop, tablet, mobile
-  const [activeTab, setActiveTab] = useState("global");
+  const [activeTab, setActiveTab] = useState("navbar");
 
   useEffect(() => {
     loadThemes();
@@ -70,7 +70,18 @@ export function AdminDynamicThemePage() {
   };
 
   const renderColorInput = (section, key, label, description) => {
-    const val = draftTheme?.[section]?.[key] || "#000000";
+    const defaultColors = {
+      socialIcon: "rgba(255,255,255,0.06)",
+      footerButtonBackground: "#FFFFFF",
+      footerButtonText: "#1A202C",
+      footerWidgetBackground: "rgba(0,0,0,0.18)",
+      footerWidgetText: "#A0AEC0",
+      footerBadgeBackground: "rgba(255,255,255,0.10)",
+      footerBadgeText: "#FFFFFF",
+      newsletterInputBackground: "rgba(255,255,255,0.08)",
+      newsletterInputText: "#FFFFFF",
+    };
+    const val = draftTheme?.[section]?.[key] || defaultColors[key] || "#000000";
     
     // HTML native color picker only supports standard 7-character hex colors
     const isStandardHex = /^#[0-9A-Fa-f]{6}$/.test(val);
@@ -108,16 +119,6 @@ export function AdminDynamicThemePage() {
   };
 
   const tabs = [
-    { id: "global", label: "Global", fields: [
-      { key: "primary", label: "Primary Color", desc: "Used for primary actions." },
-      { key: "secondary", label: "Secondary Color" },
-      { key: "accent", label: "Accent Color" },
-      { key: "background", label: "Background Color" },
-      { key: "surface", label: "Surface Color" },
-      { key: "text", label: "Text Color" },
-      { key: "mutedText", label: "Muted Text Color" },
-      { key: "border", label: "Border Color" },
-    ]},
     { id: "navbar", label: "Navbar", fields: [
       { key: "background", label: "Navbar Background" },
       { key: "text", label: "Navbar Text" },
@@ -135,8 +136,18 @@ export function AdminDynamicThemePage() {
       { key: "link", label: "Footer Link" },
       { key: "hoverLink", label: "Footer Hover Link" },
       { key: "border", label: "Footer Border" },
-      { key: "newsletterBackground", label: "Newsletter Background" },
-      { key: "newsletterButton", label: "Newsletter Button" },
+      { key: "socialIcon", label: "Social Icon Background" },
+      { key: "footerButtonBackground", label: "Primary Button Background" },
+      { key: "footerButtonText", label: "Primary Button Text" },
+      { key: "footerWidgetBackground", label: "Widget Container Background" },
+      { key: "footerWidgetText", label: "Widget Text Color" },
+      { key: "footerBadgeBackground", label: "Badge / Pill Background" },
+      { key: "footerBadgeText", label: "Badge / Pill Text Color" },
+      { key: "newsletterBackground", label: "Newsletter Section Background" },
+      { key: "newsletterInputBackground", label: "Newsletter Input Background" },
+      { key: "newsletterInputText", label: "Newsletter Input Text" },
+      { key: "newsletterButton", label: "Newsletter Button Background" },
+      { key: "newsletterText", label: "Newsletter Button Text" },
     ]},
     { id: "productGrid", label: "Product Grid", fields: [
       { key: "cardBackground", label: "Card Background" },
@@ -150,6 +161,10 @@ export function AdminDynamicThemePage() {
       { key: "buttonBackground", label: "Button Background" },
       { key: "buttonText", label: "Button Text" },
       { key: "buttonHover", label: "Button Hover" },
+      { key: "category", label: "Category Label Color" },
+      { key: "seller", label: "Sold By Text Color" },
+      { key: "stockIn", label: "In Stock Text Color" },
+      { key: "stockOut", label: "Out of Stock Text Color" },
     ]},
     { id: "buttons", label: "Buttons", fields: [
       { key: "primaryBackground", label: "Primary Background" },
@@ -172,11 +187,6 @@ export function AdminDynamicThemePage() {
     const vars = {};
 
     const map = {
-      global: {
-        primary: "--theme-primary", secondary: "--theme-secondary", accent: "--theme-accent",
-        background: "--theme-background", surface: "--theme-surface", text: "--theme-text",
-        mutedText: "--theme-muted-text", border: "--theme-border"
-      },
       navbar: {
         background: "--theme-navbar-background", text: "--theme-navbar-text", hoverText: "--theme-navbar-hover",
         activeText: "--theme-navbar-active", icon: "--theme-navbar-icon", border: "--theme-navbar-border",
@@ -185,15 +195,22 @@ export function AdminDynamicThemePage() {
       footer: {
         background: "--theme-footer-background", text: "--theme-footer-text", heading: "--theme-footer-heading",
         link: "--theme-footer-link", hoverLink: "--theme-footer-link-hover", border: "--theme-footer-border",
-        newsletterBackground: "--theme-newsletter-background", newsletterButton: "--theme-newsletter-button",
-        newsletterText: "--theme-newsletter-text"
+        socialIcon: "--theme-social-icon", footerButtonBackground: "--theme-footer-button-background", 
+        footerButtonText: "--theme-footer-button-text", 
+        footerWidgetBackground: "--theme-footer-widget-background", footerWidgetText: "--theme-footer-widget-text",
+        footerBadgeBackground: "--theme-footer-badge-background", footerBadgeText: "--theme-footer-badge-text",
+        newsletterBackground: "--theme-newsletter-background", 
+        newsletterButton: "--theme-newsletter-button", newsletterText: "--theme-newsletter-text",
+        newsletterInputBackground: "--theme-newsletter-input-background", newsletterInputText: "--theme-newsletter-input-text"
       },
       productGrid: {
         cardBackground: "--theme-product-card-background", cardBorder: "--theme-product-card-border",
         title: "--theme-product-title", price: "--theme-product-price", oldPrice: "--theme-product-old-price",
         discountBackground: "--theme-product-discount-background", discountText: "--theme-product-discount-text",
         rating: "--theme-product-rating", buttonBackground: "--theme-product-button-background",
-        buttonText: "--theme-product-button-text", buttonHover: "--theme-product-button-hover"
+        buttonText: "--theme-product-button-text", buttonHover: "--theme-product-button-hover",
+        category: "--theme-product-category", seller: "--theme-product-seller", 
+        stockIn: "--theme-product-stock-in", stockOut: "--theme-product-stock-out"
       },
       buttons: {
         primaryBackground: "--theme-primary-button", primaryText: "--theme-primary-button-text",
@@ -203,8 +220,7 @@ export function AdminDynamicThemePage() {
       }
     };
 
-    // global uses "colors" internally in schema
-    Object.entries(map.global).forEach(([k, v]) => { if (draftTheme.colors?.[k]) vars[v] = draftTheme.colors[k]; });
+
     Object.entries(map.navbar).forEach(([k, v]) => { if (draftTheme.navbar?.[k]) vars[v] = draftTheme.navbar[k]; });
     Object.entries(map.footer).forEach(([k, v]) => { if (draftTheme.footer?.[k]) vars[v] = draftTheme.footer[k]; });
     Object.entries(map.productGrid).forEach(([k, v]) => { if (draftTheme.productGrid?.[k]) vars[v] = draftTheme.productGrid[k]; });

@@ -128,19 +128,19 @@ export function Footer() {
   const socialChipStyle = {
     color: "var(--theme-footer-link)",
     borderColor: "var(--theme-footer-border)",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    background: "var(--theme-social-icon, rgba(255,255,255,0.06))",
   };
 
   const legalChipStyle = {
     color: "var(--theme-footer-link)",
     borderColor: "var(--theme-footer-border)",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    background: "rgba(255,255,255,0.06)",
   };
 
   const newsletterInputStyle = {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    background: "var(--theme-newsletter-input-background, rgba(255,255,255,0.08))",
     borderColor: "var(--theme-footer-border)",
-    color: "var(--theme-footer-text)",
+    color: "var(--theme-newsletter-input-text, var(--theme-footer-text))",
   };
 
   const newsletterButtonStyle = {
@@ -148,21 +148,26 @@ export function Footer() {
     color: "var(--theme-newsletter-text, #ffffff)",
   };
 
+  const footerButtonStyle = {
+    background: "var(--theme-footer-button-background, var(--theme-footer-heading))",
+    color: "var(--theme-footer-button-text, var(--theme-footer-background))",
+  };
+
   const paymentCardStyle = {
-    backgroundColor: "rgba(0,0,0,0.18)",
+    background: "var(--theme-footer-widget-background, rgba(0,0,0,0.18))",
     borderColor: "var(--theme-footer-border)",
-    color: "var(--theme-footer-text)",
+    color: "var(--theme-footer-widget-text, var(--theme-footer-text))",
   };
 
   const paymentBadgeStyle = {
-    backgroundColor: "rgba(255,255,255,0.10)",
-    color: "var(--theme-footer-heading)",
+    background: "var(--theme-footer-badge-background, rgba(255,255,255,0.10))",
+    color: "var(--theme-footer-badge-text, var(--theme-footer-heading))",
   };
 
   const connectCardStyle = {
-    backgroundColor: "rgba(0,0,0,0.18)",
+    background: "var(--theme-footer-widget-background, rgba(0,0,0,0.18))",
     borderColor: "var(--theme-footer-border)",
-    color: "var(--theme-footer-text)",
+    color: "var(--theme-footer-widget-text, var(--theme-footer-text))",
   };
 
   return (
@@ -206,7 +211,7 @@ export function Footer() {
               <a
                 href={`mailto:${supportEmail}`}
                 className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition hover:opacity-90"
-                style={{ background: "var(--theme-footer-heading)", color: "var(--theme-footer-background)" }}
+                style={footerButtonStyle}
               >
                 Contact support
                 <ArrowUpRight className="h-4 w-4" />
@@ -214,7 +219,11 @@ export function Footer() {
               {supportPhone ? (
                 <div
                   className="inline-flex items-center gap-2 rounded-full border px-4 py-3 text-sm"
-                  style={{ borderColor: "var(--theme-footer-border)", color: "var(--theme-footer-text)" }}
+                  style={{ 
+                    borderColor: "var(--theme-footer-border)", 
+                    color: "var(--theme-footer-badge-text, var(--theme-footer-text))", 
+                    background: "var(--theme-footer-badge-background, transparent)" 
+                  }}
                 >
                   <Send className="h-4 w-4" style={{ color: "var(--theme-footer-link)" }} />
                   {supportPhone}

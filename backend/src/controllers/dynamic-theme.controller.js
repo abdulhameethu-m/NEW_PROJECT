@@ -238,7 +238,15 @@ exports.getActiveTheme = async (req, res, next) => {
           socialIcon: "#A0AEC0",
           newsletterBackground: "#2D3748",
           newsletterButton: "#6D4AFF",
-          newsletterText: "#FFFFFF"
+          newsletterText: "#FFFFFF",
+          newsletterInputBackground: "rgba(255,255,255,0.08)",
+          newsletterInputText: "#FFFFFF",
+          footerButtonBackground: "#FFFFFF",
+          footerButtonText: "#1A202C",
+          footerWidgetBackground: "rgba(0,0,0,0.18)",
+          footerWidgetText: "#A0AEC0",
+          footerBadgeBackground: "rgba(255,255,255,0.10)",
+          footerBadgeText: "#FFFFFF"
         },
         productGrid: {
           cardBackground: "#FFFFFF",
@@ -252,6 +260,10 @@ exports.getActiveTheme = async (req, res, next) => {
           buttonBackground: "#6D4AFF",
           buttonText: "#FFFFFF",
           buttonHover: "#553C9A",
+          category: "#64748B",
+          seller: "#3B82F6",
+          stockIn: "#16A34A",
+          stockOut: "#DC2626",
           wishlist: "#A0AEC0",
           wishlistActive: "#E53E3E"
         },

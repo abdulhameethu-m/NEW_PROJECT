@@ -278,6 +278,22 @@ h3,
 
 /* Responsive Utility Classes */
 @layer components {
+  /* Theme Buttons */
+  .btn-theme-primary {
+    background: var(--theme-primary-button);
+    color: var(--theme-primary-button-text);
+  }
+  .btn-theme-primary:hover {
+    background: var(--theme-primary-button-hover);
+  }
+  .btn-theme-secondary {
+    background: var(--theme-secondary-button);
+    color: var(--theme-secondary-button-text);
+  }
+  .btn-theme-secondary:hover {
+    background: var(--theme-secondary-button-hover);
+  }
+
   /* Responsive text sizing */
   .text-responsive-h1 {
     @apply text-2xl sm:text-3xl lg:text-4xl font-bold;

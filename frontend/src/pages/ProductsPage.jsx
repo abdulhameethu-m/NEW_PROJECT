@@ -1035,7 +1035,7 @@ const ProductCard = memo(function ProductCard({ product }) {
       to={`/product/${productId}`}
       className="group/card flex flex-col overflow-hidden rounded-lg border transition-all duration-200 hover:shadow-lg"
       style={{
-        backgroundColor: "var(--theme-product-card-background)",
+        background: "var(--theme-product-card-background)",
         borderColor: "var(--theme-product-card-border)",
       }}
       onMouseEnter={handleMouseEnter}
@@ -1043,7 +1043,7 @@ const ProductCard = memo(function ProductCard({ product }) {
     >
       <div
         className="group relative w-full overflow-hidden"
-        style={{ aspectRatio: "3/4", backgroundColor: "var(--theme-product-card-background)" }}
+        style={{ aspectRatio: "3/4", background: "var(--theme-product-card-background)" }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -1111,7 +1111,7 @@ const ProductCard = memo(function ProductCard({ product }) {
             title={hasAvailableVariants ? "Add to cart" : "Out of stock"}
             aria-label="Add to cart"
             style={{
-              backgroundColor: "var(--theme-product-button-background)",
+              background: "var(--theme-product-button-background)",
               color: "var(--theme-product-button-text)",
             }}
           >
@@ -1126,7 +1126,7 @@ const ProductCard = memo(function ProductCard({ product }) {
           <div className="flex items-start justify-between gap-1.5">
             <h3
               className="line-clamp-2 text-xs font-medium sm:text-xs leading-tight flex-1"
-              style={{ color: "var(--theme-product-title)" }}
+              style={{ background: "var(--theme-product-title, #1A202C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
             >
               {product.name}
             </h3>
@@ -1146,7 +1146,7 @@ const ProductCard = memo(function ProductCard({ product }) {
           </div>
           <p
             className="mt-0.5 text-[11px] line-clamp-1"
-            style={{ color: "var(--theme-muted-text)" }}
+            style={{ background: "var(--theme-product-category, #64748B)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
           >
             {product.category}
           </p>
@@ -1178,13 +1178,13 @@ const ProductCard = memo(function ProductCard({ product }) {
             <div className="flex items-center gap-1.5">
               <span
                 className="text-xs font-bold sm:text-sm"
-                style={{ color: "var(--theme-product-price)" }}
+                style={{ background: "var(--theme-product-price, #1A202C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
               >
                 {formatCurrency(product.discountPrice)}
               </span>
               <span
                 className="text-[10px] line-through"
-                style={{ color: "var(--theme-product-old-price)" }}
+                style={{ background: "var(--theme-product-old-price, #A0AEC0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
               >
                 {formatCurrency(product.price)}
               </span>
@@ -1192,7 +1192,7 @@ const ProductCard = memo(function ProductCard({ product }) {
           ) : (
             <span
               className="text-xs font-bold sm:text-sm"
-              style={{ color: "var(--theme-product-price)" }}
+              style={{ background: "var(--theme-product-price, #1A202C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
             >
               {formatCurrency(product.price)}
             </span>
@@ -1200,9 +1200,19 @@ const ProductCard = memo(function ProductCard({ product }) {
 
           <div className="text-[10px] font-medium">
             {product.stock > 0 ? (
-              <span className="text-green-600">In Stock</span>
+              <span 
+                className="font-bold" 
+                style={{ background: "var(--theme-product-stock-in, #16A34A)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
+              >
+                In Stock
+              </span>
             ) : (
-              <span className="text-red-600">Out of Stock</span>
+              <span 
+                className="font-bold" 
+                style={{ background: "var(--theme-product-stock-out, #DC2626)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
+              >
+                Out of Stock
+              </span>
             )}
           </div>
         </div>
@@ -1210,7 +1220,7 @@ const ProductCard = memo(function ProductCard({ product }) {
         <button
           className="mt-auto w-full rounded-md px-2 py-1.5 text-center text-[11px] font-semibold transition-all duration-200 active:scale-95 sm:text-xs hover:opacity-90"
           style={{
-            backgroundColor: "var(--theme-product-button-background)",
+            background: "var(--theme-product-button-background)",
             color: "var(--theme-product-button-text)",
           }}
         >

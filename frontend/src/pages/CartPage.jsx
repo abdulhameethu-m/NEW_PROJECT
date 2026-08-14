@@ -137,7 +137,7 @@ export function CartPage() {
           <p className="mt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-300">Browse products and add something to your cart</p>
           <Link
             to="/shop"
-            className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-xs sm:text-sm font-medium text-white hover:bg-blue-700"
+            className="btn-theme-primary mt-4 inline-flex rounded-lg px-4 py-2 text-xs sm:text-sm font-medium transition"
           >
             Continue Shopping
           </Link>
@@ -268,7 +268,7 @@ export function CartPage() {
               <button
                 type="button"
                 onClick={() => navigate("/checkout")}
-                className="mt-4 w-full rounded-lg bg-blue-600 px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white hover:bg-blue-700"
+                className="btn-theme-primary mt-4 w-full rounded-lg px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold transition disabled:opacity-60"
               >
                 Proceed to Checkout
               </button>

@@ -66,7 +66,8 @@ export function SearchBar({ className = "" }) {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => searchQuery.trim().length > 0 && setShowResults(true)}
-          className="w-full rounded-full border bg-[var(--theme-search-background,#FFFFFF)] border-[var(--theme-navbar-border,#DBEAFE)] text-[var(--theme-search-text,#1F2937)] py-3.5 pl-11 pr-12 text-sm shadow-none outline-none transition duration-300 focus:ring-4 focus:ring-indigo-100"
+          className="w-full rounded-full border border-[var(--theme-navbar-border,#DBEAFE)] py-3.5 pl-11 pr-12 text-sm shadow-none outline-none transition duration-300 focus:ring-4 focus:ring-indigo-100"
+          style={{ background: "var(--theme-search-background,#FFFFFF)", color: "var(--theme-search-text,#1F2937)" }}
         />
         {searchQuery && (
           <button
