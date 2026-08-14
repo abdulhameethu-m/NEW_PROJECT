@@ -107,7 +107,7 @@ export function CartPage() {
   }
 
   return (
-    <div className="grid gap-4 sm:gap-6">
+    <div className="grid gap-4 sm:gap-6 px-4 lg:px-8 py-4 lg:py-6 relative">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Cart</h1>
