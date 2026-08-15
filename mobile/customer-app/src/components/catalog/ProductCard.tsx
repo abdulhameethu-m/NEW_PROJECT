@@ -15,7 +15,7 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
   const handlePress = () => {
     // Navigate to future product details route
     // Note: this route doesn't exist yet in Phase 3, this is the foundational setup
-    router.push(`/product/${product._id}` as any);
+    router.push(`/product/${product.slug}` as any);
   };
 
   const imageRef = product.images?.[0];
@@ -56,7 +56,7 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
         
         {product.stock <= 0 && (
           <View className="absolute top-2 right-2 bg-slate-900/80 px-2 py-1 rounded-md">
-            <Text className="text-white text-xs font-bold">Out of Stock</Text>
+            <Text className="text-white text-[10px] font-bold">Out of Stock</Text>
           </View>
         )}
       </View>
@@ -78,13 +78,13 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
           ) : null}
         </View>
 
-        <View className="flex-row items-baseline mt-2 space-x-2">
-          <Text className="text-base font-bold text-slate-900 dark:text-white">
-            {product.currency} {displayPrice.toLocaleString()}
+        <View className="flex-row items-center mt-2 flex-wrap">
+          <Text className="text-sm font-bold text-slate-900 dark:text-white mr-1.5" numberOfLines={1}>
+            {product.currency || 'INR'} {displayPrice ? displayPrice.toLocaleString() : '0'}
           </Text>
           {hasDiscount && (
-            <Text className="text-xs text-slate-400 line-through">
-              {price.toLocaleString()}
+            <Text className="text-xs text-slate-400 line-through" numberOfLines={1}>
+              {price ? price.toLocaleString() : ''}
             </Text>
           )}
         </View>

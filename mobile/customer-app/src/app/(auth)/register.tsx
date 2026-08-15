@@ -112,8 +112,8 @@ export default function RegisterScreen() {
             )}
 
             {/* Form Fields */}
-            <View className="space-y-4">
-              <View>
+            <View>
+              <View className="mb-4">
                 <Controller
                   control={control}
                   name="name"
@@ -139,7 +139,7 @@ export default function RegisterScreen() {
                 {errors.name && <Text className="text-red-500 text-xs mt-1 ml-4">{errors.name.message}</Text>}
               </View>
 
-              <View>
+              <View className="mb-4">
                 <Controller
                   control={control}
                   name="email"
@@ -167,7 +167,7 @@ export default function RegisterScreen() {
                 {errors.email && <Text className="text-red-500 text-xs mt-1 ml-4">{errors.email.message}</Text>}
               </View>
 
-              <View>
+              <View className="mb-4">
                 <Controller
                   control={control}
                   name="phone"
@@ -194,7 +194,7 @@ export default function RegisterScreen() {
                 {errors.phone && <Text className="text-red-500 text-xs mt-1 ml-4">{errors.phone.message}</Text>}
               </View>
 
-              <View>
+              <View className="mb-4">
                 <Controller
                   control={control}
                   name="password"
@@ -228,7 +228,7 @@ export default function RegisterScreen() {
                 {errors.password && <Text className="text-red-500 text-xs mt-1 ml-4">{errors.password.message}</Text>}
               </View>
 
-              <View>
+              <View className="mb-2">
                 <Controller
                   control={control}
                   name="confirmPassword"
@@ -314,18 +314,18 @@ export default function RegisterScreen() {
             {/* Social Logins */}
             <View className="flex-row justify-between mb-8">
               <TouchableOpacity className="flex-1 bg-white border border-slate-100 h-14 rounded-2xl flex-row items-center justify-center mr-2 shadow-sm" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }}>
-                <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' }} style={{ width: 20, height: 20 }} />
-                <Text className="font-semibold text-slate-800 ml-2">Google</Text>
+                <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' }} style={{ width: 18, height: 18 }} />
+                <Text className="font-semibold text-slate-800 ml-1.5 text-xs" numberOfLines={1} adjustsFontSizeToFit>Google</Text>
               </TouchableOpacity>
               
               <TouchableOpacity className="flex-1 bg-white border border-slate-100 h-14 rounded-2xl flex-row items-center justify-center mx-1 shadow-sm" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }}>
-                <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/0/747.png' }} style={{ width: 20, height: 20 }} />
-                <Text className="font-semibold text-slate-800 ml-2">Apple</Text>
+                <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/0/747.png' }} style={{ width: 18, height: 18 }} />
+                <Text className="font-semibold text-slate-800 ml-1.5 text-xs" numberOfLines={1} adjustsFontSizeToFit>Apple</Text>
               </TouchableOpacity>
               
               <TouchableOpacity className="flex-1 bg-white border border-slate-100 h-14 rounded-2xl flex-row items-center justify-center ml-2 shadow-sm" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }}>
-                <Smartphone color="#7c3aed" size={20} />
-                <Text className="font-semibold text-slate-800 ml-2 text-xs">Mobile Number</Text>
+                <Smartphone color="#7c3aed" size={18} />
+                <Text className="font-semibold text-slate-800 ml-1 text-xs" numberOfLines={1} adjustsFontSizeToFit>Mobile</Text>
               </TouchableOpacity>
             </View>
 
@@ -340,33 +340,33 @@ export default function RegisterScreen() {
             </View>
             
             {/* Trust Badges */}
-            <View className="flex-row justify-between bg-slate-50 border border-slate-100 rounded-3xl p-5 mb-4 shadow-sm" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }}>
-              <View className="items-center flex-1">
-                <View className="w-10 h-10 rounded-full bg-indigo-100 items-center justify-center mb-2">
-                  <ShieldCheck color="#6366f1" size={22} />
+            <View className="flex-row justify-between bg-slate-50 border border-slate-100 rounded-3xl p-4 mb-4 shadow-sm" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }}>
+              <View className="items-center flex-1 px-1">
+                <View className="w-10 h-10 rounded-full bg-indigo-100 items-center justify-center mb-1">
+                  <ShieldCheck color="#6366f1" size={20} />
                 </View>
-                <Text className="font-bold text-slate-800 text-xs">Secure</Text>
-                <Text className="text-slate-500 text-[10px] text-center mt-1">Your data is safe</Text>
+                <Text className="font-bold text-slate-800 text-[11px] text-center" numberOfLines={1}>Secure</Text>
+                <Text className="text-slate-500 text-[9px] text-center mt-0.5" numberOfLines={2}>Safe data</Text>
               </View>
               
-              <View className="w-px bg-slate-200 mx-2" />
+              <View className="w-px bg-slate-200 mx-1" />
               
-              <View className="items-center flex-1">
-                <View className="w-10 h-10 rounded-full bg-indigo-100 items-center justify-center mb-2">
-                  <Percent color="#6366f1" size={22} />
+              <View className="items-center flex-1 px-1">
+                <View className="w-10 h-10 rounded-full bg-indigo-100 items-center justify-center mb-1">
+                  <Percent color="#6366f1" size={20} />
                 </View>
-                <Text className="font-bold text-slate-800 text-xs">Best Offers</Text>
-                <Text className="text-slate-500 text-[10px] text-center mt-1">Exclusive deals</Text>
+                <Text className="font-bold text-slate-800 text-[11px] text-center" numberOfLines={1}>Offers</Text>
+                <Text className="text-slate-500 text-[9px] text-center mt-0.5" numberOfLines={2}>Best deals</Text>
               </View>
               
-              <View className="w-px bg-slate-200 mx-2" />
+              <View className="w-px bg-slate-200 mx-1" />
               
-              <View className="items-center flex-1">
-                <View className="w-10 h-10 rounded-full bg-indigo-100 items-center justify-center mb-2">
-                  <Headphones color="#6366f1" size={22} />
+              <View className="items-center flex-1 px-1">
+                <View className="w-10 h-10 rounded-full bg-indigo-100 items-center justify-center mb-1">
+                  <Headphones color="#6366f1" size={20} />
                 </View>
-                <Text className="font-bold text-slate-800 text-xs">24/7 Support</Text>
-                <Text className="text-slate-500 text-[10px] text-center mt-1">We are here to help</Text>
+                <Text className="font-bold text-slate-800 text-[11px] text-center" numberOfLines={1}>Support</Text>
+                <Text className="text-slate-500 text-[9px] text-center mt-0.5" numberOfLines={2}>24/7 help</Text>
               </View>
             </View>
 

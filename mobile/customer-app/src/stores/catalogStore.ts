@@ -17,6 +17,7 @@ const initialState: CatalogQueryState = {
   maxPrice: undefined,
   sortBy: 'createdAt',
   sortOrder: 'desc',
+  // arbitrary dynamic fields will be merged here
 };
 
 export const useCatalogStore = create<CatalogStore>((set) => ({

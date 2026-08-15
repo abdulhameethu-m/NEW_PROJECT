@@ -11,6 +11,7 @@ import { FilterModal } from '../../components/catalog/FilterModal';
 import { SortModal } from '../../components/catalog/SortModal';
 import { EmptyState } from '../../components/catalog/EmptyState';
 import { ProductSkeleton } from '../../components/catalog/ProductSkeleton';
+import { FilterChips } from '../../components/catalog/FilterChips';
 import { Filter, ArrowUpDown } from 'lucide-react-native';
 
 export default function ShopScreen() {
@@ -28,8 +29,9 @@ export default function ShopScreen() {
   const [isFilterVisible, setFilterVisible] = useState(false);
   const [isSortVisible, setSortVisible] = useState(false);
 
-  // Flatten pages into a single array of products
-  const products = data?.pages?.flatMap(page => page?.items || [])?.filter(Boolean) || [];
+  // Flatten pages into a single array of products and deduplicate using unique map
+  const allItems = data?.pages?.flatMap(page => page?.items || [])?.filter(Boolean) || [];
+  const products = Array.from(new Map(allItems.map(item => [item._id, item])).values());
   const totalProducts = data?.pages?.[0]?.pagination?.total || 0;
 
   const handleEndReached = useCallback(() => {
@@ -98,9 +100,11 @@ export default function ShopScreen() {
         </View>
       </View>
 
+      <FilterChips />
+
       <FlatList
         data={products}
-        keyExtractor={(item, index) => `${item._id}-${index}`}
+        keyExtractor={(item) => item._id}
         numColumns={2}
         contentContainerStyle={{ padding: 12, flexGrow: 1 }}
         renderItem={({ item }) => (

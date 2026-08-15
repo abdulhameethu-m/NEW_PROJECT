@@ -41,13 +41,53 @@ export interface Seller {
 export interface ProductRatings {
   averageRating: number;
   totalReviews: number;
-  ratingBreakdown?: any;
+  ratingBreakdown?: {
+    five: number;
+    four: number;
+    three: number;
+    two: number;
+    one: number;
+  };
 }
 
 export interface ProductAnalytics {
   views: number;
   salesCount: number;
   totalRevenue: number;
+}
+
+export type ProductAttributeValue = string | number | boolean | string[] | number[];
+export type ProductAttributes = Record<string, ProductAttributeValue>;
+
+export interface ProductImage {
+  url: string;
+  altText?: string;
+  isPrimary?: boolean;
+  sortOrder?: number;
+}
+
+export interface VariantOption {
+  key: string;
+  name: string;
+  value: string;
+}
+
+export interface ProductVariant {
+  variantId: string;
+  title: string;
+  attributes: Record<string, string>;
+  options: VariantOption[];
+  price: number;
+  discountPrice?: number;
+  weight?: {
+    value: number;
+    unit: string;
+  };
+  stock: number;
+  sku: string;
+  images: ProductImage[];
+  isDefault: boolean;
+  isActive: boolean;
 }
 
 export interface Product {
@@ -68,7 +108,7 @@ export interface Product {
   SKU?: string;
   productNumber?: string;
   lowStockThreshold?: number;
-  images: string[];
+  images: ProductImage[];
   thumbnail?: string;
   sellerId: Seller;
   status: string;
@@ -79,6 +119,15 @@ export interface Product {
   analytics?: ProductAnalytics;
   createdAt: string;
   updatedAt?: string;
+
+  // Variant & Dynamic extensions
+  attributes?: ProductAttributes;
+  variantConfig?: string[];
+  variants?: ProductVariant[];
+  weight?: {
+    value: number;
+    unit: string;
+  };
 }
 
 export interface ProductFacet {
@@ -108,4 +157,5 @@ export interface CatalogQueryState {
   maxPrice?: number;
   sortBy?: string; // e.g. "price", "createdAt"
   sortOrder?: "asc" | "desc";
+  [key: string]: any; // Allow arbitrary dynamic filters from backend facets
 }

@@ -525,11 +525,7 @@ async function requestPasswordResetOTP(identifier) {
     : await userRepo.findByPhone(id);
 
   if (!user) {
-    return {
-      otpRequested: true,
-      deliveryMethod: isEmail ? "email" : "sms",
-      message: `If an account exists, an OTP will be sent via ${isEmail ? "email" : "SMS"}.`,
-    };
+    throw new AppError("Invalid email or phone number", 400, "USER_NOT_FOUND");
   }
 
   // Determine which identifier to use
@@ -553,7 +549,7 @@ async function requestPasswordResetOTP(identifier) {
   // Generate OTP
   const rawOTP = generateOTP();
   const otpHash = hashToken(rawOTP);
-  const otpExpiryMinutes = parseInt(process.env.OTP_EXPIRY_MINUTES) || 10;
+  const otpExpirySeconds = 60; // strictly 60 seconds to match frontend timer
 
   await OTP.deleteMany({
     userId: user._id,
@@ -568,7 +564,7 @@ async function requestPasswordResetOTP(identifier) {
     otpHash,
     purpose: "password_reset",
     deliveryMethod: otpDeliveryMethod,
-    expiresAt: new Date(Date.now() + otpExpiryMinutes * 60 * 1000),
+    expiresAt: new Date(Date.now() + otpExpirySeconds * 1000),
   });
 
   // Send OTP via appropriate channel

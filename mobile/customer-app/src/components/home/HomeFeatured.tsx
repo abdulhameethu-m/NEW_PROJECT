@@ -39,7 +39,7 @@ export const HomeFeatured = ({ products, isLoading, title = "Explore Products" }
   return (
     <ResponsiveContainer className="py-4" withPadding={false}>
       <View className="px-4 mb-3 flex-row justify-between items-end">
-        <Text className="text-lg font-bold text-slate-900 dark:text-white">{title}</Text>
+        <Text className="text-lg font-bold text-slate-900 dark:text-white flex-1 mr-2" numberOfLines={1}>{title}</Text>
         <Pressable onPress={() => router.push('/(tabs)/shop')}>
           <Text className="text-amber-600 dark:text-amber-500 font-semibold text-sm">See All</Text>
         </Pressable>

@@ -71,4 +71,28 @@ export const authApi = {
     // 3. Update UI State (this handles clearing user data)
     useAuthStore.getState().clearSession();
   },
+
+  findUserForRecovery: async (identifier: string) => {
+    await authApi.fetchCsrfToken();
+    const response = await apiClient.post('/auth/forgot-username', { identifier });
+    return response.data?.data || response.data;
+  },
+
+  requestPasswordResetOTP: async (identifier: string) => {
+    await authApi.fetchCsrfToken();
+    const response = await apiClient.post('/auth/password-reset-otp/request', { identifier });
+    return response.data?.data || response.data;
+  },
+
+  verifyPasswordResetOTP: async (email: string, otp: string) => {
+    await authApi.fetchCsrfToken();
+    const response = await apiClient.post('/auth/password-reset-otp/verify', { email, otp });
+    return response.data?.data || response.data;
+  },
+
+  resetPassword: async (token: string, password: string) => {
+    await authApi.fetchCsrfToken();
+    const response = await apiClient.post('/auth/password-reset/confirm', { token, password });
+    return response.data?.data || response.data;
+  },
 };
