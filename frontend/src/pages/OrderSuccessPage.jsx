@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Check, ShoppingBag, CreditCard, Wallet, ShieldCheck, Info, MapPin, ArrowRight, Download, Headset, Shield, Truck, RefreshCcw, Clock } from "lucide-react";
 import { StatusBadge } from "../components/StatusBadge";
 import useAuthCartStore from "../context/authCartStore";
 import * as paymentService from "../services/paymentService";
@@ -12,7 +14,6 @@ const CHECKOUT_SUCCESS_STORAGE_KEY = "checkoutSuccessPayload";
 
 function persistCheckoutSuccessPayload(payload) {
   if (typeof window === "undefined") return;
-
   try {
     window.sessionStorage.setItem(CHECKOUT_SUCCESS_STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -22,7 +23,6 @@ function persistCheckoutSuccessPayload(payload) {
 
 function loadPersistedCheckoutSuccessPayload() {
   if (typeof window === "undefined") return null;
-
   try {
     const raw = window.sessionStorage.getItem(CHECKOUT_SUCCESS_STORAGE_KEY);
     if (!raw) return null;
@@ -216,207 +216,357 @@ export function OrderSuccessPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <section className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-6">
-        <div className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Order confirmed</div>
-        <h1 className="mt-2 text-3xl font-bold text-slate-950">Your order is in the system.</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          {processing
-            ? "Payment was successful. We are finishing verification and loading your order summary now."
-            : isCod
-            ? hasCodAdvance
-              ? `Advance payment of ${formatCurrency(codAdvancePaid)} is recorded. Please keep ${formatCurrency(codPayable)} ready for delivery.`
-              : `Please keep ${formatCurrency(codPayable)} ready for delivery. You can track every vendor shipment from your orders page.`
-            : "Payment status and order routing have been recorded. You can track every vendor shipment from your orders page."}
-        </p>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Orders created" value={String(orders.length)} />
-        <StatCard label="Payment method" value={displayPaymentMethod} />
-        <StatCard label={isCod ? (hasCodAdvance ? "Advance paid" : "Payable on delivery") : "Payment status"} value={isCod ? formatCurrency(hasCodAdvance ? codAdvancePaid : codPayable) : (orders[0]?.paymentStatus || payment?.status || "Pending")} />
-      </section>
-
-      {hasCodAdvance ? (
-        <section className="grid gap-4 md:grid-cols-2">
-          <StatCard label="Balance on delivery" value={formatCurrency(codPayable)} />
-          <StatCard label="Order total" value={formatCurrency(orderGrandTotal)} />
-        </section>
-      ) : null}
-
+    <div className="mx-auto max-w-5xl space-y-6 pb-20 pt-6">
+      {/* Loading state block */}
       {processing && !orders.length ? (
-        <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm text-sm text-slate-600">
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm text-sm text-slate-600">
           {settleError ? settleError : "Loading your order summary..."}
         </section>
       ) : null}
 
-      {isCod ? (
-        <section className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-          {hasCodAdvance
-            ? `COD advance instructions: advance paid is ${formatCurrency(codAdvancePaid)}. Balance collectable on delivery is ${formatCurrency(codPayable)}.`
-            : `Cash on Delivery instructions: collectable amount is ${formatCurrency(codPayable)}. Our delivery or operations team may contact you before dispatch to confirm the order.`}
-        </section>
-      ) : null}
+      {/* Hero Banner */}
+      {!processing && (
+        <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-r from-[#f2f7ff] to-[#e8f1ff] p-8 md:p-12 shadow-sm border border-blue-100 flex items-center min-h-[220px]">
+          <div className="relative z-10 flex items-start gap-6 md:w-2/3">
+            <div className="flex-shrink-0 relative mt-1">
+              <div className="absolute inset-0 animate-ping rounded-full bg-blue-400 opacity-20"></div>
+              
+              {/* Confetti particles */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                {[...Array(12)].map((_, i) => {
+                  const angle = (i * 30 * Math.PI) / 180;
+                  const distance = 50 + Math.random() * 30;
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                      animate={{ 
+                        opacity: [0, 1, 0], 
+                        scale: [0, Math.random() + 0.5, 0], 
+                        x: Math.cos(angle) * distance, 
+                        y: Math.sin(angle) * distance,
+                        rotate: Math.random() * 360
+                      }}
+                      transition={{ delay: 0.1, duration: 1.5, ease: "easeOut" }}
+                      className={`absolute h-2.5 w-2.5 ${['bg-blue-500', 'bg-purple-500', 'bg-amber-400', 'bg-emerald-500'][i % 4]} ${i % 2 === 0 ? 'rounded-full' : 'rounded-sm'}`}
+                    />
+                  );
+                })}
+              </div>
 
-      {orders.map((order) => (
-        <section key={order._id} className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="grid gap-6">
-            {/* Order Header */}
-            <div className="border-b border-slate-200 pb-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="text-sm text-slate-500">Order number</div>
-                  <div className="mt-1 text-2xl font-semibold text-slate-950">{order.orderNumber}</div>
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1, rotate: [0, -15, 15, -15, 15, 0] }}
+                transition={{ 
+                  scale: { type: "spring", bounce: 0.5 },
+                  rotate: { delay: 0.4, duration: 0.5, ease: "easeInOut" }
+                }}
+                className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-[#0066ff] text-white shadow-xl shadow-blue-500/30"
+              >
+                <Check className="h-10 w-10" strokeWidth={4} />
+              </motion.div>
+            </div>
+            <div>
+              <div className="text-sm font-bold uppercase tracking-widest text-blue-700">Order Confirmed</div>
+              <h1 className="mt-2 text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">Thank you! Your order<br/>is in the system.</h1>
+              <p className="mt-3 text-slate-600 font-medium">
+                {isCod
+                  ? hasCodAdvance
+                    ? `Advance payment of ${formatCurrency(codAdvancePaid)} is recorded. Please keep ${formatCurrency(codPayable)} ready for delivery.`
+                    : `Please keep ${formatCurrency(codPayable)} ready for delivery. You can track every vendor shipment from your orders page.`
+                  : "Payment status and order routing have been recorded. You can track every vendor shipment from your orders page."}
+              </p>
+            </div>
+          </div>
+          
+          <div className="hidden md:block absolute right-0 top-0 bottom-0 h-full w-1/2 max-w-sm">
+            <img 
+              src="/assets/success_illustration.png" 
+              alt="Delivery Illustration" 
+              className="absolute right-0 bottom-0 h-full w-full object-cover object-right mix-blend-multiply"
+              style={{ 
+                WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 30%)',
+                maskImage: 'linear-gradient(to right, transparent 0%, black 30%)'
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Stats Cards */}
+      {!processing && (
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard icon={ShoppingBag} iconColor="text-blue-600" bg="bg-blue-50" label="Orders created" value={String(orders.length)} subtext="Total orders" />
+          <StatCard icon={CreditCard} iconColor="text-purple-600" bg="bg-purple-50" label="Payment method" value={displayPaymentMethod} subtext={isCod ? "Cash on Delivery" : "Online"} />
+          <StatCard icon={Wallet} iconColor="text-orange-600" bg="bg-orange-50" label={isCod ? (hasCodAdvance ? "Advance paid" : "Payable on delivery") : "Amount Paid"} value={isCod ? formatCurrency(hasCodAdvance ? codAdvancePaid : codPayable) : formatCurrency(orderGrandTotal)} subtext={isCod ? "Collectable amount" : "Fully paid"} />
+          <StatCard icon={ShieldCheck} iconColor="text-emerald-600" bg="bg-emerald-50" label="Payment status" value={orders[0]?.paymentStatus || payment?.status || "Pending"} subtext={isCod && !hasCodAdvance ? "To be collected" : "Secured"} />
+        </section>
+      )}
+
+      {/* COD Instructions Banner */}
+      {!processing && isCod && (
+        <div className="flex items-start gap-4 rounded-2xl bg-amber-50/50 border border-amber-200 p-6 shadow-sm">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 shadow-sm border border-amber-200">
+            <Info className="h-5 w-5" strokeWidth={2.5} />
+          </div>
+          <div className="text-sm text-amber-900 leading-relaxed">
+            <span className="font-bold">Cash on Delivery instructions:</span> 
+            {hasCodAdvance
+              ? ` Advance paid is ${formatCurrency(codAdvancePaid)}. Balance collectable on delivery is ${formatCurrency(codPayable)}.`
+              : ` Collectable amount is ${formatCurrency(codPayable)}. `}
+            <br />Our delivery or operations team may contact you before dispatch to confirm the order.
+          </div>
+        </div>
+      )}
+
+      {/* Two Column Layout for Order Items & Price Summary */}
+      {!processing && orders.map((order) => (
+        <div key={order._id} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column: Order Details */}
+          <div className="lg:col-span-2 space-y-6">
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 md:p-8 shadow-sm">
+              {/* Header */}
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                  <ShoppingBag className="h-5 w-5" />
                 </div>
-                <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-slate-900">Order details</h2>
+                <div className="ml-auto flex items-center gap-2">
                   <StatusBadge value={order.status} />
                   <StatusBadge value={order.paymentStatus} />
                 </div>
               </div>
-              <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
-                <div>
-                  <span className="text-slate-500">Placed at:</span> {new Date(order.createdAt).toLocaleString()}
-                </div>
-                {order.invoiceNumber && (
-                  <div>
-                    <span className="text-slate-500">Invoice:</span> {order.invoiceNumber}
+              
+              {/* Order Info */}
+              <div className="mt-6">
+                <div className="text-xs font-bold uppercase tracking-widest text-slate-400">Order number</div>
+                <div className="mt-1 text-2xl font-black tracking-tight text-slate-900">{order.orderNumber}</div>
+                <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-slate-500 font-medium">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span>Placed at: {new Date(order.createdAt).toLocaleString()}</span>
                   </div>
-                )}
-                {order.estimatedDelivery && (
-                  <div>
-                    <span className="text-slate-500">Est. delivery:</span> {new Date(order.estimatedDelivery).toLocaleDateString()}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Order Items */}
-            <div>
-              <h3 className="font-semibold text-slate-950">Order items ({order.items?.length || 0})</h3>
-              <div className="mt-3 grid gap-3">
-                {(order.items || []).map((item, idx) => (
-                  <div key={idx} className="flex gap-4 rounded-xl border border-slate-200 p-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-slate-950">{item.name}</div>
-                      {item.variantName && (
-                        <div className="mt-1 text-xs text-slate-500">{item.variantName}</div>
-                      )}
-                      <div className="mt-2 flex items-center gap-4 text-sm text-slate-600">
-                        <span>Qty: {item.quantity}</span>
-                        <span>Unit: {formatCurrency(getItemUnitPrice(item), { currency: getCurrency(order) })}</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-slate-950">{formatCurrency(getItemTotal(item), { currency: getCurrency(order) })}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Shipping Address */}
-            {order.shippingAddress && (
-              <div className="border-t border-slate-200 pt-5">
-                <h3 className="font-semibold text-slate-950">Delivery address</h3>
-                <div className="mt-3 rounded-xl border border-slate-200 p-4 text-sm text-slate-700">
-                  <div className="font-medium text-slate-950">{order.shippingAddress.fullName}</div>
-                  <div className="mt-2 space-y-1 text-slate-600">
-                    {order.shippingAddress.line1 && <div>{order.shippingAddress.line1}</div>}
-                    {order.shippingAddress.line2 && <div>{order.shippingAddress.line2}</div>}
-                    <div>
-                      {order.shippingAddress.city}
-                      {order.shippingAddress.state && `, ${order.shippingAddress.state}`}
-                      {order.shippingAddress.postalCode && ` - ${order.shippingAddress.postalCode}`}
-                    </div>
-                    {order.shippingAddress.country && <div>{order.shippingAddress.country}</div>}
-                    {order.shippingAddress.phone && <div className="mt-2">Phone: {order.shippingAddress.phone}</div>}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {order.unifiedPricingBreakdown ? (
-              <UnifiedPricingBreakdown breakdown={order.unifiedPricingBreakdown} title="Price Breakdown" compact />
-            ) : (
-              <div className="border-t border-slate-200 pt-5">
-                <h3 className="font-semibold text-slate-950">Price breakdown</h3>
-                <div className="mt-3 space-y-2 text-sm">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Subtotal</span>
-                    <span>{formatCurrency(getOrderSubtotal(order), { currency: getCurrency(order) })}</span>
-                  </div>
-                  {getOrderTax(order) > 0 && (
-                    <div className="flex justify-between text-slate-600">
-                      <span>Tax</span>
-                      <span>{formatCurrency(getOrderTax(order), { currency: getCurrency(order) })}</span>
+                  {order.invoiceNumber && (
+                    <div className="flex items-center gap-2">
+                      <span>Invoice: {order.invoiceNumber}</span>
                     </div>
                   )}
-                  {getOrderShipping(order) > 0 && (
-                    <div className="flex justify-between text-slate-600">
-                      <span>Shipping</span>
-                      <span>{formatCurrency(getOrderShipping(order), { currency: getCurrency(order) })}</span>
-                    </div>
-                  )}
-                  {getOrderDiscount(order) > 0 && (
-                    <div className="flex justify-between text-emerald-600">
-                      <span>Discount</span>
-                      <span>-{formatCurrency(getOrderDiscount(order), { currency: getCurrency(order) })}</span>
-                    </div>
-                  )}
-                  <div className="border-t border-slate-200 pt-2 flex justify-between font-semibold text-slate-950">
-                    <span>Total</span>
-                    <span>{formatCurrency(order.totalAmount || 0, { currency: getCurrency(order) })}</span>
-                  </div>
-                  {getOrderAdvanceAmount(order) > 0 ? (
-                    <div className="rounded-xl bg-amber-50 px-3 py-3 text-amber-900">
-                      <div className="flex justify-between font-semibold">
-                        <span>COD Advance Paid</span>
-                        <span>{formatCurrency(getOrderAdvanceAmount(order), { currency: getCurrency(order) })}</span>
-                      </div>
-                      <div className="mt-2 flex justify-between">
-                        <span>Balance on Delivery</span>
-                        <span>{formatCurrency(getOrderRemainingCodAmount(order), { currency: getCurrency(order) })}</span>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               </div>
-            )}
 
-            {/* Quick Actions */}
-            <div className="border-t border-slate-200 pt-5 flex flex-wrap gap-2">
-              <Link
-                to={`/orders/${order._id}`}
-                className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-950 hover:bg-slate-200"
-              >
-                View full details
+              {/* Order Items */}
+              <div className="mt-8">
+                <h3 className="font-bold text-slate-900 text-lg mb-4">Order items ({order.items?.length || 0})</h3>
+                <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
+                  {(order.items || []).map((item, idx) => (
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white">
+                      <div className="flex items-center gap-4">
+                        <img 
+                          src={item.image || item.productImage || "https://placehold.co/100x100"} 
+                          alt={item.name} 
+                          className="h-16 w-16 rounded-xl object-cover bg-slate-50 border border-slate-100"
+                        />
+                        <div>
+                          <div className="font-bold text-slate-900">{item.name}</div>
+                          {item.variantName && (
+                            <div className="mt-0.5 text-xs text-slate-500">{item.variantName}</div>
+                          )}
+                          <div className="mt-1.5 flex items-center gap-3 text-sm text-slate-500 font-medium">
+                            <span>Qty: {item.quantity}</span>
+                            <div className="h-1 w-1 rounded-full bg-slate-300"></div>
+                            <span>Unit: {formatCurrency(getItemUnitPrice(item), { currency: getCurrency(order) })}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="font-black text-slate-900 text-right sm:text-lg">
+                        {formatCurrency(getItemTotal(item), { currency: getCurrency(order) })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Delivery Address */}
+              {order.shippingAddress && (
+                <div className="mt-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2 font-bold text-slate-900 text-lg">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                        <MapPin className="h-4 w-4" />
+                      </div>
+                      Delivery address
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-[#f8fbff] p-6 text-sm text-slate-600 border border-blue-50 relative overflow-hidden">
+                    <div className="relative z-10 font-bold text-slate-900 text-base">{order.shippingAddress.fullName}</div>
+                    <div className="relative z-10 mt-2 space-y-1">
+                      {order.shippingAddress.line1 && <div>{order.shippingAddress.line1}</div>}
+                      {order.shippingAddress.line2 && <div>{order.shippingAddress.line2}</div>}
+                      <div>
+                        {order.shippingAddress.city}
+                        {order.shippingAddress.state && `, ${order.shippingAddress.state}`}
+                        {order.shippingAddress.postalCode && ` - ${order.shippingAddress.postalCode}`}
+                      </div>
+                      {order.shippingAddress.country && <div>{order.shippingAddress.country}</div>}
+                      {order.shippingAddress.phone && <div className="mt-2 font-medium">Phone: {order.shippingAddress.phone}</div>}
+                    </div>
+                    <MapPin className="absolute -right-8 -bottom-8 h-40 w-40 text-blue-100 opacity-30" />
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <Link
+                  to={`/orders/${order._id}`}
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
+                >
+                  <ShoppingBag className="h-4 w-4 text-slate-400" />
+                  View full details
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadInvoice(order._id)}
+                  disabled={downloadingInvoiceId === order._id}
+                  className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-6 py-3 text-sm font-bold text-blue-700 hover:bg-blue-100 transition"
+                >
+                  <Download className="h-4 w-4" />
+                  {downloadingInvoiceId === order._id ? "Downloading..." : "Download Invoice"}
+                </button>
+              </div>
+            </section>
+
+            {/* Bottom Global Actions */}
+            <div className="flex flex-wrap items-center gap-4 pt-2">
+              <Link to="/orders" className="flex items-center gap-2 rounded-xl bg-blue-700 px-6 py-3.5 text-sm font-bold text-white hover:bg-blue-800 transition shadow-sm">
+                Go to orders
+                <ArrowRight className="h-4 w-4" />
               </Link>
-              <button
-                type="button"
-                onClick={() => handleDownloadInvoice(order._id)}
-                disabled={downloadingInvoiceId === order._id}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                {downloadingInvoiceId === order._id ? "Downloading..." : "Download invoice"}
-              </button>
+              <Link to="/shop" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm">
+                <ShoppingBag className="h-4 w-4" />
+                Continue shopping
+              </Link>
             </div>
           </div>
-        </section>
+
+          {/* Right Column: Price Summary & Support */}
+          <div className="space-y-6">
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 md:p-8 shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-5">
+                <h2 className="text-xl font-bold text-slate-900 leading-tight">Price<br/>summary</h2>
+                <div className="text-right">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Grand Total</div>
+                  <div className="text-2xl font-black tracking-tight text-slate-900">{formatCurrency(order.totalAmount || 0, { currency: getCurrency(order) })}</div>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Pricing breakdown</div>
+                <div className="text-xs text-slate-500 mb-6">{new Date(order.createdAt).toLocaleString()}</div>
+
+                <div className="space-y-5 text-sm font-medium">
+                  <div className="flex items-center justify-between border-b border-dashed border-slate-200 pb-5">
+                    <div>
+                      <div className="text-slate-900 font-bold">Subtotal</div>
+                      <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">SUBTOTAL</div>
+                    </div>
+                    <div className="text-slate-900 font-bold">{formatCurrency(getOrderSubtotal(order), { currency: getCurrency(order) })}</div>
+                  </div>
+
+                  {(getOrderTax(order) > 0 || getOrderShipping(order) > 0) && (
+                    <div className="flex items-center justify-between border-b border-dashed border-slate-200 pb-5">
+                      <div>
+                        <div className="text-slate-900 font-bold">Extra fee</div>
+                        <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">CHARGE</div>
+                      </div>
+                      <div className="text-slate-900 font-bold">
+                        {formatCurrency(getOrderTax(order) + getOrderShipping(order), { currency: getCurrency(order) })}
+                      </div>
+                    </div>
+                  )}
+
+                  {getOrderDiscount(order) > 0 && (
+                    <div className="flex items-center justify-between border-b border-dashed border-slate-200 pb-5">
+                      <div>
+                        <div className="text-emerald-600 font-bold">Discount</div>
+                        <div className="text-[10px] uppercase tracking-wider text-emerald-400 mt-1">SAVINGS</div>
+                      </div>
+                      <div className="text-emerald-600 font-bold">
+                        -{formatCurrency(getOrderDiscount(order), { currency: getCurrency(order) })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between pb-2 text-slate-500 text-xs">
+                    <div>Total charges</div>
+                    <div>{formatCurrency(getOrderTax(order) + getOrderShipping(order) - getOrderDiscount(order), { currency: getCurrency(order) })}</div>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-[1.25rem] bg-[#f0f6ff] p-5 text-blue-700 mt-2 border border-blue-100">
+                    <span className="font-bold">Grand total</span>
+                    <span className="font-black text-xl">{formatCurrency(order.totalAmount || 0, { currency: getCurrency(order) })}</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-blue-100 bg-gradient-to-b from-[#f8fbff] to-white p-6 md:p-8 shadow-sm">
+              <div className="flex items-start gap-5">
+                <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-md shadow-blue-200">
+                  <Headset className="h-7 w-7" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg">Need any help?</h3>
+                  <p className="mt-1 text-sm text-slate-500 font-medium leading-relaxed">Our support team is here to help you anytime.</p>
+                  <button className="mt-5 flex items-center gap-2 rounded-xl bg-blue-700 px-6 py-3 text-sm font-bold text-white hover:bg-blue-800 transition w-full justify-center shadow-sm">
+                    Contact Support
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
       ))}
 
-      <div className="flex flex-wrap gap-3">
-        <Link to="/orders" className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">Go to orders</Link>
-        <Link to="/shop" className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700">Continue shopping</Link>
+      {/* Trust Badges */}
+      {!processing && (
+        <div className="mt-12 grid grid-cols-2 lg:grid-cols-4 gap-6 border-t border-slate-200 pt-10 pb-8">
+          <TrustBadge icon={Shield} title="Secure Payment" desc="Your payment is 100% safe with us." />
+          <TrustBadge icon={Truck} title="Fast Delivery" desc="Quick delivery to your doorstep." />
+          <TrustBadge icon={RefreshCcw} title="Easy Returns" desc="Hassle-free returns within 7 days." />
+          <TrustBadge icon={Headset} title="24/7 Support" desc="We're here to help you anytime." />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ icon: Icon, iconColor, bg, label, value, subtext }) {
+  return (
+    <div className="flex items-center gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl ${bg} ${iconColor}`}>
+        <Icon className="h-6 w-6" strokeWidth={2.5} />
+      </div>
+      <div>
+        <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">{label}</div>
+        <div className="text-xl font-black tracking-tight text-slate-900">{value}</div>
+        {subtext && <div className="text-xs font-medium text-slate-500 mt-0.5">{subtext}</div>}
       </div>
     </div>
   );
 }
 
-function StatCard({ label, value }) {
+function TrustBadge({ icon: Icon, title, desc }) {
   return (
-    <div className="rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="text-sm text-slate-500">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-slate-950">{value}</div>
+    <div className="flex items-start gap-4 p-2">
+      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+        <Icon className="h-5 w-5" strokeWidth={2.5} />
+      </div>
+      <div>
+        <h4 className="text-sm font-bold text-slate-900">{title}</h4>
+        <p className="mt-1 text-xs font-medium text-slate-500 leading-relaxed">{desc}</p>
+      </div>
     </div>
   );
 }

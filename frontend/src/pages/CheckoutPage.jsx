@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Check } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { AddressModal } from "../components/AddressModal";
 import { BackButton } from "../components/BackButton";
@@ -191,6 +193,8 @@ export function CheckoutPage() {
   const [currentStep, setCurrentStep] = useState("summary");
   const [showAddressSelector, setShowAddressSelector] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [showCodConfirmPopup, setShowCodConfirmPopup] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [toast, setToast] = useState(null);
   const [recommendations, setRecommendations] = useState(null);
   const [fbtBundle, setFbtBundle] = useState(null);
@@ -718,10 +722,14 @@ export function CheckoutPage() {
         });
         const orders = response?.data?.orders || [];
         const payment = response?.data?.payment || null;
-        persistCheckoutSuccessPayload({ orders, payment });
-        pendingCheckoutManager.clear();
-        clearCheckoutCartState();
-        navigate("/checkout/success", { replace: true, state: { orders, payment } });
+        
+        setShowSuccessAnimation(true);
+        setTimeout(() => {
+          persistCheckoutSuccessPayload({ orders, payment });
+          pendingCheckoutManager.clear();
+          clearCheckoutCartState();
+          navigate("/checkout/success", { replace: true, state: { orders, payment } });
+        }, 3000);
         return;
       }
 
@@ -815,6 +823,9 @@ export function CheckoutPage() {
             trackingToken: trackingContext?.trackingToken,
           };
           const checkoutStartedAt = Date.now();
+
+          setShowSuccessAnimation(true);
+          await new Promise(resolve => setTimeout(resolve, 3000));
 
           navigate("/checkout/success", {
             replace: true,
@@ -949,7 +960,65 @@ export function CheckoutPage() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-6 relative">
+      <AnimatePresence>
+        {showSuccessAnimation && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm"
+          >
+            <div className="relative flex items-center justify-center">
+              {/* Confetti particles */}
+              {[...Array(24)].map((_, i) => {
+                const angle = (i * 15 * Math.PI) / 180;
+                const distance = 80 + Math.random() * 80;
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                    animate={{ 
+                      opacity: [0, 1, 0], 
+                      scale: [0, Math.random() + 0.5, 0], 
+                      x: Math.cos(angle) * distance, 
+                      y: Math.sin(angle) * distance,
+                      rotate: Math.random() * 360
+                    }}
+                    transition={{ delay: 0.1, duration: 1.5, ease: "easeOut" }}
+                    className={`absolute h-3 w-3 ${['bg-blue-500', 'bg-purple-500', 'bg-amber-400', 'bg-emerald-500'][i % 4]} ${i % 2 === 0 ? 'rounded-full' : 'rounded-sm'}`}
+                  />
+                );
+              })}
+              
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1, rotate: [0, -15, 15, -15, 15, 0] }}
+                transition={{ 
+                  scale: { type: "spring", bounce: 0.5 },
+                  rotate: { delay: 0.4, duration: 0.5, ease: "easeInOut" }
+                }}
+                className="relative z-10 flex h-32 w-32 items-center justify-center rounded-full bg-[#0066ff] text-white shadow-2xl shadow-blue-500/40"
+              >
+                <Check className="h-16 w-16" strokeWidth={4} />
+              </motion.div>
+            </div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="mt-8 text-center"
+            >
+              <div className="text-sm font-bold uppercase tracking-widest text-blue-600 mb-2">Order Confirmed</div>
+              <h2 className="text-4xl font-extrabold text-slate-900 tracking-tight">
+                Thank you! Your order<br/>is in the system.
+              </h2>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
@@ -1287,7 +1356,21 @@ export function CheckoutPage() {
                 <button
                   type="button"
                   disabled={placing || orderItems.length === 0 || (paymentMethod === "COD" && codAvailability?.codAvailable === false)}
-                  onClick={placeOrder}
+                  onClick={() => {
+                    if (!hasUsableAddress) {
+                      setToast({ type: "error", message: "Please select or add a delivery address first." });
+                      return;
+                    }
+                    if (
+                      isAuthenticated &&
+                      paymentMethod === "COD" &&
+                      !(codAdvance?.enabled && Number(codAdvance?.advanceAmount || 0) > 0)
+                    ) {
+                      setShowCodConfirmPopup(true);
+                    } else {
+                      placeOrder();
+                    }
+                  }}
                   className="mt-5 w-full rounded-2xl bg-[color:var(--commerce-accent-warm)] px-4 py-4 text-sm font-semibold text-slate-950 shadow-sm transition hover:translate-y-[-1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {placing
@@ -1376,6 +1459,95 @@ export function CheckoutPage() {
             surface="checkout"
             sourceProductId={checkoutProductIds[0] || ""}
           />
+        </div>
+      )}
+
+      {showCodConfirmPopup && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800 flex flex-col max-h-[90vh]">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Confirm COD Order</h3>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              Please review your Cash on Delivery order details below.
+            </p>
+            
+            <div className="mt-4 flex-1 overflow-y-auto pr-1">
+              <div className="space-y-3">
+                {orderItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-sm gap-3">
+                    <div className="flex items-center gap-3">
+                      <img 
+                        src={item.image || "https://placehold.co/100x100"} 
+                        alt={item.productTitle || item.name || "Product"} 
+                        className="h-12 w-12 rounded-lg object-cover bg-slate-100 dark:bg-slate-700" 
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-slate-900 dark:text-white font-medium line-clamp-1">
+                          {item.productTitle || item.name || "Product"}
+                        </span>
+                        <span className="text-slate-500 dark:text-slate-400 text-xs">
+                          Qty: {item.quantity}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="font-medium text-slate-900 dark:text-white flex-shrink-0">
+                      {formatCurrency(Number(item.price || 0) * Number(item.quantity || 1))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-4 border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-600 dark:text-slate-400">Subtotal</span>
+                  <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(summary?.subtotal || 0)}</span>
+                </div>
+                {Number(summary?.shipping || 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600 dark:text-slate-400">Shipping</span>
+                    <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(summary.shipping)}</span>
+                  </div>
+                )}
+                {Number(summary?.codFee || 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600 dark:text-slate-400">COD Fee</span>
+                    <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(summary.codFee)}</span>
+                  </div>
+                )}
+                {Number(summary?.chargesTotal || 0) > Number(summary?.shipping || 0) + Number(summary?.codFee || 0) && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600 dark:text-slate-400">Extra Fees</span>
+                    <span className="font-medium text-slate-900 dark:text-white">
+                      {formatCurrency(Number(summary.chargesTotal) - (Number(summary?.shipping || 0) + Number(summary?.codFee || 0)))}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-2 text-base font-bold text-slate-900 dark:text-white mt-2">
+                  <span>Total Amount</span>
+                  <span className="text-[color:var(--commerce-primary)]">{formatCurrency(totalAmount)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCodConfirmPopup(false)}
+                className="flex-1 rounded-xl border border-slate-300 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCodConfirmPopup(false);
+                  placeOrder();
+                }}
+                className="flex-1 rounded-xl bg-[color:var(--commerce-accent-warm)] py-3 text-sm font-bold text-slate-950 shadow transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                Confirm Order
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

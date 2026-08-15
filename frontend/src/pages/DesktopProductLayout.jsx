@@ -83,7 +83,7 @@ export function DesktopProductLayout({
   }
 
   return (
-    <div className="space-y-8 pb-28 lg:pb-0 relative">
+    <div className="space-y-8 pb-28 lg:pb-8 px-4 lg:px-8 pt-4 lg:pt-6 relative">
       <AnimatePresence>
         {error ? (
           <motion.div

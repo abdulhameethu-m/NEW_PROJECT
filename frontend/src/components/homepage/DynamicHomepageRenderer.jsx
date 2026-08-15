@@ -148,6 +148,7 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
   const contentSized = isContentSizedContainer(container);
   const bannerCarouselLike = container.containerType === "BANNER_CAROUSEL";
   const bannerLike = container.containerType === "BANNER" || bannerCarouselLike || container.containerType === "SLIDER";
+  const isCarousel = container.containerType === "CAROUSEL";
   const widthStyles = resolveContainerDimensionStyle(layout, renderContext, {
     inline,
     contentSized,
@@ -163,13 +164,13 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
       ? {}
       : {
         ...themeStyles,
-        background: resolveContainerBackground(layout, themeStyles),
+        background: isCarousel ? "transparent" : resolveContainerBackground(layout, themeStyles),
         color: container?.presentation?.textColor || themeStyles.color,
         padding: 0,
-        marginTop: `${layout.marginTop}px`,
-        marginBottom: `${layout.marginBottom}px`,
-        marginLeft: `${layout.marginLeft}px`,
-        marginRight: `${layout.marginRight}px`,
+        marginTop: isCarousel ? "0px" : `${layout.marginTop}px`,
+        marginBottom: isCarousel ? "0px" : `${layout.marginBottom}px`,
+        marginLeft: isCarousel ? "0px" : `${layout.marginLeft}px`,
+        marginRight: isCarousel ? "0px" : `${layout.marginRight}px`,
       }),
     ...(renderContext.device === "mobile" && (container.containerType === "BANNER" || bannerCarouselLike) && !previewBare && !stripOuterLayout
       ? {
@@ -190,12 +191,20 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
     wrapperStyle.transform = offsetTransformParts.join(" ");
   }
 
+  if (isCarousel && !previewBare && !stripOuterLayout) {
+    const sideMargin = renderContext.device === "mobile" ? "1.25rem" : "2rem";
+    wrapperStyle.margin = `${layout.marginTop ?? 16}px ${sideMargin} ${layout.marginBottom ?? 16}px ${sideMargin}`;
+    wrapperStyle.borderRadius = "2rem";
+    wrapperStyle.overflow = "hidden";
+    wrapperStyle.background = resolveContainerBackground(layout, themeStyles);
+  }
+
   const backgroundMediaUrl = resolveContainerBackgroundMedia(layout);
 
   return (
     <div className={`relative ${previewBare || contentSized ? "" : "overflow-hidden"} ${visibilityClasses}`.trim()} style={wrapperStyle}>
       {!previewBare && !stripOuterLayout && layout.backgroundType === "image" && backgroundMediaUrl ? (
-        <img loading="lazy" decoding="async" src={backgroundMediaUrl} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={backgroundMediaUrl} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover" />
       ) : null}
       {!previewBare && !stripOuterLayout && layout.backgroundType === "video" && backgroundMediaUrl ? (
         <video src={backgroundMediaUrl} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
@@ -557,7 +566,7 @@ function SectionHeader({ container, eyebrow, actionLabel = "View all" }) {
         <Link
           to={`/collections/${container.slug}`}
           onClick={() => trackHomepageContainerEvent(container._id, { eventType: "click" }).catch(() => { })}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-amber-200 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:text-amber-700 dark:text-slate-200"
         >
           {actionLabel}
           <ArrowRight className="h-4 w-4" />
@@ -648,7 +657,7 @@ function StorefrontDiscoveryCard({ containerId, card, config = {}, isInfluencer 
       {config.showStoreBanner !== false ? (
         <div className={`${overlay ? "h-72" : layout === "HORIZONTAL" ? "h-36" : "h-40"} relative bg-slate-100 dark:bg-slate-900`}>
           {bannerUrl ? (
-            <img loading="lazy" decoding="async" src={bannerUrl} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" />
+            <img src={bannerUrl} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-700 to-amber-500">
               <Store className="h-10 w-10 text-white/80" />
@@ -663,7 +672,7 @@ function StorefrontDiscoveryCard({ containerId, card, config = {}, isInfluencer 
           {config.showStoreLogo !== false ? (
             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-white/70 bg-slate-100 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               {logoUrl ? (
-                <img loading="lazy" decoding="async" src={logoUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                <img src={logoUrl} alt="" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-slate-950 text-base font-black uppercase text-white">
                   {String(card.name || "S").slice(0, 1)}
@@ -852,7 +861,7 @@ function BannerContainer({ container }) {
           ) : (
             <picture className="block h-full w-full">
               {resolvedBannerImages.mobile ? <source media="(max-width: 767px)" srcSet={resolveApiAssetUrl(resolvedBannerImages.mobile)} /> : null}
-              <img loading="lazy" decoding="async" src={resolveApiAssetUrl(resolvedBannerImages.desktop || activeItem.url || "")}
+              <img src={resolveApiAssetUrl(resolvedBannerImages.desktop || activeItem.url || "")}
                 alt={heading || "Banner"}
                 loading="eager"
                 decoding="async"
@@ -1035,7 +1044,7 @@ function BannerCarouselContainer({ container, renderContext }) {
                 ) : (
                   <picture className="absolute inset-0 block h-full w-full">
                     {images.mobile ? <source media="(max-width: 767px)" srcSet={resolveApiAssetUrl(images.mobile)} /> : null}
-                    <img loading="lazy" decoding="async" src={resolveApiAssetUrl(imageUrl)}
+                    <img src={resolveApiAssetUrl(imageUrl)}
                       alt={heading || `Banner ${itemIndex + 1}`}
                       className="block h-full w-full object-cover object-center"
                       loading={itemIndex === 0 ? "eager" : "lazy"}
@@ -1305,7 +1314,7 @@ function FeaturedProductTile({ product, config = {}, hero = false }) {
     <article className={`group relative flex h-full min-h-0 flex-col overflow-hidden bg-white transition ${config.cardHoverEffect === "LIFT" ? "hover:-translate-y-1" : ""}`} style={cardStyle}>
       {config.showProductImage !== false ? (
         <a href={`/product/${productId}`} className={hero ? "block aspect-[16/11] bg-slate-100" : "block aspect-[4/3] bg-slate-100"}>
-          {imageUrl ? <img loading="lazy" decoding="async" src={imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center text-sm text-slate-400">Image coming soon</div>}
+          {imageUrl ? <img src={imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center text-sm text-slate-400">Image coming soon</div>}
         </a>
       ) : null}
       <div className={hero ? "flex flex-1 flex-col gap-3 p-5" : "flex flex-1 flex-col gap-2 p-4"}>
@@ -1396,7 +1405,7 @@ function SliderContainer({ container }) {
         {imageUrl ? (
           <picture className="block h-full w-full">
             {slideImages.mobile ? <source media="(max-width: 767px)" srcSet={resolveApiAssetUrl(slideImages.mobile)} /> : null}
-            <img loading="lazy" decoding="async" src={imageUrl} alt={currentSlide?.heading || container.title || "Slider"} className="block h-full w-full object-cover object-center" loading="eager" decoding="async" />
+            <img src={imageUrl} alt={currentSlide?.heading || container.title || "Slider"} className="block h-full w-full object-cover object-center" loading="eager" decoding="async" />
           </picture>
         ) : null}
         {imageUrl ? <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-950/35 to-transparent" /> : null}
@@ -1491,7 +1500,7 @@ function DealsStripContainer({ container, renderContext }) {
           config.dealBackgroundType === "VIDEO" ? (
             <video src={resolveApiAssetUrl(backgroundMedia)} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
           ) : (
-            <img loading="lazy" decoding="async" src={resolveApiAssetUrl(backgroundMedia)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={resolveApiAssetUrl(backgroundMedia)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
           )
         ) : null}
         {backgroundMedia ? (
@@ -1612,7 +1621,7 @@ function DealCtaButton({ config = {}, compact = false }) {
 
 function DealIcon({ config = {} }) {
   if (config.dealIcon === "CUSTOM" && config.dealCustomIconImage) {
-    return <img loading="lazy" decoding="async" src={resolveApiAssetUrl(config.dealCustomIconImage)} alt="" className="h-4 w-4 rounded-full object-cover" />;
+    return <img src={resolveApiAssetUrl(config.dealCustomIconImage)} alt="" className="h-4 w-4 rounded-full object-cover" />;
   }
   const icons = {
     FLASH: Zap,
@@ -1759,7 +1768,7 @@ function MasonryContainer({ container }) {
       <SectionHeader container={container} eyebrow={resolveEyebrow(container.containerType)} />
       {masonryImageUrl ? (
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <img loading="lazy" decoding="async" src={masonryImageUrl}
+          <img src={masonryImageUrl}
             alt={container.title || "Masonry feature"}
             className="w-full object-cover"
             style={{ height: `${Math.min(Math.max(masonryImageHeight, 120), 700)}px` }}
@@ -1802,7 +1811,7 @@ function CategoryShowcaseContainer({ container }) {
       <SectionHeader container={container} eyebrow={resolveEyebrow(container.containerType)} />
       {bannerUrl ? (
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900">
-          <img loading="lazy" decoding="async" src={bannerUrl} alt={container.title || "Category showcase"} className="h-56 w-full object-cover sm:h-72" loading="lazy" />
+          <img src={bannerUrl} alt={container.title || "Category showcase"} className="h-56 w-full object-cover sm:h-72" />
         </div>
       ) : null}
       {items.length ? (
@@ -1844,7 +1853,7 @@ function CategoryShowcaseCard({ category, config = {}, layout = "CARDS", feature
     >
       <div className={`${compact ? "h-28" : featured ? "h-72" : "h-44"} relative overflow-hidden bg-slate-100 dark:bg-slate-900`}>
         {imageUrl ? (
-          <img loading="lazy" decoding="async" src={imageUrl} alt={category.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" />
+          <img src={imageUrl} alt={category.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
         ) : (
           <div className="flex h-full items-center justify-center" style={{ background: `linear-gradient(135deg, ${color}, #f59e0b)` }}>
             <span className="text-4xl font-black uppercase text-white">{String(category.code || category.name || "C").slice(0, 2)}</span>
@@ -1933,7 +1942,7 @@ function ComboDealsContainer({ container }) {
       <div className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-xl shadow-slate-950/5 dark:border-slate-800 dark:bg-slate-950">
         <div className="grid lg:grid-cols-[0.95fr_1.05fr]">
           <div className="relative min-h-[320px] bg-slate-950 text-white">
-            {bannerUrl ? <img loading="lazy" decoding="async" src={bannerUrl} alt={title} className="absolute inset-0 h-full w-full object-cover opacity-70" loading="lazy" /> : null}
+            {bannerUrl ? <img src={bannerUrl} alt={title} className="absolute inset-0 h-full w-full object-cover opacity-70" /> : null}
             <div className="absolute inset-0 bg-gradient-to-br from-slate-950/85 via-slate-950/55 to-amber-600/40" />
             <div className="relative z-10 flex h-full flex-col justify-between p-6 sm:p-8">
               <div>
@@ -1973,7 +1982,7 @@ function ComboDealsContainer({ container }) {
 function ComboDealHeader({ container, config, title, subtitle, bannerUrl, comboTotal, subtotal, savings, ctaUrl }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-      {bannerUrl ? <img loading="lazy" decoding="async" src={bannerUrl} alt={title} className="h-56 w-full object-cover" loading="lazy" /> : null}
+      {bannerUrl ? <img src={bannerUrl} alt={title} className="h-56 w-full object-cover" /> : null}
       <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
         <SectionHeader container={{ ...container, title, description: subtitle }} eyebrow={resolveEyebrow(container.containerType)} />
         <ComboPriceBlock config={config} subtotal={subtotal} comboTotal={comboTotal} savings={savings} ctaUrl={ctaUrl} />
@@ -2008,7 +2017,7 @@ function ComboProductStack({ products = [] }) {
         const imageUrl = resolveApiAssetUrl(product?.images?.[0]?.url || product?.thumbnail || "");
         return (
           <div key={product._id} className="h-14 w-14 overflow-hidden rounded-full border-2 border-white bg-slate-100 dark:border-slate-950 dark:bg-slate-800">
-            {imageUrl ? <img loading="lazy" decoding="async" src={imageUrl} alt={product.name} className="h-full w-full object-cover" loading="lazy" /> : null}
+            {imageUrl ? <img src={imageUrl} alt={product.name} className="h-full w-full object-cover" /> : null}
           </div>
         );
       })}
@@ -2021,7 +2030,7 @@ function CompactComboProduct({ product }) {
   return (
     <Link to={`/product/${product._id}`} className="flex gap-3 rounded-2xl border border-slate-200 p-3 transition hover:border-amber-300 hover:bg-amber-50/50 dark:border-slate-800 dark:hover:bg-slate-900">
       <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-        {imageUrl ? <img loading="lazy" decoding="async" src={imageUrl} alt={product.name} className="h-full w-full object-cover" loading="lazy" /> : null}
+        {imageUrl ? <img src={imageUrl} alt={product.name} className="h-full w-full object-cover" /> : null}
       </div>
       <div className="min-w-0">
         <div className="line-clamp-2 text-sm font-semibold text-slate-950 dark:text-white">{product.name}</div>
@@ -2093,7 +2102,7 @@ function VendorSpotlightHero({ container }) {
       <div className="flex items-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white/10">
           {vendor.logoUrl ? (
-            <img loading="lazy" decoding="async" src={resolveApiAssetUrl(vendor.logoUrl)} alt={vendor.shopName || vendor.companyName} className="h-full w-full object-cover" />
+            <img src={resolveApiAssetUrl(vendor.logoUrl)} alt={vendor.shopName || vendor.companyName} className="h-full w-full object-cover" />
           ) : (
             <Store className="h-6 w-6" />
           )}

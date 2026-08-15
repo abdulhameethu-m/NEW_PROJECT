@@ -104,9 +104,9 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
     <>
       {/* Desktop Category Navigation */}
       <nav
-        className="hidden lg:flex sticky top-[50px] z-20 border-y-0 bg-white/95 backdrop-blur-md will-change-none dark:bg-slate-950/95 py-1"
+        className="hidden lg:flex sticky top-[65px] z-20 border-y-0 bg-white/95 backdrop-blur-md will-change-none dark:bg-slate-950/95 py-1"
       >
-        <div className="w-full px-0 h-full flex items-center relative">
+        <div className="w-full px-4 lg:px-6 h-full flex items-center relative">
           {/* Left Arrow */}
           {canScrollLeft && (
             <button

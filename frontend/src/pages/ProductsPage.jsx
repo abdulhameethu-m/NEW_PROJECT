@@ -2,7 +2,7 @@
 import { logger } from "../services/logger/logger.js";
 import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ChevronDown, Heart, ShoppingCart, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, LayoutGrid, Layers, ArrowUpDown, Heart, ShoppingCart, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { CategoryChips } from "../components/shop/CategoryChips";
 import { FilterBottomSheet } from "../components/shop/FilterBottomSheet";
 import { useCategories } from "../hooks/useCategories";
@@ -15,6 +15,7 @@ import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useWishlist } from "../hooks/useWishlist";
 import { getCartErrorMessage } from "../utils/cartErrors";
 import { SellerNameLink } from "../components/seller/SellerNavigation";
+import { ProductCard } from "../components/ProductCard";
 
 
 const RESERVED_QUERY_KEYS = new Set([
@@ -117,8 +118,6 @@ export function ProductsPage() {
           ...(categoryId && { categoryId }),
           ...(subCategoryId && { subCategoryId }),
           ...(search && { search }),
-          ...(minPrice && { minPrice: Number(minPrice) }),
-          ...(maxPrice && { maxPrice: Number(maxPrice) }),
           ...dynamicParams,
         });
         if (!alive) return;
@@ -133,7 +132,7 @@ export function ProductsPage() {
     return () => {
       alive = false;
     };
-  }, [category, categoryId, subCategoryId, search, minPrice, maxPrice, dynamicParams]);
+  }, [category, categoryId, subCategoryId, search, dynamicParams]);
 
   useEffect(() => {
     let alive = true;
@@ -159,11 +158,15 @@ export function ProductsPage() {
         if (!alive) return;
         setProducts(response?.data?.products || []);
         setPagination(response?.data?.pagination || { total: 0, pages: 1 });
-        setFacetMap(
-          Object.fromEntries(
+        setFacetMap((prev) => {
+          const next = Object.fromEntries(
             (response?.data?.facets || []).map((facet) => [facet.key, facet])
-          )
-        );
+          );
+          if (prev.price && next.price) {
+            next.price = { ...next.price, min: prev.price.min, max: prev.price.max };
+          }
+          return { ...prev, ...next };
+        });
       } catch (err) {
         if (alive) setError(err?.response?.data?.message || "Failed to load products");
       } finally {
@@ -195,7 +198,11 @@ export function ProductsPage() {
     if (category) chips.push({ key: "category", label: `Category: ${category}` });
     const selectedSubcategory = subcategories.find((item) => item._id === subCategoryId);
     if (selectedSubcategory) chips.push({ key: "subCategoryId", label: `Subcategory: ${selectedSubcategory.name}` });
-    if (minPrice || maxPrice) chips.push({ key: "price", label: `Price: ${minPrice || 0} - ${maxPrice || "Any"}` });
+    if (minPrice || maxPrice) {
+      const minStr = minPrice ? formatCurrency(minPrice).replace(/\.00$/, "") : formatCurrency(0).replace(/\.00$/, "");
+      const maxStr = maxPrice ? formatCurrency(maxPrice).replace(/\.00$/, "") : "Any";
+      chips.push({ key: "price", label: `Price: ${minStr} - ${maxStr}` });
+    }
 
     for (const def of filterDefs) {
       if (["price", "rating"].includes(def.key)) continue;
@@ -581,7 +588,7 @@ export function ProductsPage() {
             </div>
           )}
 
-          <div className={`flex-1 grid gap-3 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${isDesktopFilterOpen ? "lg:grid-cols-4 xl:grid-cols-4" : "lg:grid-cols-8 xl:grid-cols-8"}`}>
+          <div className={`flex-1 grid gap-3 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${isDesktopFilterOpen ? "lg:grid-cols-4 xl:grid-cols-4" : "lg:grid-cols-6 xl:grid-cols-6"}`}>
             {loading && !products.length
               ? Array.from({ length: 8 }).map((_, index) => (
                 <div key={index} className="animate-pulse rounded-3xl bg-white p-4 shadow-sm dark:bg-slate-900">
@@ -665,10 +672,16 @@ function FilterSidebar({
   }, [search]);
 
   return (
-    <div className="space-y-3 rounded-xl border border-slate-300 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-950 sm:space-y-4 sm:p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">Filters</h2>
-        <ChevronDown className="h-4 w-4 text-slate-400" />
+    <div className="relative overflow-hidden space-y-4 rounded-[1.5rem] border-0 bg-white p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:bg-slate-900 sm:space-y-5 sm:p-6">
+      {/* Wave Graphic at bottom */}
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32 opacity-50 dark:opacity-20" style={{ background: "url('data:image/svg+xml;utf8,<svg viewBox=\"0 0 1440 320\" xmlns=\"http://www.w3.org/2000/svg\"><path fill=\"%23BFDBFE\" fill-opacity=\"1\" d=\"M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,224C672,245,768,267,864,261.3C960,256,1056,224,1152,197.3C1248,171,1344,149,1392,138.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z\"></path></svg>') no-repeat bottom", backgroundSize: 'cover' }}></div>
+
+      <div className="relative z-10 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="h-5 w-5 text-blue-600" />
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Filters</h2>
+        </div>
+        <ChevronUp className="h-5 w-5 text-slate-900 dark:text-slate-100" />
       </div>
 
       <form
@@ -676,60 +689,101 @@ function FilterSidebar({
           event.preventDefault();
           onSearchChange(localSearch.trim());
         }}
-        className="space-y-2"
+        className="relative z-10 space-y-3"
       >
-        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">Search</label>
-        <input
-          type="text"
-          value={localSearch}
-          onChange={(event) => setLocalSearch(event.target.value)}
-          placeholder="Search products..."
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 sm:text-sm"
-        />
-        <button type="submit" className="w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 sm:text-sm">
+        <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100">Search</label>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={localSearch}
+            onChange={(event) => setLocalSearch(event.target.value)}
+            placeholder="Search products..."
+            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          />
+        </div>
+        <button type="submit" className="w-full rounded-xl bg-[#0052FF] py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700">
           Apply search
         </button>
       </form>
 
-      <div>
-        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">Category</label>
-        <select
-          value={categoryId}
-          onChange={(event) => onCategoryChange(event.target.value)}
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 sm:text-sm"
-        >
-          <option value="">All Categories</option>
-          {categories.map((item) => (
-            <option key={item._id} value={item._id}>{item.name}</option>
-          ))}
-        </select>
+      <div className="relative z-10">
+        <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Category</label>
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <div className="p-1 rounded-md bg-blue-50 text-blue-600">
+              <LayoutGrid className="w-4 h-4" />
+            </div>
+          </div>
+          <select
+            value={categoryId}
+            onChange={(event) => onCategoryChange(event.target.value)}
+            className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-12 pr-10 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="">All Categories</option>
+            {categories.map((item) => (
+              <option key={item._id} value={item._id}>{item.name}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none text-slate-900 dark:text-slate-100" />
+        </div>
       </div>
 
-      <div>
-        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">Subcategory</label>
-        <select
-          value={subCategoryId}
-          onChange={(event) => onSubcategoryChange(event.target.value)}
-          disabled={!categoryId}
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 sm:text-sm"
-        >
-          <option value="">All Subcategories</option>
-          {subcategories.map((item) => (
-            <option key={item._id} value={item._id}>{item.name}</option>
-          ))}
-        </select>
+      <div className="relative z-10">
+        <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Subcategory</label>
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <div className="p-1 rounded-md bg-blue-50 text-blue-600">
+              <Layers className="w-4 h-4" />
+            </div>
+          </div>
+          <select
+            value={subCategoryId}
+            onChange={(event) => onSubcategoryChange(event.target.value)}
+            disabled={!categoryId}
+            className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-12 pr-10 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="">All Subcategories</option>
+            {subcategories.map((item) => (
+              <option key={item._id} value={item._id}>{item.name}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none text-slate-900 dark:text-slate-100" />
+        </div>
       </div>
 
-      <RangeFacetCard
-        title="Price"
-        min={Number(minPrice || facetMap.price?.min || 0)}
-        max={Number(maxPrice || facetMap.price?.max || 100000)}
-        floor={Number(facetMap.price?.min || 0)}
-        ceiling={Number(facetMap.price?.max || 100000)}
-        step={Number(facetMap.price?.step || 100)}
-        onApply={onPriceChange}
-        formatSuffix=""
-      />
+      <div className="relative z-10">
+        <RangeFacetCard
+          title="Price"
+          min={minPrice || ""}
+          max={maxPrice || ""}
+          floor={Number(facetMap.price?.min || 0)}
+          ceiling={Number(facetMap.price?.max || 100000)}
+          step={Number(facetMap.price?.step || 100)}
+          onApply={onPriceChange}
+          formatSuffix=""
+        />
+      </div>
+
+      <div className="relative z-10 pb-16">
+        <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Sort By</label>
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-blue-600">
+            <ArrowUpDown className="w-4 h-4" />
+          </div>
+          <select
+            value={sortBy}
+            onChange={(event) => onSortChange(event.target.value)}
+            className="w-full appearance-none rounded-xl border border-slate-900 bg-white py-2.5 pl-10 pr-10 text-sm font-medium transition focus:outline-none dark:border-slate-100 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="createdAt">Newest</option>
+            <option value="priceAsc">Price: Low to High</option>
+            <option value="priceDesc">Price: High to Low</option>
+            <option value="rating">Top Rated</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none text-slate-900 dark:text-slate-100" />
+        </div>
+      </div>
 
       {Object.entries(groupedFilterDefs).map(([groupName, defs]) => (
         <div key={groupName} className="space-y-3">
@@ -819,70 +873,160 @@ function FilterSidebar({
         </div>
       ))}
 
-      <div>
-        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">Sort By</label>
-        <select
-          value={sortBy}
-          onChange={(event) => onSortChange(event.target.value)}
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 sm:text-sm"
-        >
-          <option value="createdAt">Newest</option>
-          <option value="price">Price (Low to High)</option>
-          <option value="ratings.averageRating">Highest Rated</option>
-          <option value="name">Name (A-Z)</option>
-        </select>
-      </div>
+
     </div>
   );
 }
 
 function RangeFacetCard({ title, min, max, floor, ceiling, step, onApply, formatSuffix = "" }) {
-  const [localMin, setLocalMin] = useState(min);
-  const [localMax, setLocalMax] = useState(max);
-
-  useEffect(() => {
-    setLocalMin(min);
-    setLocalMax(max);
-  }, [min, max]);
-
   const safeFloor = Number.isFinite(floor) ? floor : 0;
   const safeCeiling = Number.isFinite(ceiling) && ceiling >= safeFloor ? ceiling : Math.max(safeFloor, 100);
 
+  const [localMin, setLocalMin] = useState(min === "" ? "" : Math.max(min, safeFloor));
+  const [localMax, setLocalMax] = useState(max === "" ? "" : Math.min(max, safeCeiling));
+
+  const [inputMin, setInputMin] = useState(min === "" ? "" : Math.max(min, safeFloor).toLocaleString("en-IN"));
+  const [inputMax, setInputMax] = useState(max === "" ? "" : Math.min(max, safeCeiling).toLocaleString("en-IN"));
+
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLocalMin(min === "" ? "" : min);
+    setLocalMax(max === "" ? "" : max);
+    setInputMin(min === "" ? "" : Number(min).toLocaleString("en-IN"));
+    setInputMax(max === "" ? "" : Number(max).toLocaleString("en-IN"));
+    setError("");
+  }, [min, max]);
+
+  const parseNumber = (val) => {
+    if (!val) return "";
+    const parsed = Number(val.replace(/[^0-9]/g, ""));
+    return isNaN(parsed) ? "" : parsed;
+  };
+
+  const handleMinInputChange = (e) => {
+    const val = e.target.value;
+    setInputMin(val);
+    const parsed = parseNumber(val);
+    if (parsed !== "") setLocalMin(parsed);
+    setError("");
+  };
+
+  const handleMaxInputChange = (e) => {
+    const val = e.target.value;
+    setInputMax(val);
+    const parsed = parseNumber(val);
+    if (parsed !== "") setLocalMax(parsed);
+    setError("");
+  };
+
+  const handleInputBlur = (type) => {
+    if (type === "min") {
+      let val = localMin === "" ? safeFloor : Number(localMin);
+      val = Math.max(safeFloor, Math.min(val, safeCeiling));
+      setLocalMin(val);
+      setInputMin(val.toLocaleString("en-IN"));
+    } else {
+      let val = localMax === "" ? safeCeiling : Number(localMax);
+      val = Math.max(safeFloor, Math.min(val, safeCeiling));
+      setLocalMax(val);
+      setInputMax(val.toLocaleString("en-IN"));
+    }
+  };
+
+  const handleMinSliderChange = (e) => {
+    let val = Number(e.target.value);
+    const currentMax = localMax === "" ? safeCeiling : localMax;
+    if (val > currentMax) val = currentMax;
+    setLocalMin(val);
+    setInputMin(val.toLocaleString("en-IN"));
+    setError("");
+  };
+
+  const handleMaxSliderChange = (e) => {
+    let val = Number(e.target.value);
+    const currentMin = localMin === "" ? safeFloor : localMin;
+    if (val < currentMin) val = currentMin;
+    setLocalMax(val);
+    setInputMax(val.toLocaleString("en-IN"));
+    setError("");
+  };
+
+  const handleApply = () => {
+    const currentMin = localMin === "" ? safeFloor : localMin;
+    const currentMax = localMax === "" ? safeCeiling : localMax;
+
+    if (currentMin > currentMax) {
+      setError("Minimum price cannot be greater than maximum price.");
+      return;
+    }
+
+    const clampedMin = Math.max(safeFloor, Math.min(currentMin, safeCeiling));
+    const clampedMax = Math.max(safeFloor, Math.min(currentMax, safeCeiling));
+
+    const isMinDefault = clampedMin === safeFloor;
+    const isMaxDefault = clampedMax === safeCeiling;
+
+    setLocalMin(isMinDefault ? "" : clampedMin);
+    setLocalMax(isMaxDefault ? "" : clampedMax);
+    setInputMin(isMinDefault ? "" : clampedMin.toLocaleString("en-IN"));
+    setInputMax(isMaxDefault ? "" : clampedMax.toLocaleString("en-IN"));
+
+    onApply(isMinDefault ? "" : clampedMin, isMaxDefault ? "" : clampedMax);
+  };
+
+  const getPercent = (value) => {
+    const range = safeCeiling - safeFloor || 1;
+    const clampedValue = Math.max(safeFloor, Math.min(value, safeCeiling));
+    return ((clampedValue - safeFloor) / range) * 100;
+  };
+
   return (
-    <details open className="rounded-2xl border border-slate-200 px-3 py-3 dark:border-slate-800">
-      <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900 dark:text-slate-100">
-        {title}
-      </summary>
-      <div className="mt-3 space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            type="number"
-            value={localMin}
-            min={safeFloor}
-            max={localMax || safeCeiling}
-            step={step}
-            onChange={(event) => setLocalMin(event.target.value === "" ? "" : Number(event.target.value))}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
-          />
-          <input
-            type="number"
-            value={localMax}
-            min={localMin || safeFloor}
-            max={safeCeiling}
-            step={step}
-            onChange={(event) => setLocalMax(event.target.value === "" ? "" : Number(event.target.value))}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
-          />
+    <div className="rounded-2xl border border-blue-100 bg-blue-50/20 p-4 dark:border-slate-800 dark:bg-slate-800/20">
+      <h3 className="mb-4 text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h3>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="relative">
+            <span className="absolute inset-y-0 left-3 flex items-center text-slate-500 text-sm pointer-events-none">₹</span>
+            <input
+              type="text"
+              placeholder="Min"
+              value={inputMin}
+              onChange={handleMinInputChange}
+              onBlur={() => handleInputBlur("min")}
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-7 pr-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+            />
+          </div>
+          <div className="relative">
+            <span className="absolute inset-y-0 left-3 flex items-center text-slate-500 text-sm pointer-events-none">₹</span>
+            <input
+              type="text"
+              placeholder="Max"
+              value={inputMax}
+              onChange={handleMaxInputChange}
+              onBlur={() => handleInputBlur("max")}
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-7 pr-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+            />
+          </div>
         </div>
-        <div className="space-y-2">
+
+        <div className="relative h-6 pt-2">
+          <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+          <div 
+            className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-blue-600"
+            style={{ 
+              left: `${getPercent(localMin === "" ? safeFloor : localMin)}%`,
+              right: `${100 - getPercent(localMax === "" ? safeCeiling : localMax)}%` 
+            }}
+          ></div>
           <input
             type="range"
             min={safeFloor}
             max={safeCeiling}
             step={step}
             value={localMin === "" ? safeFloor : localMin}
-            onChange={(event) => setLocalMin(Number(event.target.value))}
-            className="w-full"
+            onChange={handleMinSliderChange}
+            className="absolute top-1/2 w-full -translate-y-1/2 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:ring-2 [&::-webkit-slider-thumb]:ring-white"
           />
           <input
             type="range"
@@ -890,343 +1034,22 @@ function RangeFacetCard({ title, min, max, floor, ceiling, step, onApply, format
             max={safeCeiling}
             step={step}
             value={localMax === "" ? safeCeiling : localMax}
-            onChange={(event) => setLocalMax(Number(event.target.value))}
-            className="w-full"
+            onChange={handleMaxSliderChange}
+            className="absolute top-1/2 w-full -translate-y-1/2 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:ring-2 [&::-webkit-slider-thumb]:ring-white"
           />
         </div>
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <span>{safeFloor}{formatSuffix}</span>
-          <span>{safeCeiling}{formatSuffix}</span>
-        </div>
+
+        {error && <div className="text-xs text-red-500">{error}</div>}
+
         <button
           type="button"
-          onClick={() => onApply(localMin, localMax)}
-          className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
+          onClick={handleApply}
+          className="w-full rounded-xl border border-blue-200 bg-blue-50 py-2.5 text-sm font-bold text-blue-600 transition hover:bg-blue-100 hover:border-blue-300 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40"
         >
           Apply
         </button>
       </div>
-    </details>
+    </div>
   );
 }
-
-const ProductCard = memo(function ProductCard({ product }) {
-  const { cart, addItem: addCartItem } = useCart();
-  const { openDrawer, showToast } = useCartDrawer();
-  const { addItem: addWishlistItem, removeItem: removeWishlistItem, isInWishlist: checkWishlistStatus } = useWishlist();
-  const [isInWishlist, setIsInWishlist] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isHovering, setIsHovering] = useState(false);
-  const productId = useMemo(() => extractProductId(product), [product]);
-
-  // Get all product images
-  const allImages = useMemo(() => product?.images?.filter((img) => img?.url) || [], [product?.images]);
-  const hasMultipleImages = allImages.length > 1;
-  const currentImageUrl = allImages[currentImageIndex]?.url || product.images?.[0]?.url;
-
-  // Get display settings from product
-  const displaySettings = product?.displaySettings || {};
-  const enableImageScroll = displaySettings.enableImageScroll !== false;
-  const scrollSpeed = displaySettings.imageScrollSpeed || 800;
-  const cardType = displaySettings.cardType || "scroll";
-  const shouldScroll = enableImageScroll && cardType === "scroll";
-
-  // Auto-cycle through images on hover
-  useEffect(() => {
-    if (!isHovering || !hasMultipleImages || !shouldScroll) return;
-
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
-    }, scrollSpeed);
-
-    return () => clearInterval(interval);
-  }, [isHovering, hasMultipleImages, shouldScroll, allImages.length, scrollSpeed]);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const status = await checkWishlistStatus(productId);
-        if (active) setIsInWishlist(Boolean(status));
-      } catch {
-        if (active) setIsInWishlist(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [productId, checkWishlistStatus]);
-
-  const hasAvailableVariants = product?.isActive !== false && product?.status !== "REJECTED";
-  const availableStock = 999;
-
-  const discountPercent = product.discountPrice
-    ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
-    : 0;
-
-  const handleMouseEnter = () => {
-    setIsHovering(true);
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovering(false);
-    setCurrentImageIndex(0);
-  };
-
-  const handleNextImage = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
-  };
-
-  const handlePrevImage = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
-  };
-
-  const handleWishlist = async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (isSubmitting) return;
-
-    try {
-      setIsSubmitting(true);
-      if (isInWishlist) {
-        await removeWishlistItem(productId);
-        setIsInWishlist(false);
-      } else {
-        await addWishlistItem(productId, "");
-        setIsInWishlist(true);
-      }
-    } catch (err) {
-      logger.error("Failed to update wishlist:", { error: err });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleAddToCart = async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (isSubmitting || !hasAvailableVariants) return;
-
-    try {
-      setIsSubmitting(true);
-      const result = await addCartItem(productId, 1, "");
-      if (result) {
-        if (result.message && typeof showToast === "function") {
-          showToast(result.message, result.action === "NEXT_VARIANT_ALLOCATED" ? "info" : "success");
-        }
-        const allocatedVariant = result.addedItem?.variant || result.addedItem || null;
-        openDrawer(product, allocatedVariant, result.addedItem?.quantity || 1);
-      }
-    } catch (err) {
-      logger.error("Failed to add to cart:", { error: err });
-      showToast(getCartErrorMessage(err, "Failed to add item to cart."));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <Link
-      to={`/product/${productId}`}
-      className="group/card flex flex-col overflow-hidden rounded-lg border transition-all duration-200 hover:shadow-lg"
-      style={{
-        background: "var(--theme-product-card-background)",
-        borderColor: "var(--theme-product-card-border)",
-      }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <div
-        className="group relative w-full overflow-hidden"
-        style={{ aspectRatio: "3/4", background: "var(--theme-product-card-background)" }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
-        {currentImageUrl ? (
-          <img
-            key={`${product._id}-${currentImageIndex}`}
-            src={currentImageUrl}
-            alt={product.name}
-            className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-            onError={(event) => {
-              event.target.src = "https://via.placeholder.com/300x300?text=Product";
-            }}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs" style={{ color: "var(--theme-muted-text)" }}>No Image</div>
-        )}
-
-        {/* Image Navigation - Visible on Hover */}
-        {hasMultipleImages && isHovering && shouldScroll && (
-          <>
-            <button
-              onClick={handlePrevImage}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-lg hover:bg-white transition-all duration-200 hover:scale-110"
-              aria-label="Previous image"
-              tabIndex={-1}
-              type="button"
-            >
-              <ChevronLeft size={16} className="text-slate-700" />
-            </button>
-            <button
-              onClick={handleNextImage}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-lg hover:bg-white transition-all duration-200 hover:scale-110"
-              aria-label="Next image"
-              tabIndex={-1}
-              type="button"
-            >
-              <ChevronRight size={16} className="text-slate-700" />
-            </button>
-          </>
-        )}
-
-        {/* Wishlist + Cart action stack */}
-        <div className="absolute top-2 right-2 z-10 flex flex-col gap-2 opacity-100 translate-y-0 sm:opacity-0 sm:group-hover/card:opacity-100 sm:translate-y-2 sm:group-hover/card:translate-y-0 transition-all duration-300 ease-out">
-          <button
-            onClick={handleWishlist}
-            disabled={isSubmitting}
-            className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/95 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-            title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
-            aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
-          >
-            <Heart
-              size={13}
-              strokeWidth={1.5}
-              className={`transition-all duration-300 ${isInWishlist ? "fill-red-500 text-red-500" : "text-slate-700 hover:text-slate-900"
-                }`}
-              style={!isInWishlist ? { color: "var(--theme-product-wishlist, #475569)" } : undefined}
-            />
-          </button>
-
-          <button
-            onClick={handleAddToCart}
-            disabled={isSubmitting || !hasAvailableVariants || availableStock <= 0}
-            className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-            title={hasAvailableVariants ? "Add to cart" : "Out of stock"}
-            aria-label="Add to cart"
-            style={{
-              background: "var(--theme-product-button-background)",
-              color: "var(--theme-product-button-text)",
-            }}
-          >
-            <ShoppingCart size={12} strokeWidth={2} />
-          </button>
-        </div>
-      </div>
-
-      {/* Info section */}
-      <div className="flex flex-1 flex-col gap-1.5 p-2 sm:p-2.5">
-        <div className="flex-1">
-          <div className="flex items-start justify-between gap-1.5">
-            <h3
-              className="line-clamp-2 text-xs font-medium sm:text-xs leading-tight flex-1"
-              style={{ background: "var(--theme-product-title, #1A202C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
-            >
-              {product.name}
-            </h3>
-            {discountPercent > 0 ? (
-              <div
-                className="shrink-0 rounded px-1 py-0.5 shadow-sm mt-0.5"
-                style={{ background: "var(--theme-product-discount-background)" }}
-              >
-                <div
-                  className="text-[9px] font-bold leading-none tracking-wider"
-                  style={{ color: "var(--theme-product-discount-text)" }}
-                >
-                  {discountPercent}% OFF
-                </div>
-              </div>
-            ) : null}
-          </div>
-          <p
-            className="mt-0.5 text-[11px] line-clamp-1"
-            style={{ background: "var(--theme-product-category, #64748B)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
-          >
-            {product.category}
-          </p>
-          <SellerNameLink seller={product?.sellerId} className="mt-1 text-[11px]" disableLink={true} />
-        </div>
-
-        {product.ratings?.averageRating > 0 && (
-          <div className="flex items-center gap-0.5">
-            <span
-              className="text-xs font-semibold"
-              style={{ color: "var(--theme-product-rating)" }}
-            >
-              ★ {product.ratings.averageRating.toFixed(1)}
-            </span>
-            <span
-              className="text-[10px]"
-              style={{ color: "var(--theme-muted-text)" }}
-            >
-              ({product.ratings.totalReviews})
-            </span>
-          </div>
-        )}
-
-        <div
-          className="space-y-0.5 border-t pt-1"
-          style={{ borderColor: "var(--theme-product-card-border)" }}
-        >
-          {product.discountPrice ? (
-            <div className="flex items-center gap-1.5">
-              <span
-                className="text-xs font-bold sm:text-sm"
-                style={{ background: "var(--theme-product-price, #1A202C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
-              >
-                {formatCurrency(product.discountPrice)}
-              </span>
-              <span
-                className="text-[10px] line-through"
-                style={{ background: "var(--theme-product-old-price, #A0AEC0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
-              >
-                {formatCurrency(product.price)}
-              </span>
-            </div>
-          ) : (
-            <span
-              className="text-xs font-bold sm:text-sm"
-              style={{ background: "var(--theme-product-price, #1A202C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
-            >
-              {formatCurrency(product.price)}
-            </span>
-          )}
-
-          <div className="text-[10px] font-medium">
-            {product.stock > 0 ? (
-              <span 
-                className="font-bold" 
-                style={{ background: "var(--theme-product-stock-in, #16A34A)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
-              >
-                In Stock
-              </span>
-            ) : (
-              <span 
-                className="font-bold" 
-                style={{ background: "var(--theme-product-stock-out, #DC2626)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
-              >
-                Out of Stock
-              </span>
-            )}
-          </div>
-        </div>
-
-        <button
-          className="mt-auto w-full rounded-md px-2 py-1.5 text-center text-[11px] font-semibold transition-all duration-200 active:scale-95 sm:text-xs hover:opacity-90"
-          style={{
-            background: "var(--theme-product-button-background)",
-            color: "var(--theme-product-button-text)",
-          }}
-        >
-          View
-        </button>
-      </div>
-    </Link>
-  );
-});
+

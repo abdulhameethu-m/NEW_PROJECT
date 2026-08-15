@@ -110,7 +110,6 @@ export function ProductCarousel({
       <section className={shellClassName}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-500">Product discovery</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white lg:text-3xl">
               {title}
             </h2>
@@ -138,7 +137,6 @@ export function ProductCarousel({
       <section className={shellClassName}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-500">Product discovery</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white lg:text-3xl">
               {title}
             </h2>
@@ -156,7 +154,6 @@ export function ProductCarousel({
     <section className={shellClassName}>
       <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl pr-12 sm:pr-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-500">Product discovery</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white lg:text-3xl">
             {title}
           </h2>
@@ -175,7 +172,7 @@ export function ProductCarousel({
             </a>
             <a
               href={viewAllHref}
-              className="hidden sm:inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-indigo-400/30 dark:hover:text-indigo-300"
+              className="hidden sm:inline-flex items-center justify-center text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:text-indigo-600 dark:text-slate-200 dark:hover:text-indigo-300"
             >
               View all
             </a>
@@ -214,7 +211,7 @@ export function ProductCarousel({
             {items.map((product) => (
               <div
                 key={product._id}
-                className={`flex-shrink-0 px-2 transition-all duration-300`}
+                className={`flex-shrink-0 px-2 transition-all duration-300 grid`}
                 style={{
                   width: `${100 / itemsPerView}%`,
                 }}

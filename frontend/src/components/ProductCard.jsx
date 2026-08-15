@@ -3,7 +3,7 @@ import { logger } from "../services/logger/logger.js";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
-import { Heart, ShoppingCart, Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { Heart, ShoppingCart, Star, ChevronLeft, ChevronRight, Truck } from "lucide-react";
 import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
 import { useCart } from "../hooks/useCart";
@@ -29,7 +29,7 @@ function reportProductCardError(message, details = {}) {
   window.dispatchEvent(new CustomEvent("app:error", { detail: payload }));
 }
 
-export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass = "aspect-[4/5]", onProductClick, dense = false }) {
+export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass = "aspect-square", onProductClick, dense = false }) {
   const navigate = useNavigate();
   const { cart, addItem: addCartItem } = useCart();
   const { openDrawer, showToast } = useCartDrawer();
@@ -235,7 +235,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
-            className="h-full w-full object-contain object-center transition-all duration-300 group-hover:scale-110"
+            className="h-full w-full object-cover object-center transition-all duration-300 group-hover:scale-110"
             loading="lazy"
           />
         ) : (
@@ -245,9 +245,27 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         )}
 
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 via-transparent to-white/5 opacity-40 transition duration-500 group-hover:opacity-60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/10 via-transparent to-white/5 opacity-40 transition duration-500 group-hover:opacity-60" />
 
-        {/* Discount Badge Moved */}
+        {/* Top Left Discount Ribbon */}
+        {discountPercent > 0 && (
+          <div 
+            className="absolute top-0 left-0 z-10 w-[3.25rem] h-[3.25rem] sm:w-[5rem] sm:h-[5rem] bg-yellow-400"
+            style={{ clipPath: 'polygon(0 0, 100% 0, 0 100%)' }}
+          >
+            <div className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 flex flex-col items-start">
+              <span className="text-[10px] sm:text-[14px] font-extrabold text-blue-950 leading-none">{discountPercent}%</span>
+              <span className="text-[7px] sm:text-[10px] font-bold text-blue-950 leading-none mt-0.5">OFF</span>
+            </div>
+          </div>
+        )}
+        {product.isNew && discountPercent === 0 && (
+          <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10">
+             <div className="rounded-md bg-orange-500 px-2 py-1 shadow-md">
+               <span className="text-[9px] sm:text-[10px] font-bold text-white tracking-wider">NEW</span>
+             </div>
+          </div>
+        )}
 
         {/* Image Navigation - Visible on Hover */}
         {hasMultipleImages && isHovering && shouldScroll && (
@@ -277,8 +295,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         )}
 
         {/* Premium Vertical Action Stack - Top Right */}
-        {/* Always visible on mobile (touch), hover-only on desktop */}
-        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col gap-1.5 sm:gap-2 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0 transition-all duration-300 ease-out z-10">
+        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col gap-1.5 sm:gap-2 z-10 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 ease-out">
           {/* Wishlist Button */}
           <button
             onClick={handleWishlist}
@@ -315,69 +332,43 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
       </div>
 
       {/* Product Info Section */}
-      <div className={`flex flex-col flex-grow ${dense ? "p-2 gap-1" : "p-2.5 sm:p-4 gap-1 sm:gap-2"}`}>
-        {/* Category */}
-        <p 
-          className={categoryTextClass}
-          style={{ background: "var(--theme-product-category, #64748B)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
-        >
-          {product.category || "Featured"}
-        </p>
+      <div className={`flex flex-col flex-grow ${dense ? "p-2 gap-1" : "p-2.5 sm:p-3 gap-1"}`}>
+        {/* Category & Rating */}
+        <div className="flex items-center justify-between">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-blue-600 line-clamp-1">
+            {product.category || "FEATURED"}
+          </p>
+          {/* Rating */}
+          {product?.ratings?.averageRating > 0 && (
+            <div className="flex items-center gap-1">
+              <Star className="h-2.5 sm:h-3 w-2.5 sm:w-3 fill-amber-500 text-amber-500" />
+              <span className="text-[9px] sm:text-[10px] font-semibold text-slate-600">
+                {Number(product.ratings.averageRating).toFixed(1)}
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Product Name */}
-        <div className="min-h-[2.5rem]">
+        <div className="mt-0.5">
           <h3 
-            className={titleTextClass} 
-            title={product.name} 
-            style={{ background: "var(--theme-product-title, #1A202C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
+            className={`line-clamp-2 text-[13px] sm:text-[14px] font-bold text-slate-900 leading-[1.2] transition group-hover:text-blue-600`}
+            title={product.name}
           >
             {product.name}
           </h3>
         </div>
 
-        {!inStock && (
-          <div 
-            className={`text-[10px] sm:text-xs font-semibold ${stockOutClass}`}
-            style={{ background: "var(--theme-product-stock-out, #DC2626)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
-          >
-            Out of stock
-          </div>
-        )}
-
-        {/* Spacer */}
-        <div className="flex-grow" />
-
-        {/* Rating */}
-        {product?.ratings?.averageRating > 0 ? (
-          <div className="flex items-center gap-1">
-            <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-amber-500 text-amber-500" style={{ fill: "var(--theme-product-rating)", color: "var(--theme-product-rating)" }} />
-            <span className={ratingTextClass} style={{ color: "var(--theme-product-rating)" }}>
-              {Number(product.ratings.averageRating).toFixed(1)}
-            </span>
-          </div>
-        ) : null}
-
         {/* Pricing */}
-        <div className="space-y-0.5">
-          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-            <span 
-              className={`${priceCurrentClass} text-[13px] sm:text-sm`} 
-              style={{ background: "var(--theme-product-price, #1A202C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
-            >
+        <div className="flex flex-col mt-0.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[15px] sm:text-[16px] font-extrabold text-slate-900 tracking-tight">
               {formatCurrency(product.discountPrice || product.price)}
             </span>
             {product.discountPrice && (
-              <span 
-                className={priceOriginalClass} 
-                style={{ background: "var(--theme-product-old-price, #A0AEC0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
-              >
+              <span className="text-[11px] sm:text-[12px] text-slate-400 line-through font-medium">
                 {formatCurrency(product.price)}
               </span>
-            )}
-            {discountPercent > 0 && (
-              <div className="shrink-0 rounded bg-gradient-to-br from-orange-500 to-red-500 px-1 py-0.5 shadow-sm" style={{ background: "var(--theme-product-discount-background)" }}>
-                <div className="text-[9px] font-bold text-white leading-none tracking-wider" style={{ color: "var(--theme-product-discount-text)" }}>{discountPercent}% OFF</div>
-              </div>
             )}
           </div>
         </div>
