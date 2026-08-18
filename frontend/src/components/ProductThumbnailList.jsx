@@ -120,7 +120,7 @@ export function ProductThumbnailList({
         onScroll={checkScroll}
         className={`scrollbar-hide flex gap-3 ${
           isDesktop
-            ? "max-h-[38rem] flex-col overflow-y-auto pr-2"
+            ? "max-h-[32rem] flex-col overflow-y-auto pr-2"
             : "overflow-x-auto pb-2"
         }`}
         style={{ scrollBehavior: "smooth" }}
@@ -147,8 +147,7 @@ export function ProductThumbnailList({
             ) : (
               <img loading="lazy" decoding="async" src={resolveApiAssetUrl(item.url)}
                 alt={item.altText || `${productName} thumbnail ${index + 1}`}
-                loading="lazy"
-                className="h-full w-full object-cover p-1 transition duration-200 group-hover:scale-[1.04]"
+                className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.04]"
                 onError={(event) => {
                   event.currentTarget.src = "https://via.placeholder.com/88x88?text=Img";
                 }}

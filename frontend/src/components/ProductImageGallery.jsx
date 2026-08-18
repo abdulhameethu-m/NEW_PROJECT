@@ -86,67 +86,30 @@ export function ProductImageGallery({ media = [], productName = "Product", galle
 
   return (
     <>
-      <section className="grid gap-4 lg:grid-cols-[96px_minmax(0,1fr)] lg:items-start">
+      <section className="flex flex-col gap-4 lg:flex-row lg:items-start">
         {hasMultipleImages ? (
-          <ProductThumbnailList
-            media={safeMedia}
-            selectedIndex={selectedIndex}
-            onSelect={setSelectedIndex}
-            productName={productName}
-          />
+          <div className="w-full shrink-0 lg:w-[96px] lg:-translate-x-2 xl:-translate-x-6">
+            <ProductThumbnailList
+              media={safeMedia}
+              selectedIndex={selectedIndex}
+              onSelect={setSelectedIndex}
+              productName={productName}
+            />
+          </div>
         ) : (
-          <div className="hidden lg:block" />
+          <div className="hidden lg:block lg:w-[96px]" />
         )}
 
-        <div className="relative min-w-0">
+        <div className="relative min-w-0 flex-1 w-full">
           <ProductMainImage
             media={activeMedia}
             productName={productName}
             imageIndex={selectedIndex}
           />
 
-          {hasMultipleImages && (
-            <>
-              <button
-                type="button"
-                onClick={goToPrevious}
-                className="absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-900/85 bg-slate-950/90 text-white shadow-[0_10px_28px_rgba(15,23,42,0.35)] ring-2 ring-white/80 backdrop-blur transition hover:bg-black focus:outline-none focus:ring-2 focus:ring-slate-950/60 lg:left-4 lg:h-12 lg:w-12"
-                title="Previous image"
-                aria-label="Previous image"
-              >
-                <ChevronLeft className="h-5 w-5 lg:h-6 lg:w-6" />
-              </button>
-              <button
-                type="button"
-                onClick={goToNext}
-                className="absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-900/85 bg-slate-950/90 text-white shadow-[0_10px_28px_rgba(15,23,42,0.35)] ring-2 ring-white/80 backdrop-blur transition hover:bg-black focus:outline-none focus:ring-2 focus:ring-slate-950/60 lg:right-4 lg:h-12 lg:w-12"
-                title="Next image"
-                aria-label="Next image"
-              >
-                <ChevronRight className="h-5 w-5 lg:h-6 lg:w-6" />
-              </button>
-            </>
-          )}
 
-          <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2">
-            {activeMedia?.type === "image" ? (
-              <button
-                type="button"
-                onClick={() => setIsFullscreen(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-900/85 bg-slate-950/90 text-white shadow-[0_10px_24px_rgba(15,23,42,0.35)] ring-2 ring-white/80 backdrop-blur transition hover:bg-black"
-                title="View fullscreen"
-                aria-label="View fullscreen"
-              >
-                <Maximize2 className="h-5 w-5" />
-              </button>
-            ) : null}
 
-            {hasMultipleImages ? (
-              <div className="rounded-full border border-slate-900/85 bg-slate-950/90 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_10px_24px_rgba(15,23,42,0.35)] ring-2 ring-white/80 backdrop-blur">
-                {selectedIndex + 1} / {totalImages}
-              </div>
-            ) : null}
-          </div>
+
         </div>
       </section>
 

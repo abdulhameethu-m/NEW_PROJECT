@@ -102,7 +102,7 @@ export function ProductCarousel({
 
   const shellClassName = bare
     ? ""
-    : "overflow-hidden rounded-[2rem] border border-white/60 bg-white/72 p-5 shadow-[0_35px_120px_-55px_rgba(15,23,42,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 sm:p-6 lg:p-8";
+    : "overflow-hidden rounded-2xl border border-white/60 bg-white/72 p-2 shadow-[0_35px_120px_-55px_rgba(15,23,42,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 sm:p-3 lg:p-4";
 
   // Show loading skeletons
   if (loading) {
@@ -154,10 +154,10 @@ export function ProductCarousel({
     <section className={shellClassName}>
       <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl pr-12 sm:pr-0">
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white lg:text-3xl">
+          <h2 className="text-xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white lg:text-2xl">
             {title}
           </h2>
-          <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300 lg:text-base">
+          <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300 lg:text-base">
             {subtitle}
           </p>
         </div>
@@ -181,7 +181,7 @@ export function ProductCarousel({
       </div>
 
       {/* Carousel Container */}
-      <div className="relative mt-6 py-2">
+      <div className="relative mt-1">
         {/* Left Navigation Arrow */}
         <CarouselArrow
           direction="left"

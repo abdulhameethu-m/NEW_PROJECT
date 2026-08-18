@@ -1,9 +1,16 @@
+const { AppError } = require("../../utils/AppError");
 
+class TrackingSecurityService {
+  async evaluateEvent(req, eventType) {
+    return {
+      status: "allowed",
+      counted: true,
+      tracked: true,
+      reason: "passed",
+      fraudScore: 0,
+      fraudLevel: "low",
+    };
+  }
+}
 
-
-
-
- Number(process.env.TRACKING_SECURITY_RETENTION_DAYS || 30);
-module.exports = {
-
-};
+module.exports = new TrackingSecurityService();

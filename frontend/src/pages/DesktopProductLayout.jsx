@@ -83,8 +83,10 @@ export function DesktopProductLayout({
   }
 
   return (
-    <div className="space-y-8 pb-28 lg:pb-8 px-4 lg:px-8 pt-4 lg:pt-6 relative">
+    <div className="py-6 pb-16 relative">
+      <div className="mx-auto max-w-[1150px] px-4 lg:px-8">
       <AnimatePresence>
+        {/** Error toast **/}
         {error ? (
           <motion.div
             initial={{ opacity: 0, y: -50 }}
@@ -97,350 +99,281 @@ export function DesktopProductLayout({
         ) : null}
       </AnimatePresence>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-            Home / Shop / <span className="text-slate-700 dark:text-slate-200">{product.category}</span>
-          </div>
-          <h1 className="mt-2 max-w-4xl text-2xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-3xl">{product.name}</h1>
-          <div className="mt-3 flex flex-col gap-2 text-sm sm:flex-row sm:flex-wrap sm:items-center">
-            <SellerNameLink seller={product?.sellerId} />
-            <StoreRatingDisplay seller={product?.sellerId} rating={product?.sellerId?.rating || product?.ratings?.averageRating} />
-          </div>
-        </div>
+      <div className="mb-4 flex justify-end">
         <BackButton fallbackTo="/shop" />
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.95fr)]">
+      <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] items-start">
+        {/* LEFT COLUMN: Gallery */}
         <div className="space-y-8">
           <ProductImageGallery media={media} productName={product?.name} galleryKey={galleryKey} />
-
-          <div className="space-y-6">
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:bg-slate-800 dark:text-slate-200">{product.category}</span>
-                {stock > 0 ? (
-                  <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">In stock</span>
-                ) : (
-                  <span className="rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white">Out of stock</span>
-                )}
-              </div>
-              <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <div className="text-4xl font-black tracking-tight text-slate-950 dark:text-white">{formatCurrency(pricing.salePrice)}</div>
-                  {pricing.hasDiscount ? <div className="mt-1 text-sm font-semibold text-slate-500 line-through dark:text-slate-400">{formatCurrency(pricing.price)}</div> : null}
-                </div>
-                {pricing.hasDiscount ? (
-                  <div className="shrink-0 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-2 text-center shadow-lg shadow-orange-500/30">
-                    <div className="text-lg font-black text-white">{pricing.discountPercent}%</div>
-                    <div className="text-xs font-semibold text-white">OFF</div>
-                  </div>
-                ) : null}
-              </div>
-              {pricing.hasDiscount ? <div className="mt-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300">You save {formatCurrency(pricing.amountSaved)}</div> : null}
-
-              <div className="mt-5 grid gap-3 rounded-[1.75rem] bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-                <div className="font-semibold text-slate-950 dark:text-white">{activeVariant?.title || "Standard product configuration"}</div>
-                <div>{stock > 0 ? `${stock} units ready to dispatch.` : "Currently unavailable."}</div>
-                {productWeightLabel ? <div>Weight: {productWeightLabel}</div> : null}
-                <div>SKU: {activeVariant?.sku || product.productNumber || product.SKU}</div>
-              </div>
-            </div>
-
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:hidden">
-              {variantGroups.length ? (
-                <div className="grid gap-5">
-                  {variantGroups.map((group) => (
-                    <div key={group.key}>
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white">{group.name}</div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {group.values.map((option) => {
-                          const isSelected = selectedAttributes?.[group.key] === option.value;
-                          const hasMatchingVariant = variants.some((variant) => {
-                            if (variant?.attributes?.[group.key] !== option.value) return false;
-                            return Object.entries(selectedAttributes || {}).every(([key, value]) =>
-                              key === group.key ? true : !value || variant?.attributes?.[key] === value
-                            );
-                          });
-                          const displayType = variantDefsByKey[group.key]?.variantConfig?.displayType || "button";
-                          const showSwatch = isVisualSwatchGroup(group, displayType);
-                          const swatchColor = resolveSwatchColor(option.value);
-                          const disabled = !hasMatchingVariant;
-                          return (
-                            <button
-                              key={option.value}
-                              type="button"
-                              disabled={disabled}
-                              onClick={() => selectVariantValue(group.key, option.value)}
-                              className={`rounded-2xl border px-4 py-2 text-sm font-medium transition ${
-                                isSelected
-                                  ? "border-slate-950 bg-slate-950 text-white shadow-sm dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950"
-                                  : "border-slate-300 text-slate-700 hover:border-slate-950 hover:shadow-sm dark:border-slate-700 dark:text-slate-200"
-                              } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
-                              title={option.inStock ? option.value : `${option.value} is out of stock`}
-                            >
-                              {showSwatch ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <span
-                                    className={`h-4 w-4 rounded-full border ${swatchColor && swatchColor.toLowerCase() === "#f8fafc" ? "border-slate-300" : "border-white/50"}`}
-                                    style={{ backgroundColor: swatchColor || "#e2e8f0" }}
-                                    aria-hidden="true"
-                                  />
-                                  {option.value}
-                                </span>
-                              ) : (
-                                option.value
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex flex-wrap items-center gap-3">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                      activeTab === tab.key
-                        ? "bg-slate-950 text-white dark:bg-slate-100 dark:text-slate-950"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-6">
-                {activeTab === "description" ? (
-                  <div className="space-y-4 text-sm leading-7 text-slate-700 dark:text-slate-200">
-                    <p>{product.description}</p>
-                    {product.shortDescription ? <p className="text-slate-500 dark:text-slate-400">{product.shortDescription}</p> : null}
-                  </div>
-                ) : null}
-
-                {moduleTabs
-                  .filter((tab) => tab.key === activeTab)
-                  .map((tab) => (
-                    <div key={tab.key} className="grid gap-3">
-                      {(tab.fields || [])
-                        .filter((field) => tab.values[field.key] !== undefined && tab.values[field.key] !== "")
-                        .map((field) => (
-                          <div key={field.key} className="grid gap-1 rounded-2xl border border-slate-200 p-4 text-sm dark:border-slate-800 sm:grid-cols-[180px_minmax(0,1fr)]">
-                            <div className="font-semibold text-slate-950 dark:text-white">{field.name}</div>
-                            <div className="text-slate-600 dark:text-slate-300">{formatFieldValue(tab.values[field.key])}</div>
-                          </div>
-                        ))}
-                    </div>
-                  ))}
-              </div>
-            </section>
-          </div>
         </div>
 
-        <aside className="hidden xl:block xl:sticky xl:top-24 xl:self-start">
-          <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="border-b border-slate-200 bg-[linear-gradient(135deg,_rgba(14,165,233,0.14),_rgba(251,191,36,0.12))] p-6 dark:border-slate-800">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">{product.category}</span>
-                    {stock > 0 ? (
-                      <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">In stock</span>
-                    ) : (
-                      <span className="rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white">Out of stock</span>
-                    )}
-                  </div>
+        {/* RIGHT COLUMN: Product Info & Actions */}
+        <div className="flex flex-col gap-4 lg:sticky lg:top-24">
+          
+          {/* Badges / Header block */}
+          <div className="flex flex-wrap items-center gap-2">
+             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-widest text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+               {product.category}
+             </span>
+             {stock > 0 ? (
+               <span className="rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-bold uppercase tracking-widest dark:bg-emerald-900/40 dark:text-emerald-300">
+                 In stock
+               </span>
+             ) : (
+               <span className="rounded-full bg-rose-100 text-rose-800 px-3 py-1 text-xs font-bold uppercase tracking-widest dark:bg-rose-900/40 dark:text-rose-300">
+                 Out of stock
+               </span>
+             )}
+          </div>
 
-                  <div className="mt-4 space-y-2">
-                    <div className="flex flex-wrap items-end gap-3">
-                      <div className="text-4xl font-black tracking-tight text-slate-950 dark:text-white">{formatCurrency(pricing.salePrice)}</div>
-                      {pricing.hasDiscount ? <div className="pb-1 text-lg text-slate-500 line-through dark:text-slate-400">{formatCurrency(pricing.price)}</div> : null}
-                    </div>
-                    {pricing.hasDiscount ? <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">You save {formatCurrency(pricing.amountSaved)}</div> : null}
-                  </div>
-                </div>
-
-                {pricing.hasDiscount ? (
-                  <div className="shrink-0 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-2 text-center shadow-lg shadow-orange-500/30">
-                    <div className="text-lg font-black text-white">{pricing.discountPercent}%</div>
-                    <div className="text-xs font-semibold text-white">OFF</div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="space-y-5 p-6">
-              <SellerCard seller={product?.sellerId} compact />
-
-              {variantGroups.length ? (
-                <div className="grid gap-4">
-                  {variantGroups.map((group) => (
-                    <div key={group.key}>
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white">{group.name}</div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {group.values.map((option) => {
-                          const isSelected = selectedAttributes?.[group.key] === option.value;
-                          const hasMatchingVariant = variants.some((variant) => {
-                            if (variant?.attributes?.[group.key] !== option.value) return false;
-                            return Object.entries(selectedAttributes || {}).every(([key, value]) =>
-                              key === group.key ? true : !value || variant?.attributes?.[key] === value
-                            );
-                          });
-                          const displayType = variantDefsByKey[group.key]?.variantConfig?.displayType || "button";
-                          const showSwatch = isVisualSwatchGroup(group, displayType);
-                          const swatchColor = resolveSwatchColor(option.value);
-                          const disabled = !hasMatchingVariant;
-                          return (
-                            <button
-                              key={option.value}
-                              type="button"
-                              disabled={disabled}
-                              onClick={() => selectVariantValue(group.key, option.value)}
-                              className={`rounded-2xl border px-4 py-2 text-sm font-medium transition ${
-                                isSelected
-                                  ? "border-slate-950 bg-slate-950 text-white shadow-sm dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950"
-                                  : "border-slate-300 text-slate-700 hover:border-slate-950 hover:shadow-sm dark:border-slate-700 dark:text-slate-200"
-                              } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
-                              title={option.inStock ? option.value : `${option.value} is out of stock`}
-                            >
-                              {showSwatch ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <span
-                                    className={`h-4 w-4 rounded-full border ${swatchColor && swatchColor.toLowerCase() === "#f8fafc" ? "border-slate-300" : "border-white/50"}`}
-                                    style={{ backgroundColor: swatchColor || "#e2e8f0" }}
-                                    aria-hidden="true"
-                                  />
-                                  {option.value}
-                                </span>
-                              ) : (
-                                option.value
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+          <div className="space-y-1.5">
+            <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-950 dark:text-white leading-tight">
+              {product.name}
+            </h1>
+            
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <SellerNameLink seller={product?.sellerId} />
+              {product?.sellerId?.rating || product?.ratings?.averageRating ? (
+                 <StoreRatingDisplay seller={product?.sellerId} rating={product?.sellerId?.rating || product?.ratings?.averageRating} />
               ) : null}
-
-              <div className="rounded-[1.5rem] bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-                <div className="font-semibold text-slate-950 dark:text-white">Current selection</div>
-                <div className="mt-2 grid gap-2">
-                  {activeVariant?.title ? <div>{activeVariant.title}</div> : <div>Standard product configuration</div>}
-                  <div>{stock > 0 ? `${stock} units ready to dispatch.` : "Currently unavailable."}</div>
-                  {productWeightLabel ? <div>Weight: {productWeightLabel}</div> : null}
-                  <div>SKU: {activeVariant?.sku || product.productNumber || product.SKU}</div>
-                </div>
-              </div>
-
-              <div className="grid gap-3">
-                <button type="button" disabled={stock === 0 || adding} onClick={() => handleAddToCart()} className="rounded-2xl bg-[color:var(--commerce-accent)] px-5 py-4 text-sm font-semibold text-white shadow-sm transition hover:translate-y-[-1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60">
-                  {adding ? "Adding to cart..." : "Add to Cart"}
-                </button>
-                <button type="button" disabled={stock === 0 || adding} onClick={() => handleAddToCart("/checkout")} className="rounded-2xl bg-[color:var(--commerce-accent-warm)] px-5 py-4 text-sm font-semibold text-slate-950 shadow-sm transition hover:translate-y-[-1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60">
-                  Buy Now
-                </button>
-                <button type="button" disabled={stock === 0 || wishlistLoading} onClick={handleWishlistToggle} className="rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800">
-                  {stock === 0 ? "Out of Stock" : wishlistLoading ? "Updating..." : wishlistSaved ? "Saved to Wishlist" : "Save to Wishlist"}
-                </button>
-              </div>
             </div>
           </div>
-        </aside>
+
+          {/* Pricing Block */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="text-4xl font-black tracking-tight text-slate-950 dark:text-white">
+                {formatCurrency(pricing.salePrice)}
+              </div>
+              {pricing.hasDiscount && (
+                <div className="pb-1 text-xl font-medium text-slate-400 line-through dark:text-slate-500">
+                  {formatCurrency(pricing.price)}
+                </div>
+              )}
+              {pricing.hasDiscount && (
+                <div className="ml-2 mb-1 shrink-0 rounded bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
+                  Save {pricing.discountPercent}%
+                </div>
+              )}
+            </div>
+            {pricing.hasDiscount && (
+               <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                 You save {formatCurrency(pricing.amountSaved)}
+               </div>
+            )}
+          </div>
+
+          <hr className="border-slate-200 dark:border-slate-800" />
+
+          {/* Variants */}
+          {variantGroups.length > 0 && (
+            <div className="space-y-4">
+              {variantGroups.map((group) => (
+                <div key={group.key} className="space-y-2">
+                  <div className="text-[15px] font-bold text-slate-950 dark:text-white">
+                    {group.name}
+                  </div>
+                  <div className="flex flex-wrap gap-2.5">
+                    {group.values.map((option) => {
+                      const isSelected = selectedAttributes?.[group.key] === option.value;
+                      const hasMatchingVariant = variants.some((variant) => {
+                        if (variant?.attributes?.[group.key] !== option.value) return false;
+                        return Object.entries(selectedAttributes || {}).every(([key, value]) =>
+                          key === group.key ? true : !value || variant?.attributes?.[key] === value
+                        );
+                      });
+                      const displayType = variantDefsByKey[group.key]?.variantConfig?.displayType || "button";
+                      const showSwatch = isVisualSwatchGroup(group, displayType);
+                      const swatchColor = resolveSwatchColor(option.value);
+                      const disabled = !hasMatchingVariant;
+                      
+                      if (showSwatch && swatchColor) {
+                         return (
+                           <button
+                             key={option.value}
+                             type="button"
+                             disabled={disabled}
+                             onClick={() => selectVariantValue(group.key, option.value)}
+                             className={`group relative flex items-center justify-center rounded-full transition-all ${
+                               disabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer hover:scale-105"
+                             }`}
+                             title={option.inStock ? option.value : `${option.value} is out of stock`}
+                           >
+                             <span 
+                               className={`h-9 w-9 rounded-full shadow-sm ring-2 ${
+                                 isSelected ? "ring-slate-950 dark:ring-white scale-110" : "ring-transparent group-hover:ring-slate-300"
+                               } border ${swatchColor.toLowerCase() === "#ffffff" || swatchColor.toLowerCase() === "#f8fafc" ? "border-slate-200" : "border-transparent"}`}
+                               style={{ backgroundColor: swatchColor }} 
+                               aria-hidden="true" 
+                             />
+                           </button>
+                         )
+                      }
+                      
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => selectVariantValue(group.key, option.value)}
+                          className={`rounded-xl border px-5 py-2.5 text-sm font-bold transition-all ${
+                            isSelected
+                              ? "border-slate-950 bg-slate-950 text-white shadow-md dark:border-white dark:bg-white dark:text-slate-950"
+                              : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600"
+                          } ${disabled ? "cursor-not-allowed opacity-40 shadow-none hover:border-slate-300 hover:bg-white" : ""}`}
+                          title={option.inStock ? option.value : `${option.value} is out of stock`}
+                        >
+                          {option.value}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Current Selection Summary */}
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+            <div className="font-semibold text-slate-950 dark:text-white">
+              {activeVariant?.title || "Standard configuration"}
+            </div>
+            <div className="mt-1 flex flex-col gap-0.5">
+              <div>{stock > 0 ? `${stock} units ready to dispatch.` : "Currently unavailable."}</div>
+              {productWeightLabel && <div>Weight: {productWeightLabel}</div>}
+              <div>SKU: {activeVariant?.sku || product.productNumber || product.SKU}</div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-2.5">
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                disabled={stock === 0 || adding}
+                onClick={() => handleAddToCart()}
+                className="flex items-center justify-center rounded-xl bg-slate-950 px-4 py-3.5 text-[15px] font-bold text-white transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+              >
+                {adding ? "Adding..." : "Add to Cart"}
+              </button>
+              
+              <button
+                type="button"
+                disabled={stock === 0 || adding}
+                onClick={() => handleAddToCart("/checkout")}
+                className="flex items-center justify-center rounded-xl bg-rose-500 px-4 py-3.5 text-[15px] font-bold text-white transition-all hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Buy Now
+              </button>
+            </div>
+            
+            <button
+              type="button"
+              disabled={stock === 0 || wishlistLoading}
+              onClick={handleWishlistToggle}
+              className="flex w-full items-center justify-center rounded-xl border-2 border-slate-200 bg-transparent px-4 py-3.5 text-[15px] font-bold text-slate-900 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:text-white dark:hover:bg-slate-900"
+            >
+               ♡ {stock === 0 ? "Out of Stock" : wishlistLoading ? "Updating..." : wishlistSaved ? "Saved to Wishlist" : "Save to Wishlist"}
+            </button>
+          </div>
+
+        </div>
       </div>
 
-      <ProductReviewsSection productId={product._id} product={product} />
+      {/* Tabs and Description */}
+      <section className="mt-12 rounded-2xl border border-slate-200 bg-white p-6 md:p-8 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`rounded-full px-5 py-2 text-sm font-bold transition-all ${
+                activeTab === tab.key
+                  ? "bg-slate-950 text-white dark:bg-slate-100 dark:text-slate-950"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-      <section className="w-full space-y-6">
-        <div className="w-full space-y-6">
-          <RecommendationSection
-            title="Frequently Bought Together"
-            items={visibleFbtBundle || []}
-            layout="carousel"
-            recommendationType="bundle"
-            surface="product_page"
-            sourceProductId={product._id}
-            loading={recommendationsLoading}
-            showEmptyState
-            fullWidth
-          />
-          <RecommendationSection
-            title="Featured Products"
-            items={recommendations?.featured || recommendations?.upsell || []}
-            layout="featured"
-            recommendationType="featured"
-            surface="product_page"
-            sourceProductId={product._id}
-            featuredHeroPosition="left"
-            loading={recommendationsLoading}
-            showEmptyState
-            fullWidth
-          />
-          <RecommendationSection
-            title="Featured Products"
-            items={recommendations?.featured || recommendations?.personalized || []}
-            layout="featured"
-            recommendationType="featured"
-            surface="product_page"
-            sourceProductId={product._id}
-            featuredHeroPosition="right"
-            loading={recommendationsLoading}
-            showEmptyState
-            fullWidth
-          />
-          <RecommendationSection
-            title="Trending Products"
-            items={recommendations?.trending || []}
-            layout="grid"
-            recommendationType="trending"
-            surface="product_page"
-            sourceProductId={product._id}
-            loading={recommendationsLoading}
-            showEmptyState
-            fullWidth
-          />
-          <RecommendationSection
-            title="Related Products"
-            items={recommendations?.related || []}
-            layout="grid"
-            recommendationType="related"
-            surface="product_page"
-            sourceProductId={product._id}
-            loading={recommendationsLoading}
-            showEmptyState
-            fullWidth
-          />
+        <div className="prose prose-slate prose-sm md:prose-base dark:prose-invert max-w-none">
+          {activeTab === "description" ? (
+            <div className="space-y-4 text-slate-700 dark:text-slate-300">
+              <p className="whitespace-pre-wrap">{product.description}</p>
+              {product.shortDescription && <p className="text-slate-500 font-medium">{product.shortDescription}</p>}
+            </div>
+          ) : null}
+
+          {moduleTabs
+            .filter((tab) => tab.key === activeTab)
+            .map((tab) => (
+              <div key={tab.key} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(tab.fields || [])
+                  .filter((field) => tab.values[field.key] !== undefined && tab.values[field.key] !== "")
+                  .map((field) => (
+                    <div key={field.key} className="flex flex-col gap-1 rounded-xl border border-slate-100 p-4 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div className="font-bold text-slate-900 dark:text-white uppercase tracking-wide text-xs">{field.name}</div>
+                      <div className="text-slate-700 dark:text-slate-300">{formatFieldValue(tab.values[field.key])}</div>
+                    </div>
+                  ))}
+              </div>
+            ))}
         </div>
       </section>
+    </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-50 lg:hidden bg-white/95 border-t border-slate-200/80 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-950 dark:text-white">{formatCurrency(pricing.salePrice)}</div>
-            {pricing.hasDiscount ? <div className="text-xs text-slate-500 line-through dark:text-slate-400">{formatCurrency(pricing.price)}</div> : null}
-          </div>
-          <button type="button" disabled={stock === 0 || adding} onClick={() => handleAddToCart()} className="inline-flex items-center justify-center rounded-2xl bg-[color:var(--commerce-accent)] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:translate-y-[-1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60">
-            {adding ? "Adding..." : "Add to Cart"}
-          </button>
-        </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <button type="button" disabled={stock === 0 || adding} onClick={() => handleAddToCart("/checkout")} className="rounded-2xl bg-[color:var(--commerce-accent-warm)] px-4 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:translate-y-[-1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60">
-            Buy Now
-          </button>
-          <button type="button" disabled={stock === 0 || wishlistLoading} onClick={handleWishlistToggle} className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800">
-            {stock === 0 ? "Out of Stock" : wishlistLoading ? "Updating..." : wishlistSaved ? "Saved" : "Save"}
-          </button>
-        </div>
+      <div className="mx-auto w-full max-w-[1600px] px-4 lg:px-8 mt-16 space-y-12">
+        <ProductReviewsSection productId={product._id} product={product} />
+        <RecommendationSection
+          title="Frequently Bought Together"
+          items={visibleFbtBundle || []}
+          layout="carousel"
+          recommendationType="bundle"
+          surface="product_page"
+          sourceProductId={product._id}
+          loading={recommendationsLoading}
+          showEmptyState
+          fullWidth
+        />
+        <RecommendationSection
+          title="Featured Products"
+          items={recommendations?.featured || recommendations?.upsell || []}
+          layout="featured"
+          recommendationType="featured"
+          surface="product_page"
+          sourceProductId={product._id}
+          featuredHeroPosition="left"
+          loading={recommendationsLoading}
+          showEmptyState
+          fullWidth
+        />
+        <RecommendationSection
+          title="Trending Products"
+          items={recommendations?.trending || []}
+          layout="grid"
+          recommendationType="trending"
+          surface="product_page"
+          sourceProductId={product._id}
+          loading={recommendationsLoading}
+          showEmptyState
+          fullWidth
+        />
+        <RecommendationSection
+          title="Related Products"
+          items={recommendations?.related || []}
+          layout="grid"
+          recommendationType="related"
+          surface="product_page"
+          sourceProductId={product._id}
+          loading={recommendationsLoading}
+          showEmptyState
+          fullWidth
+        />
       </div>
     </div>
   );

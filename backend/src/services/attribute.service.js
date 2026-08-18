@@ -281,16 +281,36 @@ async function validateAndNormalizeModulesData({
   const defs = await listAttributeDefinitions({ categoryId, subCategoryId, activeOnly: true });
   const source = normalizeModulePayloadLegacy(defs, modulesData, attributes, extraDetails);
   const normalized = {};
+  const processedKeys = {};
 
   for (const def of defs.filter((item) => !item.isVariant)) {
     const moduleKey = def.moduleKey || "general";
     const raw = source?.[moduleKey]?.[def.key];
     const value = normalizeDefinitionValue(def, raw, requireAll);
+    
+    // Mark that we processed this definition key
+    if (!processedKeys[moduleKey]) processedKeys[moduleKey] = new Set();
+    processedKeys[moduleKey].add(def.key);
+
     if (value === undefined) continue;
     normalized[moduleKey] = {
       ...(normalized[moduleKey] || {}),
       [def.key]: value,
     };
+  }
+
+  // Preserve any custom, ad-hoc keys that are not standard definitions
+  for (const moduleKey of Object.keys(source)) {
+    for (const [key, rawValue] of Object.entries(source[moduleKey] || {})) {
+      if (!processedKeys[moduleKey]?.has(key)) {
+        if (rawValue !== undefined && rawValue !== null && rawValue !== "") {
+           normalized[moduleKey] = {
+             ...(normalized[moduleKey] || {}),
+             [key]: rawValue,
+           };
+        }
+      }
+    }
   }
 
   return normalized;

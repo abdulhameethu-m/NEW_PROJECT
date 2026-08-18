@@ -44,7 +44,7 @@ function RatingStars({ value = 0, large = false, onChange }) {
 
 function EmptyReviewState() {
   return (
-    <div className="flex min-h-[250px] min-w-[300px] items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+    <div className="flex flex-1 min-h-[290px] min-w-[300px] shrink-0 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-[13px] font-medium text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
       No published reviews yet.
     </div>
   );
@@ -75,7 +75,7 @@ function ReviewProductTile({ product }) {
   return (
     <div className="mt-4 flex items-center gap-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-200 text-slate-400 dark:bg-slate-800">
-        {imageUrl ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(imageUrl)} alt={product.name || "Reviewed product"} className="h-full w-full object-cover" loading="lazy" /> : <ImageIcon className="h-5 w-5" />}
+        {imageUrl ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(imageUrl)} alt={product.name || "Reviewed product"} className="h-full w-full object-cover" /> : <ImageIcon className="h-5 w-5" />}
       </div>
       <div className="min-w-0">
         <div className="line-clamp-1 text-xs font-semibold text-slate-700 dark:text-slate-200">{product.name || "Reviewed product"}</div>
@@ -214,29 +214,29 @@ export function ProductReviewsSection({ productId, product = null }) {
   }
 
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-lg font-bold text-slate-950 dark:text-white">Customer Reviews</h2>
-        <button type="button" onClick={() => setFilter({ sortBy: "most_recent" })} className="text-sm font-semibold text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">
+        <h2 className="text-xl font-bold tracking-tight text-slate-950 dark:text-white">Customer Reviews</h2>
+        <button type="button" onClick={() => setFilter({ sortBy: "most_recent" })} className="text-[13px] font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition">
           View all reviews
         </button>
       </div>
 
-      <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-        <div className="min-h-[250px] w-[260px] shrink-0 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <div className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">{Number(summary.averageRating || 0).toFixed(1)}</div>
+      <div className="mt-6 flex gap-4 overflow-x-auto pb-4">
+        <div className="min-h-[290px] w-[260px] shrink-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="text-[2.75rem] leading-none font-bold tracking-tighter text-slate-950 dark:text-white pb-1">{Number(summary.averageRating || 0).toFixed(1)}</div>
           <div className="mt-2">
             <RatingStars value={summary.averageRating || 0} large />
           </div>
-          <div className="mt-2 text-xs text-slate-500">Based on {(summary.totalReviews || summary.totalRatings || 0).toLocaleString()} reviews</div>
-          <div className="mt-4 grid gap-2 text-xs">
+          <div className="mt-2 text-[11px] font-medium text-slate-500 tracking-wide uppercase">Based on {(summary.totalReviews || summary.totalRatings || 0).toLocaleString()} reviews</div>
+          <div className="mt-5 grid gap-2.5 text-xs">
             {[5, 4, 3, 2, 1].map((rating) => (
-              <div key={rating} className="grid grid-cols-[1.5rem_minmax(0,1fr)_2.75rem] items-center gap-2">
-                <span className="font-medium text-slate-700 dark:text-slate-200">{rating}</span>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                  <div className="h-full rounded-full bg-amber-500" style={{ width: `${distribution[rating]?.percent || 0}%` }} />
+              <div key={rating} className="grid grid-cols-[0.5rem_minmax(0,1fr)_0.5rem] items-center gap-2.5">
+                <span className="font-semibold text-slate-600 dark:text-slate-300">{rating}</span>
+                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                  <div className="h-full rounded-full bg-slate-950 dark:bg-white" style={{ width: `${distribution[rating]?.percent || 0}%` }} />
                 </div>
-                <span className="text-right text-slate-500">{distribution[rating]?.count || 0}</span>
+                <span className="text-right font-medium text-slate-500">{distribution[rating]?.count || 0}</span>
               </div>
             ))}
           </div>
@@ -262,23 +262,23 @@ export function ProductReviewsSection({ productId, product = null }) {
               {item.mimeType?.startsWith("video") ? (
                 <div className="flex h-full items-center justify-center text-slate-500"><Video size={22} /></div>
               ) : (
-                <img loading="lazy" decoding="async" src={resolveApiAssetUrl(item.url)} alt="Review media" className="h-full w-full object-cover" loading="lazy" />
+                <img loading="lazy" decoding="async" src={resolveApiAssetUrl(item.url)} alt="Review media" className="h-full w-full object-cover" />
               )}
             </a>
           ))}
         </div>
       ) : null}
 
-      <div className="mt-5 flex flex-wrap items-center gap-2">
+      <div className="mt-6 flex flex-wrap items-center gap-2.5">
         {[["", "All Reviews"], [5, "5 Star"], [4, "4 Star"], [3, "3 Star"], [2, "2 Star"], [1, "1 Star"]].map(([value, label]) => (
-          <button key={label} type="button" onClick={() => setFilter((next) => ({ ...next, rating: value }))} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${String(filter.rating || "") === String(value) ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
+          <button key={label} type="button" onClick={() => setFilter((next) => ({ ...next, rating: value }))} className={`rounded-xl px-4 py-2 text-[13px] font-bold transition ${String(filter.rating || "") === String(value) ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"}`}>
             {label}
           </button>
         ))}
-        <button type="button" onClick={() => setFilter((next) => ({ ...next, verifiedPurchase: next.verifiedPurchase ? "" : "true" }))} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">Verified Purchase</button>
-        <button type="button" onClick={() => setFilter((next) => ({ ...next, withPhotos: next.withPhotos ? "" : "true" }))} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"><ImageIcon size={14} /> Photos</button>
-        <button type="button" onClick={() => setFilter((next) => ({ ...next, withVideos: next.withVideos ? "" : "true" }))} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"><Video size={14} /> Videos</button>
-        <select value={filter.sortBy} onChange={(event) => setFilter((next) => ({ ...next, sortBy: event.target.value }))} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+        <button type="button" onClick={() => setFilter((next) => ({ ...next, verifiedPurchase: next.verifiedPurchase ? "" : "true" }))} className={`rounded-xl px-4 py-2 text-[13px] font-bold transition ${filter.verifiedPurchase ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"}`}>Verified Purchase</button>
+        <button type="button" onClick={() => setFilter((next) => ({ ...next, withPhotos: next.withPhotos ? "" : "true" }))} className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-bold transition ${filter.withPhotos ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"}`}><ImageIcon size={15} /> Photos</button>
+        <button type="button" onClick={() => setFilter((next) => ({ ...next, withVideos: next.withVideos ? "" : "true" }))} className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-bold transition ${filter.withVideos ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"}`}><Video size={15} /> Videos</button>
+        <select value={filter.sortBy} onChange={(event) => setFilter((next) => ({ ...next, sortBy: event.target.value }))} className="cursor-pointer rounded-xl border border-transparent bg-slate-50 px-4 py-2 text-[13px] font-bold text-slate-600 hover:bg-slate-100 focus:border-slate-300 focus:outline-none focus:ring-0 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
           {sortOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </div>

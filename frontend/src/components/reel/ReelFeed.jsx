@@ -403,14 +403,14 @@ function ShareModal({ reel, onClose, onShare }) {
   );
 }
 
-export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
+export function ReelFeed({ detailId = "", fullScreenMobile = false, initialReels = null, initialIndex = 0 }) {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const [tab, setTab] = useState("for_you");
   const [, setPage] = useState(1);
   const pageRef = useRef(1);
-  const [reels, setReels] = useState([]);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [reels, setReels] = useState(initialReels || []);
+  const [activeIndex, setActiveIndex] = useState(initialIndex || 0);
   const [muted, setMuted] = useState(true);
   const [liked, setLiked] = useState({});
   const [saved, setSaved] = useState({});
@@ -420,7 +420,7 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [hasMore, setHasMore] = useState(false);
+  const [hasMore, setHasMore] = useState(Boolean(initialReels));
   const [adjacent, setAdjacent] = useState({ previous: null, next: null });
   const [error, setError] = useState("");
   const observerRef = useRef(null);
@@ -449,7 +449,7 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
     setLoading(true);
     setError("");
     try {
-      const response = await getReelFeed({ tab, page: nextPage, limit: detailId ? 1 : 8 });
+      const response = await getReelFeed({ tab, page: nextPage, limit: (detailId && !initialReels) ? 1 : 8 });
       const payload = response?.data || {};
       const nextItems = (Array.isArray(payload) ? payload : payload.items || []).map(normalizeReel);
       setReels((current) => reset ? nextItems : [...current, ...nextItems.filter((item) => !current.some((row) => row._id === item._id))]);
@@ -478,7 +478,7 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
   }, [detailId, load, tab]);
 
   useEffect(() => {
-    if (!detailId) return;
+    if (!detailId || initialReels) return;
     let cancelled = false;
     async function loadDetail() {
       setLoading(true);
@@ -503,7 +503,7 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
   }, [detailId]);
 
   useEffect(() => {
-    if (!detailId) {
+    if (!detailId || initialReels) {
       setAdjacent({ previous: null, next: null });
       return;
     }
@@ -546,6 +546,12 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
   }, [activeIndex, muted, reels]);
 
   useEffect(() => {
+    if (initialIndex > 0 && feedRef.current && videoRefs.current[initialIndex]) {
+      videoRefs.current[initialIndex].scrollIntoView({ behavior: 'instant', block: 'center' });
+    }
+  }, [initialIndex, reels.length]);
+
+  useEffect(() => {
     const reel = reels[activeIndex];
     if (!reel?._id || viewedReelsRef.current.has(reel._id)) return;
     viewedReelsRef.current.add(reel._id);
@@ -567,7 +573,7 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
 
   useEffect(() => {
     function onKey(event) {
-      if (detailId && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      if (detailId && !initialReels && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
         event.preventDefault();
         if (event.key === "ArrowLeft" || event.key === "ArrowUp") navigateAdjacent("previous");
         if (event.key === "ArrowRight" || event.key === "ArrowDown") navigateAdjacent("next");
@@ -766,29 +772,9 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
         </header>
       ) : null}
 
-      {/* Tabs list */}
-      <div 
-        className={`flex gap-2 overflow-x-auto ${fullScreenMobile ? "hidden" : "bg-slate-100 px-3 py-2"} lg:bg-transparent lg:px-0 lg:py-0 lg:-mt-2`}
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-      >
-        {FEED_TABS.map(([key, label]) => (
-          <button 
-            key={key} 
-            onClick={() => setTab(key)} 
-            className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition active:scale-95 ${
-              tab === key 
-                ? "bg-white text-slate-950" 
-                : "bg-slate-900 text-slate-400 hover:bg-slate-800 lg:bg-slate-950 lg:text-white lg:dark:bg-white lg:dark:text-slate-950"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 m-2">{error}</div> : null}
 
-      <div className="min-h-0 flex-1 bg-transparent">
+      <div className="min-h-0 flex-1 bg-transparent lg:pt-4">
         <section
           ref={feedRef}
           onScroll={handleFeedScroll}
@@ -898,7 +884,15 @@ export function ReelFeed({ detailId = "", fullScreenMobile = false }) {
                     {fullScreenMobile ? (
                       <>
                         <BackButton />
-                        <ActionSidebar actions={{ onLike: () => handleLike(reel), liked: Boolean(liked[reel._id]), onComment: () => setCommentsOpen(true), onShare: () => setShareOpen(true), onSave: () => handleSave(reel), saved: Boolean(saved[reel._id]), onReport: () => setError("Report submitted for moderation review."), onFollow: () => toggleFollow(reel), followed: Boolean(followed[creatorId(reel)]) }} />
+                        <ActionSidebar 
+                          counts={{
+                            likes: compact(reel.metrics?.likes || 0),
+                            comments: compact(reel.metrics?.comments || 0),
+                            shares: compact(reel.metrics?.shares || 0),
+                            saves: compact(reel.metrics?.saves || reel.metrics?.bookmarks || 0)
+                          }}
+                          actions={{ onLike: () => handleLike(reel), liked: Boolean(liked[reel._id]), onComment: () => setCommentsOpen(true), onShare: () => setShareOpen(true), onSave: () => handleSave(reel), saved: Boolean(saved[reel._id]), onReport: () => setError("Report submitted for moderation review."), onFollow: () => toggleFollow(reel), followed: Boolean(followed[creatorId(reel)]) }} 
+                        />
                         <div style={{ position: 'absolute', right: 'env(safe-area-inset-right, 12px)', top: 'env(safe-area-inset-top, 12px)', zIndex: 70 }}>
                           <button onClick={() => setMuted((value) => !value)} className="rounded-full bg-black/45 p-3 text-white shadow-lg backdrop-blur transition active:scale-90" aria-label="Toggle mute">{muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}</button>
                         </div>

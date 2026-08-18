@@ -7,11 +7,14 @@ import {
   Compass,
   Heart,
   Home,
+  Eye,
   MessageCircle,
   Menu,
   MoreHorizontal,
+  Play,
   Share2,
   Search,
+  ShoppingCart,
   Store,
   TrendingUp,
   Users,
@@ -31,6 +34,7 @@ import {
   recordReelStoreVisit,
   shareReel,
   toggleReelLike,
+  toggleReelSave,
   unfollowPublicInfluencer,
 } from "../services/influencerCommerceService";
 import { getMyFollowedStores } from "../services/vendorStorefrontService";
@@ -279,8 +283,25 @@ export function InfluencersHubPage() {
     }));
   }
 
-  function toggleSave(id) {
-    setSavedIds((current) => ({ ...current, [id]: !current[id] }));
+  async function toggleSave(reel) {
+    if (!reel?._id || reel.synthetic) return;
+    if (!isAuthenticated) {
+      setLoginPrompt(true);
+      return;
+    }
+    const id = reel._id;
+    const wasSaved = Boolean(savedIds[id]);
+    setSavedIds((current) => ({ ...current, [id]: !wasSaved }));
+    updateReelMetrics(id, { saves: Math.max(0, Number(reel.metrics?.saves || 0) + (wasSaved ? -1 : 1)) });
+    try {
+      const response = await toggleReelSave(id);
+      setSavedIds((current) => ({ ...current, [id]: Boolean(response?.data?.saved) }));
+      updateReelMetrics(id, response?.data?.counts || {});
+    } catch (err) {
+      setSavedIds((current) => ({ ...current, [id]: wasSaved }));
+      updateReelMetrics(id, { saves: Number(reel.metrics?.saves || 0) });
+      if (err?.response?.status === 401) setLoginPrompt(true);
+    }
   }
 
   function updateReelMetrics(reelId, counts = {}) {
@@ -369,7 +390,7 @@ export function InfluencersHubPage() {
   }
 
   return (
-    <div className={`mx-auto grid min-h-[calc(100vh-170px)] max-w-[1600px] gap-5 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 ${showSuggestionsPanel ? "lg:grid-cols-[260px_minmax(0,720px)_350px]" : "lg:grid-cols-[260px_minmax(0,720px)] lg:justify-center"}`}>
+    <div className={`mx-auto grid min-h-[calc(100vh-170px)] max-w-[1600px] gap-5 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pt-6 ${showSuggestionsPanel ? "lg:grid-cols-[260px_minmax(0,720px)_350px]" : "lg:grid-cols-[260px_minmax(0,720px)] lg:justify-center"}`}>
       <aside className="sticky top-28 hidden h-[calc(100vh-140px)] rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:block">
         <div className="mb-5 px-2">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-rose-500">Social Commerce</p>
@@ -382,13 +403,7 @@ export function InfluencersHubPage() {
               {label}
             </button>
           ))}
-          <div className="relative">
-            <button onClick={() => setMoreOpen((open) => !open)} className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
-              <MoreHorizontal className="h-5 w-5" />
-              More
-            </button>
-            {moreOpen ? <MoreMenu /> : null}
-          </div>
+
         </nav>
       </aside>
 
@@ -622,9 +637,10 @@ function HubContent({ section, loading, query, setQuery, creators, reels, produc
   }
 
   if (section === "saved") {
+    const savedReels = reels.filter((row) => savedIds[row._id]);
     return (
       <FeedShell title="Saved" subtitle="Saved posts, reels, products, collections, influencers, and campaigns.">
-        <PostFeed reels={reels.filter((row) => savedIds[row._id])} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onProductOpen={onProductOpen} empty="No saved content yet." />
+        <SavedReelsGrid reels={savedReels} />
       </FeedShell>
     );
   }
@@ -648,8 +664,7 @@ function HubContent({ section, loading, query, setQuery, creators, reels, produc
   }
 
   return (
-    <FeedShell title="Home" subtitle="Stories, creator posts, reels, product showcases, campaign promotions, and storefront updates.">
-      <Stories creators={creators} />
+    <FeedShell title="Home" subtitle="Creator posts, reels, product showcases, campaign promotions, and storefront updates.">
       {loading ? <HubFeedSkeleton /> : null}
       <PostFeed reels={reels} creators={creators} products={products} followedIds={followedIds} followBusy={followBusy} savedIds={savedIds} likedIds={likedIds} onFollow={onFollow} onSave={onSave} onLike={onLike} onComment={onComment} onShare={onShare} onVisitStore={onVisitStore} onProductOpen={onProductOpen} />
     </FeedShell>
@@ -688,7 +703,6 @@ function Stories({ creators = [] }) {
                       <img loading="lazy" decoding="async" src={influencerAvatar(creator)}
                         alt={influencerName(creator)}
                         className="h-full w-full rounded-full object-cover"
-                        loading="lazy"
                       />
                     ) : (
                       <span className="flex h-full w-full items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 dark:bg-slate-800">
@@ -725,6 +739,47 @@ function PostFeed({ reels = [], creators = [], products = [], followedIds, follo
         return contentKind(post) === "POST" ? <PostCard key={id} {...sharedProps} /> : <ReelCard key={id} {...sharedProps} />;
       })}
     </section>
+  );
+}
+
+function SavedReelsGrid({ reels = [] }) {
+  if (!reels.length) return <div className="rounded-3xl bg-white p-8 text-center text-sm font-bold text-slate-500 dark:bg-slate-900">No saved reels yet.</div>;
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4">
+      {reels.map((reel, index) => {
+        const productCount = reel.products?.length || reel.productIds?.length || 0;
+        return (
+          <Link
+            key={reel._id}
+            to={`/reels/${reel._id}`}
+            state={{ initialReels: reels, initialIndex: index }}
+            className="group relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm outline-none transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div className="relative aspect-[9/16] bg-slate-950">
+              {reel.videoUrl || reel.thumbnailUrl ? <img loading="lazy" decoding="async" src={resolveApiAssetUrl(reel.thumbnailUrl || reel.videoUrl)} alt={reel.title || reel.caption || "Creator reel"} className="h-full w-full object-cover opacity-90 transition group-hover:scale-105" loading="lazy" /> : null}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/20" />
+              {reel.durationSeconds ? <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-bold text-white">{Math.floor(reel.durationSeconds / 60)}:{String(Math.floor(reel.durationSeconds % 60)).padStart(2, "0")}</span> : null}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-950 shadow-lg transition group-hover:scale-110"><Play className="h-5 w-5 fill-current" /></span>
+              </div>
+              <div className="absolute inset-x-0 bottom-0 space-y-1 p-2 text-[11px] font-bold text-white">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{compact(reel.metrics?.views || 0)}</span>
+                  <span className="inline-flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{compact(reel.metrics?.likes || 0)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1"><ShoppingCart className="h-3.5 w-3.5" />{compact(reel.metrics?.orders || 0)}</span>
+                  <span>{compact(productCount)} Products</span>
+                </div>
+              </div>
+            </div>
+            <div className="p-3 bg-white dark:bg-slate-900">
+              <p className="line-clamp-2 min-h-[36px] text-xs font-bold text-slate-900 dark:text-white">{reel.title || reel.caption || "Shoppable reel"}</p>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
   );
 }
 
@@ -765,12 +820,21 @@ function CreatorHeader({ creator, followedIds = {}, followBusy = {}, onFollow })
 
 function FeedActions({ post, profileHref, savedIds = {}, likedIds = {}, onLike, onComment, onShare, onVisitStore, onSave }) {
   const id = post._id;
+  
+  function withStop(fn) {
+    return (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      fn?.();
+    };
+  }
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
         <button
           type="button"
-          onClick={() => onLike?.(post)}
+          onClick={withStop(() => onLike?.(post))}
           className={`flex flex-col items-center gap-0.5 transition active:scale-95 ${
             likedIds[id] ? "text-rose-600" : "text-slate-500 dark:text-slate-400"
           }`}
@@ -781,7 +845,7 @@ function FeedActions({ post, profileHref, savedIds = {}, likedIds = {}, onLike, 
         </button>
         <button
           type="button"
-          onClick={() => onComment?.(post)}
+          onClick={withStop(() => onComment?.(post))}
           className="flex flex-col items-center gap-0.5 text-slate-500 transition active:scale-95 dark:text-slate-400"
           aria-label="Comment"
         >
@@ -790,7 +854,7 @@ function FeedActions({ post, profileHref, savedIds = {}, likedIds = {}, onLike, 
         </button>
         <button
           type="button"
-          onClick={() => onShare?.(post)}
+          onClick={withStop(() => onShare?.(post))}
           className="flex flex-col items-center gap-0.5 text-slate-500 transition active:scale-95 dark:text-slate-400"
           aria-label="Share"
         >
@@ -799,7 +863,7 @@ function FeedActions({ post, profileHref, savedIds = {}, likedIds = {}, onLike, 
         </button>
         <button
           type="button"
-          onClick={() => onVisitStore?.(post, profileHref)}
+          onClick={withStop(() => onVisitStore?.(post, profileHref))}
           className="flex flex-col items-center gap-0.5 text-slate-500 transition active:scale-95 dark:text-slate-400"
           aria-label="Visit store"
         >
@@ -808,7 +872,7 @@ function FeedActions({ post, profileHref, savedIds = {}, likedIds = {}, onLike, 
         </button>
       </div>
       <button
-        onClick={() => onSave(id)}
+        onClick={withStop(() => onSave?.(post))}
         className={`transition active:scale-95 ${
           savedIds[id] ? "text-slate-950 dark:text-white" : "text-slate-400 dark:text-slate-500"
         }`}

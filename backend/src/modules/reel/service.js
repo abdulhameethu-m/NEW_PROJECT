@@ -101,8 +101,45 @@ function validateContentMedia(payload = {}) {
   return publicType;
 }
 
+async function getPublishedReel(reelId) {
+  if (!mongoose.Types.ObjectId.isValid(reelId)) throw new AppError("Invalid reel ID", 400, "VALIDATION_ERROR");
+  const reel = await Reel.findOne({ _id: reelId, state: { $in: ["approved", "published"] }, visibility: "published" }).lean();
+  if (!reel) throw new AppError("Content not found", 404, "NOT_FOUND");
+  return reel;
+}
+
+async function incrementAnalytics({ reel, metric, amount = 1, metadata = {} }) {
+  if (!reel?._id || !metric) return;
+  const updates = { $inc: { [metric]: amount } };
+  
+  await Promise.all([
+    ContentAnalytics.updateOne(
+      { contentId: reel._id },
+      { ...updates, $setOnInsert: { influencerId: reel.influencerId, campaignId: reel.campaignId || null } },
+      { upsert: true }
+    ).catch(() => null),
+    
+    EngagementAnalytics.create({
+      reelId: reel._id,
+      influencerId: reel.influencerId,
+      campaignId: reel.campaignId || null,
+      type: metadata.eventType || "engagement",
+      metric,
+      amount,
+      userId: metadata.userId,
+      date: new Date().toISOString().split("T")[0]
+    }).catch(() => null)
+  ]);
+}
+
 function cleanString(value = "") {
   return String(value || "").trim();
+}
+
+function extractMentions(text = "") {
+  if (!text) return [];
+  const matches = text.match(/@[\w\.\-]+/g) || [];
+  return [...new Set(matches.map(m => m.substring(1)))];
 }
 
 function normalizeTags(value = []) {
@@ -428,12 +465,6 @@ async function incrementAnalytics({ reel, metric, amount = 1, productId = null, 
     }).catch(() => null));
   }
   await Promise.all(writes);
-}
-
-async function getPublishedReel(reelId) {
-  const reel = await Reel.findOne(publicReelFilter(reelId)).lean();
-  if (!reel) throw new AppError("Reel not found", 404, "NOT_FOUND");
-  return reel;
 }
 
 class ReelService {
@@ -1545,7 +1576,7 @@ class ReelService {
   async followCreator(userId, reelId, payload = {}) {
     const reel = await getPublishedReel(reelId);
     const influencerId = reel.influencerId;
-    const existing = await CreatorFollower.findOne({ influencerId, customerId: userId }).lean();
+    const existing = await InfluencerFollower.findOne({ influencerId, customerId: userId }).lean();
     const shouldFollow = payload.following !== undefined ? Boolean(payload.following) : !existing;
     if (shouldFollow && !existing) {
       await Promise.all([

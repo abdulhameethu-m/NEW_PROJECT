@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const { Product } = require("../models/Product");
 const searchService = require("../services/search.service");
 const { normalizeDateRange, applyDateRange } = require("../utils/dateRange");
@@ -55,17 +56,23 @@ function buildProductQuery({
   const variantConditions = {};
 
   if (category) query.category = category;
-  if (categoryId) query.categoryId = categoryId;
-  if (subCategoryId) query.subCategoryId = subCategoryId;
+  if (categoryId) query.categoryId = new mongoose.Types.ObjectId(categoryId);
+  if (subCategoryId) query.subCategoryId = new mongoose.Types.ObjectId(subCategoryId);
   if (status) query.status = status;
   if (isActive !== undefined) query.isActive = isActive;
-  if (sellerId) query.sellerId = sellerId;
+  if (sellerId) query.sellerId = new mongoose.Types.ObjectId(sellerId);
   if (creatorType) query.creatorType = creatorType;
 
   if (minPrice !== undefined || maxPrice !== undefined) {
-    query.price = {};
-    if (minPrice !== undefined) query.price.$gte = minPrice;
-    if (maxPrice !== undefined) query.price.$lte = maxPrice;
+    const priceExpr = [];
+    if (minPrice !== undefined) priceExpr.push({ $gte: [{ $ifNull: ["$discountPrice", "$price"] }, minPrice] });
+    if (maxPrice !== undefined) priceExpr.push({ $lte: [{ $ifNull: ["$discountPrice", "$price"] }, maxPrice] });
+    if (query.$expr) {
+      if (query.$expr.$and) query.$expr.$and = [...query.$expr.$and, ...priceExpr];
+      else query.$expr = { $and: [query.$expr, ...priceExpr] };
+    } else {
+      query.$expr = { $and: priceExpr };
+    }
   }
 
   if (search) {
@@ -120,14 +127,15 @@ async function buildFacetPayload(filterDefs = [], baseFilters = {}) {
     });
 
     if (filterDef.type === "range") {
-      const targetPath =
-        filterDef.key === "price"
-          ? "$price"
+      const isPrice = filterDef.key === "price";
+      const targetPath = isPrice
+          ? "$_computedPrice"
           : filterDef.isVariant
             ? `$${getVariantAttributePath(filterDef.key)}`
             : `$${getAttributePath(filterDef.key)}`;
       const [rangeStats] = await Product.aggregate([
         { $match: scopedQuery },
+        ...(isPrice ? [{ $addFields: { _computedPrice: { $ifNull: ["$discountPrice", "$price"] } } }] : []),
         ...(filterDef.isVariant
           ? [
               { $unwind: "$variants" },

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronRight, Check, X, Trash2, Minus, Plus } from "lucide-react";
+import { ChevronRight, Check, X, Trash2, Minus, Plus, ShoppingBag, ClipboardList, ShieldCheck, Award, RefreshCcw, Truck, Sparkles, Heart } from "lucide-react";
 import { useCartDrawer } from "../hooks/useCartDrawer";
 import { useCart } from "../hooks/useCart";
 import { formatCurrency } from "../utils/formatCurrency";
@@ -203,54 +203,67 @@ export function CartDrawer() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="drawer-title"
-          className={`fixed right-0 top-0 z-50 flex h-dvh w-full max-w-[min(100vw,28rem)] flex-col overflow-hidden bg-white shadow-2xl transition-transform duration-300 ease-out dark:bg-slate-900 ${
+          className={`fixed right-0 top-0 z-50 flex h-dvh w-full max-w-[min(100vw,28rem)] flex-col overflow-hidden bg-[#fafbfe] shadow-2xl transition-transform duration-300 ease-out dark:bg-slate-900 ${
             isAnimating ? "translate-x-0" : "translate-x-full"
           } pb-[max(1rem,env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)]`}
         >
-          <div className="flex items-center justify-between border-b border-slate-200 p-4 sm:p-6 dark:border-slate-800">
+          <div className="flex items-center justify-between p-4 sm:p-6 bg-white shrink-0">
             <div>
-              <h2 id="drawer-title" className="text-lg font-bold text-slate-900 dark:text-white sm:text-xl">
+              <h2 id="drawer-title" className="text-[22px] font-extrabold text-[#111827] tracking-tight dark:text-white">
                 Added to Cart
               </h2>
               {lastAddedVariant ? (
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {lastAddedVariant.variantTitle || lastAddedVariant.title
-                    ? `Selected variant: ${lastAddedVariant.variantTitle || lastAddedVariant.title}`
-                    : Object.keys(lastAddedVariant?.selectedAttributes || {}).length > 0
-                    ? `Selected: ${Object.entries(lastAddedVariant.selectedAttributes)
-                        .map(([key, value]) => `${key}: ${value}`)
-                        .join(", ")}`
-                    : "Best available variant auto-selected."}
+                <p className="mt-0.5 text-sm font-medium text-slate-500">
+                  {lastAddedVariant.variantTitle || lastAddedVariant.title ? (
+                    <>Selected variant: <span className="text-[#ec4899] font-semibold">{lastAddedVariant.variantTitle || lastAddedVariant.title}</span></>
+                  ) : Object.keys(lastAddedVariant?.selectedAttributes || {}).length > 0 ? (
+                    <>Selected: <span className="text-[#ec4899] font-semibold">{Object.values(lastAddedVariant.selectedAttributes).join(", ")}</span></>
+                  ) : (
+                    "Auto-selected."
+                  )}
                 </p>
               ) : null}
             </div>
             <button
               ref={closeButtonRef}
               onClick={closeDrawer}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#3730A3] transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
               aria-label="Close cart drawer"
             >
-              <X className="h-5 w-5" />
+              <X className="h-6 w-6 stroke-[2.5]" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto overscroll-contain">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 pb-6 pt-2 bg-[#fafbfe] dark:bg-slate-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {showSuccess ? (
-              <div className="flex items-center gap-2 border-b border-green-200 bg-green-50 px-4 py-3 dark:border-green-900 dark:bg-green-950/30 sm:px-6">
-                <Check className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
-                <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                  Successfully added to cart.
-                </span>
+              <div className="relative mb-6 flex items-center gap-3 overflow-hidden bg-gradient-to-b from-white via-[#ebfcf3] to-[#fafbfe] px-4 sm:px-6 pt-6 pb-4 -mx-4 sm:-mx-6 -mt-2">
+                {/* Confetti Background Shapes */}
+                <svg className="absolute inset-0 h-full w-full pointer-events-none" preserveAspectRatio="none">
+                  <path d="M 80 15 L 85 20 M 180 10 L 175 14 M 220 30 L 225 25 M 260 12 L 265 15 M 100 40 L 95 38" stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M 60 30 L 65 30 M 150 40 L 150 45 M 190 20 L 195 20 M 240 40 L 245 42 M 280 25 L 275 25" stroke="#facc15" strokeWidth="3" strokeLinecap="round" />
+                  <path d="M 40 20 L 45 25 M 120 15 L 125 10 M 200 40 L 205 35 M 140 25 L 135 28 M 270 35 L 272 40" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                <div className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#059669]">
+                  <Check className="h-5 w-5 text-white stroke-[2.5]" />
+                </div>
+                <div className="relative text-[15px] font-bold text-[#059669]">
+                  🎉 Successfully added to cart!
+                </div>
               </div>
             ) : null}
 
             {displayItems.length > 0 ? (
-              <div className="border-b border-slate-200 p-4 dark:border-slate-800 sm:p-6">
-                <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Cart Items ({displayItems.length})
-                </h3>
+              <div className="mb-6">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f3e8ff]">
+                    <ShoppingBag className="h-5 w-5 text-[#9333ea]" />
+                  </div>
+                  <h3 className="text-[17px] font-extrabold text-[#1e1b4b] dark:text-slate-300">
+                    Cart Items ({displayItems.length})
+                  </h3>
+                </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {displayItems.map((item) => {
                     const product = typeof item?.productId === "object" ? item.productId : null;
                     const productId = extractProductId(item?.productId || item);
@@ -277,66 +290,72 @@ export function CartDrawer() {
                     return (
                       <div
                         key={itemKey}
-                        className={`flex items-start gap-3 border-b border-slate-100 pb-3 transition last:border-b-0 last:pb-0 dark:border-slate-800 ${
+                        className={`flex items-center gap-3 rounded-[16px] bg-white p-2.5 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition dark:border-slate-800 ${
                           isDeleting ? "pointer-events-none opacity-50" : ""
                         }`}
                       >
-                        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+                        <div className="flex h-[84px] w-[84px] flex-shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-slate-50 dark:bg-slate-800">
                           {itemImage ? (
                             <img loading="lazy" decoding="async" src={itemImage} alt={itemName} className="h-full w-full object-cover" />
                           ) : (
                             <div className="text-slate-400 dark:text-slate-600">
-                              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
+                              <ShoppingBag className="h-6 w-6 opacity-50" />
                             </div>
                           )}
                         </div>
 
-                        <div className="min-w-0 flex-1">
-                          <h4 className="mb-1 line-clamp-2 text-xs font-medium text-slate-900 dark:text-white sm:text-sm">
-                            {itemName}
-                          </h4>
-                          {item?.variantTitle ? (
-                            <p className="mb-1 line-clamp-1 text-xs text-slate-500 dark:text-slate-400">
-                              {item.variantTitle}
-                            </p>
-                          ) : null}
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-700 w-fit">
-                                  <button
-                                    onClick={() => handleUpdateQuantity(productId, variantId, Number(item.quantity) - 1)}
-                                    disabled={isDeleting || isUpdating || Number(item.quantity) <= 1}
-                                    className="flex h-6 w-6 items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
-                                    aria-label="Decrease quantity"
-                                  >
-                                    <Minus className="h-3 w-3" />
-                                  </button>
-                                  <span className="flex h-6 min-w-[1.5rem] items-center justify-center px-1 text-xs font-medium text-slate-900 dark:text-white">
-                                    {item.quantity}
-                                  </span>
-                                  <button
-                                    onClick={() => handleUpdateQuantity(productId, variantId, Number(item.quantity) + 1)}
-                                    disabled={isDeleting || isUpdating}
-                                    className="flex h-6 w-6 items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
-                                    aria-label="Increase quantity"
-                                  >
-                                    <Plus className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              <p className="text-xs font-semibold text-slate-900 dark:text-white sm:text-sm">
-                                {formatCurrency(itemPrice * Number(item.quantity || 0))}
-                              </p>
+                        <div className="min-w-0 flex-1 py-0.5 flex flex-col justify-between h-full">
+                          {/* Row 1: Name and Variant Inline */}
+                          <div className="flex items-start justify-between gap-1">
+                            <h4 className="line-clamp-2 text-[14px] font-bold text-[#111827] dark:text-white leading-tight">
+                              {itemName}
+                            </h4>
+                            {item?.variantTitle ? (
+                              <div className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-[#fce7f3] px-1.5 py-0.5 text-[10px] font-semibold text-[#be185d]">
+                                <span className="h-1 w-1 rounded-full bg-[#ec4899]"></span>
+                                {item.variantTitle}
+                              </div>
+                            ) : null}
+                          </div>
+                          
+                          {/* Row 2: Price and Controls Inline */}
+                          <div className="flex items-center justify-between gap-1 mt-auto pt-2">
+                            <div className="text-[14px] sm:text-[15px] font-black text-[#111827] dark:text-white truncate">
+                              {formatCurrency(itemPrice * Number(item.quantity || 0))}
                             </div>
-                            <button
-                              onClick={() => handleDeleteItem(productId, variantId)}
-                              disabled={isDeleting}
-                              className="flex-shrink-0 rounded-lg p-1.5 text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-900/30"
-                              aria-label={`Remove ${itemName} from cart`}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex items-center rounded-lg bg-[#fdf2f8] px-0.5 py-0.5 border border-[#fce7f3]">
+                                <button
+                                  onClick={() => handleUpdateQuantity(productId, variantId, Number(item.quantity) - 1)}
+                                  disabled={isDeleting || isUpdating || Number(item.quantity) <= 1}
+                                  className="flex h-6 w-6 items-center justify-center rounded-[6px] text-[#e11d48] transition-colors hover:bg-[#ffe4e6] disabled:opacity-50"
+                                  aria-label="Decrease quantity"
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </button>
+                                <span className="flex min-w-[20px] items-center justify-center text-[12px] font-bold text-[#881337]">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  onClick={() => handleUpdateQuantity(productId, variantId, Number(item.quantity) + 1)}
+                                  disabled={isDeleting || isUpdating}
+                                  className="flex h-6 w-6 items-center justify-center rounded-[6px] text-[#e11d48] transition-colors hover:bg-[#ffe4e6] disabled:opacity-50"
+                                  aria-label="Increase quantity"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </button>
+                              </div>
+                              
+                              <button
+                                onClick={() => handleDeleteItem(productId, variantId)}
+                                disabled={isDeleting}
+                                className="flex-shrink-0 rounded-lg p-1.5 border border-[#ffe4e6] text-[#e11d48] bg-white transition hover:bg-[#ffe4e6] disabled:opacity-50"
+                                aria-label={`Remove ${itemName} from cart`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -346,28 +365,40 @@ export function CartDrawer() {
               </div>
             ) : null}
 
-            <div className="border-b border-slate-200 p-4 dark:border-slate-800 sm:p-6">
-              <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Cart Summary</h3>
-              <div className="mb-3 space-y-2 border-b border-slate-200 pb-3 dark:border-slate-800">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600 dark:text-slate-400">Items</span>
-                  <span className="font-medium text-slate-900 dark:text-white">{cartTotals.items}</span>
-                </div>
+            <div className="relative overflow-hidden bg-gradient-to-b from-[#fafbfe] via-[#eff6ff] to-[#fafbfe] py-6 sm:py-8 -mx-4 sm:-mx-6 px-4 sm:px-6 mb-6">
+              <div className="absolute right-0 top-0 h-48 w-48 opacity-[0.12] mix-blend-multiply pointer-events-none translate-x-4 -translate-y-4">
+                <ShoppingBag strokeWidth={1} className="h-full w-full text-blue-300 transform -rotate-12" />
               </div>
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-900 dark:text-white">Total Amount</span>
-                <span className="text-lg font-bold text-green-600 dark:text-green-400 sm:text-xl">
-                  {formatCurrency(cartTotals.subtotal)}
-                </span>
+              <div className="relative z-10">
+                <h3 className="mb-5 flex items-center gap-2 text-[17px] font-extrabold text-[#111827] dark:text-slate-300">
+                  <ClipboardList className="h-5 w-5 text-blue-600" />
+                  Cart Summary
+                </h3>
+                <div className="mb-5 space-y-2 border-b border-blue-200/40 pb-4 border-dashed dark:border-slate-700">
+                  <div className="flex items-center justify-between text-[15px]">
+                    <span className="font-medium text-slate-600 dark:text-slate-400">Items</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{cartTotals.items}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[17px] font-extrabold text-[#111827] dark:text-white">Total Amount</span>
+                  <span className="text-[22px] font-black text-[#059669] dark:text-green-400">
+                    {formatCurrency(cartTotals.subtotal)}
+                  </span>
+                </div>
               </div>
             </div>
 
             {recommendations.length > 0 && !loadingRecs ? (
-              <div className="border-b border-slate-200 p-4 dark:border-slate-800 sm:p-6">
-                <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  You may also like
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="mb-6 px-4 sm:px-6">
+                <div className="mb-4 flex items-center justify-between rounded-[16px] bg-[#fdf2f8] px-4 py-3 -mx-2 sm:-mx-3">
+                   <span className="flex items-center gap-2 text-[15px] font-bold text-[#9f1239]">
+                     <Heart className="h-4 w-4 fill-current" />
+                     You may also like
+                   </span>
+                   <ChevronRight className="h-4 w-4 text-[#9f1239]" />
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-4">
                   {recommendations.map((rec) => {
                     const firstImage = Array.isArray(rec?.images)
                       ? typeof rec.images[0] === "string"
@@ -384,9 +415,9 @@ export function CartDrawer() {
                           navigate(`/product/${rec._id}`);
                           closeDrawer();
                         }}
-                        className="group overflow-hidden rounded-lg border border-slate-200 text-left transition hover:border-blue-300 dark:border-slate-700 dark:hover:border-blue-600"
+                        className="group overflow-hidden rounded-[16px] bg-white border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] text-left transition hover:border-[#bfdbfe] dark:border-slate-800"
                       >
-                        <div className="aspect-square overflow-hidden bg-slate-100 dark:bg-slate-800">
+                        <div className="aspect-square overflow-hidden bg-slate-50 dark:bg-slate-800">
                           {recImage ? (
                             <img loading="lazy" decoding="async" src={recImage}
                               alt={rec?.name || "Recommended product"}
@@ -394,11 +425,11 @@ export function CartDrawer() {
                             />
                           ) : null}
                         </div>
-                        <div className="p-2">
-                          <p className="line-clamp-1 text-xs font-medium text-slate-900 dark:text-white">
+                        <div className="p-3">
+                          <p className="line-clamp-1 text-[13px] font-bold text-[#111827] dark:text-white">
                             {rec?.name || "Product"}
                           </p>
-                          <p className="mt-1 text-xs font-bold text-blue-600 dark:text-blue-400">
+                          <p className="mt-1 text-sm font-black text-[#3730A3] dark:text-blue-400">
                             {formatCurrency(recPrice)}
                           </p>
                         </div>
@@ -410,31 +441,37 @@ export function CartDrawer() {
             ) : null}
           </div>
 
-          <div className="flex-shrink-0 space-y-2 border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:p-6">
-            <Link
-              to="/cart"
-              onClick={closeDrawer}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 active:scale-95 sm:py-3.5 sm:text-base"
-            >
-              View Cart
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-
-            <button
-              onClick={closeDrawer}
-              className="flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50 active:scale-95 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 sm:py-3.5 sm:text-base"
-            >
-              Continue Shopping
-            </button>
-
-            <Link
-              to="/checkout"
-              onClick={closeDrawer}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-green-500 bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:from-green-700 hover:to-emerald-700 active:scale-95 sm:py-3 sm:text-sm"
-            >
-              Checkout Now
-              <ChevronRight className="h-4 w-4" />
-            </Link>
+          <div className="flex-shrink-0 bg-white">
+            <div className="space-y-2 p-4 sm:p-5">
+              <div className="flex gap-2">
+                <Link
+                  to="/cart"
+                  onClick={closeDrawer}
+                  className="group flex flex-1 items-center justify-center gap-1.5 rounded-[12px] bg-gradient-to-r from-[#a855f7] to-[#6366f1] px-2 py-3 text-[13px] font-bold text-white shadow-[0_4px_16px_rgba(99,102,241,0.25)] transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  View Cart
+                </Link>
+    
+                <button
+                  onClick={closeDrawer}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#c7d2fe] bg-white px-2 py-3 text-[13px] font-bold text-[#3730A3] transition-all hover:bg-[#eef2ff] active:scale-[0.98] dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  Continue Shop
+                </button>
+              </div>
+  
+              <Link
+                to="/checkout"
+                onClick={closeDrawer}
+                className="group flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#10b981] bg-gradient-to-r from-[#22c55e] to-[#10b981] px-4 py-3 text-[15px] font-extrabold text-white shadow-[0_4px_16px_rgba(16,185,129,0.25)] transition-all hover:scale-[1.01] active:scale-[0.98]"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Checkout Now
+                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </div>
           </div>
         </aside>
 

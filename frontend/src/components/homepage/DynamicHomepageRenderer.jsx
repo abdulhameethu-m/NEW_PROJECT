@@ -174,10 +174,9 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
       }),
     ...(renderContext.device === "mobile" && (container.containerType === "BANNER" || bannerCarouselLike) && !previewBare && !stripOuterLayout
       ? {
-        height: "auto",
-        minHeight: undefined,
-        aspectRatio: "16 / 9",
-      }
+          height: "auto",
+          minHeight: undefined,
+        }
       : {}),
   };
 
@@ -194,7 +193,7 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
   if (isCarousel && !previewBare && !stripOuterLayout) {
     const sideMargin = renderContext.device === "mobile" ? "1.25rem" : "2rem";
     wrapperStyle.margin = `${layout.marginTop ?? 16}px ${sideMargin} ${layout.marginBottom ?? 16}px ${sideMargin}`;
-    wrapperStyle.borderRadius = "2rem";
+    wrapperStyle.borderRadius = "1rem";
     wrapperStyle.overflow = "hidden";
     wrapperStyle.background = resolveContainerBackground(layout, themeStyles);
   }
@@ -748,7 +747,7 @@ function compactNumber(value) {
 function CarouselContainer({ container, bareContainers = false, bareOuterLayout = false, bareCarouselShell = false }) {
   const config = container.config || {};
   return (
-    <div className={bareContainers || bareOuterLayout || container?.previewBare === true ? "" : "p-5 sm:p-6 lg:p-8"}>
+    <div className={bareContainers || bareOuterLayout || container?.previewBare === true ? "" : "px-4 pb-4 pt-2 sm:px-5 sm:pb-5 sm:pt-2 lg:px-6 lg:pb-6 lg:pt-3"}>
       <ProductCarousel
         items={container.products || []}
         title={container.title}

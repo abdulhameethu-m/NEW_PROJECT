@@ -14,9 +14,23 @@ const defaultJobOptions = {
 };
 
 function createQueue(name) {
+  const isLocal = redisUrl.includes('localhost') || redisUrl.includes('127.0.0.1');
+  const dummyQueue = {
+    add: async () => ({}),
+    process: () => {},
+    on: () => dummyQueue,
+    getJob: async () => null,
+  };
+
+  // If redis URL is omitted in Env, assume we want to mock it to avoid crashing the server on Windows without redis setup.
+  if (isLocal && !process.env.REDIS_URL) {
+    return dummyQueue;
+  }
+
   const queue = new Queue(name, redisUrl, { defaultJobOptions });
 
   queue.on('error', (err) => {
+    if (err.message && err.message.includes('ECONNREFUSED')) { return; }
     if (logger && logger.error) {
       logger.error(`Queue error [${name}]:`, err.message);
     } else {

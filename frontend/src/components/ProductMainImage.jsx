@@ -21,7 +21,7 @@ export function ProductMainImage({ media, productName = "Product", imageIndex = 
 
   if (!media) {
     return (
-      <div className="flex h-96 w-full items-center justify-center rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 lg:h-[38rem]">
+      <div className="flex h-96 w-full items-center justify-center rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 lg:h-[32rem]">
         <div className="text-center">
           <div className="text-sm text-slate-500">Loading image...</div>
         </div>
@@ -33,7 +33,7 @@ export function ProductMainImage({ media, productName = "Product", imageIndex = 
 
   return (
     <div className="relative min-w-0 overflow-hidden rounded-[2rem]">
-      <div className="relative flex h-80 w-full items-center justify-center overflow-hidden sm:h-96 lg:h-[38rem]">
+      <div className="relative flex h-80 w-full items-center justify-center overflow-hidden sm:h-96 lg:h-[32rem]">
         {media.type === "video" ? (
           <video
             key={media.url}
@@ -51,7 +51,7 @@ export function ProductMainImage({ media, productName = "Product", imageIndex = 
             src={resolveApiAssetUrl(media.url)}
             alt={media.altText || `${productName} - Image ${imageIndex + 1}`}
             loading="lazy"
-            className="block h-full max-h-full w-full max-w-full object-contain transition-transform duration-300 ease-out hover:scale-125 lg:cursor-zoom-in"
+            className="block h-full max-h-full w-full max-w-full object-cover transition-transform duration-300 ease-out hover:scale-125 lg:cursor-zoom-in"
             style={zoomStyle}
             onMouseMove={(event) => {
               if (window.innerWidth < 1024) return;

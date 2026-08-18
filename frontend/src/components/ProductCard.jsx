@@ -267,40 +267,15 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
           </div>
         )}
 
-        {/* Image Navigation - Visible on Hover */}
-        {hasMultipleImages && isHovering && shouldScroll && (
-          <>
-            {/* Previous Button */}
-            <button
-              onClick={handlePrevImage}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-9 h-9 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm shadow-lg hover:bg-white dark:hover:bg-slate-700 transition-all duration-200 hover:scale-110"
-              aria-label="Previous image"
-              tabIndex={-1}
-              type="button"
-            >
-              <ChevronLeft size={18} className="text-slate-700 dark:text-slate-200" />
-            </button>
 
-            {/* Next Button */}
-            <button
-              onClick={handleNextImage}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-9 h-9 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm shadow-lg hover:bg-white dark:hover:bg-slate-700 transition-all duration-200 hover:scale-110"
-              aria-label="Next image"
-              tabIndex={-1}
-              type="button"
-            >
-              <ChevronRight size={18} className="text-slate-700 dark:text-slate-200" />
-            </button>
-          </>
-        )}
 
         {/* Premium Vertical Action Stack - Top Right */}
-        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col gap-1.5 sm:gap-2 z-10 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 ease-out">
+        <div className="absolute top-2 right-2 sm:top-2 sm:right-2 flex flex-col items-end gap-1.5 sm:gap-2 z-10 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 ease-out">
           {/* Wishlist Button */}
           <button
             onClick={handleWishlist}
             disabled={isSubmitting}
-            className="flex items-center justify-center w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60"
+            className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60"
             title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
             aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
           >
@@ -318,7 +293,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
           <button
             onClick={handleAddToCart}
             disabled={isSubmitting || !productId || !inStock}
-            className="flex items-center justify-center w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             title={inStock ? `Add ${product?.name || product?.title || "item"} to cart` : "Out of stock"}
             aria-label={inStock ? `Add ${product?.name || product?.title || "item"} to cart` : "Out of stock"}
             style={{

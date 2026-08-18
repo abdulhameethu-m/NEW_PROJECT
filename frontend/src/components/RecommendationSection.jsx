@@ -46,11 +46,11 @@ export function RecommendationSection({
   const [featuredHeroIndex, setFeaturedHeroIndex] = useState(0);
   const resolvedRecommendationType = recommendationType || deriveRecommendationType(title, mode);
   const panelClassName = fullWidth
-    ? "w-full border-y border-white/60 bg-white/72 p-5 shadow-[0_35px_120px_-55px_rgba(15,23,42,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 sm:p-6 lg:p-8"
-    : "mx-auto w-full max-w-[1440px] rounded-[2rem] border border-white/60 bg-white/72 p-5 shadow-[0_35px_120px_-55px_rgba(15,23,42,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 sm:p-6 lg:p-8";
+    ? "w-full border-y border-white/60 bg-white/72 px-4 pb-4 pt-2 shadow-[0_35px_120px_-55px_rgba(15,23,42,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 sm:px-5 sm:pb-5 sm:pt-3 lg:px-6 lg:pb-6 lg:pt-4"
+    : "mx-auto w-full max-w-[1440px] rounded-2xl border border-white/60 bg-white/72 px-4 pb-4 pt-2 shadow-[0_35px_120px_-55px_rgba(15,23,42,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 sm:px-5 sm:pb-5 sm:pt-3 lg:px-6 lg:pb-6 lg:pt-4";
   const simplePanelClassName = fullWidth
-    ? "w-full border-y border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6"
-    : "mx-auto w-full max-w-[1440px] rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6";
+    ? "w-full border-y border-slate-200 bg-white px-4 pb-4 pt-2 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:px-5 sm:pb-5 sm:pt-3"
+    : "mx-auto w-full max-w-[1440px] rounded-2xl border border-slate-200 bg-white px-4 pb-4 pt-2 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:px-5 sm:pb-5 sm:pt-3";
   const viewKey = useMemo(
     () => `${resolvedRecommendationType}:${surface}:${sourceProductId}:${visibleItems.map((item) => item?._id).filter(Boolean).join(",")}`,
     [visibleItems, resolvedRecommendationType, sourceProductId, surface]

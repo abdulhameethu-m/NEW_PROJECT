@@ -15,7 +15,7 @@ const BUILT_IN_FILTERS = [
     rangeConfig: {
       min: 0,
       max: 100000,
-      step: 100,
+      step: Number(process.env.FILTER_PRICE_STEP) || 100,
     },
   },
 ];

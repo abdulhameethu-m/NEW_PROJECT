@@ -456,12 +456,22 @@ export function ProductDetailsPage() {
   const moduleTabs = useMemo(() => {
     const details = buildModulesData(product, moduleSections);
     return moduleSections
-      .map((section) => ({
-        key: section.key,
-        label: section.name,
-        fields: section.fields.filter((field) => !field.isVariant),
-        values: details?.[section.key] || {},
-      }))
+      .map((section) => {
+        const values = details?.[section.key] || {};
+        const baseFields = section.fields.filter((field) => !field.isVariant);
+        const baseFieldKeys = new Set(baseFields.map((f) => f.key));
+        
+        const customFields = Object.keys(values)
+          .filter(k => !baseFieldKeys.has(k) && values[k] !== undefined && values[k] !== "")
+          .map(k => ({ key: k, name: k, type: "text" }));
+          
+        return {
+          key: section.key,
+          label: section.name,
+          fields: [...baseFields, ...customFields],
+          values,
+        };
+      })
       .filter((section) =>
         section.fields.some((field) => section.values?.[field.key] !== undefined && section.values?.[field.key] !== "")
       );

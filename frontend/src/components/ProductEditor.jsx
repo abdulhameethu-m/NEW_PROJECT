@@ -831,35 +831,89 @@ export function ProductEditor({
             <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Module-driven fields</h2>
             <div className="mt-4 grid gap-5">
               {moduleSections.map((section) => {
-                const moduleFields = section.fields.filter((item) => !item.isVariant);
-                if (!moduleFields.length) return null;
+                const baseFields = section.fields.filter((item) => !item.isVariant);
+                
+                const values = formData.modulesData?.[section.key] || {};
+                const baseFieldKeys = new Set(baseFields.map(f => f.key));
+                const customFields = Object.keys(values)
+                  .filter(k => !baseFieldKeys.has(k))
+                  .map(k => ({ _isCustom: true, key: k, name: k, type: "text" }));
+                  
+                const moduleFields = [...baseFields, ...customFields];
+                
+                if (!moduleFields.length && !customFields.length) return null;
 
                 return (
                   <div key={section.key} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-                    <div className="text-base font-semibold text-slate-950 dark:text-white">{section.name}</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-base font-semibold text-slate-950 dark:text-white">{section.name}</div>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          const fieldName = window.prompt("Enter new field name (e.g. Dimensions):");
+                          if (!fieldName) return;
+                          const fieldValue = window.prompt(`Enter value for ${fieldName}:`);
+                          if (!fieldValue) return;
+                          
+                          setFormData((prev) => ({
+                            ...prev,
+                            modulesData: {
+                              ...(prev.modulesData || {}),
+                              [section.key]: {
+                                ...(prev.modulesData?.[section.key] || {}),
+                                [fieldName]: fieldValue,
+                              },
+                            }
+                          }));
+                        }}
+                        className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      >
+                        + Add Field
+                      </button>
+                    </div>
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                       {moduleFields.map((attribute) => (
-                        <div key={attribute._id || `${section.key}-${attribute.key}`}>
-                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            {attribute.name}
-                            {attribute.required ? " *" : ""}
-                          </label>
-                          <DynamicAttributeField
-                            attribute={attribute}
-                            value={formData.modulesData?.[section.key]?.[attribute.key]}
-                            onChange={(key, value) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                modulesData: {
-                                  ...(prev.modulesData || {}),
-                                  [section.key]: {
-                                    ...(prev.modulesData?.[section.key] || {}),
-                                    [key]: value,
+                        <div key={attribute._id || `${section.key}-${attribute.key}`} className="flex gap-2 items-start relative">
+                          <div className="flex-1">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                              {attribute.name}
+                              {attribute.required ? " *" : ""}
+                            </label>
+                            <DynamicAttributeField
+                              attribute={attribute}
+                              value={formData.modulesData?.[section.key]?.[attribute.key]}
+                              onChange={(key, value) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  modulesData: {
+                                    ...(prev.modulesData || {}),
+                                    [section.key]: {
+                                      ...(prev.modulesData?.[section.key] || {}),
+                                      [key]: value,
+                                    },
                                   },
-                                },
-                              }))
-                            }
-                          />
+                                }))
+                              }
+                            />
+                          </div>
+                          {attribute._isCustom && (
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                setFormData((prev) => {
+                                  const nextModulesData = { ...prev.modulesData };
+                                  if (nextModulesData[section.key]) {
+                                    delete nextModulesData[section.key][attribute.key];
+                                  }
+                                  return { ...prev, modulesData: nextModulesData };
+                                });
+                              }}
+                              className="text-rose-500 hover:text-rose-700 mt-6"
+                              title="Remove custom field"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>

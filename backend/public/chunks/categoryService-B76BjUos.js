@@ -1,1 +1,0 @@
-import{y as e}from"./authStore-Yyr_X36r.js";import{p as t}from"../index-NG02VTzB.js";async function n(){let{data:t}=await e.get(`/api/categories`);return t}async function r(){let{data:e}=await t.get(`/api/admin/categories`);return e}export{n,r as t};

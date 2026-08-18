@@ -3,7 +3,7 @@ import { logger } from "../services/logger/logger.js";
 import { useEffect, useMemo, useState, memo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ChevronDown, ChevronUp, Search, LayoutGrid, Layers, ArrowUpDown, Heart, ShoppingCart, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
-import { CategoryChips } from "../components/shop/CategoryChips";
+
 import { FilterBottomSheet } from "../components/shop/FilterBottomSheet";
 import { useCategories } from "../hooks/useCategories";
 import { getSubcategoriesByCategory } from "../services/subcategoryService";
@@ -162,8 +162,8 @@ export function ProductsPage() {
           const next = Object.fromEntries(
             (response?.data?.facets || []).map((facet) => [facet.key, facet])
           );
-          if (prev.price && next.price) {
-            next.price = { ...next.price, min: prev.price.min, max: prev.price.max };
+          if (prev.price) {
+            next.price = prev.price;
           }
           return { ...prev, ...next };
         });
@@ -235,6 +235,8 @@ export function ProductsPage() {
         next.delete("category");
       }
       next.delete("subCategoryId");
+      next.delete("minPrice");
+      next.delete("maxPrice");
       clearDynamicFilters(next);
       next.set("page", "1");
     });
@@ -244,6 +246,8 @@ export function ProductsPage() {
     updateParams((next) => {
       if (value) next.set("subCategoryId", value);
       else next.delete("subCategoryId");
+      next.delete("minPrice");
+      next.delete("maxPrice");
       next.set("page", "1");
     });
   }
@@ -252,6 +256,8 @@ export function ProductsPage() {
     updateParams((next) => {
       if (value) next.set("search", value);
       else next.delete("search");
+      next.delete("minPrice");
+      next.delete("maxPrice");
       next.set("page", "1");
     });
   }
@@ -298,26 +304,7 @@ export function ProductsPage() {
   return (
     <div className="min-h-screen transition-colors" style={{ backgroundColor: "var(--theme-background)", color: "var(--theme-text)" }}>
       <div className="px-3 pb-3">
-        <CategoryChips
-          categories={categories}
-          selectedCategoryId={categoryId}
-          selectedCategoryName={category}
-          onSelectCategory={(categoryIdValue) =>
-            updateParams((next) => {
-              if (categoryIdValue) {
-                const selectedCategory = categories.find((item) => item._id === categoryIdValue);
-                next.set("categoryId", categoryIdValue);
-                next.set("category", selectedCategory?.name || "");
-              } else {
-                next.delete("categoryId");
-                next.delete("category");
-              }
-              next.delete("subCategoryId");
-              clearDynamicFilters(next);
-              next.set("page", "1");
-            })
-          }
-        />
+
 
         <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div>
@@ -412,6 +399,8 @@ export function ProductsPage() {
                       next.delete("category");
                     }
                     next.delete("subCategoryId");
+                    next.delete("minPrice");
+                    next.delete("maxPrice");
                     clearDynamicFilters(next);
                     next.set("page", "1");
                   });
@@ -434,6 +423,8 @@ export function ProductsPage() {
                   updateParams((next) => {
                     if (value) next.set("subCategoryId", value);
                     else next.delete("subCategoryId");
+                    next.delete("minPrice");
+                    next.delete("maxPrice");
                     next.set("page", "1");
                   });
                 }}
@@ -453,7 +444,7 @@ export function ProductsPage() {
               max={Number(maxPrice || facetMap.price?.max || 100000)}
               floor={Number(facetMap.price?.min || 0)}
               ceiling={Number(facetMap.price?.max || 100000)}
-              step={Number(facetMap.price?.step || 100)}
+              step={1}
               onApply={(nextMin, nextMax) => {
                 updateParams((next) => {
                   if (nextMin !== "" && nextMin !== null && nextMin !== undefined) next.set("minPrice", String(nextMin));
@@ -588,49 +579,53 @@ export function ProductsPage() {
             </div>
           )}
 
-          <div className={`flex-1 grid gap-3 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${isDesktopFilterOpen ? "lg:grid-cols-4 xl:grid-cols-4" : "lg:grid-cols-6 xl:grid-cols-6"}`}>
-            {loading && !products.length
-              ? Array.from({ length: 8 }).map((_, index) => (
-                <div key={index} className="animate-pulse rounded-3xl bg-white p-4 shadow-sm dark:bg-slate-900">
-                  <div className="mb-3 h-40 rounded-3xl bg-slate-100 dark:bg-slate-800" />
-                  <div className="space-y-2">
-                    <div className="h-3 w-3/4 rounded-full bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-3 w-1/2 rounded-full bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-8 rounded-2xl bg-slate-200 dark:bg-slate-800" />
-                  </div>
+          <div className="flex-1">
+            {!loading && products.length === 0 ? (
+              <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center dark:border-slate-800 dark:bg-slate-900">
+                <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-slate-50 dark:bg-slate-800">
+                  <LayoutGrid className="h-10 w-10 text-slate-400" />
                 </div>
-              ))
-              : products.map((product) => <ProductCard key={product._id} product={product} />)}
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">No products found</h2>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">We couldn't find any products that match your current selection.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateParams((next) => {
+                      next.delete("search");
+                      next.delete("category");
+                      next.delete("categoryId");
+                      next.delete("subCategoryId");
+                      next.delete("minPrice");
+                      next.delete("maxPrice");
+                      clearDynamicFilters(next);
+                      next.set("sortBy", "createdAt");
+                      next.set("sortOrder", "desc");
+                      next.set("page", "1");
+                    });
+                  }}
+                  className="mt-6 rounded-xl bg-[#0052FF] px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm"
+                >
+                  Clear all filters
+                </button>
+              </div>
+            ) : (
+              <div className={`grid gap-3 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${isDesktopFilterOpen ? "lg:grid-cols-4 xl:grid-cols-4" : "lg:grid-cols-6 xl:grid-cols-6"}`}>
+                {loading && !products.length
+                  ? Array.from({ length: 8 }).map((_, index) => (
+                    <div key={index} className="animate-pulse rounded-3xl bg-white p-4 shadow-sm dark:bg-slate-900">
+                      <div className="mb-3 h-40 rounded-3xl bg-slate-100 dark:bg-slate-800" />
+                      <div className="space-y-2">
+                        <div className="h-3 w-3/4 rounded-full bg-slate-200 dark:bg-slate-800" />
+                        <div className="h-3 w-1/2 rounded-full bg-slate-200 dark:bg-slate-800" />
+                        <div className="h-8 rounded-2xl bg-slate-200 dark:bg-slate-800" />
+                      </div>
+                    </div>
+                  ))
+                  : products.map((product) => <ProductCard key={product._id} product={product} />)}
+              </div>
+            )}
           </div>
         </div>
-
-        {!loading && products.length === 0 ? (
-          <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 text-center dark:border-slate-800 dark:bg-slate-900">
-            <div className="mx-auto mb-4 h-32 w-32 rounded-full bg-slate-100 dark:bg-slate-800" />
-            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">No products found</h2>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Try clearing your filters or searching for another category.</p>
-            <button
-              type="button"
-              onClick={() => {
-                updateParams((next) => {
-                  next.delete("search");
-                  next.delete("category");
-                  next.delete("categoryId");
-                  next.delete("subCategoryId");
-                  next.delete("minPrice");
-                  next.delete("maxPrice");
-                  clearDynamicFilters(next);
-                  next.set("sortBy", "createdAt");
-                  next.set("sortOrder", "desc");
-                  next.set("page", "1");
-                });
-              }}
-              className="mt-4 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              Reset filters
-            </button>
-          </div>
-        ) : null}
       </div>
     </div>
   );
@@ -755,11 +750,11 @@ function FilterSidebar({
       <div className="relative z-10">
         <RangeFacetCard
           title="Price"
-          min={minPrice || ""}
-          max={maxPrice || ""}
+          min={Number(minPrice || facetMap.price?.min || 0)}
+          max={Number(maxPrice || facetMap.price?.max || 100000)}
           floor={Number(facetMap.price?.min || 0)}
           ceiling={Number(facetMap.price?.max || 100000)}
-          step={Number(facetMap.price?.step || 100)}
+          step={1}
           onApply={onPriceChange}
           formatSuffix=""
         />
@@ -967,10 +962,10 @@ function RangeFacetCard({ title, min, max, floor, ceiling, step, onApply, format
     const isMinDefault = clampedMin === safeFloor;
     const isMaxDefault = clampedMax === safeCeiling;
 
-    setLocalMin(isMinDefault ? "" : clampedMin);
-    setLocalMax(isMaxDefault ? "" : clampedMax);
-    setInputMin(isMinDefault ? "" : clampedMin.toLocaleString("en-IN"));
-    setInputMax(isMaxDefault ? "" : clampedMax.toLocaleString("en-IN"));
+    setLocalMin(clampedMin);
+    setLocalMax(clampedMax);
+    setInputMin(clampedMin.toLocaleString("en-IN"));
+    setInputMax(clampedMax.toLocaleString("en-IN"));
 
     onApply(isMinDefault ? "" : clampedMin, isMaxDefault ? "" : clampedMax);
   };
