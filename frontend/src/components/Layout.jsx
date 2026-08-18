@@ -242,24 +242,28 @@ export function Layout() {
                 borderColor: "var(--theme-navbar-border, #f1f5f9)"
               }}
             >
-              <div className="w-full px-4 py-3 lg:px-6 mx-auto">
-                <div className="flex items-center gap-4 xl:gap-8">
-                  {/* Logo */}
-                  <Link
-                    to="/"
-                    className="inline-flex min-w-fit flex-shrink-0 items-center transition-opacity hover:opacity-80"
-                  >
-                    <img src="/logo.png" alt="Logo" className="h-10 w-auto max-w-[120px] object-contain" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
-                    <span className="hidden h-10 w-10 items-center justify-center rounded-xl bg-[#0F2A43] text-lg font-bold text-white">U</span>
-                  </Link>
+              <div className="w-full px-4 py-3 lg:px-6 max-w-[1600px] mx-auto">
+                <div className="flex items-center justify-between gap-4 xl:gap-8">
+                  
+                  {/* Left side: Logo & Search */}
+                  <div className="flex items-center gap-4 xl:gap-8 flex-shrink-0">
+                    {/* Logo */}
+                    <Link
+                      to="/"
+                      className="inline-flex min-w-fit flex-shrink-0 items-center transition-opacity hover:opacity-80"
+                    >
+                      <img src="/logo.png" alt="Logo" className="h-10 w-auto max-w-[120px] object-contain" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+                      <span className="hidden h-10 w-10 items-center justify-center rounded-xl bg-[#0F2A43] text-lg font-bold text-white">U</span>
+                    </Link>
 
-                  {/* Search Bar - Next to Logo */}
-                  <div className="w-[280px] shrink-0">
-                    <SearchBar className="[&_input]:py-2.5 [&_input]:!border-transparent [&_input]:text-[13px] [&_input::placeholder]:text-slate-400 [&_span]:!text-[#1D4ED8]" />
+                    {/* Search Bar - Next to Logo */}
+                    <div className="w-[200px] xl:w-[280px] hidden md:block">
+                      <SearchBar className="[&_input]:py-2.5 [&_input]:!border-transparent [&_input]:text-[13px] [&_input::placeholder]:text-slate-400 [&_span]:!text-[#1D4ED8]" />
+                    </div>
                   </div>
 
-                  {/* Nav Links */}
-                  <nav className="hidden lg:flex items-center rounded-full p-1 bg-black/5 dark:bg-white/5 mx-auto">
+                  {/* Center: Nav Links */}
+                  <nav className="hidden lg:flex items-center justify-center rounded-full p-1 bg-black/5 dark:bg-white/5 whitespace-nowrap flex-shrink-0">
                     {navItems.map((item) => {
                       const isActive =
                         location.pathname === item.href ||
@@ -273,7 +277,7 @@ export function Layout() {
                             color: isActive ? "var(--theme-navbar-background, #FFFFFF)" : "var(--theme-navbar-text, #0F2A43)",
                             background: isActive ? "var(--theme-navbar-active, #1D4ED8)" : "transparent",
                           }}
-                          className={`rounded-full px-5 py-2 text-[13px] font-semibold transition ${isActive ? "shadow-sm" : "hover:text-[var(--theme-navbar-hover,#F97316)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+                          className={`rounded-full px-3 xl:px-5 py-2 text-[13px] font-semibold transition ${isActive ? "shadow-sm" : "hover:text-[var(--theme-navbar-hover,#F97316)] hover:bg-black/5 dark:hover:bg-white/5"}`}
                         >
                           {item.label}
                         </Link>
@@ -282,7 +286,7 @@ export function Layout() {
                   </nav>
 
                   {/* Right side icons */}
-                  <div className="ml-auto flex shrink-0 items-center gap-4 xl:gap-6">
+                  <div className="flex shrink-0 items-center justify-end gap-3 xl:gap-5">
                     <button
                       type="button"
                       onClick={() => setIsDarkMode(!isDarkMode)}

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { PackageOpen } from "lucide-react";
+import { PackageOpen, ArrowRight } from "lucide-react";
 import { StatusBadge } from "../../StatusBadge";
 import { formatCurrency } from "../../../utils/formatCurrency";
 import { EmptyState } from "./EmptyState";
@@ -17,8 +17,8 @@ export function RecentOrders({ orders = [] }) {
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">Latest purchase activity</p>
         </div>
-        <Link to="/orders" className="text-xs font-bold text-blue-600 hover:underline dark:text-blue-400">
-          View all
+        <Link to="/orders" className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline dark:text-indigo-400">
+          View all orders
         </Link>
       </div>
 
@@ -30,7 +30,7 @@ export function RecentOrders({ orders = [] }) {
               className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
             >
               <div className="flex gap-3">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
                   <PackageOpen className="h-6 w-6" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -49,24 +49,32 @@ export function RecentOrders({ orders = [] }) {
                     <StatusBadge value={order.status} />
                     <StatusBadge value={order.paymentStatus} />
                   </div>
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <Link
                       to={`/orders/${order._id}`}
-                      className="inline-flex min-h-9 flex-1 items-center justify-center rounded-xl bg-slate-950 px-3 text-xs font-bold text-white transition active:scale-95 dark:bg-white dark:text-slate-950"
+                      className="inline-flex h-8 items-center justify-center rounded-lg bg-indigo-600 px-4 text-[11px] font-bold text-white transition hover:bg-indigo-700 active:scale-95 dark:bg-indigo-500"
                     >
                       View details
                     </Link>
                     <Link
                       to={`/orders/${order._id}`}
-                      className="inline-flex min-h-9 flex-1 items-center justify-center rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 active:scale-95 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                      className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 px-4 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 active:scale-95 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
-                      Track
+                      Track order
                     </Link>
                   </div>
                 </div>
               </div>
             </article>
           ))}
+          {orders.length > 3 && (
+            <div className="mt-2 flex justify-center">
+              <Link to="/orders" className="group inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-400">
+                View all orders
+                <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         <EmptyState title="No orders yet" actionLabel="Browse products" actionTo="/shop" icon={PackageOpen} />

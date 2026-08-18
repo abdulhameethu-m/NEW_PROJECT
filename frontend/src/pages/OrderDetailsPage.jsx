@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { requestInput } from "../services/notificationService";
 import { Link, useParams } from "react-router-dom";
+import { Package, History, User, CreditCard, ClipboardList, Store, Receipt, Truck, MapPin, Phone, Mail, Building2, Download, Eye, CornerUpLeft, XCircle, Check } from "lucide-react";
 import { CancelOrderModal } from "../components/CancelOrderModal";
-import { StatusBadge } from "../components/StatusBadge";
 import {
   confirmUserOrderCancellation,
   downloadUserInvoice,
@@ -334,7 +334,7 @@ export function OrderDetailsPage() {
         `}
       </style>
       <section className="print-order-sheet overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 print:rounded-none print:border-0 print:shadow-none">
-        <div className="bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_38%),linear-gradient(135deg,#0f172a,#1e293b)] px-6 py-6 text-white sm:px-8 print:bg-none print:px-0 print:text-slate-950">
+        <div className="bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_38%),linear-gradient(135deg,#1e1b4b,#312e81)] px-6 py-6 text-white sm:px-8 print:bg-none print:px-0 print:text-slate-950">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300 print:text-slate-500">Order Summary</div>
@@ -347,36 +347,36 @@ export function OrderDetailsPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 print:hidden">
-              <StatusBadge value={order.status} />
-              <StatusBadge value={order.paymentStatus} />
+              <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-600 ring-1 ring-inset ring-indigo-500/10 dark:bg-indigo-400/10 dark:text-indigo-400 dark:ring-indigo-400/20">{order.status}</span>
+              <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600 ring-1 ring-inset ring-emerald-600/10 dark:bg-emerald-400/10 dark:text-emerald-400 dark:ring-emerald-400/20">{order.paymentStatus}</span>
               <button
                 type="button"
                 disabled={actionBusy}
                 onClick={handleDownloadInvoice}
-                className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/15 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-[12px] border border-white/20 bg-white/5 px-4 py-2 text-[13px] font-bold text-white backdrop-blur transition hover:bg-white/10 disabled:opacity-50"
               >
-                Download Invoice
+                <Download className="h-4 w-4" /> Download Invoice
               </button>
               <Link
                 to={`/orders/${orderId}/invoice`}
-                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="inline-flex items-center gap-2 rounded-[12px] bg-white px-4 py-2 text-[13px] font-bold text-indigo-700 transition hover:bg-slate-50"
               >
-                Preview Invoice
+                <Eye className="h-4 w-4" /> Preview Invoice
               </Link>
               <button
                 type="button"
                 onClick={() => document.getElementById("order-timeline")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="inline-flex items-center gap-2 rounded-[12px] bg-white px-4 py-2 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50"
               >
-                Track Order
+                <MapPin className="h-4 w-4" /> Track Order
               </button>
               <button
                 type="button"
                 disabled={!canReturn || actionBusy}
                 onClick={handleReturn}
-                className="rounded-xl border border-white/30 px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-[12px] border border-white/20 px-4 py-2 text-[13px] font-bold text-slate-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Return Order
+                <CornerUpLeft className="h-4 w-4" /> Return Order
               </button>
               <button
                 type="button"
@@ -385,19 +385,24 @@ export function OrderDetailsPage() {
                   setCancelOpen(true);
                   void loadCancelPreview();
                 }}
-                className="rounded-xl border border-white/30 px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-[12px] border border-rose-500/30 px-4 py-2 text-[13px] font-bold text-rose-300 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Cancel Order
+                <XCircle className="h-4 w-4" /> Cancel Order
               </button>
             </div>
           </div>
         </div>
 
-        <div className="print-order-grid grid gap-6 p-6 sm:p-8 print:px-0 print:py-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(18rem,1fr)]">
-          <div className="grid gap-6">
-            <section className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Products</h2>
+        <div className="print-order-grid grid items-start gap-6 p-6 sm:p-8 print:px-0 print:py-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(18rem,1fr)]">
+          <div className="grid content-start gap-6">
+            <section className="print-card rounded-[1.25rem] border border-slate-200 p-6 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
+              <div className="flex items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                    <Package className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">Products</h2>
+                </div>
                 <div className="text-sm text-slate-500 dark:text-slate-400">{order.items?.length || 0} line items</div>
               </div>
               <div className="print-products mt-5 grid gap-4">
@@ -424,49 +429,153 @@ export function OrderDetailsPage() {
               </div>
             </section>
 
-            <section id="order-timeline" className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
-              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Order Timeline</h2>
-              <div className="mt-5 grid gap-4">
-                <div className="print-steps grid gap-3 md:grid-cols-5">
-                  {timelineSteps.map((step, index) => (
-                    <div key={step.key} className="print-step-card relative rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-                      <div className={`h-3 w-3 rounded-full ${step.completed ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"}`} />
-                      {index < timelineSteps.length - 1 ? <div className="pointer-events-none absolute left-8 right-[-16px] top-[1.15rem] hidden h-px bg-slate-200 md:block dark:bg-slate-800" /> : null}
-                      <div className="mt-3 text-sm font-semibold text-slate-950 dark:text-white">{step.label}</div>
-                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{step.timestamp ? formatDateTime(step.timestamp) : "Pending"}</div>
-                    </div>
-                  ))}
+            <section id="order-timeline" className="print-card rounded-[1.25rem] border border-slate-200 p-6 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
+              <div className="flex items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                    <History className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">Order Timeline</h2>
+                </div>
+              </div>
+              <div className="mt-8 grid gap-8">
+                <div className="print-steps flex relative">
+                  {timelineSteps.map((step, index) => {
+                    const isLast = index === timelineSteps.length - 1;
+                    return (
+                      <div key={step.key} className="print-step flex-1 flex flex-col items-center relative z-10">
+                        {!isLast && (
+                          <div className={`absolute top-4 left-1/2 w-full h-[2px] -z-10 ${step.completed ? "bg-emerald-500" : "border-t-2 border-dashed border-slate-200 bg-transparent dark:border-slate-700"}`} />
+                        )}
+                        
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-full ${step.completed ? "bg-emerald-100 dark:bg-emerald-500/20" : "bg-white dark:bg-slate-900"}`}>
+                          <div className={`flex h-4 w-4 items-center justify-center rounded-full ${step.completed ? "bg-emerald-500 text-white" : "bg-slate-300 dark:bg-slate-700"}`}>
+                            {step.completed && <Check className="h-3 w-3" strokeWidth={3} />}
+                          </div>
+                        </div>
+
+                        <div className={`mt-3 text-[13px] font-bold ${step.completed ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
+                          {step.label}
+                        </div>
+                        <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 text-center leading-tight">
+                          {step.timestamp ? formatDateTime(step.timestamp) : "Pending"}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                <div className="print-hide-detailed-events grid gap-3 rounded-2xl bg-slate-50 p-4 dark:bg-slate-950/70">
+                <div className="print-hide-detailed-events grid gap-3">
                   {(timelineEvents || []).map((event) => (
-                    <div key={event.key || `${event.status}-${event.timestamp}`} className="flex gap-3">
-                      <div className="mt-1 h-2.5 w-2.5 rounded-full bg-slate-900 dark:bg-white" />
+                    <div key={event.key || `${event.status}-${event.timestamp}`} className="flex gap-4 rounded-2xl bg-emerald-50 p-5 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20">
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white dark:bg-emerald-500">
+                        <Check className="h-4 w-4" strokeWidth={3} />
+                      </div>
                       <div>
-                        <div className="text-sm font-semibold text-slate-950 dark:text-white">{event.label || event.status}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(event.timestamp)}</div>
-                        {event.note ? <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">{event.note}</div> : null}
+                        <div className="text-[15px] font-bold text-slate-900 dark:text-white">{event.label || event.status}</div>
+                        <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">{formatDateTime(event.timestamp)}</div>
+                        {event.note ? <div className="mt-2 text-[13px] text-slate-600 dark:text-slate-300">{event.note}</div> : null}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             </section>
+
+            <section className="print-card rounded-[1.25rem] border border-slate-200 p-6 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                  <User className="h-5 w-5" />
+                </div>
+                <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">Customer</h2>
+              </div>
+              <div className="print-kv-grid grid gap-6 sm:grid-cols-2">
+                <div className="grid content-start gap-4">
+                  <KeyValue label="Name" value={order.customer?.name} />
+                  <KeyValue label="Phone" value={order.customer?.phone} icon={Phone} />
+                  <KeyValue label="Email" value={order.customer?.email} icon={Mail} />
+                </div>
+                <div className="grid content-start gap-4">
+                  <KeyValue
+                    label="Shipping Address"
+                    icon={MapPin}
+                    value={[
+                      order.customer?.shippingAddress?.line1,
+                      order.customer?.shippingAddress?.line2,
+                      [order.customer?.shippingAddress?.city, order.customer?.shippingAddress?.state, order.customer?.shippingAddress?.postalCode].filter(Boolean).join(", "),
+                      order.customer?.shippingAddress?.country,
+                    ].filter(Boolean).join(", ")}
+                  />
+                  <KeyValue
+                    label="Billing Address"
+                    icon={Building2}
+                    value={[
+                      order.customer?.billingAddress?.line1,
+                      order.customer?.billingAddress?.line2,
+                      [order.customer?.billingAddress?.city, order.customer?.billingAddress?.state, order.customer?.billingAddress?.postalCode].filter(Boolean).join(", "),
+                      order.customer?.billingAddress?.country,
+                    ].filter(Boolean).join(", ")}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="print-card rounded-[1.25rem] border border-slate-200 p-6 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">Payment Details</h2>
+              </div>
+              <div className="print-kv-grid grid gap-6 sm:grid-cols-2">
+                <div className="grid content-start gap-4">
+                  <KeyValue label="Method" value={order.payment?.method} />
+                  <KeyValue label="Transaction ID" value={order.payment?.transactionId || "COD"} />
+                  <KeyValue label="Payment Timestamp" value={order.payment?.timestamp ? formatDateTime(order.payment.timestamp) : "Awaiting payment"} />
+                </div>
+                <div className="grid content-start gap-4">
+                  <KeyValue label="Refund Status" value={order.refundSummary?.status || "NONE"} />
+                  <KeyValue label="Refund Amount" value={formatCurrency(order.refundSummary?.amount || 0, { currency: order.pricing?.currency })} />
+                  <KeyValue label="Deduction Amount" value={formatCurrency(order.refundSummary?.deductionAmount || 0, { currency: order.pricing?.currency })} />
+                </div>
+              </div>
+              {order.refundSummary?.status === "PENDING" ? (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Refund is being processed by finance team.
+                </div>
+              ) : null}
+            </section>
           </div>
 
-          <div className="grid gap-4">
-            <section className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
-              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Order Overview</h2>
+          <div className="grid content-start gap-4">
+            <section className="print-card rounded-[1.25rem] border border-slate-200 p-6 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
+              <div className="flex items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                    <ClipboardList className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">Order Overview</h2>
+                </div>
+                
+              </div>
               <div className="print-kv-grid mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                <KeyValue label="Payment Status" value={order.paymentStatus} />
-                <KeyValue label="Order Status" value={order.status} />
+                <KeyValue label="Payment Status" value={<span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-600 ring-1 ring-inset ring-emerald-600/10 dark:bg-emerald-400/10 dark:text-emerald-400 dark:ring-emerald-400/20">{order.paymentStatus}</span>} />
+                <KeyValue label="Order Status" value={<span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-600 ring-1 ring-inset ring-indigo-500/10 dark:bg-indigo-400/10 dark:text-indigo-400 dark:ring-indigo-400/20">{order.status}</span>} />
                 <KeyValue label="Invoice Number" value={order.invoiceNumber} />
                 <KeyValue label="Estimated Delivery" value={order.estimatedDeliveryLabel || formatDate(order.estimatedDelivery)} />
               </div>
             </section>
 
-            <section className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
-              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Seller</h2>
+            <section className="print-card rounded-[1.25rem] border border-slate-200 p-6 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
+              <div className="flex items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                    <Store className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">Seller</h2>
+                </div>
+                
+              </div>
               <div className="mt-4">
                 <SellerCard seller={order.sellerId || order.vendors?.[0]} compact />
               </div>
@@ -477,42 +586,19 @@ export function OrderDetailsPage() {
               </div>
             </section>
 
-            <section className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
-              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Customer</h2>
-              <div className="print-kv-grid mt-4 grid gap-4">
-                <KeyValue label="Name" value={order.customer?.name} />
-                <KeyValue label="Phone" value={order.customer?.phone} />
-                <KeyValue label="Email" value={order.customer?.email} />
-                <KeyValue
-                  label="Shipping Address"
-                  value={[
-                    order.customer?.shippingAddress?.line1,
-                    order.customer?.shippingAddress?.line2,
-                    [order.customer?.shippingAddress?.city, order.customer?.shippingAddress?.state, order.customer?.shippingAddress?.postalCode].filter(Boolean).join(", "),
-                    order.customer?.shippingAddress?.country,
-                  ]
-                    .filter(Boolean)
-                    .join(", ")}
-                />
-                <KeyValue
-                  label="Billing Address"
-                  value={[
-                    order.customer?.billingAddress?.line1,
-                    order.customer?.billingAddress?.line2,
-                    [order.customer?.billingAddress?.city, order.customer?.billingAddress?.state, order.customer?.billingAddress?.postalCode].filter(Boolean).join(", "),
-                    order.customer?.billingAddress?.country,
-                  ]
-                    .filter(Boolean)
-                    .join(", ")}
-                />
-              </div>
-            </section>
-
             {order.unifiedPricingBreakdown ? (
               <UnifiedPricingBreakdown breakdown={order.unifiedPricingBreakdown} title="Payment Breakdown" compact />
             ) : (
-              <section className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
-                <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Payment Breakdown</h2>
+              <section className="print-card rounded-[1.25rem] border border-slate-200 p-6 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
+                <div className="flex items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                    <Receipt className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">Payment Breakdown</h2>
+                </div>
+                
+              </div>
                 <div className="print-kv-grid mt-4 grid gap-2 text-sm text-slate-600 dark:text-slate-300">
                   <div className="flex items-center justify-between"><span>Subtotal</span><span>{formatCurrency(order.pricing?.subtotal, { currency: order.pricing?.currency })}</span></div>
                   <div className="flex items-center justify-between"><span>Delivery fee</span><span>{formatCurrency(order.pricing?.deliveryFee, { currency: order.pricing?.currency })}</span></div>
@@ -528,25 +614,16 @@ export function OrderDetailsPage() {
               </section>
             )}
 
-            <section className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
-              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Payment Details</h2>
-              <div className="print-kv-grid mt-4 grid gap-4">
-                <KeyValue label="Method" value={order.payment?.method} />
-                <KeyValue label="Transaction ID" value={order.payment?.transactionId || "COD"} />
-                <KeyValue label="Payment Timestamp" value={order.payment?.timestamp ? formatDateTime(order.payment.timestamp) : "Awaiting payment"} />
-                <KeyValue label="Refund Status" value={order.refundSummary?.status || "NONE"} />
-                <KeyValue label="Refund Amount" value={formatCurrency(order.refundSummary?.amount || 0, { currency: order.pricing?.currency })} />
-                <KeyValue label="Deduction Amount" value={formatCurrency(order.refundSummary?.deductionAmount || 0, { currency: order.pricing?.currency })} />
-              </div>
-              {order.refundSummary?.status === "PENDING" ? (
-                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Refund is being processed by finance team.
+            <section className="print-card rounded-[1.25rem] border border-slate-200 p-6 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
+              <div className="flex items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                    <Truck className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">Shipping Details</h2>
                 </div>
-              ) : null}
-            </section>
-
-            <section className="print-card rounded-3xl border border-slate-200 p-5 dark:border-slate-800 print:rounded-none print:border print:border-slate-300">
-              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Shipping Details</h2>
+                
+              </div>
               <div className="print-kv-grid mt-4 grid gap-4">
                 <KeyValue label="Courier" value={order.shipping?.courier || "Pending assignment"} />
                 <KeyValue label="Tracking Number" value={order.shipping?.trackingNumber || "Not assigned"} />

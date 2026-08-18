@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check } from "lucide-react";
+import { Check, ShoppingCart, ShoppingBag } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { AddressModal } from "../components/AddressModal";
 import { BackButton } from "../components/BackButton";
@@ -406,6 +406,7 @@ export function CheckoutPage() {
       }
 
       if (isAuthenticated) {
+        if (!cart?.items || cart.items.length === 0) return null;
         const checkoutRes = await checkoutService.prepareCheckout(payload);
         return checkoutRes?.data || null;
       }
@@ -960,7 +961,7 @@ export function CheckoutPage() {
   }
 
   return (
-    <div className="grid gap-6 relative">
+    <div className="grid gap-6 relative mx-auto max-w-7xl px-4 lg:px-8 py-8 bg-slate-50/30 min-h-screen">
       <AnimatePresence>
         {showSuccessAnimation && (
           <motion.div
@@ -1019,78 +1020,148 @@ export function CheckoutPage() {
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-            Secure checkout
+      {!summary && !loading && !cart?.items?.length ? (
+        <div className="flex flex-col gap-8 pb-12">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
+                Order Summary
+              </h1>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Review your items and confirm your order details before proceeding to payment.
+              </p>
+            </div>
+            <BackButton fallbackTo="/shop" />
           </div>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
-            Address, summary, payment
-          </h1>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            Review products, shipping estimates, and pricing before signing in for the final purchase step.
-          </p>
-        </div>
-        <BackButton fallbackTo="/cart" />
-      </div>
 
-      {!isAuthenticated ? (
-        <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-100">
-          Login is required only when you place the order or continue to Razorpay. You can review the entire checkout first.
-        </div>
-      ) : null}
+          <div className="flex flex-col gap-6">
+            {/* Main Empty State Card */}
+            <div className="rounded-[2rem] bg-white p-8 shadow-sm flex flex-col min-h-[450px] border border-slate-100 relative overflow-hidden">
+              {/* Header row in card */}
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-500 border border-indigo-100/50">
+                  <ShoppingCart size={20} strokeWidth={2.5} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Your Items</h3>
+              </div>
+              
+              {/* Center Content */}
+              <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+                <div className="relative mb-8 flex items-center justify-center w-40 h-40">
+                  <div className="absolute inset-0 bg-indigo-50/80 rounded-full" />
+                  <div className="relative text-indigo-200/80">
+                    <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M25 40 L75 40 L80 90 L20 90 Z" fill="currentColor" opacity="0.4" />
+                      <path d="M35 40 C35 20, 65 20, 65 40" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.6" />
+                      <path d="M25 40 L75 40 L80 90 L20 90 Z" stroke="currentColor" strokeWidth="3" strokeDasharray="4 4" fill="none" opacity="0.8" />
+                    </svg>
+                  </div>
+                  {/* Decorative sparks */}
+                  <div className="absolute top-4 right-2 w-1.5 h-1.5 rounded-full bg-indigo-400 rotate-45" />
+                  <div className="absolute top-10 -right-2 w-2 h-0.5 bg-indigo-300 -rotate-45" />
+                  <div className="absolute bottom-8 -left-4 w-1.5 h-1.5 rounded-full bg-indigo-300" />
+                  <div className="absolute bottom-16 -left-6 w-2 h-0.5 bg-indigo-400 rotate-45" />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-900">Your cart is empty</h2>
+                <p className="text-slate-500 mt-2 text-sm">Looks like you haven't added anything yet.</p>
+              </div>
+            </div>
 
-      <CheckoutStepper currentStep={currentStep} onStepChange={setCurrentStep} unlockedSteps={unlockedSteps} />
-
-      {error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
-          {error}
-        </div>
-      ) : null}
-
-      {loading ? (
-        <div className="grid gap-3">
-          <div className="h-28 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
-          <div className="h-64 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
-        </div>
-      ) : !summary ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-          Your checkout is empty. Please review your cart.
-          <button
-            type="button"
-            onClick={() => navigate("/shop")}
-            className="mt-4 inline-flex rounded-xl bg-[color:var(--commerce-accent)] px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
-          >
-            Go to shopping
-          </button>
+            {/* Bottom Call to Action Card */}
+            <div className="rounded-[1.5rem] bg-white p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6 border border-slate-100">
+              <div className="flex items-center gap-4 text-center sm:text-left flex-col sm:flex-row">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 text-indigo-500 shrink-0 border border-indigo-100/50">
+                  <ShoppingBag size={24} strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Your checkout is empty</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">Add items to your cart and review your order here.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/shop")}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-8 py-3.5 text-sm font-bold text-white hover:bg-indigo-700 shadow-sm shadow-indigo-200 transition-colors shrink-0"
+              >
+                <ShoppingBag size={18} strokeWidth={2.5} />
+                Go to Shopping
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
+        <>
+          {/* Decorative Background */}
+          <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+            {/* Shopping Bags */}
+            <div className="absolute top-10 left-[5%] opacity-10 rotate-[-15deg]">
+              <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+            </div>
+            {/* Clipboard */}
+            <div className="absolute top-8 right-[30%] opacity-10 rotate-[15deg]">
+              <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M9 14h6"></path><path d="M9 18h6"></path><path d="M9 10h6"></path></svg>
+            </div>
+            {/* Sparkles */}
+            <div className="absolute top-20 right-[15%] opacity-20">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
+            </div>
+            <div className="absolute top-[10%] left-[20%] opacity-20">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
+            </div>
+            <div className="absolute top-40 right-10 opacity-20">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a855f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-2 relative z-10">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
+                Order Summary
+              </h1>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Please review your order details before proceeding to payment.
+              </p>
+            </div>
+            <Link
+              to="/cart"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900 shrink-0"
+            >
+              &larr; Back to Cart
+            </Link>
+          </div>
+
+          {!isAuthenticated ? (
+            <div className="relative z-10 rounded-[1.5rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-100">
+              Login is required only when you place the order or continue to Razorpay. You can review the entire checkout first.
+            </div>
+          ) : null}
+
+          {error && error !== "Cart is empty" ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
+              {error}
+            </div>
+          ) : null}
+
+          {loading ? (
+            <div className="grid gap-3">
+              <div className="h-28 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+              <div className="h-64 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+            </div>
+          ) : (
         <div className="grid gap-6">
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="grid gap-5">
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Step 1
+            <section className="relative z-10 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                   </div>
-                  <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
-                    {isAuthenticated ? "Select delivery address" : "Add delivery address"}
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                    1. Delivery Address
                   </h2>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {isAuthenticated ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAddressSelector((current) => !current);
-                        setShowAddressModal(false);
-                      }}
-                      className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      Change
-                    </button>
-                  ) : null}
                   <button
                     type="button"
                     onClick={() => {
@@ -1103,15 +1174,16 @@ export function CheckoutPage() {
                       }
                       setShowAddressModal(true);
                     }}
-                    className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-950"
+                    className="flex items-center gap-1.5 text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
                   >
-                    {isAuthenticated ? "Add New Address" : "Add Delivery Address"}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                    Add New Address
                   </button>
                 </div>
               </div>
 
               {selectedAddress ? (
-                <div className="mt-5">
+                <div className="mt-5 relative">
                   <AddressCard
                     address={selectedAddress}
                     selected
@@ -1123,6 +1195,19 @@ export function CheckoutPage() {
                       setShowAddressSelector(false);
                     }}
                   />
+                  {isAuthenticated ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddressSelector((current) => !current);
+                        setShowAddressModal(false);
+                      }}
+                      className="absolute top-4 right-4 z-10 flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50/50 px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-100/50 transition-colors"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                      Edit
+                    </button>
+                  ) : null}
                 </div>
               ) : hasUsableAddress ? (
                 <div className="mt-5 rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
@@ -1136,7 +1221,7 @@ export function CheckoutPage() {
               ) : (
                 <div className="mt-5 rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
                   {isAuthenticated
-                    ? "No saved address is selected yet. Add one below to continue."
+                    ? "No saved address is selected yet. Add one to continue."
                     : "Add a delivery address to unlock shipping estimates and COD availability. The address stays only for this checkout session until you sign in."}
                 </div>
               )}
@@ -1166,7 +1251,6 @@ export function CheckoutPage() {
                               setAmountPulse(true);
                             })
                             .catch((selectionError) => setError(normalizeError(selectionError)));
-                          setCurrentStep("summary");
                         }}
                       />
                     ))
@@ -1177,28 +1261,20 @@ export function CheckoutPage() {
                   )}
                 </div>
               ) : null}
-
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep("summary")}
-                  className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-950"
-                >
-                  Continue to summary
-                </button>
-              </div>
             </section>
 
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Step 2
+            <section className="relative z-10 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
                   </div>
-                  <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">Review your order</h2>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                    2. Review Your Order
+                  </h2>
                 </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">
-                  {orderItems.length} products ready for checkout
+                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  {orderItems.length} {orderItems.length === 1 ? 'Item' : 'Items'}
                 </div>
               </div>
 
@@ -1216,23 +1292,17 @@ export function CheckoutPage() {
                 ))}
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep("payment")}
-                  className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-950"
-                >
-                  Continue to payment
-                </button>
-              </div>
+
             </section>
 
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div>
-                <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Step 3
+            <section className="relative z-10 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                 </div>
-                <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">Choose payment</h2>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                  3. Choose Payment
+                </h2>
               </div>
 
               <div className="mt-5 grid gap-3">
@@ -1241,6 +1311,7 @@ export function CheckoutPage() {
                     value: "COD",
                     title: "Cash on Delivery",
                     description: "Pay when the order arrives. Best for familiar delivery locations.",
+                    icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/></svg>,
                     disabled:
                       paymentMethod !== "COD"
                         ? Boolean(codAvailability && codAvailability.codAvailable === false)
@@ -1250,6 +1321,7 @@ export function CheckoutPage() {
                     value: "ONLINE",
                     title: "Razorpay",
                     description: "UPI, cards, wallets, and net banking through secure Razorpay checkout.",
+                    icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
                   },
                 ].map((option) => (
                   <button
@@ -1257,18 +1329,21 @@ export function CheckoutPage() {
                     type="button"
                     onClick={() => !option.disabled && setPaymentMethod(option.value)}
                     disabled={option.disabled}
-                    className={`rounded-[1.5rem] border p-4 text-left transition ${
+                    className={`rounded-[1.5rem] border p-4 text-left transition-all ${
                       paymentMethod === option.value
-                        ? "border-[color:var(--commerce-accent)] bg-[color:var(--commerce-accent-soft)]"
-                        : "border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700"
+                        ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
+                        : "border-slate-200 hover:border-slate-300 bg-white dark:border-slate-800 dark:hover:border-slate-700 dark:bg-slate-900"
                     } ${option.disabled ? "cursor-not-allowed opacity-50" : ""}`}
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-base font-semibold text-slate-950 dark:text-white">{option.title}</div>
-                        <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">{option.description}</div>
+                    <div className="flex items-center gap-4">
+                      <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                        {option.icon}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-base font-bold text-slate-900 dark:text-white">{option.title}</div>
+                        <div className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{option.description}</div>
                         {option.value === "COD" && codAvailability?.codAvailable === false ? (
-                          <div className="mt-2 text-xs font-medium text-rose-600">
+                          <div className="mt-2 text-xs font-bold text-rose-600">
                             COD unavailable: {(codAvailability.reasons || []).map(r => {
                               if (r === "ORDER_VALUE_BELOW_MINIMUM") return "Order value is below the minimum required";
                               if (r === "ORDER_VALUE_EXCEEDED") return "Order value exceeded maximum allowed";
@@ -1284,12 +1359,16 @@ export function CheckoutPage() {
                         ) : null}
                       </div>
                       <div
-                        className={`h-5 w-5 rounded-full border ${
+                        className={`shrink-0 flex items-center justify-center h-5 w-5 rounded-full border-2 transition-colors ${
                           paymentMethod === option.value
-                            ? "border-[color:var(--commerce-accent)] bg-[color:var(--commerce-accent)]"
-                            : "border-slate-300 dark:border-slate-700"
+                            ? "border-indigo-600"
+                            : "border-slate-300 dark:border-slate-600"
                         }`}
-                      />
+                      >
+                        {paymentMethod === option.value && (
+                          <div className="h-2.5 w-2.5 rounded-full bg-indigo-600" />
+                        )}
+                      </div>
                     </div>
                   </button>
                 ))}
@@ -1318,14 +1397,14 @@ export function CheckoutPage() {
                 </div>
               ) : null}
 
-              <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  {hasCodAdvance ? "Pay now" : "Order total"}
+              <div className="relative z-10 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-900">
+                <div className="text-base font-bold text-slate-900 dark:text-white">
+                  {hasCodAdvance ? "Pay now" : "Order Total"}
                 </div>
-                <div className="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                <div className="mt-2 text-4xl font-black tracking-tight text-slate-900 dark:text-white">
                   <span
                     className={`inline-block transition-all duration-300 ${
-                      amountPulse ? "translate-y-[-1px] scale-[1.03] text-[color:var(--commerce-accent)]" : ""
+                      amountPulse ? "translate-y-[-1px] scale-[1.03] text-indigo-600" : ""
                     }`}
                   >
                     {formatCurrency(payNowAmount || 0)}
@@ -1343,7 +1422,7 @@ export function CheckoutPage() {
                     </div>
                   </div>
                 ) : null}
-                <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                <div className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                   {!isAuthenticated
                     ? "Review complete. Sign in only when you are ready to place the order."
                     : paymentMethod === "ONLINE"
@@ -1371,7 +1450,7 @@ export function CheckoutPage() {
                       placeOrder();
                     }
                   }}
-                  className="mt-5 w-full rounded-2xl bg-[color:var(--commerce-accent-warm)] px-4 py-4 text-sm font-semibold text-slate-950 shadow-sm transition hover:translate-y-[-1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-6 w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-4 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {placing
                     ? "Processing..."
@@ -1396,7 +1475,7 @@ export function CheckoutPage() {
                       saveRedirectAfterLogin(`${window.location.origin}/checkout`);
                       navigate("/login", { state: { from: { pathname: "/checkout" } } });
                     }}
-                    className="mt-3 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                    className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
                   >
                     Sign in now
                   </button>
@@ -1405,9 +1484,9 @@ export function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => navigate("/cart")}
-                  className="mt-3 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
                 >
-                  Back to cart
+                  Back to Cart
                 </button>
               </div>
             </div>
@@ -1590,6 +1669,8 @@ export function CheckoutPage() {
           </div>
         </div>
       ) : null}
+      </>
+      )}
     </div>
   );
 }

@@ -54,6 +54,7 @@ const TermsAndConditionsPage = lazyNamed(() => import("./pages/TermsAndCondition
 const PrivacyPolicyPage = lazyNamed(() => import("./pages/PrivacyPolicyPage"), "PrivacyPolicyPage");
 const ReturnPolicyPage = lazyNamed(() => import("./pages/ReturnPolicyPage"), "ReturnPolicyPage");
 const ShippingPolicyPage = lazyNamed(() => import("./pages/ShippingPolicyPage"), "ShippingPolicyPage");
+const UserCouponsPage = lazyNamed(() => import("./pages/UserCouponsPage"), "default");
 const ProfilePage = lazyNamed(() => import("./pages/ProfilePage"), "ProfilePage");
 const OrdersPage = lazyNamed(() => import("./pages/OrdersPage"), "OrdersPage");
 const OrderDetailsPage = lazyNamed(() => import("./pages/OrderDetailsPage"), "OrderDetailsPage");
@@ -248,6 +249,8 @@ export default function App() {
               <Route path="/dashboard/user/wishlist" element={<WishlistPage />} />
               <Route path="/followed-stores" element={<MyFollowedStoresPage />} />
               <Route path="/reviews" element={<ReviewsPage />} />
+              <Route path="/dashboard/user/coupons" element={<UserCouponsPage />} />
+              <Route path="/user/coupons" element={<UserCouponsPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>

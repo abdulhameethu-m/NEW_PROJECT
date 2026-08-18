@@ -9,8 +9,8 @@ export function ProductRail({ title, products = [], emptyTitle = "Nothing here y
     <section aria-label={title} className="grid gap-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[15px] font-black text-slate-950 dark:text-white">{title}</h2>
-        <Link to="/shop" className="text-xs font-bold text-blue-600 hover:underline dark:text-blue-400">
-          Shop
+        <Link to="/shop" className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 hover:underline dark:text-indigo-400">
+          Shop all
         </Link>
       </div>
 

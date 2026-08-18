@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Building, Globe, Hash, Map, MapPin, Phone, User, X, LocateFixed } from "lucide-react";
 import { LocationPickerMap } from "./LocationPickerMap";
 import { getCurrentLocationAddress, reverseGeocodeCoordinates } from "../services/locationService";
 import { getShippingDistricts, getShippingStates } from "../services/shippingLocationService";
@@ -171,24 +172,39 @@ export function AddressModal({
   }
 
   function renderField(key, label) {
+    const Icon = {
+      name: User,
+      phone: Phone,
+      addressLine: MapPin,
+      state: Map,
+      district: Building,
+      pincode: Hash,
+      country: Globe,
+    }[key];
+
     if (key === "state") {
       return (
         <label key={key}>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
-          <select
-            value={form.state ?? ""}
-            onChange={(event) => handleFieldChange("state", event.target.value)}
-            className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[color:var(--commerce-accent)] dark:bg-slate-950 dark:text-white ${
-              errors.state ? "border-rose-300" : "border-slate-200 dark:border-slate-800"
-            }`}
-          >
-            <option value="">Select state</option>
-            {(stateOptions.length ? stateOptions : [form.state].filter(Boolean)).map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </select>
+          <div className="relative mt-2">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+              {Icon && <Icon className="h-4 w-4" />}
+            </div>
+            <select
+              value={form.state ?? ""}
+              onChange={(event) => handleFieldChange("state", event.target.value)}
+              className={`w-full rounded-2xl border bg-white pl-11 pr-4 py-3 text-sm text-slate-950 outline-none transition focus:border-indigo-600 dark:bg-slate-950 dark:text-white ${
+                errors.state ? "border-rose-300" : "border-slate-200 dark:border-slate-800"
+              }`}
+            >
+              <option value="">Select state</option>
+              {(stateOptions.length ? stateOptions : [form.state].filter(Boolean)).map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </select>
+          </div>
           {errors.state ? <div className="mt-1 text-xs text-rose-600">{errors.state}</div> : null}
         </label>
       );
@@ -198,21 +214,26 @@ export function AddressModal({
       return (
         <label key={key}>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
-          <select
-            value={form.district ?? ""}
-            onChange={(event) => handleFieldChange("district", event.target.value)}
-            disabled={!form.state}
-            className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[color:var(--commerce-accent)] disabled:bg-slate-50 dark:bg-slate-950 dark:text-white ${
-              errors.district ? "border-rose-300" : "border-slate-200 dark:border-slate-800"
-            }`}
-          >
-            <option value="">{form.state ? "Select district" : "Select state first"}</option>
-            {(districtOptions.length ? districtOptions : [form.district].filter(Boolean)).map((district) => (
-              <option key={district} value={district}>
-                {district}
-              </option>
-            ))}
-          </select>
+          <div className="relative mt-2">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+              {Icon && <Icon className="h-4 w-4" />}
+            </div>
+            <select
+              value={form.district ?? ""}
+              onChange={(event) => handleFieldChange("district", event.target.value)}
+              disabled={!form.state}
+              className={`w-full rounded-2xl border bg-white pl-11 pr-4 py-3 text-sm text-slate-950 outline-none transition focus:border-indigo-600 disabled:bg-slate-50 dark:bg-slate-950 dark:text-white ${
+                errors.district ? "border-rose-300" : "border-slate-200 dark:border-slate-800"
+              }`}
+            >
+              <option value="">{form.state ? "Select district" : "Select state first"}</option>
+              {(districtOptions.length ? districtOptions : [form.district].filter(Boolean)).map((district) => (
+                <option key={district} value={district}>
+                  {district}
+                </option>
+              ))}
+            </select>
+          </div>
           {errors.district ? <div className="mt-1 text-xs text-rose-600">{errors.district}</div> : null}
         </label>
       );
@@ -221,13 +242,18 @@ export function AddressModal({
     return (
       <label key={key} className={key === "addressLine" ? "sm:col-span-2" : ""}>
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
-        <input
-          value={form[key] ?? ""}
-          onChange={(event) => handleFieldChange(key, event.target.value)}
-          className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[color:var(--commerce-accent)] dark:bg-slate-950 dark:text-white ${
-            errors[key] ? "border-rose-300" : "border-slate-200 dark:border-slate-800"
-          }`}
-        />
+        <div className="relative mt-2">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+            {Icon && <Icon className="h-4 w-4" />}
+          </div>
+          <input
+            value={form[key] ?? ""}
+            onChange={(event) => handleFieldChange(key, event.target.value)}
+            className={`w-full rounded-2xl border bg-white pl-11 pr-4 py-3 text-sm text-slate-950 outline-none transition focus:border-indigo-600 dark:bg-slate-950 dark:text-white ${
+              errors[key] ? "border-rose-300" : "border-slate-200 dark:border-slate-800"
+            }`}
+          />
+        </div>
         {errors[key] ? <div className="mt-1 text-xs text-rose-600">{errors[key]}</div> : null}
       </label>
     );
@@ -236,7 +262,7 @@ export function AddressModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-3 py-6 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         onClick={(event) => event.stopPropagation()}
       >
         <form onSubmit={handleSubmit} className="p-5 sm:p-6">
@@ -258,7 +284,7 @@ export function AddressModal({
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               aria-label="Close address modal"
             >
-              ×
+              <X className="h-6 w-6" />
             </button>
           </div>
 
@@ -267,12 +293,13 @@ export function AddressModal({
               type="button"
               onClick={handleUseCurrentLocation}
               disabled={locationLoading}
-              className="rounded-xl border border-[color:var(--commerce-accent)] px-4 py-2 text-sm font-semibold text-[color:var(--commerce-accent)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 disabled:cursor-not-allowed disabled:opacity-60 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40"
             >
+              <LocateFixed className="h-4 w-4" />
               {locationLoading ? "Detecting..." : "Use Current Location"}
             </button>
             {mapLoading ? (
-              <div className="flex items-center text-xs font-medium text-[color:var(--commerce-accent)]">
+              <div className="flex items-center text-xs font-medium text-indigo-600">
                 Resolving address...
               </div>
             ) : null}
@@ -317,7 +344,7 @@ export function AddressModal({
               type="checkbox"
               checked={Boolean(form.isDefault)}
               onChange={(event) => handleFieldChange("isDefault", event.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-[color:var(--commerce-accent)]"
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
             />
             Set as default delivery address
           </label>
@@ -326,7 +353,7 @@ export function AddressModal({
             <button
               type="submit"
               disabled={saving}
-              className="rounded-2xl bg-[color:var(--commerce-accent)] px-5 py-3 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-5 py-3 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Saving..." : submitLabel}
             </button>

@@ -3,6 +3,7 @@ import { requestInput } from "../services/notificationService";
 import { Link } from "react-router-dom";
 import { CancelOrderModal } from "../components/CancelOrderModal";
 import { StatusBadge } from "../components/StatusBadge";
+import { Package, Store, FileText, MapPin, X, CornerUpLeft } from "lucide-react";
 import {
   confirmUserOrderCancellation,
   downloadUserInvoice,
@@ -172,10 +173,10 @@ export function OrdersPage() {
               key={value || "all"}
               type="button"
               onClick={() => setStatus(value)}
-              className={`rounded-full px-3 py-2 text-xs font-semibold ${
+              className={`rounded-full px-4 py-2 text-xs font-bold transition-all ${
                 status === value
-                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950"
-                  : "border border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                  ? "bg-indigo-600 text-white shadow-md dark:bg-indigo-500"
+                  : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
               }`}
             >
               {value || "All"}
@@ -200,12 +201,17 @@ export function OrdersPage() {
             const canReturn = order.status === "Delivered";
 
             return (
-              <div key={order._id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div key={order._id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="text-lg font-semibold text-slate-950 dark:text-white">{order.orderNumber}</div>
-                    <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                      {new Date(order.createdAt).toLocaleString()}
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                      <Package className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 dark:text-white">{order.orderNumber}</div>
+                      <div className="mt-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        {new Date(order.createdAt).toLocaleString()}
+                      </div>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -214,13 +220,13 @@ export function OrdersPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3">
+                <div className="mt-3 grid gap-2">
                   <SellerCard seller={order.sellerId} compact />
                   {(order.items || []).map((item) => (
-                    <div key={`${order._id}-${item.productId}`} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
+                    <div key={`${order._id}-${item.productId}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-2.5 dark:border-slate-800">
                       <div className="min-w-0">
-                        <div className="font-medium text-slate-900 dark:text-white">{item.name}</div>
-                        <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Quantity: {item.quantity}</div>
+                        <div className="font-medium text-sm text-slate-900 dark:text-white">{item.name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Quantity: {item.quantity}</div>
                       </div>
                       <div className="text-sm font-semibold text-slate-950 dark:text-white">
                         {formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}
@@ -229,9 +235,9 @@ export function OrdersPage() {
                   ))}
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                   <div className="space-y-1">
-                    <div className="text-base font-semibold text-slate-950 dark:text-white">
+                    <div className="text-[15px] font-bold text-slate-950 dark:text-white">
                       Total: {formatCurrency(order.totalAmount || 0)}
                     </div>
                     {order.refundSummary?.status && order.refundSummary.status !== "NONE" ? (
@@ -248,19 +254,27 @@ export function OrdersPage() {
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <VisitStoreButton seller={order.sellerId}>Visit Seller Store</VisitStoreButton>
+                    <Link
+                      to={order.sellerId?.storeSlug ? `/vendor/${order.sellerId.storeSlug}` : "#"}
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-indigo-100 bg-white px-3 py-1.5 text-[11px] font-bold text-indigo-600 transition hover:bg-indigo-50 active:scale-95 dark:border-indigo-500/20 dark:bg-slate-900 dark:text-indigo-400 dark:hover:bg-indigo-500/10"
+                    >
+                      <Store className="h-3 w-3" />
+                      Visit Seller Store
+                    </Link>
                     <button
                       type="button"
                       disabled={busyId === order._id}
                       onClick={() => downloadInvoice(order._id)}
-                      className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200"
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-[11px] font-bold text-indigo-600 transition hover:bg-indigo-100 active:scale-95 disabled:opacity-50 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20"
                     >
+                      <FileText className="h-3 w-3" />
                       Download Invoice
                     </button>
                     <Link
                       to={`/orders/${order._id}`}
-                      className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-indigo-100 bg-white px-3 py-1.5 text-[11px] font-bold text-indigo-600 transition hover:bg-indigo-50 active:scale-95 dark:border-indigo-500/20 dark:bg-slate-900 dark:text-indigo-400 dark:hover:bg-indigo-500/10"
                     >
+                      <MapPin className="h-3 w-3" />
                       Track Order
                     </Link>
                     <button
@@ -271,16 +285,18 @@ export function OrdersPage() {
                         setCancelPreview(null);
                         void cancelOrderPreview(order._id);
                       }}
-                      className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200"
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-rose-100 bg-white px-3 py-1.5 text-[11px] font-bold text-rose-600 transition hover:bg-rose-50 active:scale-95 disabled:opacity-50 dark:border-rose-500/20 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-500/10"
                     >
+                      <X className="h-3 w-3" />
                       Cancel
                     </button>
                     <button
                       type="button"
                       disabled={!canReturn || busyId === order._id}
                       onClick={() => requestReturn(order._id)}
-                      className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200"
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-400 transition hover:bg-slate-50 active:scale-95 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900"
                     >
+                      <CornerUpLeft className="h-3 w-3" />
                       Return Order
                     </button>
                   </div>

@@ -31,7 +31,7 @@ export function SellerNameLink({ seller, className = "", showPrefix = true, prev
   const content = (
     <span className={`group/seller relative inline-flex items-center gap-1.5 ${className}`}>
       {showPrefix ? (
-        <span 
+        <span
           className="font-medium"
           style={{ background: "var(--theme-product-seller, #64748b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
         >
@@ -43,7 +43,7 @@ export function SellerNameLink({ seller, className = "", showPrefix = true, prev
           to={normalized.storeUrl}
           onClick={(event) => {
             event.stopPropagation();
-            trackVendorStoreEvent(normalized.storeSlug, { eventType: "STORE_CLICK", path: window.location.pathname }).catch(() => {});
+            trackVendorStoreEvent(normalized.storeSlug, { eventType: "STORE_CLICK", path: window.location.pathname }).catch(() => { });
           }}
           className="inline-flex items-center gap-1 font-semibold underline-offset-4 transition hover:opacity-80"
           style={{ background: "var(--theme-product-seller, #1d4ed8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
@@ -53,7 +53,7 @@ export function SellerNameLink({ seller, className = "", showPrefix = true, prev
           {normalized.verified ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> : null}
         </Link>
       ) : (
-        <span 
+        <span
           className="inline-flex items-center gap-1 font-semibold"
           style={{ background: "var(--theme-product-seller, #1d4ed8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}
         >
@@ -71,18 +71,18 @@ export function SellerNameLink({ seller, className = "", showPrefix = true, prev
 export function VisitStoreButton({ seller, children = "View Profile", className = "", variant = "secondary" }) {
   const normalized = normalizeSeller(seller);
   if (!normalized?.storeUrl) return null;
-  
+
   const baseStyles = "inline-flex items-center justify-center rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition";
-  const variantStyles = variant === "primary" 
+  const variantStyles = variant === "primary"
     ? "btn-theme-primary"
     : "btn-theme-secondary";
-  
+
   return (
     <Link
       to={normalized.storeUrl}
       onClick={(event) => {
         event.stopPropagation();
-        trackVendorStoreEvent(normalized.storeSlug, { eventType: "STORE_CLICK", path: window.location.pathname }).catch(() => {});
+        trackVendorStoreEvent(normalized.storeSlug, { eventType: "STORE_CLICK", path: window.location.pathname }).catch(() => { });
       }}
       className={`${baseStyles} ${variantStyles} ${className}`}
     >
@@ -129,12 +129,12 @@ export function FollowStoreButton({ seller, initialFollowing = false, className 
 
     async function loadFollowStatus() {
       if (!isAuthenticated || !normalized?.storeSlug) return;
-      
+
       try {
         setLoading(true);
         const followedStores = await getMyFollowedStores({ limit: 1000 });
         const followedSlugs = getFollowedStoreSlugs(followedStores);
-        
+
         if (active) {
           const isFollowing = followedSlugs.includes(normalized.storeSlug);
           setFollowing(isFollowing);
@@ -181,7 +181,7 @@ export function FollowStoreButton({ seller, initialFollowing = false, className 
         await followVendorStore(normalized.storeSlug);
         setFollowing(true);
       }
-      trackVendorStoreEvent(normalized.storeSlug, { eventType: following ? "UNFOLLOW" : "FOLLOW", path: window.location.pathname }).catch(() => {});
+      trackVendorStoreEvent(normalized.storeSlug, { eventType: following ? "UNFOLLOW" : "FOLLOW", path: window.location.pathname }).catch(() => { });
     } finally {
       setBusy(false);
     }
@@ -195,11 +195,10 @@ export function FollowStoreButton({ seller, initialFollowing = false, className 
         event.stopPropagation();
         toggleFollow();
       }}
-      className={`group inline-flex items-center justify-center gap-1.5 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition disabled:opacity-60 ${
-        following 
-          ? "btn-theme-secondary opacity-80" 
+      className={`group inline-flex items-center justify-center gap-1.5 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition disabled:opacity-60 ${following
+          ? "btn-theme-secondary opacity-80"
           : "btn-theme-secondary"
-      } ${className}`}
+        } ${className}`}
     >
       {loading ? (
         <>
@@ -239,9 +238,9 @@ export function SellerCard({ seller, compact = false }) {
           </div>
         </div>
       </div>
-      <div className="mt-3 sm:mt-4 grid grid-cols-2 gap-2 sm:gap-3">
-        <VisitStoreButton seller={normalized} children="View Profile" variant="primary" className="w-full" />
-        <FollowStoreButton seller={normalized} className="w-full" />
+      <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
+        <VisitStoreButton seller={normalized} children="View Profile" variant="primary" className={compact ? 'w-32 !py-2 !px-2 !text-xs !rounded-xl !h-9' : 'w-full'} />
+        <FollowStoreButton seller={normalized} className={compact ? 'w-32 !py-2 !px-2 !text-xs !rounded-xl !h-9' : 'w-full'} />
       </div>
     </div>
   );

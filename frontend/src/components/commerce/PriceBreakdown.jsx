@@ -77,9 +77,14 @@ export function PriceBreakdown({ breakdown }) {
   const isWeightSlabShipping = shippingCostBreakdown?.formula === "WEIGHT_SLAB";
 
   return (
-    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-        Price Breakdown
+    <div className="relative z-10 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+          Price Details
+        </h2>
       </div>
 
       <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
@@ -200,10 +205,17 @@ export function PriceBreakdown({ breakdown }) {
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-dashed border-slate-200 pt-4 text-base font-semibold text-slate-950 dark:border-slate-800 dark:text-white">
+      <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 text-base font-bold text-slate-900 dark:border-slate-800 dark:text-white">
         <span>Total Amount</span>
-        <AnimatedAmount value={breakdown.totalAmount || 0} className="text-lg" />
+        <AnimatedAmount value={breakdown.totalAmount || 0} className="text-xl tracking-tight" />
       </div>
+
+      {!hasDynamicCharges && breakdown.totalSavings > 0 ? (
+        <div className="mt-4 flex items-center gap-2 rounded-xl bg-green-50/80 px-4 py-3 text-sm font-semibold text-green-700 border border-green-100/50 dark:bg-green-500/10 dark:text-green-400">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          You are saving {formatCurrency(breakdown.totalSavings)} on this order
+        </div>
+      ) : null}
 
       {hasCodAdvance ? (
         <div className="mt-4 space-y-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
@@ -226,23 +238,18 @@ export function PriceBreakdown({ breakdown }) {
 
       {shippingCharge ? <ChargeRuleTrace charge={shippingCharge} /> : null}
 
-      {!hasDynamicCharges && breakdown.totalSavings > 0 ? (
-        <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-          You save {formatCurrency(breakdown.totalSavings)} on this order!
-        </div>
-      ) : null}
-
       {!hasDynamicCharges && breakdown.deliveryFee === 0 && breakdown.mrp > 0 ? (
-        <div className="mt-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+        <div className="mt-4 rounded-xl bg-blue-50/80 px-4 py-3 text-sm font-medium text-blue-700 border border-blue-100/50 dark:bg-blue-500/10 dark:text-blue-300">
           Qualified for free delivery!
         </div>
       ) : null}
 
       {shippingCharge?.metadata?.matchType?.startsWith("zone_fallback") ? (
-        <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+        <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
           Shipping matched a fallback rule for {shippingCharge.metadata.state} because no exact {shippingCharge.metadata.zone} zone rule was found.
         </div>
       ) : null}
+
     </div>
   );
 }
