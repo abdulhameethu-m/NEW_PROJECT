@@ -1562,7 +1562,8 @@ class InfluencerService {
       const missing = [];
       if (!application.profileDraft?.profilePicture || !application.profileDraft?.coverBanner || !application.profileDraft?.displayName) missing.push("Profile information");
       if (!socialAccounts.some((account) => ["verified", "under_review", "manual_review_required", "pending", "draft"].includes(account.verificationStatus))) missing.push("Social verification");
-      if (!business || business.status === "draft") missing.push("Business information");
+      // removed business requirement
+
       if (!payment || payment.status === "draft") missing.push("Payment information");
       if (sampleCount < 3) missing.push("At least 3 sample content uploads");
       if (!identityCount) missing.push("Identity document");

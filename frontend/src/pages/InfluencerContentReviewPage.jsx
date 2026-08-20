@@ -24,14 +24,14 @@ function apiError(error, fallback = "Something went wrong. Please try again.") {
 function WizardProgress() {
   return (
     <aside className="sticky top-20 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="text-xs font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Step 6 of 6</div>
+      <div className="text-xs font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Step 5 of 5</div>
       <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">Review & Submit</div>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div className="h-full w-full rounded-full bg-blue-600" /></div>
       <ol className="mt-5 grid gap-2" aria-label="Influencer registration progress">
         {influencerWizardSteps.map((step, index) => {
           const labels = influencerWizardSteps;
-          const completed = index < 5;
-          const current = index === 5;
+          const completed = index < 4;
+          const current = index === 4;
           return (
             <li key={step} aria-current={current ? "step" : undefined} className={`flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-semibold ${current ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"}`}>
               <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${current ? "bg-white text-slate-950 dark:bg-slate-950 dark:text-white" : "bg-emerald-600 text-white"}`}>{completed ? <Check className="h-3.5 w-3.5" /> : "->"}</span>

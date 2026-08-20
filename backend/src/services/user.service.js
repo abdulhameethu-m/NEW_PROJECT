@@ -411,11 +411,12 @@ class UserService {
     
     try {
       const policy = await cancellationPolicyService.getActivePolicy();
-      result.orders = result.orders.map((o) => {
-        const doc = typeof o.toObject === "function" ? o.toObject() : { ...o };
+      result.orders = await Promise.all(result.orders.map(async (o) => {
+        let doc = typeof o.toObject === "function" ? o.toObject() : { ...o };
         doc.cancellationEligible = isOrderCancellationEligible(doc, policy);
+        doc = await orderLifecycleService.attachReturnEligibility(doc);
         return doc;
-      });
+      }));
     } catch (err) {
       // ignore
     }
@@ -460,15 +461,19 @@ class UserService {
       // ignore
     }
 
+    const enrichedOrder = await orderLifecycleService.attachReturnEligibility(order);
+
     return {
-      ...buildOrderSummary(order, {
+      ...buildOrderSummary(enrichedOrder, {
         user,
-        seller: order.sellerId,
-        paymentRecord: order.paymentRecordId,
+        seller: enrichedOrder.sellerId,
+        paymentRecord: enrichedOrder.paymentRecordId,
       }),
-      sellerId: order.sellerId,
-      totalAmount: order.totalAmount,
+      sellerId: enrichedOrder.sellerId,
+      totalAmount: enrichedOrder.totalAmount,
       cancellationEligible,
+      returnEligible: enrichedOrder.returnEligible,
+      returnEligibilityMessage: enrichedOrder.returnEligibilityMessage,
     };
   }
 

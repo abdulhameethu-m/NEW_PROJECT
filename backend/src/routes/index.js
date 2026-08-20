@@ -42,6 +42,8 @@ const configRoutes = require("./config.routes");
 const systemRoutes = require("./system.routes");
 const privateDocumentRoutes = require("./private-document.routes");
 const invoiceRoutes = require("./invoice.routes");
+const returnRuleRoutes = require("./return-rule.routes");
+const { customerReturnRouter, adminReturnRouter, vendorReturnRouter } = require("./return-request.routes");
 
 const influencerRoutes = require("../modules/influencer/routes");
 const campaignRoutes = require("../modules/campaign/routes");
@@ -113,6 +115,12 @@ router.use("/config", configRoutes);
 router.use("/system", systemRoutes);
 router.use("/private-documents", privateDocumentRoutes);
 router.use("/invoices", invoiceRoutes);
+router.use("/return-rules", returnRuleRoutes);
+
+// Return Request Routes (Customer → Admin → Vendor)
+router.use("/returns", customerReturnRouter);
+router.use("/admin/returns", adminReturnRouter);
+router.use("/vendor/returns", vendorReturnRouter);
 
 // Influencer Commerce Routes
 router.use("/influencer", authOptional, influencerCommerceGate, influencerRoutes);

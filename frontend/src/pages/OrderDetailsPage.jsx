@@ -3,6 +3,7 @@ import { requestInput } from "../services/notificationService";
 import { Link, useParams } from "react-router-dom";
 import { Package, History, User, CreditCard, ClipboardList, Store, Receipt, Truck, MapPin, Phone, Mail, Building2, Download, Eye, CornerUpLeft, XCircle, Check } from "lucide-react";
 import { CancelOrderModal } from "../components/CancelOrderModal";
+import { ReturnOrderModal } from "../components/ReturnOrderModal";
 import {
   confirmUserOrderCancellation,
   downloadUserInvoice,
@@ -54,6 +55,7 @@ export function OrderDetailsPage() {
   const [actionBusy, setActionBusy] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelPreview, setCancelPreview] = useState(null);
+  const [returnOpen, setReturnOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,24 +83,27 @@ export function OrderDetailsPage() {
     };
   }, [orderId]);
 
-  const canReturn = order?.status === "Delivered";
+  const canReturn = order?.returnEligible === true;
   const cancellationLocked = ["REQUESTED", "APPROVED", "CANCELLED"].includes(order?.cancellation?.status);
   const canCancel = typeof order?.cancellationEligible === "boolean" ? order.cancellationEligible : (["Pending", "Placed", "Packed", "Shipped", "Out for Delivery"].includes(order?.status) && !cancellationLocked);
   const timelineSteps = useMemo(() => order?.timeline?.steps || [], [order]);
   const timelineEvents = useMemo(() => tracking?.timeline || order?.timeline?.events || [], [order, tracking]);
 
-  async function handleReturn() {
-    const reason = await requestInput({ title: "Request return", label: "Reason for return", multiline: true });
-    if (!reason) return;
+  function handleReturn() {
+    setReturnOpen(true);
+  }
+
+  async function handleSubmitReturn(payload, files) {
     setActionBusy(true);
     try {
-      await requestUserReturn(orderId, { reason });
+      await requestUserReturn(payload, files);
       const [orderResponse, trackingResponse] = await Promise.all([getUserOrder(orderId), getUserOrderTracking(orderId)]);
       setOrder(orderResponse.data);
       setTracking(trackingResponse.data);
       setError("");
+      setReturnOpen(false);
     } catch (err) {
-      setError(normalizeError(err));
+      alert(normalizeError(err));
     } finally {
       setActionBusy(false);
     }
@@ -374,6 +379,7 @@ export function OrderDetailsPage() {
                 type="button"
                 disabled={!canReturn || actionBusy}
                 onClick={handleReturn}
+                title={order?.returnEligibilityMessage || "Return Order"}
                 className="inline-flex items-center gap-2 rounded-[12px] border border-white/20 px-4 py-2 text-[13px] font-bold text-slate-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <CornerUpLeft className="h-4 w-4" /> Return Order
@@ -659,6 +665,13 @@ export function OrderDetailsPage() {
         }}
         onPreview={loadCancelPreview}
         onConfirm={handleConfirmCancellation}
+      />
+      <ReturnOrderModal
+        open={returnOpen}
+        order={order}
+        loading={actionBusy}
+        onClose={() => setReturnOpen(false)}
+        onSubmit={handleSubmitReturn}
       />
     </div>
   );

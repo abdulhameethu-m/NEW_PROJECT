@@ -1,7 +1,10 @@
 import { Tabs } from 'expo-router';
 import { Home, ShoppingBag, Clapperboard, ShoppingCart, User } from 'lucide-react-native';
+import { useCart } from '../../hooks/useCart';
 
 export default function TabLayout() {
+  const { data: cart } = useCart();
+  const cartBadgeCount = cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
   return (
     <Tabs
       screenOptions={{
@@ -49,6 +52,8 @@ export default function TabLayout() {
         options={{
           title: 'Cart',
           tabBarIcon: ({ color, size }) => <ShoppingCart color={color} size={size} />,
+          tabBarBadge: cartBadgeCount > 0 ? cartBadgeCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#ef4444' }
         }}
       />
       <Tabs.Screen

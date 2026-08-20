@@ -67,8 +67,16 @@ export async function confirmUserOrderCancellation(id, payload = {}) {
   return data;
 }
 
-export async function requestUserReturn(id, payload) {
-  const { data } = await api.post(`/api/user/orders/${id}/return`, payload);
+export async function requestUserReturn(payload, files = []) {
+  const formData = new FormData();
+  Object.entries(payload || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") formData.append(key, value);
+  });
+  files.forEach((file) => formData.append("evidence", file));
+  
+  const { data } = await api.post("/api/returns", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return data;
 }
 

@@ -135,6 +135,7 @@ export const ADMIN_SECTION_ITEMS = [
     items: [
       { name: "Categories", path: "/admin/categories", permission: "categories.read", icon: FolderTree, legacyOnly: true },
       { name: "Subcategories", path: "/admin/subcategories", permission: "categories.read", icon: Tags, legacyOnly: true },
+      { name: "Return Rules", path: "/admin/return-rules", permission: "categories.read", icon: RotateCcw, legacyOnly: true },
       { name: "Catalog Requests", path: "/admin/catalog-requests", permission: "categories.read", icon: FileSearch },
       { name: "Attributes", path: "/admin/attributes", permission: "categories.read", icon: Tags, legacyOnly: true },
       { name: "Product Modules", path: "/admin/product-modules", permission: "categories.read", icon: Boxes, legacyOnly: true },
@@ -166,6 +167,7 @@ export const ADMIN_SECTION_ITEMS = [
     items: [
       { name: "Payments", path: "/admin/payments", permission: "payments.read", icon: CreditCard, notificationModule: "FINANCE", notificationSubModule: "PAYMENTS" },
       { name: "Refunds", path: "/admin/refunds", permission: "payments.read", icon: RotateCcw, notificationModule: "MANAGEMENT", notificationSubModule: "RETURNS" },
+      { name: "Returns", path: "/admin/returns", permission: "orders.read", icon: RotateCcw, notificationModule: "MANAGEMENT", notificationSubModule: "RETURNS" },
       { name: "Escrow Refunds", path: "/admin/finance/escrow-refunds", permission: "payments.read", icon: RotateCcw, notificationModule: "FINANCE", notificationSubModule: "PAYOUTS" },
       { name: "Cancellation Policies", path: "/admin/finance/cancellation-policies", permission: "settings.read", icon: ShieldCheck, notificationModule: "FINANCE", notificationSubModule: "SETTINGS" },
       { name: "COD Advance", path: "/admin/finance/cod-advance", permission: "settings.read", icon: SlidersHorizontal, notificationModule: "FINANCE", notificationSubModule: "SETTINGS" },

@@ -19,6 +19,7 @@ const listUser = asyncHandler(async (req, res) => {
 
 const getById = asyncHandler(async (req, res) => {
   const order = await orderService.getForUser(req.user.sub, req.params.id);
+  console.log('DEBUG API getById -> returnEligible:', order.returnEligible, 'status:', order.status, 'msg:', order.returnEligibilityMessage);
   return ok(res, order, "Order loaded");
 });
 

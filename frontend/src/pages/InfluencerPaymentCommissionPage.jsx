@@ -46,19 +46,19 @@ function WizardProgress() {
     <aside className="sticky top-20 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-xs font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Step 5 of 6</div>
-          <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">83% complete</div>
+          <div className="text-xs font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Step 4 of 5</div>
+          <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">80% complete</div>
         </div>
         <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-200">Payout Setup</span>
       </div>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-        <div className="h-full w-5/6 rounded-full bg-blue-600" />
+        <div className="h-full w-4/5 rounded-full bg-blue-600" />
       </div>
       <ol className="mt-5 grid gap-2" aria-label="Influencer registration progress">
         {influencerWizardSteps.map((step, index) => {
           const label = step;
-          const completed = index < 4;
-          const current = index === 4;
+          const completed = index < 3;
+          const current = index === 3;
           return (
             <li key={step} aria-current={current ? "step" : undefined} className={`flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-semibold ${current ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : completed ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200" : "bg-slate-50 text-slate-400 dark:bg-slate-950 dark:text-slate-500"}`}>
               <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${current ? "bg-white text-slate-950 dark:bg-slate-950 dark:text-white" : completed ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500 dark:bg-slate-800"}`}>
@@ -200,8 +200,8 @@ export function InfluencerPaymentCommissionPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 dark:bg-slate-950 dark:text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <button type="button" onClick={() => navigate("/influencer/register/business-information", { state: { applicationId: form.applicationId } })} className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">
-          <ArrowLeft className="h-4 w-4" /> Back to Tax Details
+        <button type="button" onClick={() => navigate("/influencer/register/profile-information", { state: { applicationId: form.applicationId } })} className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">
+          <ArrowLeft className="h-4 w-4" /> Back to Creator Profile
         </button>
         <div className="mt-6 grid gap-8 lg:grid-cols-[340px_1fr]">
           <WizardProgress />
@@ -262,7 +262,7 @@ export function InfluencerPaymentCommissionPage() {
             <div className="sticky bottom-4 z-10 flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">{lastSavedAt ? `Draft Saved ${new Date(lastSavedAt).toLocaleTimeString()}` : "Draft not saved yet"}</div>
               <div className="flex flex-wrap gap-3">
-                <button type="button" onClick={() => navigate("/influencer/register/business-information", { state: { applicationId: form.applicationId } })} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"><ArrowLeft className="h-4 w-4" /> Back</button>
+                <button type="button" onClick={() => navigate("/influencer/register/profile-information", { state: { applicationId: form.applicationId } })} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"><ArrowLeft className="h-4 w-4" /> Back</button>
                 <button type="button" onClick={() => setForm({ ...initialInfluencerPaymentForm, applicationId: form.applicationId })} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200">Reset</button>
                 <button type="button" onClick={() => persist(false)} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save Draft</button>
                 <button type="button" onClick={continueNext} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Continue</button>

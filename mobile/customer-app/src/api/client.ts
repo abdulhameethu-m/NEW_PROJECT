@@ -71,6 +71,13 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
+        // Must fetch a fresh CSRF token before performing POST /auth/refresh
+        const csrfResponse = await axios.get(`${ENV.API_URL}/auth/csrf`, { withCredentials: true });
+        const freshCsrf = csrfResponse.data?.data?.csrfToken || csrfResponse.data?.csrfToken;
+        if (freshCsrf) {
+          useAuthStore.getState().setCsrfToken(freshCsrf);
+        }
+
         // Native cookie jar should automatically send the refreshToken cookie
         await apiClient.post('/auth/refresh');
         processQueue(null);
@@ -91,7 +98,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 403 && errorData?.code?.includes('CSRF')) {
       // Typically we'd try to fetch a new CSRF token and retry
       // For Phase 1, we just reject, and the caller can call fetchCsrfToken()
-      console.warn('CSRF Token error detected', errorData);
+      console.warn('CSRF Token error detected for URL:', originalRequest.url, errorData);
     }
 
     return Promise.reject(error);

@@ -25,7 +25,7 @@ const RegisterPage = lazyNamed(() => import("./pages/RegisterPage"), "RegisterPa
 const InfluencerRegistrationStepOnePage = lazyNamed(() => import("./pages/InfluencerRegistrationStepOnePage"), "InfluencerRegistrationStepOnePage");
 const InfluencerSocialVerificationPage = lazyNamed(() => import("./pages/InfluencerSocialVerificationPage"), "InfluencerSocialVerificationPage");
 const InfluencerProfileInformationPage = lazyNamed(() => import("./pages/InfluencerProfileInformationPage"), "InfluencerProfileInformationPage");
-const InfluencerBusinessInformationPage = lazyNamed(() => import("./pages/InfluencerBusinessInformationPage"), "InfluencerBusinessInformationPage");
+
 const InfluencerPaymentCommissionPage = lazyNamed(() => import("./pages/InfluencerPaymentCommissionPage"), "InfluencerPaymentCommissionPage");
 const InfluencerContentReviewPage = lazyNamed(() => import("./pages/InfluencerContentReviewPage"), "InfluencerContentReviewPage");
 const InfluencerApplicationStatusPage = lazyNamed(() => import("./pages/InfluencerApplicationStatusPage"), "InfluencerApplicationStatusPage");
@@ -114,6 +114,7 @@ const AdminInventoryPage = lazyNamed(() => import("./pages/AdminInventoryPage"),
 const AdminInventoryDetailsPage = lazyNamed(() => import("./pages/AdminInventoryDetailsPage"), "AdminInventoryDetailsPage");
 const AdminCategoriesPage = lazyNamed(() => import("./pages/AdminCategoriesPage"), "AdminCategoriesPage");
 const AdminSubcategoriesPage = lazyNamed(() => import("./pages/AdminSubcategoriesPage"), "AdminSubcategoriesPage");
+const AdminReturnRulesPage = lazyDefault(() => import("./pages/AdminReturnRulesPage"));
 const AdminAttributesPage = lazyNamed(() => import("./pages/AdminAttributesPage"), "AdminAttributesPage");
 const AdminProductModulesPage = lazyNamed(() => import("./pages/AdminProductModulesPage"), "AdminProductModulesPage");
 const AdminHomepageContainersPage = lazyNamed(() => import("./pages/AdminHomepageContainersPage"), "AdminHomepageContainersPage");
@@ -128,6 +129,7 @@ const AdminPickupsPage = lazyNamed(() => import("./pages/AdminPickupsPage"), "Ad
 const AdminPaymentsPage = lazyNamed(() => import("./pages/AdminPaymentsPage"), "AdminPaymentsPage");
 const AdminRefundsPage = lazyNamed(() => import("./pages/AdminRefundsPage"), "AdminRefundsPage");
 const AdminRefundDetailsPage = lazyNamed(() => import("./pages/AdminRefundDetailsPage"), "AdminRefundDetailsPage");
+const AdminReturnsPage = lazyNamed(() => import("./pages/AdminReturnsPage"), "AdminReturnsPage");
 const AdminPayoutsPage = lazyNamed(() => import("./pages/AdminPayoutsPage"), "AdminPayoutsPage");
 const AdminCancellationPoliciesPage = lazyNamed(() => import("./pages/AdminCancellationPoliciesPage"), "AdminCancellationPoliciesPage");
 const AdminCodAdvancePage = lazyNamed(() => import("./pages/AdminCodAdvancePage"), "AdminCodAdvancePage");
@@ -198,7 +200,7 @@ export default function App() {
         <Route path="/influencer/register/social-profiles" element={<Navigate to="/influencer/register/social-verification" replace />} />
         <Route path="/influencer/register/profile-information" element={<InfluencerProfileInformationPage />} />
         <Route path="/influencer/register/creator-profile" element={<Navigate to="/influencer/register/profile-information" replace />} />
-        <Route path="/influencer/register/business-information" element={<InfluencerBusinessInformationPage />} />
+
         <Route path="/influencer/register/payment-commission" element={<InfluencerPaymentCommissionPage />} />
         <Route path="/influencer/register/payment-information" element={<Navigate to="/influencer/register/payment-commission" replace />} />
         <Route path="/influencer/register/content-review" element={<InfluencerContentReviewPage />} />
@@ -335,6 +337,7 @@ export default function App() {
               <Route path="inventory/:productId" element={<AdminInventoryDetailsPage />} />
               <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="subcategories" element={<AdminSubcategoriesPage />} />
+              <Route path="return-rules" element={<AdminReturnRulesPage />} />
               <Route path="catalog-requests" element={<AdminCatalogRequestsPage />} />
               <Route path="attributes" element={<AdminAttributesPage />} />
               <Route path="product-modules" element={<AdminProductModulesPage />} />
@@ -351,6 +354,7 @@ export default function App() {
               <Route path="payments" element={<AdminPaymentsPage />} />
               <Route path="refunds" element={<AdminRefundsPage />} />
               <Route path="refunds/:id" element={<AdminRefundDetailsPage />} />
+              <Route path="returns" element={<AdminReturnsPage />} />
               <Route path="payouts" element={<AdminPayoutsPage />} />
               <Route path="finance/cancellation-policies" element={<AdminCancellationPoliciesPage />} />
               <Route path="finance/cod-advance" element={<AdminCodAdvancePage />} />

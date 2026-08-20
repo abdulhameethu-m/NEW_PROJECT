@@ -5,7 +5,6 @@ export const influencerWizardSteps = [
   "Account Basics",
   "Social Verification",
   "Creator Profile",
-  "Tax Details",
   "Payout Setup",
   "Review & Submit",
 ];

@@ -208,8 +208,8 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
       {!previewBare && !stripOuterLayout && layout.backgroundType === "video" && backgroundMediaUrl ? (
         <video src={backgroundMediaUrl} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
       ) : null}
-      {!previewBare && !stripOuterLayout && (layout.backgroundType === "image" || layout.backgroundType === "video") && backgroundMediaUrl ? (
-        <div className="absolute inset-0 bg-slate-950/20" />
+      {!previewBare && !stripOuterLayout && (layout.backgroundType === "image" || layout.backgroundType === "video") && backgroundMediaUrl && Number(layout.overlayOpacity || 0) > 0 ? (
+        <div className="absolute inset-0 bg-slate-950" style={{ opacity: Number(layout.overlayOpacity || 0.2) }} />
       ) : null}
       <div className={`relative z-10 ${bannerLike ? "h-full w-full" : ""}`} style={style}>
         {renderContainer(container, { bareContainers: previewBare, bareOuterLayout: stripOuterLayout, bareCarouselShell, renderContext })}
@@ -869,10 +869,10 @@ function BannerContainer({ container }) {
             </picture>
           )
         ) : null}
-        {mediaUrl ? (
+        {mediaUrl && (heading || subheading || ctaLabel || config.overlayOpacity !== undefined) ? (
           <div
-            className="absolute inset-0 bg-slate-950/20"
-            style={{ background: `rgba(15, 23, 42, ${Number(config.overlayOpacity ?? 0.35)})` }}
+            className="absolute inset-0 bg-slate-950"
+            style={{ opacity: Number(config.overlayOpacity ?? 0.35) }}
           />
         ) : null}
         <div className="absolute inset-0 z-10 flex items-end justify-center p-4 pb-8 text-center sm:p-8 lg:items-center lg:justify-start lg:p-10">
@@ -1053,7 +1053,7 @@ function BannerCarouselContainer({ container, renderContext }) {
                 )}
                 {(heading || subheading || ctaLabel) ? (
                   <>
-                    <div className="absolute inset-0 bg-gradient-to-r from-slate-950/65 via-slate-950/20 to-transparent" style={{ opacity: Number(config.overlayOpacity ?? 0.35) + 0.45 }} />
+                    <div className="absolute inset-0 bg-gradient-to-r from-slate-950/65 via-slate-950/20 to-transparent" style={{ opacity: Number(config.overlayOpacity ?? 0.4) }} />
                     <div className="absolute inset-y-0 left-0 flex max-w-[78%] flex-col justify-center px-5 py-4 sm:px-8 lg:px-10">
                       {heading ? <h2 className="text-lg font-black leading-tight tracking-tight sm:text-2xl lg:text-3xl">{heading}</h2> : null}
                       {subheading ? <p className="mt-1 line-clamp-2 text-xs font-medium text-white/85 sm:text-sm">{subheading}</p> : null}

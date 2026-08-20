@@ -233,6 +233,10 @@ const pageMeta = {
     title: "Settings",
     subtitle: "Staff-facing operational settings and workspace notes.",
   },
+  "/admin/return-rules": {
+    title: "Return Rules",
+    subtitle: "Manage return policies based on categories and subcategories.",
+  },
 };
 
 export function AdminLayout() {

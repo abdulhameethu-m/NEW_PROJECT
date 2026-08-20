@@ -7,6 +7,7 @@ import { VariantImageUploader } from "./product-images/VariantImageUploader";
 import { useCategories } from "../hooks/useCategories";
 import { getSubcategoriesByCategory } from "../services/subcategoryService";
 import { getAttributes } from "../services/attributeService";
+import { getPublicReturnRule } from "../services/returnRule.service";
 import { getProductModules } from "../services/productModuleService";
 import * as productService from "../services/productService";
 import {
@@ -138,6 +139,8 @@ export function ProductEditor({
   const [productStatus, setProductStatus] = useState("");
   const [subcategories, setSubcategories] = useState([]);
   const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
+  const [returnRule, setReturnRule] = useState(null);
+  const [returnRuleLoading, setReturnRuleLoading] = useState(false);
   const [attributeGroups, setAttributeGroups] = useState({});
   const [filterDefinitions, setFilterDefinitions] = useState([]);
   const [productModules, setProductModules] = useState([]);
@@ -275,6 +278,29 @@ export function ProductEditor({
       cancelled = true;
     };
   }, [formData.categoryId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadReturnRule() {
+      if (!formData.subCategoryId) {
+        setReturnRule(null);
+        return;
+      }
+      setReturnRuleLoading(true);
+      try {
+        const res = await getPublicReturnRule(formData.subCategoryId);
+        if (!cancelled) setReturnRule(res?.data || null);
+      } catch {
+        if (!cancelled) setReturnRule(null);
+      } finally {
+        if (!cancelled) setReturnRuleLoading(false);
+      }
+    }
+    loadReturnRule();
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.subCategoryId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -704,6 +730,21 @@ export function ProductEditor({
                   <option key={subcategory._id} value={subcategory._id}>{subcategory.name}</option>
                 ))}
               </select>
+              {formData.subCategoryId && (
+                <div className="mt-2 text-sm">
+                  {returnRuleLoading ? (
+                    <span className="text-slate-500">Checking return policy...</span>
+                  ) : returnRule ? (
+                    returnRule.ruleType === "no_return" ? (
+                      <span className="inline-block text-rose-600 font-medium py-1 px-2 bg-rose-50 rounded-md border border-rose-200 dark:bg-rose-950/30 dark:border-rose-900 dark:text-rose-400">No Return for this product</span>
+                    ) : (
+                      <span className="inline-block text-emerald-600 font-medium py-1 px-2 bg-emerald-50 rounded-md border border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-400">Return upto {returnRule.returnDays} days</span>
+                    )
+                  ) : (
+                    <span className="text-slate-500 italic">Standard return policy applies</span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tags</label>

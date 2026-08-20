@@ -198,7 +198,7 @@ export function OrdersPage() {
           {orders.map((order) => {
             const cancellationLocked = ["REQUESTED", "APPROVED", "CANCELLED"].includes(order?.cancellation?.status);
             const canCancel = typeof order?.cancellationEligible === "boolean" ? order.cancellationEligible : (["Pending", "Placed"].includes(order.status) && !cancellationLocked);
-            const canReturn = order.status === "Delivered";
+            const canReturn = order.returnEligible === true;
 
             return (
               <div key={order._id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">

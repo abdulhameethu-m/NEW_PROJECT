@@ -32,6 +32,58 @@ function asObjectId(id, fieldName) {
 }
 
 class OrderService {
+  async attachReturnEligibility(order) {
+    let returnEligible = false;
+    let returnEligibilityMessage = "";
+
+    const enrichedOrder = typeof order.toObject === "function" ? order.toObject() : { ...order };
+
+    if (enrichedOrder.status === "Delivered") {
+      const { ReturnRule } = require("../models/ReturnRule");
+      const subCategoryIds = (enrichedOrder.items || []).map(item => item.productId?.subCategoryId).filter(Boolean);
+      
+      if (subCategoryIds.length > 0) {
+        const rules = await ReturnRule.find({ subCategoryId: { $in: subCategoryIds } });
+        let allReturnable = true;
+        let applicableDays = Infinity;
+
+        for (const item of enrichedOrder.items) {
+           const subCatId = String(item.productId?.subCategoryId || "");
+           const rule = rules.find(r => String(r.subCategoryId) === subCatId);
+           console.log('DEBUG item subCatId:', subCatId, 'Found rule:', !!rule, 'ruleType:', rule?.ruleType);
+           
+           if (!rule || rule.ruleType === "no_return") {
+             allReturnable = false;
+             break;
+           } else if (rule.returnDays) {
+             applicableDays = Math.min(applicableDays, rule.returnDays);
+           }
+        }
+        
+        if (allReturnable && applicableDays !== Infinity) {
+          const deliveredAt = enrichedOrder.deliveredAt || enrichedOrder.updatedAt;
+          const daysSinceDelivery = (Date.now() - new Date(deliveredAt).getTime()) / (1000 * 3600 * 24);
+          if (daysSinceDelivery <= applicableDays) {
+            returnEligible = true;
+            returnEligibilityMessage = "";
+          } else {
+             returnEligibilityMessage = `Return period of ${applicableDays} days has expired.`;
+          }
+        } else if (!allReturnable) {
+           returnEligibilityMessage = "One or more items in this order are non-returnable.";
+        }
+      } else {
+        returnEligible = true; // Fallback rule if subCategories missing
+      }
+    } else {
+       returnEligibilityMessage = "Order must be delivered to request a return.";
+    }
+
+    enrichedOrder.returnEligible = returnEligible;
+    enrichedOrder.returnEligibilityMessage = returnEligibilityMessage;
+    return enrichedOrder;
+  }
+
   async createFromCart(userId, { address, currency } = {}) {
     const shippingAddress = normalizeAddress(address);
     if (!shippingAddress?.fullName || !shippingAddress?.line1 || !shippingAddress?.postalCode) {
@@ -52,16 +104,22 @@ class OrderService {
       limit: Number(limit || 20),
       ...(status ? { status } : {}),
     });
+    
+    const ordersWithReturn = await Promise.all(
+      (result.orders || []).map(order => this.attachReturnEligibility(order))
+    );
+
     return {
       ...result,
-      orders: (result.orders || []).map((order) => pricingBreakdownEngine.attachToOrder(order)),
+      orders: ordersWithReturn.map((order) => pricingBreakdownEngine.attachToOrder(order)),
     };
   }
 
   async getForUser(userId, orderId) {
     asObjectId(orderId, "orderId");
-    const order = await orderRepo.findByIdForUser(orderId, userId);
+    let order = await orderRepo.findByIdForUser(orderId, userId);
     if (!order) throw new AppError("Order not found", 404, "NOT_FOUND");
+    order = await this.attachReturnEligibility(order);
     return pricingBreakdownEngine.attachToOrder(order);
   }
 
@@ -76,10 +134,13 @@ class OrderService {
 
   async requestReturnForUser(userId, orderId) {
     asObjectId(orderId, "orderId");
-    const order = await orderRepo.findByIdForUser(orderId, userId);
+    let order = await orderRepo.findByIdForUser(orderId, userId);
     if (!order) throw new AppError("Order not found", 404, "NOT_FOUND");
-    if (order.status !== "Delivered") {
-      throw new AppError("Only delivered orders can be returned", 400, "INVALID_OPERATION");
+    
+    order = await this.attachReturnEligibility(order);
+    
+    if (!order.returnEligible) {
+      throw new AppError(order.returnEligibilityMessage || "Return not allowed", 400, "INVALID_OPERATION");
     }
     const payouts = await payoutRepo.findByOrderId(order._id);
     if (payouts.some((payout) => ["PROCESSING", "PAID"].includes(payout.status))) {

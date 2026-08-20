@@ -100,7 +100,7 @@ class OrderRepository {
         .populate("userId", "name email phone")
         .populate("sellerId", SELLER_POPULATE_FIELDS)
         .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
-        .populate("items.productId", "name slug")
+        .populate("items.productId", "name slug subCategoryId")
         .sort(sort)
         .skip(skip)
         .limit(limit)
@@ -137,7 +137,7 @@ class OrderRepository {
       .populate("userId", "name email phone")
       .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
-      .populate("items.productId", "name slug")
+      .populate("items.productId", "name slug subCategoryId")
       .exec();
   }
 
@@ -145,7 +145,7 @@ class OrderRepository {
     return await Order.findOne({ _id: id, userId, isActive: true })
       .populate("sellerId", SELLER_PUBLIC_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
-      .populate("items.productId", "name slug images")
+      .populate("items.productId", "name slug images subCategoryId")
       .exec();
   }
 
@@ -154,7 +154,7 @@ class OrderRepository {
       .populate("userId", "name email phone")
       .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
-      .populate("items.productId", "name slug images")
+      .populate("items.productId", "name slug images subCategoryId")
       .sort({ createdAt: -1 })
       .exec();
   }
@@ -199,7 +199,7 @@ class OrderRepository {
       Order.find(query)
         .populate("sellerId", SELLER_PUBLIC_FIELDS)
         .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
-        .populate("items.productId", "name slug images")
+        .populate("items.productId", "name slug images subCategoryId")
         .sort(sort)
         .skip(skip)
         .limit(limit)
@@ -258,7 +258,7 @@ class OrderRepository {
       Order.find(query)
         .populate("userId", "name email phone")
         .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
-        .populate("items.productId", "name slug images")
+        .populate("items.productId", "name slug images subCategoryId")
         .sort(sort)
         .skip(skip)
         .limit(limit)
@@ -317,7 +317,7 @@ class OrderRepository {
       .populate("userId", "name email phone")
       .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
-      .populate("items.productId", "name slug")
+      .populate("items.productId", "name slug subCategoryId")
       .exec();
     if (updated && status === "Delivered") {
       await emitDomainEvent(INFLUENCER_EVENTS.ORDER_DELIVERED, { orderId: updated._id });
@@ -394,7 +394,7 @@ class OrderRepository {
       .populate("userId", "name email phone")
       .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
-      .populate("items.productId", "name slug")
+      .populate("items.productId", "name slug subCategoryId")
       .exec();
   }
 
@@ -407,7 +407,7 @@ class OrderRepository {
       .populate("userId", "name email phone")
       .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
-      .populate("items.productId", "name slug")
+      .populate("items.productId", "name slug subCategoryId")
       .exec();
   }
 
@@ -430,7 +430,7 @@ class OrderRepository {
       .populate("userId", "name email phone")
       .populate("sellerId", SELLER_POPULATE_FIELDS)
       .populate("paymentRecordId", "status method amount razorpayOrderId razorpayPaymentId refundedAmount refundStatus")
-      .populate("items.productId", "name slug")
+      .populate("items.productId", "name slug subCategoryId")
       .exec();
   }
 }

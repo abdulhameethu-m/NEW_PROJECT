@@ -357,7 +357,7 @@ export function InfluencerProfileInformationPage() {
 
   async function handleContinue() {
     const ok = await saveDraft({ submit: true });
-    if (ok) navigate("/influencer/register/business-information", { state: { applicationId: form.applicationId, currentStep: 4 } });
+    if (ok) navigate("/influencer/register/payment-commission", { state: { applicationId: form.applicationId } });
   }
 
   const draftText = lastSavedAt ? `Draft Saved ${new Date(lastSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Draft not saved yet";

@@ -24,6 +24,7 @@ import { useWishlist } from "../hooks/useWishlist";
 import pendingActionManager from "../utils/pendingActionManager";
 import { getCartErrorMessage } from "../utils/cartErrors";
 import { clickTracking, trackAffiliateEvent } from "../services/influencerCommerceService";
+import { getPublicReturnRule } from "../services/returnRule.service";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { DesktopProductLayout } from "./DesktopProductLayout";
 import { MobileProductLayout } from "./MobileProductLayout";
@@ -129,6 +130,7 @@ export function ProductDetailsPage() {
   const [recommendations, setRecommendations] = useState(null);
   const [fbtBundle, setFbtBundle] = useState(null);
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [returnRule, setReturnRule] = useState(null);
   const trackedProductViewRef = useRef("");
 
   async function ensureCurrentTrackingContext() {
@@ -296,24 +298,27 @@ export function ProductDetailsPage() {
         return;
       }
       try {
-        const [attributeRes, moduleRes] = await Promise.all([
+        const [attributeRes, moduleRes, ruleRes] = await Promise.all([
           getAttributes({
             categoryId: product.categoryId?._id || product.categoryId,
             subCategoryId: product.subCategoryId?._id || product.subCategoryId,
           }),
           getProductModules(),
+          getPublicReturnRule(product.subCategoryId?._id || product.subCategoryId).catch(() => null)
         ]);
         if (!cancelled) {
           const groupedDefs = attributeRes?.data && typeof attributeRes.data === "object" ? attributeRes.data : {};
           setAttributeGroups(groupedDefs);
           setAttributeDefs(flattenAttributeGroups(groupedDefs));
           setProductModules(Array.isArray(moduleRes?.data) ? moduleRes.data : []);
+          setReturnRule(ruleRes?.data || null);
         }
       } catch {
         if (!cancelled) {
           setAttributeGroups({});
           setAttributeDefs([]);
           setProductModules([]);
+          setReturnRule(null);
         }
       }
     }
@@ -573,7 +578,7 @@ export function ProductDetailsPage() {
     loading, error, product, media, galleryKey, stock, pricing, activeVariant, productWeightLabel,
     variantGroups, selectedAttributes, variants, variantDefsByKey, selectVariantValue,
     tabs, activeTab, setActiveTab, moduleTabs, adding, handleAddToCart, handleWishlistToggle,
-    wishlistLoading, wishlistSaved, visibleFbtBundle, recommendations, recommendationsLoading
+    wishlistLoading, wishlistSaved, visibleFbtBundle, recommendations, recommendationsLoading, returnRule
   };
 
   if (isMobile) {

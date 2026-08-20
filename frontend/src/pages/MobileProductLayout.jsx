@@ -91,7 +91,7 @@ function MobileGallery({ media }) {
       >
         {media.map((img, i) => (
           <div key={i} className="min-w-full shrink-0 snap-center">
-            <img loading="lazy" decoding="async" src={img.url} alt={img.altText || `Product Image ${i + 1}`} className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal" loading={i === 0 ? "eager" : "lazy"} />
+            <img decoding="async" src={img.url} alt={img.altText || `Product Image ${i + 1}`} className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal" loading={i === 0 ? "eager" : "lazy"} />
           </div>
         ))}
       </div>
@@ -154,6 +154,7 @@ export function MobileProductLayout({
   visibleFbtBundle,
   recommendations,
   recommendationsLoading,
+  returnRule,
 }) {
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
@@ -211,8 +212,36 @@ export function MobileProductLayout({
 
       {/* Title & Pricing Section */}
       <section className="mt-2 bg-white p-4 dark:bg-slate-900">
-        <div className="space-y-1">
-          <div className="text-xs font-bold uppercase tracking-wider text-[color:var(--commerce-accent)]">{product.brand || product.category}</div>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-widest text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+               {product.category}
+             </span>
+             {stock > 0 ? (
+               <span className="rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-bold uppercase tracking-widest dark:bg-emerald-900/40 dark:text-emerald-300">
+                 In stock
+               </span>
+             ) : (
+               <span className="rounded-full bg-rose-100 text-rose-800 px-3 py-1 text-xs font-bold uppercase tracking-widest dark:bg-rose-900/40 dark:text-rose-300">
+                 Out of stock
+               </span>
+             )}
+             {returnRule && (
+               <>
+                 {returnRule.ruleType === "no_return" ? (
+                   <span className="flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:border-rose-800/50 dark:text-rose-300">
+                     <svg className="mr-1.5 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                     No Return
+                   </span>
+                 ) : returnRule.ruleType === "returnable" ? (
+                   <span className="flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-300">
+                     <svg className="mr-1.5 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                     {returnRule.returnDays} Days Return
+                   </span>
+                 ) : null}
+               </>
+             )}
+          </div>
           <h1 className="text-xl font-bold leading-tight text-slate-900 dark:text-white">{product.name}</h1>
         </div>
 

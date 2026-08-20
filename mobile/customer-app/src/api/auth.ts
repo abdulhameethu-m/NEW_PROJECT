@@ -48,6 +48,7 @@ export const authApi = {
   },
 
   getMe: async (): Promise<User> => {
+    await authApi.fetchCsrfToken();
     const response = await apiClient.get('/auth/me');
     const user = response.data?.data || response.data;
     return user;
