@@ -3,7 +3,7 @@ const { AppError } = require("../utils/AppError");
 
 // NOTE: Keep existing statuses for backward-compatibility with current UI and stored data.
 // Admin APIs accept normalized uppercase statuses and map to these stored values.
-const ORDER_STATUS = ["Pending", "Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Returned", "Cancelled"];
+const ORDER_STATUS = ["Pending", "Placed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Return Requested", "Returned", "Cancelled"];
 const PAYMENT_STATUS = ["Pending", "Partially Paid", "Paid", "Failed", "Refunded", "Partially Refunded"];
 const SHIPPING_MODE = ["SELF", "PLATFORM"];
 const SHIPPING_STATUS = ["NOT_SHIPPED", "READY_FOR_PICKUP", "PICKUP_SCHEDULED", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"];

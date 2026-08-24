@@ -103,9 +103,12 @@ async function adminGetStats(req, res, next) {
 async function adminListReturns(req, res, next) {
   try {
     const { status, vendorId, customerId, orderId, reasonCode, page, limit, startDate, endDate } = req.query;
+    console.log("[adminListReturns] CALLED WITH:", req.query);
     const result = await returnRequestService.getAdminList({ status, vendorId, customerId, orderId, reasonCode, page, limit, startDate, endDate });
+    console.log("[adminListReturns] RETURNING:", result.returns.length, "items.");
     res.json({ success: true, ...result });
   } catch (err) {
+    console.error("[adminListReturns] ERROR:", err);
     next(err);
   }
 }
@@ -163,7 +166,7 @@ async function adminResolveDispute(req, res, next) {
 
 async function vendorGetReturns(req, res, next) {
   try {
-    const vendorId = req.user?.vendorId || req.user?.vendor?._id;
+    const vendorId = req.user?.vendorId || req.user?.vendor?._id || req.vendor?._id;
     if (!vendorId) return next(new AppError("Vendor identity not found in token", 403, "FORBIDDEN"));
     const { status, page, limit, startDate, endDate } = req.query;
     const result = await returnRequestService.getVendorReturns(vendorId, { status, page, limit, startDate, endDate });

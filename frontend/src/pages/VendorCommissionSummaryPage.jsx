@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { FinanceTabs } from "../components/finance/FinanceComponents";
 import { VendorDataTable, VendorMetricCard, VendorSection } from "../components/VendorPanel";
-import { getVendorCommissionSummary } from "../services/vendorDashboardService";
+import { getVendorCommissionSummary, getVendorWallet } from "../services/vendorDashboardService";
 import { formatCurrency } from "../utils/formatCurrency";
 
 const financeTabs = [
@@ -61,12 +61,19 @@ export function VendorCommissionSummaryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState({ overview: null, chargeColumns: [], orders: [] });
+  const [wallet, setWallet] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    getVendorCommissionSummary({ limit: 50 })
-      .then((res) => {
-        if (!cancelled) setData(res.data || { overview: null, chargeColumns: [], orders: [] });
+    Promise.all([
+      getVendorCommissionSummary({ limit: 50 }),
+      getVendorWallet()
+    ])
+      .then(([res, walletRes]) => {
+        if (!cancelled) {
+          setData(res.data || { overview: null, chargeColumns: [], orders: [] });
+          setWallet(walletRes.data?.wallet || null);
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(normalizeError(err));
@@ -100,10 +107,27 @@ export function VendorCommissionSummaryPage() {
         <VendorMetricCard label="Remaining Amount" value={formatCurrency(overview.totalRemaining)} />
         <VendorMetricCard label="Commission to Admin" value={formatCurrency(overview.totalCommission)} />
         <VendorMetricCard label="Vendor Net" value={formatCurrency(overview.totalVendorNet)} />
+        <VendorMetricCard 
+          label="Total Refunds" 
+          value={formatCurrency(
+            (data.orders || []).reduce((sum, order) => {
+              if (order.refundSummary?.status === 'REFUNDED' || order.paymentStatus === 'REFUNDED') {
+                return sum + (order.settlement?.vendorNet || 0);
+              }
+              return sum;
+            }, 0)
+          )} 
+          hint="Total vendor net amount deducted due to order refunds" 
+        />
         <VendorMetricCard label="Orders" value={overview.orders || 0} />
       </div>
       <VendorSection title="Order-wise Settlement" description="Shipping charges are shown as one order-level fee. Other charges remain based on the immutable order snapshot.">
         <VendorDataTable
+          rowClassName={(row) => {
+            if (row.status === 'Refunded') return 'bg-yellow-50 hover:bg-yellow-100/80 transition-colors';
+            if (row.isSettled) return 'bg-[#ecfdf5] hover:bg-[#d1fae5] transition-colors';
+            return '';
+          }}
           rows={(data.orders || []).map((order) => {
             const chargeCells = Object.fromEntries(
               settlementColumns.map((column) => {
@@ -121,7 +145,8 @@ export function VendorCommissionSummaryPage() {
               remaining: formatCurrency(order.settlement?.remainingAmount),
               commission: formatCurrency(order.settlement?.commissionToAdmin),
               vendorNet: formatCurrency(order.settlement?.vendorNet),
-              status: order.status,
+              status: order.refundSummary?.status === 'REFUNDED' || order.paymentStatus === 'REFUNDED' ? 'Refunded' : (order.status === 'DELIVERED' ? 'Delivered' : order.status),
+              isSettled: order.vendorWalletReleasedAt != null || order.settlementStatus === 'Settled',
             };
           })}
           columns={[

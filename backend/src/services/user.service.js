@@ -21,7 +21,7 @@ const { AuditLog } = require("../models/AuditLog");
 const productAnalyticsService = require("./product-analytics.service");
 const cancellationPolicyService = require("./cancellation-policy.service");
 const notificationService = require("./notification.service");
-
+const pricingBreakdownEngine = require("./pricing-breakdown-engine.service");
 function getOrderStage(order) {
   const normalized = String(order.status || "").trim().toUpperCase().replace(/\s+/g, "_");
   if (normalized === "PENDING" || normalized === "PLACED") return "PLACED";
@@ -462,18 +462,20 @@ class UserService {
     }
 
     const enrichedOrder = await orderLifecycleService.attachReturnEligibility(order);
+    const finalOrderWithPricing = pricingBreakdownEngine.attachToOrder(enrichedOrder);
 
     return {
-      ...buildOrderSummary(enrichedOrder, {
+      ...buildOrderSummary(finalOrderWithPricing, {
         user,
-        seller: enrichedOrder.sellerId,
-        paymentRecord: enrichedOrder.paymentRecordId,
+        seller: finalOrderWithPricing.sellerId,
+        paymentRecord: finalOrderWithPricing.paymentRecordId,
       }),
-      sellerId: enrichedOrder.sellerId,
-      totalAmount: enrichedOrder.totalAmount,
+      unifiedPricingBreakdown: finalOrderWithPricing.unifiedPricingBreakdown,
+      sellerId: finalOrderWithPricing.sellerId,
+      totalAmount: finalOrderWithPricing.totalAmount,
       cancellationEligible,
-      returnEligible: enrichedOrder.returnEligible,
-      returnEligibilityMessage: enrichedOrder.returnEligibilityMessage,
+      returnEligible: finalOrderWithPricing.returnEligible,
+      returnEligibilityMessage: finalOrderWithPricing.returnEligibilityMessage,
     };
   }
 

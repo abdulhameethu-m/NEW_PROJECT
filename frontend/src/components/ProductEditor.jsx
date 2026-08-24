@@ -556,7 +556,6 @@ export function ProductEditor({
             },
           }
         : {}),
-      returnPolicy: formData.returnPolicy,
       metaDescription: formData.metaDescription,
       metaKeywords: formData.metaKeywords
         .split(",")
@@ -1105,10 +1104,7 @@ export function ProductEditor({
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Additional details</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Return policy</label>
-              <textarea name="returnPolicy" value={formData.returnPolicy} onChange={handleChange} rows={3} className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
-            </div>
+
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Meta description</label>
               <input name="metaDescription" value={formData.metaDescription} onChange={handleChange} maxLength={160} className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white" />

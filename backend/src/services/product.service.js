@@ -101,6 +101,7 @@ async function normalizeProductVariants({
   categoryId,
   subCategoryId,
   variants = [],
+  existingVariants = [],
   fallbackImages = [],
   productWeight,
 }) {
@@ -125,6 +126,7 @@ async function normalizeProductVariants({
   const normalized = [];
   const seenIds = new Set();
   const seenSkus = new Set();
+  const existingMap = new Map((existingVariants || []).map(v => [v.variantId || v.sku, v]));
 
   for (const rawVariant of variants) {
     const variantId = String(rawVariant.variantId || "").trim();
@@ -183,6 +185,7 @@ async function normalizeProductVariants({
       price,
       ...(discountPrice !== undefined ? { discountPrice } : {}),
       stock,
+      reservedStock: Number((existingMap.get(variantId) || existingMap.get(variantSku))?.reservedStock || 0),
       sku: variantSku,
       images: images.length ? images : fallbackImages,
       ...(normalizedWeight ? { weight: normalizedWeight } : {}),
@@ -232,6 +235,7 @@ async function prepareDynamicProductData({
   modulesData = {},
   attributes = {},
   variants = [],
+  existingVariants = [],
   images = [],
   genericImages = [],
   extraDetails = {},
@@ -264,6 +268,7 @@ async function prepareDynamicProductData({
     categoryId,
     subCategoryId,
     variants,
+    existingVariants,
     fallbackImages: normalizedImages,
     productWeight,
   });
@@ -623,6 +628,7 @@ class ProductService {
             modulesData: hasModulesDataUpdate ? updateData.modulesData || {} : product.modulesData || {},
             attributes: hasAttributeUpdate ? updateData.attributes || {} : product.attributes || {},
             variants: hasVariantUpdate ? updateData.variants || [] : product.variants || [],
+            existingVariants: product.variants || [],
             images: updateData.images !== undefined ? updateData.images || [] : product.images || [],
             genericImages:
               updateData.genericImages !== undefined

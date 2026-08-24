@@ -50,7 +50,7 @@ export function UserDashboardPage() {
   const recommendedProducts = dashboard?.recommendedProducts || dashboard?.recommendations || [];
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl gap-4 pb-3">
+    <div className="mx-auto grid grid-cols-1 w-full max-w-6xl gap-4 px-4 pb-4 sm:px-6 sm:pb-6 lg:px-8">
       <DashboardGreeting user={dashboard?.user} recentOrder={recentOrders[0]} />
 
       {error ? (
@@ -63,9 +63,9 @@ export function UserDashboardPage() {
       <QuickActions />
       <AccountSummary stats={stats} />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(22rem,0.75fr)]">
+      <div className="grid grid-cols-1 gap-4 w-full min-w-0 xl:grid-cols-[minmax(0,1.25fr)_minmax(22rem,0.75fr)]">
         <RecentOrders orders={recentOrders} />
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-4 min-w-0 overflow-hidden">
           <ProductRail title="Recently viewed" products={recentlyViewed} emptyTitle="No recently viewed products" />
           <ProductRail title="Recommended for you" products={recommendedProducts} emptyTitle="Recommended products will appear here" />
         </div>

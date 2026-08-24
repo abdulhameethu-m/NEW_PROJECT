@@ -609,10 +609,12 @@ class ProductRepository {
       : null;
     if (variant) {
       variant.stock = Math.max(0, Number(variant.stock || 0) - quantity);
+      product.markModified("variants");
     }
     product.stock = Math.max(0, Number(product.stock || 0) - quantity);
     product.analytics.salesCount = Number(product.analytics?.salesCount || 0) + quantity;
     product.analytics.totalRevenue = Number(product.analytics?.totalRevenue || 0) + amount;
+    product.markModified("analytics");
     await product.save();
     return product;
   }
@@ -639,10 +641,12 @@ class ProductRepository {
       : null;
     if (variant) {
       variant.stock = Number(variant.stock || 0) + quantity;
+      product.markModified("variants");
     }
     product.stock = Number(product.stock || 0) + quantity;
     product.analytics.salesCount = Math.max(0, Number(product.analytics?.salesCount || 0) - quantity);
     product.analytics.totalRevenue = Math.max(0, Number(product.analytics?.totalRevenue || 0) - amount);
+    product.markModified("analytics");
     await product.save();
     return product;
   }

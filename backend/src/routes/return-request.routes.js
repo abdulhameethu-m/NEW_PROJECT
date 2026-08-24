@@ -1,5 +1,6 @@
 const express = require("express");
 const { authRequired, requireRole } = require("../middleware/auth");
+const { requireApprovedVendor } = require("../middleware/vendorApproval");
 const { upload } = require("../middleware/upload");
 const ctrl = require("../controllers/return-request.controller");
 
@@ -63,14 +64,23 @@ adminRouter.post("/:id/resolve-dispute", authRequired, admin, ctrl.adminResolveD
 
 const vendorRouter = express.Router();
 
-vendorRouter.get("/", authRequired, vendor, ctrl.vendorGetReturns);
-vendorRouter.get("/:id", authRequired, vendor, ctrl.vendorGetReturn);
-vendorRouter.post("/:id/received", authRequired, vendor, ctrl.vendorMarkReceived);
-vendorRouter.post("/:id/accept", authRequired, vendor, ctrl.vendorAccept);
+const injectVendorId = (req, res, next) => {
+  if (req.user && req.vendor) {
+    req.user.vendorId = req.vendor._id;
+  }
+  next();
+};
+
+vendorRouter.get("/", authRequired, vendor, requireApprovedVendor, injectVendorId, ctrl.vendorGetReturns);
+vendorRouter.get("/:id", authRequired, vendor, requireApprovedVendor, injectVendorId, ctrl.vendorGetReturn);
+vendorRouter.post("/:id/received", authRequired, vendor, requireApprovedVendor, injectVendorId, ctrl.vendorMarkReceived);
+vendorRouter.post("/:id/accept", authRequired, vendor, requireApprovedVendor, injectVendorId, ctrl.vendorAccept);
 vendorRouter.post(
   "/:id/dispute",
   authRequired,
   vendor,
+  requireApprovedVendor,
+  injectVendorId,
   upload.array("evidence", 5),
   ctrl.vendorDispute
 );

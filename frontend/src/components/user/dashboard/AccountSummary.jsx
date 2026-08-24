@@ -18,7 +18,7 @@ export function AccountSummary({ stats = {} }) {
   ];
 
   return (
-    <section aria-labelledby="account-summary-title" className="grid gap-3">
+    <section aria-labelledby="account-summary-title" className="grid grid-cols-1 gap-3 w-full min-w-0">
       <div className="flex items-center justify-between">
         <h2 id="account-summary-title" className="text-[15px] font-black text-slate-950 dark:text-white">
           Account summary

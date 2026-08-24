@@ -17,7 +17,7 @@ export function InventoryDetailsPage() {
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [showThresholdModal, setShowThresholdModal] = useState(false);
   const [adjustmentForm, setAdjustmentForm] = useState({
-    quantityChange: 0,
+    quantityChange: "",
     reason: "",
     notes: "",
   });
@@ -73,12 +73,12 @@ export function InventoryDetailsPage() {
       await inventoryService.adjustStock(
         productId,
         selectedVariant.variantId,
-        adjustmentForm.quantityChange,
+        Number(adjustmentForm.quantityChange),
         adjustmentForm.reason,
         adjustmentForm.notes
       );
       setShowAdjustmentModal(false);
-      setAdjustmentForm({ quantityChange: 0, reason: "", notes: "" });
+      setAdjustmentForm({ quantityChange: "", reason: "", notes: "" });
       await loadInventory();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to adjust stock");
@@ -183,7 +183,7 @@ export function InventoryDetailsPage() {
       <div className="flex flex-wrap gap-3">
         <button
           onClick={() => {
-            setAdjustmentForm({ quantityChange: 0, reason: "", notes: "" });
+            setAdjustmentForm({ quantityChange: "", reason: "", notes: "" });
             setShowAdjustmentModal(true);
           }}
           className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 dark:bg-slate-100 dark:text-slate-950"
@@ -395,7 +395,7 @@ export function InventoryDetailsPage() {
                   onChange={(event) =>
                     setAdjustmentForm((current) => ({
                       ...current,
-                      quantityChange: Number(event.target.value || 0),
+                      quantityChange: event.target.value,
                     }))
                   }
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-white"

@@ -36,7 +36,7 @@ const innerElementType = forwardRef(({ style, ...rest }, ref) => (
   />
 ));
 
-export function VendorDataTable({ columns, rows, emptyMessage = "No records found." }) {
+export function VendorDataTable({ columns, rows, emptyMessage = "No records found.", rowClassName }) {
   if (!rows?.length) {
     return <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">{emptyMessage}</div>;
   }
@@ -55,7 +55,7 @@ export function VendorDataTable({ columns, rows, emptyMessage = "No records foun
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {rows.map((row) => (
-            <tr key={row.id} className="align-top">
+            <tr key={row.id} className={`align-top ${rowClassName ? rowClassName(row) : ''}`}>
               {columns.map((column) => (
                 <td key={column.key} className="px-3 py-3 text-slate-700 dark:text-slate-200">
                   {column.render ? column.render(row) : row[column.key]}

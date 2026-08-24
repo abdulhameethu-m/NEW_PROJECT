@@ -291,7 +291,7 @@ class ReturnRequestService {
     // Link to Order
     await Order.updateOne(
       { _id: orderId },
-      { $set: { returnId: returnRequest._id }, $push: { timeline: { status: "Return Requested", note: `Return request raised (${returnRequest._id})`, timestamp: new Date() } } }
+      { $set: { returnId: returnRequest._id, status: "Return Requested" }, $push: { timeline: { status: "Return Requested", note: `Return request raised (${returnRequest._id})`, timestamp: new Date() } } }
     ).catch(() => null);
 
     await auditService.log({
@@ -718,6 +718,7 @@ class ReturnRequestService {
       refundMethod: "",
       recommendedRefundMethod: "RAZORPAY",
       refundType: "RETURN",
+      returnId: doc._id,
       requestedByRole: actor?.role || "system",
       requestedById: actor?.sub || actor?._id || null,
       paymentMethod: "ONLINE",

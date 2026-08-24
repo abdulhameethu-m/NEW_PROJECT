@@ -9,7 +9,7 @@ export function RecentOrders({ orders = [] }) {
   const visibleOrders = orders.slice(0, 3);
 
   return (
-    <section aria-labelledby="recent-orders-title" className="grid gap-3">
+    <section aria-labelledby="recent-orders-title" className="grid grid-cols-1 gap-3">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 id="recent-orders-title" className="text-[15px] font-black text-slate-950 dark:text-white">
@@ -23,46 +23,51 @@ export function RecentOrders({ orders = [] }) {
       </div>
 
       {visibleOrders.length ? (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-1 gap-3 w-full min-w-0">
           {visibleOrders.map((order) => (
             <article
               key={order._id}
               className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
             >
-              <div className="flex gap-3">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                  <PackageOpen className="h-6 w-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h3 className="truncate text-sm font-black text-slate-950 dark:text-white">
-                        {order.orderNumber || "Order"}
-                      </h3>
-                      <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{formatDateTime(order.createdAt)}</p>
+              <div className="flex flex-col gap-3 w-full min-w-0">
+                <div className="flex gap-3 w-full min-w-0">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                    <PackageOpen className="h-6 w-6" />
+                  </div>
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <div className="flex items-start justify-between gap-2 w-full min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-sm font-black text-slate-950 dark:text-white">
+                          {order.orderNumber || "Order"}
+                        </h3>
+                        <p className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-slate-400">
+                          {formatDateTime(order.createdAt)}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-sm font-black text-slate-950 dark:text-white">
+                        {formatCurrency(order.totalAmount || 0)}
+                      </p>
                     </div>
-                    <p className="shrink-0 text-sm font-black text-slate-950 dark:text-white">
-                      {formatCurrency(order.totalAmount || 0)}
-                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <StatusBadge value={order.status} />
+                      <StatusBadge value={order.paymentStatus} />
+                    </div>
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <StatusBadge value={order.status} />
-                    <StatusBadge value={order.paymentStatus} />
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Link
-                      to={`/orders/${order._id}`}
-                      className="inline-flex h-8 items-center justify-center rounded-lg bg-indigo-600 px-4 text-[11px] font-bold text-white transition hover:bg-indigo-700 active:scale-95 dark:bg-indigo-500"
-                    >
-                      View details
-                    </Link>
-                    <Link
-                      to={`/orders/${order._id}`}
-                      className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 px-4 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 active:scale-95 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      Track order
-                    </Link>
-                  </div>
+                </div>
+                {/* Action Buttons Full Width */}
+                <div className="flex gap-2 w-full mt-1">
+                  <Link
+                    to={`/orders/${order._id}`}
+                    className="inline-flex h-9 flex-1 items-center justify-center rounded-xl bg-indigo-600 px-4 text-[12px] font-bold text-white transition hover:bg-indigo-700 active:scale-95 dark:bg-indigo-500 shadow-sm"
+                  >
+                    View details
+                  </Link>
+                  <Link
+                    to={`/orders/${order._id}`}
+                    className="inline-flex h-9 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-[12px] font-bold text-slate-700 transition hover:bg-slate-50 active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 shadow-sm"
+                  >
+                    Track order
+                  </Link>
                 </div>
               </div>
             </article>

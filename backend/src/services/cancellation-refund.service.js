@@ -301,6 +301,43 @@ function buildRefundPreview({ order, payment, policy }) {
 }
 
 class CancellationRefundService {
+  async _syncReturnRequestStatus(updatedRefund, order, session) {
+    if (updatedRefund.status === "PROCESSED" && updatedRefund.returnId) {
+      try {
+        await mongoose.model("ReturnRequest").updateOne(
+          { _id: updatedRefund.returnId },
+          {
+            $set: {
+              status: "REFUNDED",
+              refundedAt: new Date(),
+            },
+            $push: {
+              processTimeline: {
+                status: "REFUNDED",
+                note: `Refund successfully processed.`,
+                timestamp: new Date(),
+              },
+            },
+          },
+          { session: session || undefined }
+        );
+
+        // Reverse vendor wallet since the refund completes here
+        if (order && order.vendorWalletReleasedAt) {
+          const paymentService = require("./payment.service");
+          await paymentService.applyRefundWalletReversal(
+            order,
+            Number(updatedRefund.amount || 0),
+            String(updatedRefund._id),
+            { session }
+          );
+        }
+      } catch (err) {
+        console.error("Return sync error:", err);
+      }
+    }
+  }
+
   getRazorpayClient() {
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -840,6 +877,8 @@ class CancellationRefundService {
         },
       });
     }
+
+    await this._syncReturnRequestStatus(updatedRefund, order, session);
 
     return updatedRefund;
   }
@@ -1452,6 +1491,8 @@ class CancellationRefundService {
         },
       }
     );
+
+    await this._syncReturnRequestStatus(updated, order);
 
     await auditService.log({
       actor,

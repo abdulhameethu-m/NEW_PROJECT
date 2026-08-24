@@ -67,6 +67,7 @@ function deprecatedApiAlias(canonicalPath) {
 const router = Router();
 
 router.use("/auth", authRoutes);
+router.use("/vendor/returns", vendorReturnRouter);
 router.use("/vendor", vendorRoutes);
 router.use("/vendor-stores", vendorStorefrontRoutes);
 router.use("/vendor-store", deprecatedApiAlias("/api/vendor-stores"), vendorStorefrontRoutes);
@@ -120,7 +121,6 @@ router.use("/return-rules", returnRuleRoutes);
 // Return Request Routes (Customer → Admin → Vendor)
 router.use("/returns", customerReturnRouter);
 router.use("/admin/returns", adminReturnRouter);
-router.use("/vendor/returns", vendorReturnRouter);
 
 // Influencer Commerce Routes
 router.use("/influencer", authOptional, influencerCommerceGate, influencerRoutes);

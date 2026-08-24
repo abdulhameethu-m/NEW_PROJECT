@@ -8,7 +8,15 @@ const ledgerService = require("../services/ledger.service");
 const getWallet = asyncHandler(async (req, res) => {
   const wallet = await walletService.getWalletForVendorUser(req.user.sub);
   const consistency = await walletService.assertLedgerConsistency(wallet.vendorId);
-  return ok(res, { wallet, consistency }, "Vendor wallet retrieved");
+  const mongoose = require("mongoose");
+  const { Ledger } = require("../models/Ledger");
+  const refundAgg = await Ledger.aggregate([
+    { $match: { vendorId: new mongoose.Types.ObjectId(String(wallet.vendorId)), type: "DEBIT", source: { $in: ["REFUND", "REFUND_REVERSAL", "ORDER"] } } },
+    { $group: { _id: null, totalRefunded: { $sum: "$amount" } } }
+  ]);
+  const totalRefunded = refundAgg.length ? refundAgg[0].totalRefunded : 0;
+  
+  return ok(res, { wallet: { ...wallet.toJSON(), totalRefunded }, consistency }, "Vendor wallet retrieved");
 });
 
 const getLedger = asyncHandler(async (req, res) => {

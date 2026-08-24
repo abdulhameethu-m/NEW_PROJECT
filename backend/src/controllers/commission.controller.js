@@ -42,7 +42,7 @@ const getVendorSummary = asyncHandler(async (req, res) => {
     Order.find({ sellerId: vendor._id })
       .sort({ createdAt: -1 })
       .limit(Math.min(Math.max(Number(req.query.limit) || 50, 1), 200))
-      .select("orderNumber subtotal totalAmount vendorEarning platformCommissionAmount status paymentStatus createdAt items settlementSnapshot")
+      .select("orderNumber subtotal totalAmount vendorEarning platformCommissionAmount status paymentStatus refundSummary createdAt items settlementSnapshot vendorWalletReleasedAt settlementStatus")
       .lean(),
     PricingRule.find({ isActive: true, isArchived: { $ne: true } })
       .sort({ sortOrder: 1, displayName: 1 })
@@ -109,13 +109,14 @@ const getVendorSummary = asyncHandler(async (req, res) => {
 
   const totals = settlementOrders.reduce(
     (sum, order) => {
+      const isRefunded = order.refundSummary?.status === "REFUNDED" || order.paymentStatus === "REFUNDED";
       const settlement = order.settlement;
-      sum.totalGross += settlement.grossOrderAmount;
-      sum.totalRemaining += settlement.remainingAmount;
-      sum.totalCommission += settlement.commissionToAdmin;
-      sum.totalVendorNet += settlement.vendorNet;
+      sum.totalGross += isRefunded ? 0 : settlement.grossOrderAmount;
+      sum.totalRemaining += isRefunded ? 0 : settlement.remainingAmount;
+      sum.totalCommission += isRefunded ? 0 : settlement.commissionToAdmin;
+      sum.totalVendorNet += isRefunded ? 0 : settlement.vendorNet;
       Object.entries(settlement.charges).forEach(([key, amount]) => {
-        sum.chargeTotals[key] = Number(sum.chargeTotals[key] || 0) + Number(amount || 0);
+        sum.chargeTotals[key] = Number(sum.chargeTotals[key] || 0) + (isRefunded ? 0 : Number(amount || 0));
       });
       return sum;
     },

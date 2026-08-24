@@ -110,7 +110,7 @@ function RefundProcessModal({ refund, loading, onClose, onSubmit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-      <div className="w-full max-w-xl rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-2xl [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Finance Processing</div>
@@ -380,7 +380,7 @@ export function AdminRefundsPage() {
                         {customerPaidFee ? (
                           <span className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">Fee paid</span>
                         ) : (
-                          <StatusBadge value={refund.status} />
+                          <StatusBadge value={refund.status === 'PROCESSED' ? 'REFUNDED' : refund.status} />
                         )}
                       </td>
                       <td className="px-4 py-3 text-slate-600">{customerPaidFee ? "Paid by customer" : refund.refundMethod || refund.recommendedRefundMethod || "Finance Pending"}</td>

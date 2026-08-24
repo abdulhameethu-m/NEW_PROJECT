@@ -186,7 +186,7 @@ export function AdminVendorFinancePage() {
               <StatusBadge value={accountStatus.label} />
             </div>
             <div>Bank Name: <span className="font-semibold text-slate-950">{account?.bankName || "Not added"}</span></div>
-            <div>Account Number: <span className="font-semibold text-slate-950">{maskAccountNumber(account?.accountNumber)}</span></div>
+            <div>Account Number: <span className="font-semibold text-slate-950">{account?.accountNumber || "Not added"}</span></div>
             <div>IFSC: <span className="font-semibold text-slate-950">{account?.ifscCode || "Not added"}</span></div>
             <div>UPI ID: <span className="font-semibold text-slate-950">{account?.upiId || "Not added"}</span></div>
           </div>

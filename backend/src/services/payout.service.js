@@ -200,7 +200,16 @@ class PayoutService {
       }
     }
 
-    const scheduledFor = addDays(order.deliveredAt || new Date(), PAYOUT_DELAY_DAYS);
+    let delayDays = PAYOUT_DELAY_DAYS;
+    let scheduledFor = addDays(order.deliveredAt || new Date(), delayDays);
+    
+    if (order.paymentMethod === "COD") {
+      const codService = require("./cod.service");
+      const config = await codService.getConfig();
+      delayDays = Number(config.vendorHoldDays || 0);
+      scheduledFor = new Date((order.deliveredAt || new Date()).getTime() + delayDays * 24 * 60 * 60 * 1000);
+    }
+
     const payouts = await payoutRepo.findByOrderId(orderId);
     const updated = [];
     for (const payout of payouts) {
@@ -209,7 +218,7 @@ class PayoutService {
           $set: {
             status: "PENDING",
             scheduledFor,
-            notes: `Eligible for payout after ${PAYOUT_DELAY_DAYS} day settlement window.`,
+            notes: `Eligible for payout after ${delayDays} day${delayDays === 1 ? '' : 's'} settlement window.`,
           },
         })
       );
