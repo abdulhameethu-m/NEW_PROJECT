@@ -575,6 +575,7 @@ export function ProductsPage() {
                 onPriceChange={onPriceChange}
                 onSortChange={onSortChange}
                 onFilterChange={onFilterChange}
+                onClose={() => setIsDesktopFilterOpen(false)}
               />
             </div>
           )}
@@ -649,6 +650,7 @@ function FilterSidebar({
   onPriceChange,
   onSortChange,
   onFilterChange,
+  onClose,
 }) {
   const [localSearch, setLocalSearch] = useState(search);
   const groupedFilterDefs = useMemo(() => {
@@ -671,13 +673,17 @@ function FilterSidebar({
       {/* Wave Graphic at bottom */}
       <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32 opacity-50 dark:opacity-20" style={{ background: "url('data:image/svg+xml;utf8,<svg viewBox=\"0 0 1440 320\" xmlns=\"http://www.w3.org/2000/svg\"><path fill=\"%23BFDBFE\" fill-opacity=\"1\" d=\"M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,224C672,245,768,267,864,261.3C960,256,1056,224,1152,197.3C1248,171,1344,149,1392,138.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z\"></path></svg>') no-repeat bottom", backgroundSize: 'cover' }}></div>
 
-      <div className="relative z-10 flex items-center justify-between">
+      <button 
+        type="button" 
+        onClick={onClose}
+        className="relative z-10 flex w-full items-center justify-between cursor-pointer rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 p-1 -m-1 transition-colors"
+      >
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="h-5 w-5 text-blue-600" />
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Filters</h2>
         </div>
         <ChevronUp className="h-5 w-5 text-slate-900 dark:text-slate-100" />
-      </div>
+      </button>
 
       <form
         onSubmit={(event) => {

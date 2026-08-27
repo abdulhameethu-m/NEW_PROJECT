@@ -100,7 +100,7 @@ export function VendorPickupQueuePage() {
     <div className="grid gap-4">
       <div className="grid gap-4 md:grid-cols-3">
         <VendorMetricCard label="Ready Shipments" value={summary.readyCount || 0} hint="Shipments created and waiting for pickup batching." />
-        <VendorMetricCard label="Selected" value={selectedShipmentIds.length} hint="These will be sent in one Shiprocket pickup request." />
+        <VendorMetricCard label="Selected" value={selectedShipmentIds.length} hint="These will be sent in one batch pickup request to the platform logistics provider." />
         <VendorMetricCard
           label="Recommendation"
           value={summary.readyCount >= (summary.recommendedThreshold || 10) ? "Batch now" : "Optional"}

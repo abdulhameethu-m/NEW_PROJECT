@@ -145,6 +145,35 @@ function buildShiprocketPayload(platformRequest, vendor) {
   };
 }
 
+function buildShadowfaxPayload(platformRequest, vendor) {
+  const { orderDetails, deliveryAddress, pickupAddress } = platformRequest;
+  const totalWeight = (orderDetails.items || []).reduce(
+    (sum, item) => sum + Number(item.weight || 0) * Number(item.units || 0),
+    0
+  );
+  return {
+    client_order_id: String(orderDetails.orderId),
+    name: deliveryAddress.fullName,
+    address_line_1: deliveryAddress.line1,
+    address_line_2: deliveryAddress.line2 || "",
+    city: deliveryAddress.city,
+    state: deliveryAddress.state,
+    pincode: deliveryAddress.postalCode,
+    contact_number: deliveryAddress.phone,
+    payment_mode: orderDetails.paymentMethod === "COD" ? "COD" : "Prepaid",
+    order_value: orderDetails.subtotal,
+    order_date: new Date(orderDetails.orderDate).toISOString(),
+    pickup_address: {
+      name: vendor?.shopName || pickupAddress.name,
+      address_line_1: pickupAddress.addressLine1,
+      city: pickupAddress.city,
+      pincode: pickupAddress.pincode,
+      contact_number: pickupAddress.phone
+    },
+    weight: totalWeight > 0 ? Number(totalWeight.toFixed(3)) : 1
+  };
+}
+
 class DeliveryService {
   async createShipment(order, vendor) {
     let resolvedOrder = order;
@@ -156,9 +185,16 @@ class DeliveryService {
     }
     if (!resolvedOrder) throw new AppError("Order not found", 404, "NOT_FOUND");
     const platformRequest = await buildPlatformShipmentRequest(resolvedOrder, resolvedVendor);
+    
+    // Choose correct payload builder based on `.env` configuration
+    const isShadowfax = logisticsService.providerName === "SHADOWFAX";
+    const providerPayload = isShadowfax 
+      ? buildShadowfaxPayload(platformRequest, resolvedVendor) 
+      : buildShiprocketPayload(platformRequest, resolvedVendor);
+
     const shipment = await logisticsService.createPlatformShipment({
       ...platformRequest,
-      providerPayload: buildShiprocketPayload(platformRequest, resolvedVendor),
+      providerPayload,
     });
     return {
       ...shipment,

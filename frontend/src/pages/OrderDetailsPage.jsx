@@ -341,9 +341,9 @@ export function OrderDetailsPage() {
       <section className="print-order-sheet overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 print:rounded-none print:border-0 print:shadow-none">
         <div className="bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_38%),linear-gradient(135deg,#1e1b4b,#312e81)] px-6 py-6 text-white sm:px-8 print:bg-none print:px-0 print:text-slate-950">
           <div className="flex flex-col md:flex-row items-start justify-between gap-4 w-full min-w-0">
-            <div className="min-w-0 flex-1 w-full">
-              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300 print:text-slate-500">Order Summary</div>
-              <h1 className="print-title mt-2 text-2xl font-semibold tracking-tight sm:text-3xl break-all min-w-0">{order.orderNumber}</h1>
+            <div className="min-w-0 flex-1 w-full md:min-w-[300px]">
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300 print:text-slate-500 md:whitespace-nowrap">Order Summary</div>
+              <h1 className="print-title mt-2 text-2xl font-semibold tracking-tight sm:text-3xl break-all md:break-normal min-w-0">{order.orderNumber}</h1>
               <div className="print-meta mt-3 flex flex-wrap gap-4 text-sm text-slate-200 print:text-slate-600 w-full min-w-0">
                 <span className="truncate">Invoice: {order.invoiceNumber}</span>
                 <span className="truncate">Placed: {formatDateTime(order.orderDate || order.createdAt)}</span>
@@ -351,8 +351,8 @@ export function OrderDetailsPage() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2 print:hidden w-full md:w-auto shrink-0 mt-4 md:mt-0">
-              <div className="flex gap-2 w-full sm:w-auto mb-1 sm:mb-0">
+            <div className="flex flex-col sm:flex-row flex-wrap items-center md:justify-end gap-2 print:hidden w-full md:w-full lg:w-auto shrink mt-4 md:mt-0">
+              <div className="flex gap-2 w-full md:w-auto mb-1 sm:mb-0">
                 <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-600 ring-1 ring-inset ring-indigo-500/10 dark:bg-indigo-400/10 dark:text-indigo-400 dark:ring-indigo-400/20">{order.status}</span>
                 <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600 ring-1 ring-inset ring-emerald-600/10 dark:bg-emerald-400/10 dark:text-emerald-400 dark:ring-emerald-400/20">{order.paymentStatus}</span>
               </div>

@@ -182,9 +182,9 @@ export function UserMenu() {
       <button
         ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 rounded-lg border px-2.5 py-1 transition-all sm:px-3 ${
+        className={`flex h-11 items-center gap-2 rounded-full border px-3 transition-all sm:px-4 ${
           isOpen
-            ? "border-blue-300 bg-blue-50 shadow-md"
+            ? "border-blue-300 bg-blue-50 shadow-sm"
             : "border-slate-200 bg-white hover:bg-slate-50"
         }`}
         aria-label="Open user menu"

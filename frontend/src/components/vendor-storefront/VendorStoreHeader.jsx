@@ -124,151 +124,18 @@ export function VendorStoreHeader({ vendor, isFollowing, onFollowChange }) {
   }
 
   const navClass = ({ isActive }) =>
-    `shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition sm:px-4 ${
+    `shrink-0 whitespace-nowrap pb-4 text-[15px] transition-colors border-b-2 ${
       isActive
-        ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
-        : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+        ? "border-indigo-600 text-[#2B2358] font-bold dark:border-indigo-400 dark:text-indigo-100"
+        : "border-transparent text-slate-600 hover:text-indigo-600 hover:border-slate-300 font-semibold dark:text-slate-300 dark:hover:text-white"
     }`;
-  const mobileNavClass = ({ isActive }) =>
-    `shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-xs font-bold transition ${
-      isActive
-        ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
-        : "bg-white text-slate-600 ring-1 ring-slate-200 hover:text-slate-950 dark:bg-slate-950 dark:text-slate-300 dark:ring-slate-800 dark:hover:text-white"
-    }`;
+
   const storeLocation = getStoreLocation(vendor);
 
   return (
-    <header className="max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950 max-sm:rounded-xl">
-      <div className="md:hidden">
-        <div className="relative h-[160px] overflow-hidden bg-slate-100 dark:bg-slate-900">
-          {banner ? (
-            <img loading="lazy" decoding="async" src={banner} alt={`${vendor.vendorName} banner`} className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#f8fafc,#e5e7eb_52%,#f1f5f9)] dark:bg-[linear-gradient(135deg,#0f172a,#1e293b_52%,#111827)]">
-              <Image className="h-10 w-10 text-slate-300 dark:text-slate-700" strokeWidth={1.25} />
-            </div>
-          )}
-          {vendor.verified ? (
-            <div className="absolute right-3 top-3 z-30 inline-flex items-center gap-1 rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white shadow-sm ring-1 ring-white/80">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Verified
-            </div>
-          ) : null}
-        </div>
-
-        <div className="px-3 pb-3">
-          <div className="-mt-[60px] flex flex-col items-start gap-4">
-            <div className="h-[120px] w-[120px] ml-3 shrink-0 flex items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white shadow-md ring-1 ring-slate-200 dark:border-slate-950 dark:bg-slate-900 dark:ring-slate-800 z-20">
-              {logo ? (
-                <img loading="lazy" decoding="async" src={logo} alt={`${vendor.vendorName} logo`} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  <span className="text-lg font-semibold tracking-wide">{vendor.vendorName?.slice(0, 3) || "GRM"}</span>
-                </div>
-              )}
-            </div>
-            <div className="w-full relative z-30 pl-3 pt-3">
-              <div className="flex min-w-0 flex-col gap-3">
-                <h1 className="truncate text-2xl font-semibold leading-tight text-slate-950 dark:text-white">{vendor.vendorName}</h1>
-                <p className="text-sm font-medium leading-6 text-slate-900 dark:text-slate-300">
-                  {vendor.storeDescription || "Premium Fashion & Textile Marketplace"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {storeLocation ? (
-            <p className="mt-2 truncate text-xs font-medium text-slate-500 dark:text-slate-400">{storeLocation}</p>
-          ) : null}
-
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <StoreMetric
-              label={`${formatCount(vendor.totalReviews)} Reviews`}
-              value={Number(vendor.rating || 0).toFixed(1)}
-              icon={<Star className="h-4 w-4 fill-amber-400 text-amber-400" />}
-            />
-            <StoreMetric label="Followers" value={formatCount(vendor.followersCount, true)} />
-            <StoreMetric label="Products" value={formatCount(vendor.productsCount)} />
-            <StoreMetric label="Trust" value={vendor.verified ? "Verified" : "New"} />
-          </div>
-
-          <div className="mt-3 flex max-h-[72px] flex-wrap gap-1.5 overflow-hidden">
-            {vendor.verified ? <StoreChip icon={<ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />}>Verified Store</StoreChip> : null}
-            <StoreChip icon={<RotateCcw className="h-3.5 w-3.5" />}>Easy Returns</StoreChip>
-            <StoreChip icon={<Truck className="h-3.5 w-3.5" />}>On-time Delivery</StoreChip>
-            <StoreChip icon={<LockKeyhole className="h-3.5 w-3.5" />}>Secure Payments</StoreChip>
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {isOwnStore ? (
-              <Link
-                to="/vendor/settings"
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white dark:bg-white dark:text-slate-950"
-              >
-                <Edit3 className="h-4 w-4" />
-                Edit
-              </Link>
-            ) : user?.role === "vendor" ? (
-              <span />
-            ) : (
-              <button
-                type="button"
-                onClick={toggleFollow}
-                disabled={busy}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white disabled:opacity-60 dark:bg-white dark:text-slate-950"
-              >
-                {isFollowing ? "Following" : "Follow Store"}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={shareStore}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-            >
-              <Share2 className="h-4 w-4" />
-              Share
-            </button>
-          </div>
-
-          {dynamicInfo.length || vendor.storeCategories?.length ? (
-            <details className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
-              <summary className="cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-200">Store information</summary>
-              <div className="mt-2 grid gap-2">
-                {dynamicInfo.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={`${item.label}-${item.value}`} className="flex min-w-0 items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                      <Icon className="h-3.5 w-3.5 shrink-0" />
-                      <span className="shrink-0 font-semibold">{item.label}:</span>
-                      <span className="truncate">{item.value}</span>
-                    </div>
-                  );
-                })}
-                {vendor.storeCategories?.length ? (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {vendor.storeCategories.map((category) => (
-                      <span key={category} className="rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-950 dark:text-slate-300 dark:ring-slate-800">
-                        {category}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </details>
-          ) : null}
-        </div>
-
-        <nav className="sticky top-0 z-20 flex max-w-full gap-2 overflow-x-auto border-t border-slate-100 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-950">
-          <NavLink to={`/vendor/${vendor.storeSlug}`} end className={mobileNavClass}>Store</NavLink>
-          <NavLink to={`/vendor/${vendor.storeSlug}/products`} className={mobileNavClass}>Products</NavLink>
-          <NavLink to={`/vendor/${vendor.storeSlug}/reviews`} className={mobileNavClass}>Reviews</NavLink>
-          <NavLink to={`/vendor/${vendor.storeSlug}/followers`} className={mobileNavClass}>Followers</NavLink>
-          <a href="#about-store" className="shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-2 text-xs font-bold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-950 dark:text-slate-300 dark:ring-slate-800">About</a>
-        </nav>
-      </div>
-
-      <div className="hidden md:block">
-      <div className="relative h-44 overflow-hidden bg-slate-100 lg:h-52 dark:bg-slate-900">
+    <div className="relative w-full max-w-full">
+      {/* Banner */}
+      <div className="relative z-10 h-48 w-full shrink-0 overflow-hidden rounded-t-[2rem] border border-b-0 border-slate-200 bg-indigo-50/50 dark:border-slate-800 dark:bg-slate-900 sm:h-64 md:h-[300px]">
         {banner ? (
           <img loading="lazy" decoding="async" src={banner} alt={`${vendor.vendorName} banner`} className="h-full w-full object-cover" />
         ) : (
@@ -278,136 +145,126 @@ export function VendorStoreHeader({ vendor, isFollowing, onFollowChange }) {
         )}
       </div>
 
-      <div className="px-4 pb-4 sm:px-6 sm:pb-5">
-        <div className="flex flex-col gap-4 pt-0 sm:pt-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex min-w-0 flex-col items-center gap-3 text-center sm:flex-row sm:items-start sm:gap-4 sm:text-left">
-            <div className="-mt-10 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-4 border-white bg-white text-center shadow-sm ring-1 ring-slate-200 dark:border-slate-950 dark:bg-slate-900 dark:ring-slate-800 sm:mt-0 sm:h-28 sm:w-28 sm:rounded-lg">
-              {logo ? (
-                <img loading="lazy" decoding="async" src={logo} alt={`${vendor.vendorName} logo`} className="h-full w-full object-contain p-2" />
-              ) : (
-                <div className="grid gap-1 text-slate-700 dark:text-slate-200">
-                  <span className="text-xl font-semibold tracking-wide">{vendor.vendorName?.slice(0, 3) || "GRM"}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.32em] text-slate-400">Store</span>
-                </div>
-              )}
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                <h1 className="min-w-0 text-2xl font-bold leading-tight text-slate-950 dark:text-white sm:text-3xl">{vendor.vendorName}</h1>
-                {vendor.verified ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-950 dark:text-emerald-200 dark:ring-emerald-900">
-                    <ShieldCheck className="h-3.5 w-3.5" /> Verified Store
-                  </span>
-                ) : null}
+      {/* Main Content Card overlapping the banner */}
+      <header className="relative z-20 mx-0 rounded-t-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:-mt-20 sm:mx-6 sm:rounded-b-[2rem] sm:p-7 md:-mt-24 md:mx-4">
+        <div className="flex flex-col gap-6 md:flex-row md:gap-8">
+          {/* Logo Section */}
+          <div className="relative z-30 -mt-12 flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white text-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-4 ring-white dark:border-slate-800 dark:bg-slate-900 dark:ring-slate-950 sm:mt-0 sm:h-32 sm:w-32">
+            {logo ? (
+              <img loading="lazy" decoding="async" src={logo} alt={`${vendor.vendorName} logo`} className="h-full w-full object-contain p-3" />
+            ) : (
+              <div className="grid gap-1 text-slate-700 dark:text-slate-200">
+                <span className="text-xl font-bold tracking-tight sm:text-2xl">{vendor.vendorName?.slice(0, 3) || "GRM"}</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Store</span>
               </div>
-              <p className="mt-1 text-sm font-medium text-slate-600 dark:text-slate-300">
-                {vendor.storeDescription || "Premium Fashion & Textile Marketplace"}
-              </p>
-              <div className="mt-4 grid grid-cols-3 gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300 sm:flex sm:flex-wrap sm:items-center sm:gap-y-2">
-                <span className="inline-flex min-w-0 flex-col items-center gap-1 rounded-xl bg-slate-50 px-2 py-2 sm:flex-row sm:rounded-none sm:bg-transparent sm:py-0 sm:pr-4 dark:bg-slate-900 sm:dark:bg-transparent">
-                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  <span>{Number(vendor.rating || 0).toFixed(1)}</span>
-                  <span className="truncate text-xs font-medium sm:text-sm">({formatCount(vendor.totalReviews)} Reviews)</span>
-                </span>
-                <span className="rounded-xl bg-slate-50 px-2 py-2 text-center sm:border-l sm:border-slate-200 sm:bg-transparent sm:px-4 sm:py-0 dark:bg-slate-900 sm:dark:border-slate-800 sm:dark:bg-transparent">{formatCount(vendor.followersCount, true)}<span className="block text-xs font-medium sm:inline sm:text-sm"> Followers</span></span>
-                <span className="rounded-xl bg-slate-50 px-2 py-2 text-center sm:border-l sm:border-slate-200 sm:bg-transparent sm:px-4 sm:py-0 dark:bg-slate-900 sm:dark:border-slate-800 sm:dark:bg-transparent">{formatCount(vendor.productsCount)}<span className="block text-xs font-medium sm:inline sm:text-sm"> Products</span></span>
-              </div>
-
-              <div className="mt-4 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-                <span className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                  <RotateCcw className="h-4 w-4" /> Easy Returns
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                  <Truck className="h-4 w-4" /> On-time Delivery
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                  <LockKeyhole className="h-4 w-4" /> Secure Payments
-                </span>
-              </div>
-            </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-start sm:gap-3 lg:justify-end lg:pt-3">
-            {isOwnStore ? (
-              <Link
-                to="/vendor/settings"
-                className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200 sm:col-span-1 sm:min-w-32"
-                title="Edit this store profile"
-              >
-                <Edit3 className="h-4 w-4" />
-                Edit Profile
-              </Link>
-            ) : user?.role === "vendor" ? null : (
+          {/* Info Section */}
+          <div className="flex min-w-0 flex-1 flex-col justify-between gap-6 md:flex-row md:items-start">
+            <div className="min-w-0 flex-1">
+              {/* Title & Badges */}
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-3xl">{vendor.vendorName}</h1>
+                {vendor.verified && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:ring-emerald-900">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Verified Store
+                  </span>
+                )}
+              </div>
+              {/* Description */}
+              <p className="mt-2 text-[15px] font-medium leading-snug text-slate-600 dark:text-slate-300">
+                {vendor.storeDescription || "Premium Fashion & Textile Marketplace"}
+              </p>
+              {/* Metrics */}
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] font-semibold text-slate-600 dark:text-slate-400">
+                <div className="flex items-center gap-1.5">
+                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                  <span className="text-slate-900 dark:text-white">{Number(vendor.rating || 0).toFixed(1)}</span>
+                  <span className="text-slate-500">({formatCount(vendor.totalReviews)} Reviews)</span>
+                </div>
+                <div className="hidden h-4 w-[1px] bg-slate-300 dark:bg-slate-700 sm:block"></div>
+                <div>
+                  <span className="text-slate-900 dark:text-white">{formatCount(vendor.followersCount, true)}</span> <span className="text-slate-500">Followers</span>
+                </div>
+                <div className="hidden h-4 w-[1px] bg-slate-300 dark:bg-slate-700 sm:block"></div>
+                <div>
+                  <span className="text-slate-900 dark:text-white">{formatCount(vendor.productsCount)}</span> <span className="text-slate-500">Products</span>
+                </div>
+              </div>
+
+              {/* Features Chips */}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <StoreChip icon={<RotateCcw className="h-3.5 w-3.5" />}>Easy Returns</StoreChip>
+                <StoreChip icon={<Truck className="h-3.5 w-3.5" />}>On-time Delivery</StoreChip>
+                <StoreChip icon={<LockKeyhole className="h-3.5 w-3.5" />}>Secure Payments</StoreChip>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
+              {isOwnStore ? (
+                <Link to="/vendor/settings" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-950 px-5 text-[14px] font-semibold text-white shadow-sm transition hover:bg-indigo-900 dark:bg-indigo-600 dark:hover:bg-indigo-500">
+                  <Edit3 className="h-4 w-4" /> Edit Profile
+                </Link>
+              ) : user?.role === "vendor" ? null : (
+                <button
+                  type="button"
+                  onClick={toggleFollow}
+                  disabled={busy}
+                  className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-[14px] font-semibold shadow-sm transition disabled:opacity-60 ${
+                    isFollowing ? "bg-indigo-950 text-white hover:bg-rose-600" : "bg-[#0B092A] text-white hover:bg-slate-900"
+                  }`}
+                >
+                  {isFollowing ? (
+                    <><span className="flex group-hover:hidden items-center gap-2">Following <Check className="h-4 w-4" /></span><span className="hidden group-hover:inline">Unfollow</span></>
+                  ) : "Follow Store"}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={toggleFollow}
-                disabled={busy}
-                className={`group col-span-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-bold text-white shadow-sm transition disabled:opacity-60 sm:min-w-32 ${
-                  isFollowing ? "bg-slate-950 hover:bg-rose-600 dark:bg-white dark:text-slate-950 dark:hover:bg-rose-600 dark:hover:text-white" : "bg-slate-950 hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-                }`}
+                onClick={shareStore}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-[14px] font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               >
-                {isFollowing ? (
-                  <>
-                    <span className="inline-flex items-center gap-1 group-hover:hidden">Following <Check className="h-4 w-4" /></span>
-                    <span className="hidden group-hover:inline">Unfollow</span>
-                  </>
-                ) : (
-                  "Follow Store"
-                )}
+                <Share2 className="h-4 w-4" /> Share Profile
               </button>
-            )}
-            <button
-              type="button"
-              onClick={shareStore}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 sm:min-w-32"
-              aria-label="Share profile"
-              title="Share profile"
-            >
-              <Share2 className="h-4 w-4" />
-              Share Profile
-            </button>
+            </div>
           </div>
         </div>
 
-        {dynamicInfo.length ? (
-          <div className="mt-4 grid grid-cols-1 gap-2 border-t border-slate-100 pt-4 sm:flex sm:flex-wrap dark:border-slate-800">
-            {dynamicInfo.map((item) => {
-              const Icon = item.icon;
-              return (
-                <span key={`${item.label}-${item.value}`} className="inline-flex max-w-full items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:py-1.5">
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span className="shrink-0 text-slate-500 dark:text-slate-400">{item.label}:</span>
-                  <span className="truncate">{item.value}</span>
-                </span>
-              );
-            })}
+        {/* Dynamic Meta Info Box */}
+        {dynamicInfo.length > 0 && (
+          <div className="mt-8 rounded-xl border border-slate-100 bg-[#F8F9FB] p-3 sm:px-5 sm:py-3.5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center justify-start gap-x-8 gap-y-3">
+              {dynamicInfo.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={`${item.label}-${item.value}`} className="flex items-center gap-2 text-[13px] text-slate-700 dark:text-slate-300">
+                    <Icon className="h-4 w-4 shrink-0 text-indigo-500/70 dark:text-indigo-400" />
+                    <span className="font-semibold">{item.label}:</span>
+                    <span className="truncate text-slate-600 dark:text-slate-400">{item.value}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        ) : null}
+        )}
 
-        {vendor.storeCategories?.length ? (
-          <div className={`${dynamicInfo.length ? "mt-3" : "mt-4 border-t border-slate-100 pt-4 dark:border-slate-800"} flex flex-wrap gap-2`}>
-            {vendor.storeCategories.map((category) => (
-              <span key={category} className="rounded-md bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                {category}
-              </span>
-            ))}
+        {/* Tabs Bar */}
+        <div className="mt-8 flex flex-col justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 sm:flex-row sm:items-center">
+          <nav className="-mb-[1px] flex items-center gap-6 overflow-x-auto scrollbar-hide">
+             <NavLink to={`/vendor/${vendor.storeSlug}`} end className={navClass}>Store</NavLink>
+             <NavLink to={`/vendor/${vendor.storeSlug}/products`} className={navClass}>Products</NavLink>
+             <NavLink to={`/vendor/${vendor.storeSlug}/reviews`} className={navClass}>Reviews</NavLink>
+             <NavLink to={`/vendor/${vendor.storeSlug}/followers`} className={navClass}>Followers</NavLink>
+          </nav>
+          <div className="shrink-0 pb-4">
+             <Link to="/cart" className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-[13px] font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 sm:w-auto">
+                Marketplace Cart
+             </Link>
           </div>
-        ) : null}
-
-        <nav className="mt-4 -mx-4 flex gap-2 overflow-x-auto border-t border-slate-100 px-4 pt-4 dark:border-slate-800 sm:mx-0 sm:px-0">
-          <NavLink to={`/vendor/${vendor.storeSlug}`} end className={navClass}>Store</NavLink>
-          <NavLink to={`/vendor/${vendor.storeSlug}/products`} className={navClass}>Products</NavLink>
-          <NavLink to={`/vendor/${vendor.storeSlug}/reviews`} className={navClass}>Reviews</NavLink>
-          <NavLink to={`/vendor/${vendor.storeSlug}/followers`} className={navClass}>Followers</NavLink>
-          <Link to="/cart" className="ml-auto hidden rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 sm:block">
-            Marketplace Cart
-          </Link>
-        </nav>
-        <Link to="/cart" className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 sm:hidden">
-          Marketplace Cart
-        </Link>
-      </div>
-      </div>
-    </header>
+        </div>
+      </header>
+    </div>
   );
 }

@@ -46,22 +46,17 @@ function SourceDetails({ source }) {
 function BreakdownLine({ component, currency, showDiagnostics }) {
   if (!component) return null;
   return (
-    <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-medium text-slate-950 dark:text-white">{component.label}</div>
-          <div className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-400">{component.type}</div>
-        </div>
-        <div className="text-right font-semibold text-slate-950 dark:text-white">
-          {formatCurrency(component.amount || 0, { currency })}
-        </div>
+    <div className="flex flex-col gap-1 py-2">
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-[14px] font-medium text-slate-500 dark:text-slate-400">{component.label}</span>
+        <span className="text-[15px] font-medium text-slate-900 dark:text-white">{formatCurrency(component.amount || 0, { currency })}</span>
       </div>
       {showDiagnostics && <SourceDetails source={component.source} />}
     </div>
   );
 }
 
-export function UnifiedPricingBreakdown({ breakdown, title = "Pricing Breakdown", compact = false, showDiagnostics = false }) {
+export function UnifiedPricingBreakdown({ breakdown, title = "SUMMARY", compact = false, showDiagnostics = false }) {
   if (!breakdown) return null;
 
   const currency = breakdown.currency || "INR";
@@ -70,67 +65,61 @@ export function UnifiedPricingBreakdown({ breakdown, title = "Pricing Breakdown"
   const timeline = Array.isArray(breakdown.timeline) ? breakdown.timeline : [];
 
   return (
-    <section className={`rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${compact ? "p-4" : "p-5"}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-slate-950 dark:text-white">{title}</h2>
-          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+    <section className={`w-full rounded-[1.25rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${compact ? "p-5" : "p-6"}`}>
+      <div className="mb-6">
+        <h2 className="text-[13px] font-bold uppercase tracking-widest text-slate-900 dark:text-white">{title}</h2>
+        {showDiagnostics && (
+          <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
             {breakdown.version || "pricing-breakdown"}{breakdown.calculatedAt ? ` - ${formatDateTime(breakdown.calculatedAt)}` : ""}
           </div>
-        </div>
-        <div className="text-right">
-          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">Grand total</div>
-          <div className="mt-1 text-lg font-bold text-slate-950 dark:text-white">
-            {formatCurrency(breakdown.grandTotal || 0, { currency })}
-          </div>
-        </div>
+        )}
       </div>
 
-      <div className="mt-4 grid gap-3">
+      <div className="grid gap-1">
         {components.map((component) => (
           <BreakdownLine key={component.key || component.label} component={component} currency={currency} showDiagnostics={showDiagnostics} />
         ))}
-      </div>
 
-      {discounts.length ? (
-        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
-          {discounts.map((discount) => (
-            <div key={discount.key || discount.label} className="flex items-center justify-between gap-3">
-              <span>{discount.label}</span>
-              <span>-{formatCurrency(discount.amount || 0, { currency })}</span>
+        {discounts.length > 0 && discounts.map((discount) => (
+          <div key={discount.key || discount.label} className="flex flex-col gap-1 py-2">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[14px] font-medium text-emerald-600 dark:text-emerald-400">{discount.label}</span>
+              <span className="text-[15px] font-medium text-emerald-600 dark:text-emerald-400">-{formatCurrency(discount.amount || 0, { currency })}</span>
             </div>
-          ))}
-        </div>
-      ) : null}
-
-      {breakdown.codAdvance?.enabled ? (
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
-          <div className="flex items-center justify-between gap-3 font-semibold">
-            <span>COD Advance Paid</span>
-            <span>{formatCurrency(breakdown.codAdvance.advanceAmount || 0, { currency })}</span>
           </div>
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <span>Balance Collectable</span>
-            <span>{formatCurrency(breakdown.codAdvance.remainingCODAmount || 0, { currency })}</span>
-          </div>
-          {showDiagnostics && <SourceDetails source={breakdown.codAdvance.source} />}
-        </div>
-      ) : null}
+        ))}
 
-      <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-sm dark:border-slate-800">
-        <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
-          <span>Total charges</span>
-          <span>{formatCurrency(breakdown.totalCharges || 0, { currency })}</span>
-        </div>
-        <div className="flex items-center justify-between font-semibold text-slate-950 dark:text-white">
-          <span>Grand total</span>
-          <span>{formatCurrency(breakdown.grandTotal || 0, { currency })}</span>
+        {breakdown.codAdvance?.enabled && (
+          <>
+            <div className="flex flex-col gap-1 py-2">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[14px] font-medium text-slate-500 dark:text-slate-400">COD Advance Paid</span>
+                <span className="text-[15px] font-medium text-slate-900 dark:text-white">{formatCurrency(breakdown.codAdvance.advanceAmount || 0, { currency })}</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1 py-2">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[14px] font-medium text-slate-500 dark:text-slate-400">Balance Collectable</span>
+                <span className="text-[15px] font-medium text-slate-900 dark:text-white">{formatCurrency(breakdown.codAdvance.remainingCODAmount || 0, { currency })}</span>
+              </div>
+              {showDiagnostics && <SourceDetails source={breakdown.codAdvance.source} />}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="mt-4 border-t border-slate-100 pt-5 dark:border-slate-800">
+        <div className="flex items-center justify-between">
+          <span className="text-[15px] font-bold text-slate-900 dark:text-white">Total</span>
+          <span className="text-[19px] font-bold tracking-tight text-slate-900 dark:text-white">
+            {formatCurrency(breakdown.grandTotal || 0, { currency })}
+          </span>
         </div>
       </div>
 
-      {showDiagnostics && timeline.length ? (
-        <div className="mt-4 rounded-2xl bg-slate-50 p-3 dark:bg-slate-950/70">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Pricing timeline</div>
+      {showDiagnostics && timeline.length > 0 && (
+        <div className="mt-6 rounded-2xl bg-slate-50 p-4 dark:bg-slate-950/70">
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-400">Pricing timeline</div>
           <div className="mt-3 grid gap-3">
             {timeline.map((event) => (
               <div key={event.key || `${event.label}-${event.timestamp}`} className="grid gap-1 text-sm">
@@ -138,12 +127,12 @@ export function UnifiedPricingBreakdown({ breakdown, title = "Pricing Breakdown"
                 <div className="text-xs text-slate-500 dark:text-slate-400">
                   {[event.source, formatDateTime(event.timestamp)].filter(Boolean).join(" - ")}
                 </div>
-                {event.note ? <div className="text-slate-600 dark:text-slate-300">{event.note}</div> : null}
+                {event.note ? <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">{event.note}</div> : null}
               </div>
             ))}
           </div>
         </div>
-      ) : null}
+      )}
     </section>
   );
 }

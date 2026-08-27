@@ -243,47 +243,49 @@ export function VendorStorefrontPage() {
     <div className="grid max-w-full min-w-0 gap-4 overflow-hidden sm:gap-6">
       <VendorStoreHeader vendor={vendor} isFollowing={data.isFollowing} onFollowChange={(next) => setState((current) => ({ ...current, data: { ...current.data, ...next } }))} />
 
-      {hasAssignedLayout ? (
-        <DynamicHomepageRenderer
-          rows={data.layoutRows}
-          containers={data.containers || []}
-          bareOuterLayout
-          renderContext={{ pageContext: "VENDOR_STORE", vendorId: vendor._id, vendor }}
-        />
-      ) : null}
+      <div className="container mx-auto flex flex-col gap-6 px-3 pb-12 sm:gap-8 md:px-6 lg:px-8">
+        {hasAssignedLayout ? (
+          <DynamicHomepageRenderer
+            rows={data.layoutRows}
+            containers={data.containers || []}
+            bareOuterLayout
+            renderContext={{ pageContext: "VENDOR_STORE", vendorId: vendor._id, vendor }}
+          />
+        ) : null}
 
-      {!hasAssignedLayout && data.collections?.length ? (
-        <section className="grid gap-3">
-          <h2 className="text-base font-bold text-slate-950 dark:text-white sm:text-lg">Seasonal Collections</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {data.collections.map((collection) => (
-              <Link key={collection._id} to={`/vendor/${vendor.storeSlug}/products?category=${encodeURIComponent(collection.category || "")}`} className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                <div className="h-28 bg-slate-100 dark:bg-slate-800">
-                  {collection.imageUrl ? <img loading="lazy" decoding="async" src={collection.imageUrl} alt={collection.title} className="h-full w-full object-cover" /> : null}
-                </div>
-                <div className="p-3">
-                  <div className="text-sm font-bold text-slate-950 dark:text-white">{collection.title}</div>
-                  <div className="mt-1 line-clamp-2 text-xs text-slate-500">{collection.description || collection.type}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
+        {!hasAssignedLayout && data.collections?.length ? (
+          <section className="grid gap-3">
+            <h2 className="text-base font-bold text-slate-950 dark:text-white sm:text-lg">Seasonal Collections</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {data.collections.map((collection) => (
+                <Link key={collection._id} to={`/vendor/${vendor.storeSlug}/products?category=${encodeURIComponent(collection.category || "")}`} className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                  <div className="h-28 bg-slate-100 dark:bg-slate-800">
+                    {collection.imageUrl ? <img loading="lazy" decoding="async" src={collection.imageUrl} alt={collection.title} className="h-full w-full object-cover" /> : null}
+                  </div>
+                  <div className="p-3">
+                    <div className="text-sm font-bold text-slate-950 dark:text-white">{collection.title}</div>
+                    <div className="mt-1 line-clamp-2 text-xs text-slate-500">{collection.description || collection.type}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
-      {!hasAssignedLayout ? (
-        <>
-          <ProductSection title="Featured Products" products={data.featuredProducts} to={`/vendor/${vendor.storeSlug}/products?sortBy=best_selling`} />
-          <ProductSection title="New Arrivals" products={data.newArrivals} to={`/vendor/${vendor.storeSlug}/products?sortBy=newest`} />
-          <ProductSection title="Best Sellers" products={data.bestSellers} to={`/vendor/${vendor.storeSlug}/products?sortBy=best_selling`} />
-          <ProductSection title="Top Rated Products" products={data.topRatedProducts} to={`/vendor/${vendor.storeSlug}/products?sortBy=highest_rated`} />
-          <ProductSection title="Deals Of The Day" products={data.dealsOfTheDay} to={`/vendor/${vendor.storeSlug}/products?discount=true`} />
-          <ProductSection title="Recently Added Products" products={data.recentlyAddedProducts} to={`/vendor/${vendor.storeSlug}/products`} />
-          <ProductSection title="Recommended Products" products={data.recommendedProducts} to={`/vendor/${vendor.storeSlug}/products?sortBy=best_selling`} />
-        </>
-      ) : null}
+        {!hasAssignedLayout ? (
+          <>
+            <ProductSection title="Featured Products" products={data.featuredProducts} to={`/vendor/${vendor.storeSlug}/products?sortBy=best_selling`} />
+            <ProductSection title="New Arrivals" products={data.newArrivals} to={`/vendor/${vendor.storeSlug}/products?sortBy=newest`} />
+            <ProductSection title="Best Sellers" products={data.bestSellers} to={`/vendor/${vendor.storeSlug}/products?sortBy=best_selling`} />
+            <ProductSection title="Top Rated Products" products={data.topRatedProducts} to={`/vendor/${vendor.storeSlug}/products?sortBy=highest_rated`} />
+            <ProductSection title="Deals Of The Day" products={data.dealsOfTheDay} to={`/vendor/${vendor.storeSlug}/products?discount=true`} />
+            <ProductSection title="Recently Added Products" products={data.recentlyAddedProducts} to={`/vendor/${vendor.storeSlug}/products`} />
+            <ProductSection title="Recommended Products" products={data.recommendedProducts} to={`/vendor/${vendor.storeSlug}/products?sortBy=best_selling`} />
+          </>
+        ) : null}
 
-      <VendorReviewsAndAbout vendor={vendor} reviewsData={reviewsData} />
+        <VendorReviewsAndAbout vendor={vendor} reviewsData={reviewsData} />
+      </div>
     </div>
   );
 }

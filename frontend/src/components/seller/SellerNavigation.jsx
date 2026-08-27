@@ -224,24 +224,32 @@ export function SellerCard({ seller, compact = false }) {
   const normalized = normalizeSeller(seller);
   if (!normalized) return null;
   const logo = resolveApiAssetUrl(normalized.logoUrl);
+  
   return (
-    <div className={`rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${compact ? "p-3" : "p-4 sm:p-5"}`}>
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-          {logo ? <img loading="lazy" decoding="async" src={logo} alt={`${normalized.name} logo`} className="h-full w-full object-cover" /> : <Store className="h-5 w-5 sm:h-6 sm:w-6 text-slate-400" />}
+    <div className={`rounded-2xl border border-slate-200 bg-white shadow-sm transition dark:border-slate-800 dark:bg-slate-900 ${compact ? "p-3 hover:border-indigo-200 dark:hover:border-indigo-800/50" : "p-4 sm:p-5"}`}>
+      <Link to={normalized.storeUrl || "#"} className="group flex cursor-pointer items-center gap-3 sm:gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 transition group-hover:opacity-80 dark:bg-slate-800 sm:h-14 sm:w-14">
+          {logo ? (
+            <img loading="lazy" decoding="async" src={logo} alt={`${normalized.name} logo`} className="h-full w-full object-cover" />
+          ) : (
+            <Store className="h-5 w-5 text-slate-400 transition group-hover:text-indigo-500 sm:h-6 sm:w-6" />
+          )}
         </div>
         <div className="min-w-0 flex-1">
-          <SellerNameLink seller={normalized} showPrefix={false} preview={false} className="text-xs sm:text-sm" />
+          <SellerNameLink seller={normalized} showPrefix={false} preview={false} disableLink={true} className="text-xs sm:text-sm group-hover:underline cursor-pointer" />
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
             <StoreRatingDisplay seller={normalized} />
             <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {normalized.followersCount || 0}</span>
           </div>
         </div>
-      </div>
-      <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
-        <VisitStoreButton seller={normalized} children="View Profile" variant="primary" className={compact ? 'w-32 !py-2 !px-2 !text-xs !rounded-xl !h-9' : 'w-full'} />
-        <FollowStoreButton seller={normalized} className={compact ? 'w-32 !py-2 !px-2 !text-xs !rounded-xl !h-9' : 'w-full'} />
-      </div>
+      </Link>
+      
+      {!compact && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 sm:gap-3">
+          <VisitStoreButton seller={normalized} children="View Profile" variant="primary" className="w-full" />
+          <FollowStoreButton seller={normalized} className="w-full" />
+        </div>
+      )}
     </div>
   );
 }

@@ -359,6 +359,98 @@ class WebhookService {
       throw error;
     }
   }
+
+  async handleShadowfaxWebhook(data, { rawBody, signature } = {}) {
+    logisticsService.verifyWebhookSignature(rawBody, signature);
+    const eventId = buildEventId("SHADOWFAX", String(data?.status || "status"), JSON.stringify(data || {}));
+    const hash = payloadHash(rawBody || JSON.stringify(data || {}));
+    
+    const existing = await webhookEventRepo.findByEventId(eventId);
+    if (existing) return { status: "duplicate_ignored", eventId };
+
+    const webhookRecord = await webhookEventRepo.create({
+      provider: "SHADOWFAX",
+      eventType: String(data?.status || "unknown"),
+      eventId,
+      providerEventId: String(data?.awb_number || data?.client_order_id || ""),
+      payloadHash: hash,
+      receivedAt: new Date(),
+      signatureVerified: true,
+      status: "RECEIVED",
+      payload: data,
+    });
+
+    try {
+      const awb = data?.awb_number || data?.tracking_id || "";
+      const shipmentId = data?.client_order_id ? String(data.client_order_id) : "";
+      const currentStatus = String(data?.status || "").toLowerCase().trim();
+      
+      const order = shipmentId ? await orderRepo.findByShipmentId(shipmentId) || await orderRepo.findByOrderNumber(shipmentId) : await orderRepo.findByTrackingId(awb);
+      
+      if (order) {
+        let nextShippingStatus = order.shippingStatus;
+        let nextPickupStatus = order.pickupStatus;
+
+        if (["pickup_scheduled"].includes(currentStatus)) {
+          nextShippingStatus = "PICKUP_SCHEDULED";
+          nextPickupStatus = "SCHEDULED";
+        } else if (["picked_up"].includes(currentStatus)) {
+          nextShippingStatus = "IN_TRANSIT";
+          nextPickupStatus = "COMPLETED";
+        } else if (["in_transit"].includes(currentStatus)) {
+          nextShippingStatus = "IN_TRANSIT";
+        } else if (["out_for_delivery"].includes(currentStatus)) {
+          nextShippingStatus = "OUT_FOR_DELIVERY";
+        } else if (["rto_initiated", "rto_delivered", "failed", "cancelled"].includes(currentStatus)) {
+          nextShippingStatus = "FAILED";
+          nextPickupStatus = order.pickupStatus === "REQUESTED" ? "FAILED" : order.pickupStatus;
+        } else if (["delivered"].includes(currentStatus)) {
+          nextShippingStatus = "DELIVERED";
+          nextPickupStatus = order.pickupStatus === "NOT_REQUESTED" ? "COMPLETED" : order.pickupStatus;
+        }
+
+        const lifecycle = applyShippingLifecycle({
+          orderStatus: order.status,
+          shippingMode: order.shippingMode || "PLATFORM",
+          shippingStatus: nextShippingStatus,
+          pickupStatus: nextPickupStatus,
+        });
+
+        const updatedOrder = await orderRepo.updateById(order._id, {
+          status: lifecycle.status,
+          shippingMode: lifecycle.shippingMode,
+          shippingStatus: lifecycle.shippingStatus,
+          pickupStatus: lifecycle.pickupStatus,
+          trackingId: awb || order.trackingId,
+          shipmentId: shipmentId || order.shipmentId,
+          deliveryPartner: "SHADOWFAX",
+          deliveryStatus:
+            lifecycle.shippingStatus === "DELIVERED"
+              ? "DELIVERED"
+              : ["IN_TRANSIT", "OUT_FOR_DELIVERY"].includes(lifecycle.shippingStatus)
+                ? "SHIPPED"
+                : order.deliveryStatus,
+          pickupScheduled: ["SCHEDULED", "COMPLETED"].includes(lifecycle.pickupStatus),
+          ...(lifecycle.pickupStatus === "SCHEDULED" ? { pickupScheduledAt: new Date() } : {}),
+          ...(lifecycle.pickupStatus === "COMPLETED" ? { pickupCompletedAt: new Date() } : {}),
+        });
+
+        if (updatedOrder?.status === "Delivered") {
+          await payoutService.markOrderDelivered(updatedOrder._id);
+        }
+      }
+
+      await webhookEventRepo.updateById(webhookRecord._id, {
+        $set: { status: "PROCESSED", processedAt: new Date() },
+      });
+      return { status: "ok", eventId };
+    } catch (error) {
+      await webhookEventRepo.updateById(webhookRecord._id, {
+        $set: { status: "FAILED", errorMessage: error.message },
+      });
+      throw error;
+    }
+  }
 }
 
 module.exports = new WebhookService();

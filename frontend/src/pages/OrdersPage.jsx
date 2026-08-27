@@ -290,15 +290,7 @@ export function OrdersPage() {
                       <X className="h-3 w-3" />
                       Cancel
                     </button>
-                    <button
-                      type="button"
-                      disabled={!canReturn || busyId === order._id}
-                      onClick={() => requestReturn(order._id)}
-                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-400 transition hover:bg-slate-50 active:scale-95 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900"
-                    >
-                      <CornerUpLeft className="h-3 w-3" />
-                      Return Order
-                    </button>
+
                   </div>
                 </div>
               </div>

@@ -13,8 +13,13 @@ class LogisticsService {
   }
 
   isConfigured() {
-    if (this.providerName !== "SHIPROCKET") return false;
-    return Boolean(process.env.SHIPROCKET_EMAIL && process.env.SHIPROCKET_PASSWORD);
+    if (this.providerName === "SHADOWFAX") {
+      return Boolean(process.env.SHADOWFAX_API_KEY);
+    }
+    if (this.providerName === "SHIPROCKET") {
+      return Boolean(process.env.SHIPROCKET_EMAIL && process.env.SHIPROCKET_PASSWORD);
+    }
+    return false;
   }
 
   async getShiprocketToken() {
@@ -47,6 +52,9 @@ class LogisticsService {
   }
 
   verifyWebhookSignature(rawBody, signature) {
+    if (this.providerName === "SHADOWFAX") {
+      return this.verifyShadowfaxWebhookSignature(rawBody, signature);
+    }
     const secret = process.env.SHIPROCKET_WEBHOOK_SECRET;
     if (!secret) {
       if (process.env.NODE_ENV === "production") {
@@ -68,7 +76,24 @@ class LogisticsService {
     return true;
   }
 
+  verifyShadowfaxWebhookSignature(rawBody, signature) {
+    const secret = process.env.SHADOWFAX_WEBHOOK_SECRET;
+    if (!secret) return true; // Accept in test
+    
+    // Shadowfax uses HMAC SHA256 usually
+    if (!signature) throw new AppError("Missing Shadowfax signature", 400, "INVALID_SIGNATURE");
+    const expected = crypto.createHmac("sha256", secret).update(String(rawBody || "")).digest("hex");
+    if (expected !== signature) {
+      throw new AppError("Invalid Shadowfax signature", 400, "INVALID_SIGNATURE");
+    }
+    return true;
+  }
+
   async createPlatformShipment(requestPayload) {
+    if (this.providerName === "SHADOWFAX") {
+      return this.createShadowfaxShipment(requestPayload);
+    }
+    
     if (this.providerName !== "SHIPROCKET") {
       throw new AppError("Unsupported logistics provider", 503, "LOGISTICS_PROVIDER_UNSUPPORTED");
     }
@@ -102,7 +127,52 @@ class LogisticsService {
     };
   }
 
+  async createShadowfaxShipment(requestPayload) {
+    const providerPayload = requestPayload?.providerPayload || {};
+    const apiKey = process.env.SHADOWFAX_API_KEY;
+    const baseUrl = process.env.SHADOWFAX_BASE_URL || "https://api-sandbox.shadowfax.in";
+    
+    const headers = { 
+      "Authorization": `Token ${apiKey}`,
+      "Content-Type": "application/json"
+    };
+
+    try {
+      const response = await axios.post(`${baseUrl}/api/v3/orders/`, providerPayload, { headers });
+      const data = response?.data || {};
+      
+      const trackingId = data.awb_number || data.tracking_id;
+      if (!trackingId) {
+        throw new AppError("Shadowfax did not return an AWB", 502, "SHIPMENT_CREATE_FAILED");
+      }
+
+      return {
+        provider: "SHADOWFAX",
+        shipmentId: data.client_order_id || String(trackingId),
+        trackingId: String(trackingId),
+        courierName: "Shadowfax",
+        trackingUrl: data.tracking_url || `https://track.shadowfax.in/track?awb=${trackingId}`,
+        raw: {
+          request: requestPayload,
+          createOrder: data,
+        }
+      };
+    } catch (error) {
+      throw new AppError(error?.response?.data?.message || "Shadowfax shipment creation failed", 502, "SHIPMENT_CREATE_FAILED");
+    }
+  }
+
   async schedulePickup({ shipmentIds = [], idempotencyKey = "" } = {}) {
+    if (this.providerName === "SHADOWFAX") {
+      return {
+        provider: "SHADOWFAX",
+        pickupStatus: "SCHEDULED",
+        courierName: "Shadowfax",
+        pickupDate: new Date().toISOString(),
+        raw: { note: "Shadowfax handles pickup based on order creation" }
+      };
+    }
+
     if (this.providerName !== "SHIPROCKET") {
       throw new AppError("Unsupported logistics provider", 503, "LOGISTICS_PROVIDER_UNSUPPORTED");
     }

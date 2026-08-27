@@ -5,4 +5,5 @@ const router = express.Router();
 router.post("/razorpay", webhookController.razorpayWebhook);
 router.post("/shiprocket", webhookController.shiprocketWebhook);
 router.post("/logistics", webhookController.shiprocketWebhook);
+router.post("/shadowfax", webhookController.shadowfaxWebhook);
 module.exports = router;

@@ -547,7 +547,7 @@ export function VendorOrderDetailsPage() {
 
               <div className="rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-600 dark:bg-slate-950 dark:text-slate-300">
                 {selectedModeIsPlatform
-                  ? "Platform shipping creates a Shiprocket shipment first. Use the Ready for Pickup queue to batch multiple shipments into one pickup request."
+                  ? "Platform shipping automatically creates a shipment with the configured provider. Use the Ready for Pickup queue to batch multiple shipments into one pickup request."
                   : "Self shipping requires the vendor to enter a real courier name and tracking ID before moving the order to shipped."}
               </div>
             </div>

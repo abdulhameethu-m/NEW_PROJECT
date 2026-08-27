@@ -18,4 +18,13 @@ const shiprocketWebhook = asyncHandler(async (req, res) => {
   return ok(res, result);
 });
 
-module.exports = { razorpayWebhook, shiprocketWebhook };
+const shadowfaxWebhook = asyncHandler(async (req, res) => {
+  const signature = req.headers["x-shadowfax-signature"] || req.headers["x-logistics-signature"];
+  const result = await webhookService.handleShadowfaxWebhook(req.body, {
+    rawBody: req.rawBody || JSON.stringify(req.body || {}),
+    signature,
+  });
+  return ok(res, result);
+});
+
+module.exports = { razorpayWebhook, shiprocketWebhook, shadowfaxWebhook };

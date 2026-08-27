@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { logout as logoutRequest } from "../services/authService";
 import {
   changeUserPassword,
-  getUserActivity,
   getUserBilling,
   getUserProfile,
   getUserSessions,
@@ -31,7 +30,7 @@ export function SettingsPage() {
   const [passwords, setPasswords] = useState({ currentPassword: "", newPassword: "" });
   const [sessions, setSessions] = useState([]);
   const [billing, setBilling] = useState([]);
-  const [activity, setActivity] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -41,11 +40,10 @@ export function SettingsPage() {
   async function loadSettings() {
     setLoading(true);
     try {
-      const [profileResponse, sessionsResponse, billingResponse, activityResponse] = await Promise.all([
+      const [profileResponse, sessionsResponse, billingResponse] = await Promise.all([
         getUserProfile(),
         getUserSessions(),
         getUserBilling({ page: 1, limit: 5 }),
-        getUserActivity({ limit: 8 }),
       ]);
 
       setPreferences(
@@ -58,7 +56,6 @@ export function SettingsPage() {
       );
       setSessions(sessionsResponse.data || []);
       setBilling(billingResponse.data?.billing || []);
-      setActivity(activityResponse.data || []);
       setError("");
     } catch (err) {
       setError(normalizeError(err));
@@ -133,24 +130,40 @@ export function SettingsPage() {
         <section className="grid gap-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Notification preferences</h2>
-            <div className="mt-5 grid gap-3">
-              {Object.entries(preferences).map(([key, value]) => (
-                <label key={key} className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
-                  <span className="text-sm font-medium capitalize text-slate-700 dark:text-slate-200">{key.replace(/([A-Z])/g, " $1")}</span>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(value)}
-                    onChange={(event) => setPreferences((current) => ({ ...current, [key]: event.target.checked }))}
-                  />
+            <div className="mt-5 grid gap-4">
+              {[
+                { key: "orderUpdates", label: "Order Updates", description: "Get notified when your order is confirmed, shipped, or delivered." },
+                { key: "deliveryAlerts", label: "Delivery Alerts", description: "Receive real-time tracking updates when the delivery agent is near." },
+                { key: "paymentAlerts", label: "Payment Alerts", description: "Important alerts regarding refunds, failed payments, or invoice generation." },
+                { key: "promotions", label: "Promotional Emails", description: "Hear about new arrivals, sales, and personalized offers." }
+              ].map((item) => (
+                <label key={item.key} className="flex cursor-pointer items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-bold text-slate-900 dark:text-white">{item.label}</span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed">{item.description}</span>
+                  </div>
+                  <div className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full items-center transition-colors px-0.5 mt-0.5" style={{ backgroundColor: preferences[item.key] ? "var(--theme-navbar-active, #2563EB)" : "#CBD5E1" }}>
+                    <input
+                      type="checkbox"
+                      className="peer sr-only"
+                      checked={Boolean(preferences[item.key])}
+                      onChange={(event) => setPreferences((current) => ({ ...current, [item.key]: event.target.checked }))}
+                    />
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${preferences[item.key] ? "translate-x-5 shadow-sm" : "translate-x-0 shadow-sm"}`} />
+                  </div>
                 </label>
               ))}
             </div>
-            <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-4 dark:border-slate-800">
+            
+            <div className="mt-6 flex cursor-pointer items-center justify-between gap-4 rounded-2xl bg-[#F8F9FB] p-5 border border-slate-100 dark:border-slate-800 dark:bg-slate-800/50">
               <div>
-                <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Dark mode</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">Stored locally on this device</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white">Dark Mode Theme</div>
+                <div className="text-xs text-slate-500 font-medium">Switch to a dark UI. Stored locally on this device.</div>
               </div>
-              <input type="checkbox" checked={isDarkMode} onChange={() => setIsDarkMode(!isDarkMode)} />
+              <label className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full items-center transition-colors px-0.5 mt-0.5" style={{ backgroundColor: isDarkMode ? "#0F172A" : "#CBD5E1" }}>
+                <input type="checkbox" className="sr-only" checked={isDarkMode} onChange={() => setIsDarkMode(!isDarkMode)} />
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${isDarkMode ? "translate-x-5 shadow-sm" : "translate-x-0 shadow-sm"}`} />
+              </label>
             </div>
             <button
               type="button"
@@ -258,25 +271,7 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Recent activity</h2>
-            <div className="mt-4 grid gap-3">
-              {loading ? (
-                <div className="h-40 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
-              ) : activity.length ? (
-                activity.map((entry) => (
-                  <div key={entry._id} className="rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
-                    <div className="text-sm font-medium text-slate-900 dark:text-white">{entry.action}</div>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{new Date(entry.createdAt).toLocaleString()}</div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                  No recent activity yet.
-                </div>
-              )}
-            </div>
-          </div>
+
         </section>
       </div>
     </div>

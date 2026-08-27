@@ -18,7 +18,7 @@ import { CartDrawerProvider } from "../context/CartDrawerContext";
 import { UserMenu } from "./UserMenu";
 import { Footer } from "./Footer";
 import { SearchBar } from "./SearchBar";
-import { LocationSelector } from "./LocationSelector";
+
 import { CategoryNavigation } from "./CategoryNavigation";
 import { CartDrawer } from "./CartDrawer";
 import { CartDrawerOverlay } from "./CartDrawerOverlay";
@@ -286,21 +286,17 @@ export function Layout() {
                   </nav>
 
                   {/* Right side icons */}
-                  <div className="flex shrink-0 items-center justify-end gap-3 xl:gap-5">
+                  <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2">
                     <button
                       type="button"
                       onClick={() => setIsDarkMode(!isDarkMode)}
                       style={{ color: "var(--theme-navbar-icon, #0F2A43)" }}
-                      className="transition hover:opacity-80"
+                      className="relative inline-flex h-11 w-11 items-center justify-center rounded-full transition hover:-translate-y-0.5 hover:bg-black/5 dark:hover:bg-white/10 active:scale-95"
                     >
                       {isDarkMode ? <SunMedium className="h-[22px] w-[22px]" /> : <MoonStar className="h-[22px] w-[22px]" />}
                     </button>
 
-                    <div className="hidden shrink-0 xl:block max-w-[200px]">
-                      <div className="flex h-9 items-center [&_.text-slate-900]:!text-[#1D4ED8] [&_.text-indigo-500]:!text-[#F97316] [&_.border]:!border-transparent [&_.bg-white]:!bg-transparent [&_.bg-white]:dark:!bg-transparent">
-                        <LocationSelector />
-                      </div>
-                    </div>
+
 
                     {user ? (
                       <>
@@ -415,18 +411,7 @@ export function Layout() {
                   </div>
                 </div>
 
-                {/* Mobile Compact Delivery Location Row */}
-                <div 
-                  className={`overflow-hidden transition-all duration-300 border-t ${isMobileHeaderMinimized ? 'max-h-0 opacity-0' : 'max-h-20 opacity-100'}`}
-                  style={{
-                    background: "var(--theme-navbar-background, #ffffff)",
-                    borderColor: "var(--theme-navbar-border, #f1f5f9)"
-                  }}
-                >
-                  <div className="[&_.text-slate-900]:!text-[#0F2A43] [&_.text-indigo-500]:!text-[#1D4ED8] [&_.bg-white]:!bg-transparent">
-                    <LocationSelector variant="compact" />
-                  </div>
-                </div>
+
               </header>
             )}
 
