@@ -49,7 +49,12 @@ class OrderRepository {
   } = {}) {
     const query = {};
 
-    if (status) query.status = status;
+    if (status) {
+      if (status === "Pending") query.status = { $in: ["Pending", "Placed", "Packed"] };
+      else if (status === "Shipped") query.status = { $in: ["Shipped", "Out for Delivery"] };
+      else if (status === "Returned") query.status = { $in: ["Returned", "Return Requested", "Return Approved", "Return Rejected", "Refunded"] };
+      else query.status = status;
+    }
     if (paymentStatus) query.paymentStatus = paymentStatus;
     if (shippingMode) query.shippingMode = shippingMode;
     if (shippingStatus) query.shippingStatus = shippingStatus;
@@ -174,7 +179,12 @@ class OrderRepository {
     endDate,
   } = {}) {
     const query = { userId, isActive: true };
-    if (status) query.status = status;
+    if (status) {
+      if (status === "Pending") query.status = { $in: ["Pending", "Placed", "Packed"] };
+      else if (status === "Shipped") query.status = { $in: ["Shipped", "Out for Delivery"] };
+      else if (status === "Returned") query.status = { $in: ["Returned", "Return Requested", "Return Approved", "Return Rejected", "Refunded"] };
+      else query.status = status;
+    }
     if (shippingMode) query.shippingMode = shippingMode;
     if (shippingStatus) query.shippingStatus = shippingStatus;
     if (pickupStatus) query.pickupStatus = pickupStatus;
@@ -233,7 +243,12 @@ class OrderRepository {
     endDate,
   } = {}) {
     const query = { sellerId, isActive: true };
-    if (status) query.status = status;
+    if (status) {
+      if (status === "Pending") query.status = { $in: ["Pending", "Placed", "Packed"] };
+      else if (status === "Shipped") query.status = { $in: ["Shipped", "Out for Delivery"] };
+      else if (status === "Returned") query.status = { $in: ["Returned", "Return Requested", "Return Approved", "Return Rejected", "Refunded"] };
+      else query.status = status;
+    }
     if (shippingMode) query.shippingMode = shippingMode;
     if (shippingStatus) query.shippingStatus = shippingStatus;
     if (pickupStatus) query.pickupStatus = pickupStatus;

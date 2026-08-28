@@ -41,10 +41,7 @@ export function StaffAnalyticsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <section>
-        <h1 className="text-2xl font-semibold text-slate-950">Analytics</h1>
-        <p className="mt-1 text-sm text-slate-600">Platform performance and metrics overview</p>
-      </section>
+      <section />
 
       {/* Error */}
       {error && (

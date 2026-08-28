@@ -322,11 +322,21 @@ class CancellationRefundService {
           { session: session || undefined }
         );
 
-        // Sync Order Status
+        // Sync Order Status & Refund Details
         if (order && (order._id || typeof order === "string")) {
           await mongoose.model("Order").updateOne(
             { _id: order._id || order },
-            { $set: { status: "Refunded" } },
+            { 
+              $set: { 
+                status: "Refunded",
+                "refundSummary.status": "REFUNDED",
+                "refundSummary.amount": Number(updatedRefund.amount || 0),
+                "refundSummary.deductionAmount": Number(updatedRefund.deductionAmount || 0),
+                "refundSummary.grossAmount": Number(updatedRefund.grossAmount || 0),
+                "refundSummary.method": updatedRefund.refundMethod || "ONLINE",
+                "refundSummary.processedAt": new Date()
+              } 
+            },
             { session: session || undefined }
           );
         }

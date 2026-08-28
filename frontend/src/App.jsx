@@ -147,7 +147,7 @@ const AdminAnalyticsPage = lazyNamed(() => import("./pages/AdminAnalyticsPage"),
 const AdminCommerceIntelligencePage = lazyNamed(() => import("./pages/AdminCommerceIntelligencePage"), "AdminCommerceIntelligencePage");
 const AdminProductAnalyticsDetailPage = lazyNamed(() => import("./pages/AdminProductAnalyticsDetailPage"), "AdminProductAnalyticsDetailPage");
 const AdminRevenuePage = lazyNamed(() => import("./pages/AdminRevenuePage"), "AdminRevenuePage");
-const AuditLogsPage = lazyNamed(() => import("./pages/AuditLogsPage"), "AuditLogsPage");
+const AuditLogsPage = lazyDefault(() => import("./pages/AuditLogsPage"));
 const AdminSettingsPage = lazyNamed(() => import("./pages/AdminSettingsPage"), "AdminSettingsPage");
 const AdminDynamicThemePage = lazyNamed(() => import("./pages/AdminDynamicThemePage"), "AdminDynamicThemePage");
 const AdminCompanyBrandingPage = lazyNamed(() => import("./pages/AdminCompanyBrandingPage"), "AdminCompanyBrandingPage");
@@ -155,7 +155,7 @@ const AdminMaintenancePage = lazyNamed(() => import("./pages/AdminMaintenancePag
 const AdminCatalogRequestsPage = lazyNamed(() => import("./pages/AdminCatalogRequestsPage"), "AdminCatalogRequestsPage");
 const AdminPricingPage = lazyNamed(() => import("./pages/AdminPricingPage"), "AdminPricingPage");
 const AdminCommissionManagementPage = lazyNamed(() => import("./pages/AdminCommissionManagementPage"), "AdminCommissionManagementPage");
-const AdminPricingCategoriesPage = lazyNamed(() => import("./pages/AdminPricingCategoriesPage"), "AdminPricingCategoriesPage");
+const AdminPricingCategoriesPage = lazyDefault(() => import("./pages/AdminPricingCategoriesPage"));
 const AdminRolesPage = lazyNamed(() => import("./pages/AdminRolesPage"), "AdminRolesPage");
 const AdminStaffPage = lazyNamed(() => import("./pages/AdminStaffPage"), "AdminStaffPage");
 const AdminInfluencerPage = lazyNamed(() => import("./pages/AdminInfluencerPage"), "AdminInfluencerPage");

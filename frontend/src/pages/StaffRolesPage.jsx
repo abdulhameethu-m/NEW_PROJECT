@@ -8,6 +8,9 @@ import {
   Megaphone,
   Settings,
   Users,
+  LayoutDashboard,
+  Lightbulb,
+  FolderTree,
   Wallet,
 } from "lucide-react";
 import {
@@ -161,11 +164,10 @@ export function StaffRolesPage() {
     }));
   }
 
-  function togglePermissionGroup(moduleName, groupLabel) {
-    const key = `${moduleName}:${groupLabel}`;
+  function togglePermissionGroup(groupId) {
     setExpandedPermissionGroups((current) => ({
       ...current,
-      [key]: !current[key],
+      [groupId]: !current[groupId],
     }));
   }
 
@@ -177,73 +179,110 @@ export function StaffRolesPage() {
       "Affiliate & Products": LinkIcon,
       Finance: Wallet,
       Configuration: Settings,
+      Users: Users,
+      "Staff Accounts": Users,
+      "Roles & Permissions": Settings,
+      Products: LinkIcon,
+      Orders: Wallet,
+      Reviews: Megaphone,
+      Payments: Wallet,
+      Payouts: Wallet,
+      Settlements: Wallet,
+      Analytics: BarChart3,
+      Settings: Settings,
+      Branding: Settings,
     };
     return icons[label] || BarChart3;
   }
 
-  function renderNestedModuleCard(moduleName, layout, enabledCount) {
+  function toggleGroupCard(modulesInGroup, checkAll) {
+    setForm((current) => {
+      const nextPermissions = { ...current.permissions };
+      modulesInGroup.forEach((mod) => {
+        if (catalog[mod] || nextPermissions[mod]) {
+          nextPermissions[mod] = Object.fromEntries(
+            (catalog[mod] || Object.keys(nextPermissions[mod] || {})).map((action) => [action, checkAll])
+          );
+        }
+      });
+      return { ...current, permissions: nextPermissions };
+    });
+  }
+
+  function renderGroupCard({ id, label, icon: Icon = Settings, items }) {
+    const modulesInGroup = [...new Set(items.flatMap((accordion) => accordion.checkboxes.map((cb) => cb.moduleName)))];
+    
+    const totalCheckboxes = items.reduce((acc, curr) => acc + curr.checkboxes.length, 0);
+    const enabledCount = items.reduce((acc, curr) => {
+      return acc + curr.checkboxes.filter((cb) => form.permissions?.[cb.moduleName]?.[cb.action]).length;
+    }, 0);
+
+    const checkAll = enabledCount !== totalCheckboxes;
+
     return (
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+      <div key={id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Megaphone className="h-5 w-5 text-slate-600" />
+            <Icon className="h-5 w-5 text-slate-600" />
             <div>
-              <div className="text-base font-semibold text-slate-950">{layout.label || moduleName}</div>
+              <div className="text-base font-semibold text-slate-950">{label}</div>
               <div className="text-xs text-slate-500">{enabledCount} permissions enabled</div>
             </div>
           </div>
-          <ChevronUp className="h-4 w-4 text-slate-500" />
+          <button
+            type="button"
+            onClick={() => toggleGroupCard(modulesInGroup, checkAll)}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            {checkAll ? "Select Module" : "Clear Module"}
+          </button>
         </div>
 
         <div className="mt-4 space-y-1">
-        {layout.groups.map((group) => (
-          <div key={group.label}>
-            <button
-              type="button"
-              onClick={() => togglePermissionGroup(moduleName, group.label)}
-              className="flex w-full items-center justify-between rounded-xl px-2 py-3 text-left transition hover:bg-white"
-            >
-              <span className="flex items-center gap-3">
-                {(() => {
-                  const Icon = permissionGroupIcon(group.label);
-                  return <Icon className="h-4 w-4 text-slate-500" />;
-                })()}
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {group.label}
-                </span>
-              </span>
-              <ChevronDown
-                className={`h-4 w-4 text-slate-400 transition-transform ${
-                  expandedPermissionGroups[`${moduleName}:${group.label}`] ? "rotate-180" : ""
-                }`}
-              />
-            </button>
+          {items.map((accordion) => {
+            const accId = `${id}:${accordion.label}`;
+            const AccIcon = permissionGroupIcon(accordion.iconLabel || accordion.label);
 
-            {expandedPermissionGroups[`${moduleName}:${group.label}`] ? (
-              <div className="ml-8 mt-1 space-y-2 pb-2">
-              {(group.permissions || (group.items || []).flatMap((item) =>
-                (item.actions || ["view"]).map((action) => ({
-                  action: `${item.key}Read`,
-                  label: item.label,
-                  accessLabel: action === "view" ? "View" : action,
-                }))
-              )).map((permission) => (
-                <label
-                  key={permission.action}
-                  className="flex items-center gap-3 rounded-xl bg-white px-3 py-2 text-sm text-slate-700 shadow-sm ring-1 ring-slate-100"
+            return (
+              <div key={accordion.label}>
+                <button
+                  type="button"
+                  onClick={() => togglePermissionGroup(accId)}
+                  className="flex w-full items-center justify-between rounded-xl px-2 py-3 text-left transition hover:bg-white"
                 >
-                  <input
-                    type="checkbox"
-                    checked={Boolean(form.permissions?.[moduleName]?.[permission.action])}
-                    onChange={(event) => updatePermission(moduleName, permission.action, event.target.checked)}
+                  <span className="flex items-center gap-3">
+                    <AccIcon className="h-4 w-4 text-slate-500" />
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {accordion.label}
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 text-slate-400 transition-transform ${
+                      expandedPermissionGroups[accId] ? "rotate-180" : ""
+                    }`}
                   />
-                  <span className="font-medium">{permission.label}</span>
-                </label>
-              ))}
+                </button>
+
+                {expandedPermissionGroups[accId] ? (
+                  <div className="ml-8 mt-1 space-y-2 pb-2">
+                    {accordion.checkboxes.map((cb) => (
+                      <label
+                        key={`${cb.moduleName}:${cb.action}`}
+                        className="flex items-center gap-3 rounded-xl bg-white px-3 py-2 text-sm text-slate-700 shadow-sm ring-1 ring-slate-100"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(form.permissions?.[cb.moduleName]?.[cb.action])}
+                          onChange={(e) => updatePermission(cb.moduleName, cb.action, e.target.checked)}
+                        />
+                        <span className="font-medium capitalize">{cb.label || cb.action}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
-        ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -297,10 +336,7 @@ export function StaffRolesPage() {
   return (
     <div className="space-y-6">
       <section className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-950">Roles & Permissions</h1>
-          <p className="mt-1 text-sm text-slate-600">Manage staff roles and their permissions</p>
-        </div>
+        <div />
         {canCreate && (
           <button
             type="button"
@@ -470,52 +506,167 @@ export function StaffRolesPage() {
             </div>
 
             <div className="space-y-4">
-              {modules.map(([moduleName, actions]) => {
-                const enabledCount = actions.filter((action) => form.permissions?.[moduleName]?.[action]).length;
-                const moduleLayout = catalogLayout[moduleName];
+              {(() => {
+                const uiGroups = [
+                  {
+                    id: "dashboard",
+                    label: "Dashboard",
+                    icon: LayoutDashboard,
+                    items: [{ moduleName: "dashboardFake", label: "Dashboard" }], // Empty placeholder mostly since it's default
+                  },
+                  { id: "influencerCommerce", isInfluencerCommerce: true },
+                  {
+                    id: "overview",
+                    label: "Overview",
+                    icon: BarChart3,
+                    items: [
+                      { moduleName: "analytics", label: "Analytics" },
+                      { moduleName: "revenue", label: "Revenue" },
+                      { moduleName: "auditLogs", label: "Audit Logs" },
+                    ],
+                  },
+                  {
+                    id: "management",
+                    label: "Management",
+                    icon: Users,
+                    items: [
+                      { moduleName: "users", label: "Users" },
+                      { moduleName: "sellers", label: "Sellers" },
+                      { moduleName: "products", label: "Products" },
+                      { moduleName: "inventory", label: "Inventory" },
+                      { moduleName: "orders", label: "Orders" },
+                      { moduleName: "pickups", label: "Pickups" },
+                      { moduleName: "reviews", label: "Reviews" },
+                    ],
+                  },
+                  {
+                    id: "catalog",
+                    label: "Catalog",
+                    icon: FolderTree,
+                    items: [
+                      { moduleName: "categories", label: "Categories" },
+                      { moduleName: "subcategories", label: "Subcategories" },
+                      { moduleName: "returnRules", label: "Return Rules" },
+                      { moduleName: "catalogRequests", label: "Catalog Requests" },
+                      { moduleName: "attributes", label: "Attributes" },
+                      { moduleName: "productModules", label: "Product Modules" },
+                      { moduleName: "homepageContainers", label: "Homepage Containers" },
+                      { moduleName: "homepageBuilder", label: "Homepage Builder" },
+                      { moduleName: "vendorAccess", label: "Vendor Access" },
+                      { moduleName: "shippingAccess", label: "Shipping Access" },
+                    ],
+                  },
+                  {
+                    id: "commerceIntelligence",
+                    label: "Commerce Intelligence",
+                    icon: Lightbulb,
+                    items: [
+                      { moduleName: "recommendationSettings", label: "Recommendation Settings" },
+                      { moduleName: "relatedProducts", label: "Related Products Engine" },
+                      { moduleName: "frequentlyBoughtTogether", label: "Frequently Bought Together" },
+                      { moduleName: "crossSellRules", label: "Cross Sell Rules" },
+                      { moduleName: "upsellRules", label: "Upsell Rules" },
+                      { moduleName: "recommendationAnalytics", label: "Recommendation Analytics" },
+                      { moduleName: "aiScoringRules", label: "AI Scoring Rules" },
+                      { moduleName: "recommendationPreview", label: "Recommendation Preview" },
+                      { moduleName: "cacheManagement", label: "Cache Management" },
+                    ],
+                  },
+                  {
+                    id: "finance",
+                    label: "Finance",
+                    icon: Wallet,
+                    items: [
+                      { moduleName: "payments", label: "Payments" },
+                      { moduleName: "refunds", label: "Refunds" },
+                      { moduleName: "returns", label: "Returns" },
+                      { moduleName: "escrowRefunds", label: "Escrow Refunds" },
+                      { moduleName: "cancellationPolicies", label: "Cancellation Policies" },
+                      { moduleName: "codAdvance", label: "COD Advance" },
+                      { moduleName: "invoices", label: "Invoices" },
+                      { moduleName: "payouts", label: "Payout Management" },
+                      { moduleName: "commission", label: "Commission" },
+                      { moduleName: "financeInfluencers", label: "Influencers" },
+                      { moduleName: "settlements", label: "Settlements" },
+                    ],
+                  },
+                  {
+                    id: "workspace",
+                    label: "Workspace",
+                    icon: Settings,
+                    items: [
+                      { moduleName: "settings", label: "Settings" },
+                      { moduleName: "branding", label: "Company Branding" },
+                      { moduleName: "maintenance", label: "Platform Maintenance" },
+                      { moduleName: "shipping", label: "Shipping" },
+                      { moduleName: "pricing", label: "Pricing" },
+                      { moduleName: "pricingCategories", label: "Pricing Categories" },
+                      { moduleName: "roles", label: "Staff Roles" },
+                      { moduleName: "staff", label: "Staff Accounts" },
+                    ],
+                  },
+                ];
 
-                if (moduleLayout?.groups?.length) {
-                  return (
-                    <div key={moduleName}>
-                      {renderNestedModuleCard(moduleName, moduleLayout, enabledCount)}
-                    </div>
-                  );
-                }
+                const cards = [];
 
-                return (
-                  <div key={moduleName} className="rounded-xl border border-slate-200 p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <div className="text-sm font-semibold capitalize text-slate-950">{moduleLayout?.label || moduleName}</div>
-                        <div className="text-xs text-slate-500">{enabledCount} permissions enabled</div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => toggleModule(moduleName, enabledCount !== actions.length)}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium uppercase tracking-wide text-slate-700 hover:bg-slate-50"
-                      >
-                        {enabledCount === actions.length ? "Clear Module" : "Select Module"}
-                      </button>
-                    </div>
+                uiGroups.forEach((groupDef) => {
+                  if (groupDef.isInfluencerCommerce) {
+                    if (catalog.influencerCommerce && catalogLayout.influencerCommerce) {
+                      const layout = catalogLayout.influencerCommerce;
+                      const items = layout.groups.map((group) => {
+                        const checkboxes = (group.permissions || (group.items || []).flatMap((item) =>
+                          (item.actions || ["view"]).map((action) => {
+                            const parsedAction = action === "view" || action === "read" 
+                              ? `${item.key}Read` 
+                              : `${item.key}${action.charAt(0).toUpperCase() + action.slice(1)}`;
 
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {actions.map((action) => (
-                        <label
-                          key={action}
-                          className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm capitalize"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={Boolean(form.permissions?.[moduleName]?.[action])}
-                            onChange={(event) => updatePermission(moduleName, action, event.target.checked)}
-                          />
-                          {action}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+                            return {
+                              action: parsedAction,
+                              label: `${item.label} (${action})`,
+                            };
+                          })
+                        )).map((p) => ({
+                          moduleName: "influencerCommerce",
+                          action: p.action,
+                          label: p.label,
+                        }));
+                        return {
+                          label: group.label,
+                          iconLabel: group.label,
+                          checkboxes,
+                        };
+                      });
+                      cards.push(
+                        renderGroupCard({
+                          id: "influencerCommerce",
+                          label: layout.label || "Influencer Commerce",
+                          icon: Megaphone,
+                          items,
+                        })
+                      );
+                    }
+                    return;
+                  }
+
+                  const items = groupDef.items
+                    .filter((item) => catalog[item.moduleName]) // Only include modules present in catalog
+                    .map((item) => ({
+                      label: item.label,
+                      iconLabel: item.label,
+                      checkboxes: (catalog[item.moduleName] || []).map((action) => ({
+                        moduleName: item.moduleName,
+                        action,
+                        label: action,
+                      })),
+                    }));
+
+                  if (items.length > 0) {
+                    cards.push(renderGroupCard({ ...groupDef, items }));
+                  }
+                });
+
+                return cards;
+              })()}
             </div>
 
             <button

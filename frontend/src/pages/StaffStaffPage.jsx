@@ -168,10 +168,7 @@ export function StaffStaffPage() {
   return (
     <div className="space-y-6">
       <section className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-950">Staff Management</h1>
-          <p className="mt-1 text-sm text-slate-600">Manage staff members and their access levels</p>
-        </div>
+        <div />
         {canCreate && (
           <button
             type="button"

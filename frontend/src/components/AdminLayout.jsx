@@ -275,7 +275,9 @@ export function AdminLayout() {
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        onNavigate={() => setSidebarOpen(false)}
+        onNavigate={() => {
+          if (window.innerWidth < 1024) setSidebarOpen(false);
+        }}
         title={sidebarData.title}
         subtitle={sidebarData.subtitle}
         primaryItem={sidebarData.primaryItem}

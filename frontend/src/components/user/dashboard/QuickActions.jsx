@@ -5,7 +5,7 @@ const actions = [
   { label: "Orders", href: "/orders", icon: Package },
   { label: "Wishlist", href: "/dashboard/user/wishlist", icon: Heart },
   { label: "Address", href: "/addresses", icon: MapPin },
-  { label: "Coupons", href: "/shop", icon: TicketPercent },
+  { label: "Coupons", href: "/dashboard/user/coupons", icon: TicketPercent },
   { label: "Support", href: "/support", icon: HelpCircle },
   { label: "Settings", href: "/settings", icon: Settings },
   { label: "Profile", href: "/profile", icon: UserRound },

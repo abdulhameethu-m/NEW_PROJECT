@@ -112,10 +112,7 @@ export function StaffProductsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Products</h1>
-          <p className="mt-1 text-slate-600">Catalog operations and moderation visibility based on product permissions.</p>
-        </div>
+        <div />
         <div className="flex items-center gap-3">
           {canCreateProducts ? (
             <Link

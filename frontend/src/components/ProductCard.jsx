@@ -250,10 +250,15 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         {/* Top Left Discount Ribbon */}
         {discountPercent > 0 && (
           <div 
-            className="absolute top-0 left-0 z-10 w-[3.25rem] h-[3.25rem] sm:w-[5rem] sm:h-[5rem] bg-yellow-400"
-            style={{ clipPath: 'polygon(0 0, 100% 0, 0 100%)' }}
+            className="absolute top-0 left-0 z-20 w-[3.25rem] h-[3.25rem] sm:w-[5rem] sm:h-[5rem] bg-yellow-400"
+            style={{ 
+              clipPath: 'polygon(0 0, 100% 0, 0 100%)',
+              WebkitClipPath: 'polygon(0 0, 100% 0, 0 100%)',
+              transform: 'translateZ(0)',
+              willChange: 'transform'
+            }}
           >
-            <div className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 flex flex-col items-start">
+            <div className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 flex flex-col items-start translate-z-0">
               <span className="text-[10px] sm:text-[14px] font-extrabold text-blue-950 leading-none">{discountPercent}%</span>
               <span className="text-[7px] sm:text-[10px] font-bold text-blue-950 leading-none mt-0.5">OFF</span>
             </div>

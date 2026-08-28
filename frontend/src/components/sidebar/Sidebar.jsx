@@ -32,6 +32,8 @@ export function Sidebar({
     "influencer-commerce": Megaphone,
     verification: Settings,
     profileSettings: Users,
+    main: LayoutDashboard,
+    admin: Settings,
   };
 
   const [openSection, setOpenSection] = useState(null);

@@ -108,10 +108,7 @@ export function StaffOrdersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Orders</h1>
-          <p className="mt-1 text-slate-600">View and manage platform orders with permission-aware actions.</p>
-        </div>
+        <div />
         <div className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
           {orders.length} order{orders.length === 1 ? "" : "s"}
         </div>

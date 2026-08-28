@@ -61,10 +61,7 @@ export function StaffPaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <section>
-        <h1 className="text-2xl font-semibold text-slate-950">Payments</h1>
-        <p className="mt-1 text-sm text-slate-600">Monitor payment verification, order linkage, and refund actions.</p>
-      </section>
+      <section />
 
       <FilterBar>
         <input

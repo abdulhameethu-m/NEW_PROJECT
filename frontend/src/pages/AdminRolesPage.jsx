@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { confirmAction } from "../services/notificationService";
 import {
   BarChart3,
   ChevronDown,
+  ChevronUp,
   Link as LinkIcon,
   Megaphone,
   Settings,
   Users,
+  LayoutDashboard,
+  Lightbulb,
+  FolderTree,
   Wallet,
 } from "lucide-react";
-import { confirmAction } from "../services/notificationService";
 import {
   createStaffRole,
   deleteStaffRole,
@@ -17,11 +21,13 @@ import {
   updateStaffRole,
 } from "../services/adminApi";
 
-function normalizeError(err) {
-  return err?.response?.data?.message || err?.message || "Request failed";
+
+function normalizeError(error) {
+  return error?.response?.data?.message || error?.message || "Request failed";
 }
 
 export function AdminRolesPage() {
+  const formRef = useRef(null);
   const [catalog, setCatalog] = useState({});
   const [catalogLayout, setCatalogLayout] = useState({});
   const [emptyPermissions, setEmptyPermissions] = useState({});
@@ -38,37 +44,86 @@ export function AdminRolesPage() {
   });
 
   useEffect(() => {
-    let alive = true;
+    let active = true;
 
-    (async () => {
+    async function loadRolesWorkspace() {
       setLoading(true);
+      setError("");
       try {
         const [catalogResponse, rolesResponse] = await Promise.all([
           getStaffPermissionCatalog(),
           listStaffRoles(),
         ]);
-        if (!alive) return;
-        setCatalog(catalogResponse.data.catalog || {});
-        setCatalogLayout(catalogResponse.data.layout || {});
-        setEmptyPermissions(catalogResponse.data.emptyPermissions || {});
-        setRoles(rolesResponse.data || []);
-        setForm((current) => ({
-          ...current,
-          permissions: structuredClone(catalogResponse.data.emptyPermissions || {}),
-        }));
+
+        if (!active) return;
+
+        const nextCatalog = catalogResponse?.data?.catalog || catalogResponse?.catalog || {};
+        const nextCatalogLayout = catalogResponse?.data?.layout || catalogResponse?.layout || {};
+        const nextEmptyPermissions =
+          catalogResponse?.data?.emptyPermissions || catalogResponse?.emptyPermissions || {};
+        const nextRoles = rolesResponse?.data?.roles || rolesResponse?.data || rolesResponse || [];
+
+        setCatalog(nextCatalog);
+        setCatalogLayout(nextCatalogLayout);
+        setEmptyPermissions(nextEmptyPermissions);
+        setRoles(nextRoles);
+        setForm({
+          name: "",
+          description: "",
+          permissions: structuredClone(nextEmptyPermissions),
+        });
       } catch (err) {
-        if (alive) setError(normalizeError(err));
+        if (active) setError(normalizeError(err));
       } finally {
-        if (alive) setLoading(false);
+        if (active) setLoading(false);
       }
-    })();
+    }
+
+    loadRolesWorkspace();
 
     return () => {
-      alive = false;
+      active = false;
     };
   }, []);
 
+  const canCreate = true;
+  const canUpdate = true;
+  const canDelete = true;
   const modules = useMemo(() => Object.entries(catalog), [catalog]);
+  const editingRole = useMemo(
+    () => roles.find((role) => role._id === editingId) || null,
+    [editingId, roles]
+  );
+
+  function focusForm() {
+    window.requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function resetForm() {
+    setEditingId("");
+    setForm({
+      name: "",
+      description: "",
+      permissions: structuredClone(emptyPermissions),
+    });
+  }
+
+  function startCreating() {
+    resetForm();
+    focusForm();
+  }
+
+  function startEditing(role) {
+    setEditingId(role._id);
+    setForm({
+      name: role.name || "",
+      description: role.description || "",
+      permissions: structuredClone(role.permissions || emptyPermissions),
+    });
+    focusForm();
+  }
 
   function updatePermission(moduleName, action, checked) {
     setForm((current) => ({
@@ -89,7 +144,7 @@ export function AdminRolesPage() {
       permissions: {
         ...current.permissions,
         [moduleName]: Object.fromEntries(
-          Object.keys(current.permissions[moduleName] || {}).map((action) => [action, checked])
+          (catalog[moduleName] || Object.keys(current.permissions[moduleName] || {})).map((action) => [action, checked])
         ),
       },
     }));
@@ -99,64 +154,18 @@ export function AdminRolesPage() {
     setForm((current) => ({
       ...current,
       permissions: Object.fromEntries(
-        Object.entries(current.permissions).map(([moduleName, actions]) => [
+        Object.entries(catalog).map(([moduleName, actions]) => [
           moduleName,
-          Object.fromEntries(Object.keys(actions).map((action) => [action, checked])),
+          Object.fromEntries(actions.map((action) => [action, checked])),
         ])
       ),
     }));
   }
 
-  function togglePermissionGroup(moduleName, groupLabel) {
-    const key = `${moduleName}:${groupLabel}`;
+  function togglePermissionGroup(groupId) {
     setExpandedPermissionGroups((current) => ({
       ...current,
-      [key]: !current[key],
-    }));
-  }
-
-  function actionKey(itemKey, action) {
-    if (action === "view") return `${itemKey}Read`;
-    return `${itemKey}${action[0].toUpperCase()}${action.slice(1)}`;
-  }
-
-  function actionLabel(action) {
-    return action === "view" ? "view" : action;
-  }
-
-  function itemPermissionActions(moduleName, group, item) {
-    const isViewOnlyItem =
-      moduleName === "influencerCommerce" &&
-      (
-        (group?.label === "People" && ["influencers", "vendors", "influencerVendorMatching"].includes(item?.key)) ||
-        (group?.label === "Configuration" && item?.key === "settings")
-      );
-
-    if (isViewOnlyItem) return ["view"];
-    return item.actions || ["create", "read", "update", "delete"];
-  }
-
-  function layoutPermissionActions(moduleName, layout) {
-    return (layout.groups || []).flatMap((group) =>
-      (group.items || []).flatMap((item) =>
-        itemPermissionActions(moduleName, group, item).map((action) =>
-          actionKey(item.key, action)
-        )
-      )
-    );
-  }
-
-  function toggleLayoutModule(moduleName, layout, checked) {
-    const visibleActions = layoutPermissionActions(moduleName, layout);
-    setForm((current) => ({
-      ...current,
-      permissions: {
-        ...current.permissions,
-        [moduleName]: {
-          ...(current.permissions[moduleName] || {}),
-          ...Object.fromEntries(visibleActions.map((action) => [action, checked])),
-        },
-      },
+      [groupId]: !current[groupId],
     }));
   }
 
@@ -168,78 +177,104 @@ export function AdminRolesPage() {
       "Affiliate & Products": LinkIcon,
       Finance: Wallet,
       Configuration: Settings,
+      Users: Users,
+      "Staff Accounts": Users,
+      "Roles & Permissions": Settings,
+      Products: LinkIcon,
+      Orders: Wallet,
+      Reviews: Megaphone,
+      Payments: Wallet,
+      Payouts: Wallet,
+      Settlements: Wallet,
+      Analytics: BarChart3,
+      Settings: Settings,
+      Branding: Settings,
     };
     return icons[label] || BarChart3;
   }
 
-  function renderInfluencerCommerceModule(moduleName, layout) {
-    const visibleActions = layoutPermissionActions(moduleName, layout);
-    const enabledCount = visibleActions.filter((action) => form.permissions?.[moduleName]?.[action]).length;
+  function toggleGroupCard(modulesInGroup, checkAll) {
+    setForm((current) => {
+      const nextPermissions = { ...current.permissions };
+      modulesInGroup.forEach((mod) => {
+        if (catalog[mod] || nextPermissions[mod]) {
+          nextPermissions[mod] = Object.fromEntries(
+            (catalog[mod] || Object.keys(nextPermissions[mod] || {})).map((action) => [action, checkAll])
+          );
+        }
+      });
+      return { ...current, permissions: nextPermissions };
+    });
+  }
+
+  function renderGroupCard({ id, label, icon: Icon = Settings, items }) {
+    const modulesInGroup = [...new Set(items.flatMap((accordion) => accordion.checkboxes.map((cb) => cb.moduleName)))];
+    
+    const totalCheckboxes = items.reduce((acc, curr) => acc + curr.checkboxes.length, 0);
+    const enabledCount = items.reduce((acc, curr) => {
+      return acc + curr.checkboxes.filter((cb) => form.permissions?.[cb.moduleName]?.[cb.action]).length;
+    }, 0);
+
+    const checkAll = enabledCount !== totalCheckboxes;
 
     return (
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+      <div key={id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <div>
-            <div className="text-base font-semibold text-slate-950 dark:text-white">{layout.label || moduleName}</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">{enabledCount} permissions enabled</div>
+          <div className="flex items-center gap-3">
+            <Icon className="h-5 w-5 text-slate-600" />
+            <div>
+              <div className="text-base font-semibold text-slate-950">{label}</div>
+              <div className="text-xs text-slate-500">{enabledCount} permissions enabled</div>
+            </div>
           </div>
           <button
             type="button"
-            onClick={() => toggleLayoutModule(moduleName, layout, enabledCount !== visibleActions.length)}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-medium uppercase tracking-wide dark:border-slate-700 dark:bg-slate-950"
+            onClick={() => toggleGroupCard(modulesInGroup, checkAll)}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:bg-slate-50"
           >
-            {enabledCount === visibleActions.length ? "Clear Module" : "Select Module"}
+            {checkAll ? "Select Module" : "Clear Module"}
           </button>
         </div>
 
         <div className="mt-4 space-y-1">
-          {layout.groups.map((group) => {
-            const expanded = Boolean(expandedPermissionGroups[`${moduleName}:${group.label}`]);
-            const Icon = permissionGroupIcon(group.label);
+          {items.map((accordion) => {
+            const accId = `${id}:${accordion.label}`;
+            const AccIcon = permissionGroupIcon(accordion.iconLabel || accordion.label);
 
             return (
-              <div key={group.label}>
+              <div key={accordion.label}>
                 <button
                   type="button"
-                  onClick={() => togglePermissionGroup(moduleName, group.label)}
-                  className="flex w-full items-center justify-between rounded-xl px-2 py-3 text-left transition hover:bg-white dark:hover:bg-slate-800"
+                  onClick={() => togglePermissionGroup(accId)}
+                  className="flex w-full items-center justify-between rounded-xl px-2 py-3 text-left transition hover:bg-white"
                 >
                   <span className="flex items-center gap-3">
-                    <Icon className="h-4 w-4 text-slate-500" />
+                    <AccIcon className="h-4 w-4 text-slate-500" />
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      {group.label}
+                      {accordion.label}
                     </span>
                   </span>
                   <ChevronDown
-                    className={`h-4 w-4 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`}
+                    className={`h-4 w-4 text-slate-400 transition-transform ${
+                      expandedPermissionGroups[accId] ? "rotate-180" : ""
+                    }`}
                   />
                 </button>
 
-                {expanded ? (
-                  <div className="ml-7 space-y-3 pb-3">
-                    {(group.items || []).map((item) => (
-                      <div key={item.key} className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100 dark:bg-slate-950 dark:ring-slate-800">
-                        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{item.label}</div>
-                        <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                          {itemPermissionActions(moduleName, group, item).map((action) => {
-                            const permissionAction = actionKey(item.key, action);
-
-                            return (
-                              <label
-                                key={permissionAction}
-                                className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(form.permissions?.[moduleName]?.[permissionAction])}
-                                  onChange={(event) => updatePermission(moduleName, permissionAction, event.target.checked)}
-                                />
-                                {actionLabel(action)}
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
+                {expandedPermissionGroups[accId] ? (
+                  <div className="ml-8 mt-1 space-y-2 pb-2">
+                    {accordion.checkboxes.map((cb) => (
+                      <label
+                        key={`${cb.moduleName}:${cb.action}`}
+                        className="flex items-center gap-3 rounded-xl bg-white px-3 py-2 text-sm text-slate-700 shadow-sm ring-1 ring-slate-100"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(form.permissions?.[cb.moduleName]?.[cb.action])}
+                          onChange={(e) => updatePermission(cb.moduleName, cb.action, e.target.checked)}
+                        />
+                        <span className="font-medium capitalize">{cb.label || cb.action}</span>
+                      </label>
                     ))}
                   </div>
                 ) : null}
@@ -249,29 +284,6 @@ export function AdminRolesPage() {
         </div>
       </div>
     );
-  }
-
-  function startEditing(role) {
-    setEditingId(role._id);
-    setForm({
-      name: role.name,
-      description: role.description || "",
-      permissions: structuredClone(role.permissions),
-    });
-  }
-
-  const editingRole = useMemo(
-    () => roles.find((role) => role._id === editingId) || null,
-    [editingId, roles]
-  );
-
-  function resetForm() {
-    setEditingId("");
-    setForm({
-      name: "",
-      description: "",
-      permissions: structuredClone(emptyPermissions),
-    });
   }
 
   async function handleSubmit(event) {
@@ -290,11 +302,14 @@ export function AdminRolesPage() {
         ? await updateStaffRole(editingId, payload)
         : await createStaffRole(payload);
 
+      const savedRole = response?.data || response;
+
       if (editingId) {
-        setRoles((current) => current.map((role) => (role._id === editingId ? response.data : role)));
+        setRoles((current) => current.map((role) => (role._id === editingId ? savedRole : role)));
       } else {
-        setRoles((current) => [response.data, ...current]);
+        setRoles((current) => [savedRole, ...current]);
       }
+
       resetForm();
     } catch (err) {
       setError(normalizeError(err));
@@ -317,161 +332,351 @@ export function AdminRolesPage() {
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,0.9fr)]">
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Role library</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Dynamic RBAC roles with per-module actions.</p>
-          </div>
+    <div className="space-y-6">
+      <section className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
+        <div />
+        {canCreate && (
           <button
             type="button"
-            onClick={() => toggleAll(true)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            onClick={startCreating}
+            className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
           >
-            Enable all
+            + Create Role
           </button>
-        </div>
-
-        {error ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
-
-        <div className="mt-4 grid gap-3">
-          {loading ? (
-            Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
-            ))
-          ) : (
-            roles.map((role) => (
-              <div key={role._id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-slate-950 dark:text-white">{role.name}</h3>
-                      {role.isSystem ? (
-                        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                          System
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{role.description || "No description provided"}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => startEditing(role)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                      Edit
-                    </button>
-                    {!role.isSystem ? (
-                      <button type="button" onClick={() => handleDelete(role)} className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                        Delete
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        )}
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{editingId ? "Edit role" : "Create role"}</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Delete, update, refund, and process actions automatically imply read where applicable.</p>
-          </div>
-          <button type="button" onClick={resetForm} className="text-sm font-medium text-slate-600 hover:underline">
-            Reset
-          </button>
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          {error}
         </div>
+      )}
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-            Role name
-            <input
-              value={form.name}
-              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-              className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-3"
-              placeholder="Support Staff"
-              disabled={Boolean(editingRole?.isSystem)}
-              required
-            />
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {loading ? (
+          <div className="flex h-64 items-center justify-center">
+            <div className="text-center">
+              <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-amber-500" />
+              <p className="mt-4 text-sm text-slate-600">Loading roles...</p>
+            </div>
+          </div>
+        ) : roles.length === 0 ? (
+          <div className="flex h-64 items-center justify-center">
+            <p className="text-sm text-slate-600">No roles found</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50">
+              <tr>
+                <th className="px-6 py-3 text-left font-semibold text-slate-950">Role Name</th>
+                <th className="px-6 py-3 text-left font-semibold text-slate-950">Description</th>
+                <th className="px-6 py-3 text-left font-semibold text-slate-950">Permissions</th>
+                <th className="px-6 py-3 text-left font-semibold text-slate-950">Type</th>
+                {(canUpdate || canDelete) && <th className="px-6 py-3 text-left font-semibold text-slate-950">Actions</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {roles.map((role) => {
+                const permissionCount = Object.values(role.permissions || {})
+                  .flatMap((actions) => Object.values(actions || {}))
+                  .filter(Boolean).length;
+
+                return (
+                  <tr key={role._id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 font-semibold text-slate-950">{role.name}</td>
+                    <td className="px-6 py-4 text-slate-600">{role.description || "-"}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                        {permissionCount} permissions
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                          role.isSystem ? "bg-slate-100 text-slate-700" : "bg-blue-50 text-blue-700"
+                        }`}
+                      >
+                        {role.isSystem ? "System" : "Custom"}
+                      </span>
+                    </td>
+                    {(canUpdate || canDelete) && (
+                      <td className="px-6 py-4">
+                        <div className="flex gap-3">
+                          {canUpdate && (
+                            <button
+                              type="button"
+                              onClick={() => startEditing(role)}
+                              className="text-sm font-medium text-amber-700 hover:text-amber-900"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {canDelete && !role.isSystem && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(role)}
+                              className="text-sm font-medium text-rose-700 hover:text-rose-900"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {(canCreate || (canUpdate && editingId)) && (
+        <section ref={formRef} className="rounded-xl border border-slate-200 bg-white p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-950">{editingId ? "Edit Role" : "Create Role"}</h2>
+              <p className="mt-1 text-sm text-slate-600">Choose which staff modules and actions this role can access.</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => toggleAll(true)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <label className="block text-sm font-medium text-slate-700">
+              Role name
+              <input
+                value={form.name}
+                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3"
+                placeholder="Support Staff"
+                disabled={Boolean(editingRole?.isSystem)}
+                required
+              />
+            </label>
+
+            <label className="block text-sm font-medium text-slate-700">
+              Description
+              <textarea
+                value={form.description}
+                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3"
+                rows={3}
+                placeholder="Explain how this role should be used."
+              />
+            </label>
+
             {editingRole?.isSystem ? (
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                System role names are locked. You can still update description and permissions.
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                System role names are locked. You can still update the description and permissions.
               </div>
             ) : null}
-          </label>
 
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-            Description
-            <textarea
-              value={form.description}
-              onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-              className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-3"
-              rows={3}
-              placeholder="Explain how this role should be used."
-            />
-          </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => toggleAll(true)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Enable all
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleAll(false)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Clear all
+              </button>
+            </div>
 
-          <div className="flex gap-2">
-            <button type="button" onClick={() => toggleAll(true)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-              Select all
+            <div className="space-y-4">
+              {(() => {
+                const uiGroups = [
+                  {
+                    id: "dashboard",
+                    label: "Dashboard",
+                    icon: LayoutDashboard,
+                    items: [{ moduleName: "dashboardFake", label: "Dashboard" }], // Empty placeholder mostly since it's default
+                  },
+                  { id: "influencerCommerce", isInfluencerCommerce: true },
+                  {
+                    id: "overview",
+                    label: "Overview",
+                    icon: BarChart3,
+                    items: [
+                      { moduleName: "analytics", label: "Analytics" },
+                      { moduleName: "revenue", label: "Revenue" },
+                      { moduleName: "auditLogs", label: "Audit Logs" },
+                    ],
+                  },
+                  {
+                    id: "management",
+                    label: "Management",
+                    icon: Users,
+                    items: [
+                      { moduleName: "users", label: "Users" },
+                      { moduleName: "sellers", label: "Sellers" },
+                      { moduleName: "products", label: "Products" },
+                      { moduleName: "inventory", label: "Inventory" },
+                      { moduleName: "orders", label: "Orders" },
+                      { moduleName: "pickups", label: "Pickups" },
+                      { moduleName: "reviews", label: "Reviews" },
+                    ],
+                  },
+                  {
+                    id: "catalog",
+                    label: "Catalog",
+                    icon: FolderTree,
+                    items: [
+                      { moduleName: "categories", label: "Categories" },
+                      { moduleName: "subcategories", label: "Subcategories" },
+                      { moduleName: "returnRules", label: "Return Rules" },
+                      { moduleName: "catalogRequests", label: "Catalog Requests" },
+                      { moduleName: "attributes", label: "Attributes" },
+                      { moduleName: "productModules", label: "Product Modules" },
+                      { moduleName: "homepageContainers", label: "Homepage Containers" },
+                      { moduleName: "homepageBuilder", label: "Homepage Builder" },
+                      { moduleName: "vendorAccess", label: "Vendor Access" },
+                      { moduleName: "shippingAccess", label: "Shipping Access" },
+                    ],
+                  },
+                  {
+                    id: "commerceIntelligence",
+                    label: "Commerce Intelligence",
+                    icon: Lightbulb,
+                    items: [
+                      { moduleName: "recommendationSettings", label: "Recommendation Settings" },
+                      { moduleName: "relatedProducts", label: "Related Products Engine" },
+                      { moduleName: "frequentlyBoughtTogether", label: "Frequently Bought Together" },
+                      { moduleName: "crossSellRules", label: "Cross Sell Rules" },
+                      { moduleName: "upsellRules", label: "Upsell Rules" },
+                      { moduleName: "recommendationAnalytics", label: "Recommendation Analytics" },
+                      { moduleName: "aiScoringRules", label: "AI Scoring Rules" },
+                      { moduleName: "recommendationPreview", label: "Recommendation Preview" },
+                      { moduleName: "cacheManagement", label: "Cache Management" },
+                    ],
+                  },
+                  {
+                    id: "finance",
+                    label: "Finance",
+                    icon: Wallet,
+                    items: [
+                      { moduleName: "payments", label: "Payments" },
+                      { moduleName: "refunds", label: "Refunds" },
+                      { moduleName: "returns", label: "Returns" },
+                      { moduleName: "escrowRefunds", label: "Escrow Refunds" },
+                      { moduleName: "cancellationPolicies", label: "Cancellation Policies" },
+                      { moduleName: "codAdvance", label: "COD Advance" },
+                      { moduleName: "invoices", label: "Invoices" },
+                      { moduleName: "payouts", label: "Payout Management" },
+                      { moduleName: "commission", label: "Commission" },
+                      { moduleName: "financeInfluencers", label: "Influencers" },
+                      { moduleName: "settlements", label: "Settlements" },
+                    ],
+                  },
+                  {
+                    id: "workspace",
+                    label: "Workspace",
+                    icon: Settings,
+                    items: [
+                      { moduleName: "settings", label: "Settings" },
+                      { moduleName: "branding", label: "Company Branding" },
+                      { moduleName: "maintenance", label: "Platform Maintenance" },
+                      { moduleName: "shipping", label: "Shipping" },
+                      { moduleName: "pricing", label: "Pricing" },
+                      { moduleName: "pricingCategories", label: "Pricing Categories" },
+                      { moduleName: "roles", label: "Staff Roles" },
+                      { moduleName: "staff", label: "Staff Accounts" },
+                    ],
+                  },
+                ];
+
+                const cards = [];
+
+                uiGroups.forEach((groupDef) => {
+                  if (groupDef.isInfluencerCommerce) {
+                    if (catalog.influencerCommerce && catalogLayout.influencerCommerce) {
+                      const layout = catalogLayout.influencerCommerce;
+                      const items = layout.groups.map((group) => {
+                        const checkboxes = (group.permissions || (group.items || []).flatMap((item) =>
+                          (item.actions || ["view"]).map((action) => {
+                            const parsedAction = action === "view" || action === "read" 
+                              ? `${item.key}Read` 
+                              : `${item.key}${action.charAt(0).toUpperCase() + action.slice(1)}`;
+
+                            return {
+                              action: parsedAction,
+                              label: `${item.label} (${action})`,
+                            };
+                          })
+                        )).map((p) => ({
+                          moduleName: "influencerCommerce",
+                          action: p.action,
+                          label: p.label,
+                        }));
+                        return {
+                          label: group.label,
+                          iconLabel: group.label,
+                          checkboxes,
+                        };
+                      });
+                      cards.push(
+                        renderGroupCard({
+                          id: "influencerCommerce",
+                          label: layout.label || "Influencer Commerce",
+                          icon: Megaphone,
+                          items,
+                        })
+                      );
+                    }
+                    return;
+                  }
+
+                  const items = groupDef.items
+                    .filter((item) => catalog[item.moduleName]) // Only include modules present in catalog
+                    .map((item) => ({
+                      label: item.label,
+                      iconLabel: item.label,
+                      checkboxes: (catalog[item.moduleName] || []).map((action) => ({
+                        moduleName: item.moduleName,
+                        action,
+                        label: action,
+                      })),
+                    }));
+
+                  if (items.length > 0) {
+                    cards.push(renderGroupCard({ ...groupDef, items }));
+                  }
+                });
+
+                return cards;
+              })()}
+            </div>
+
+            <button
+              type="submit"
+              disabled={saving || !form.name.trim()}
+              className="inline-flex rounded-lg bg-slate-950 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {saving ? "Saving role..." : editingId ? "Update Role" : "Create Role"}
             </button>
-            <button type="button" onClick={() => toggleAll(false)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-              Clear all
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {modules.map(([moduleName, actions]) => {
-              const enabledCount = actions.filter((action) => form.permissions?.[moduleName]?.[action]).length;
-              const moduleLayout = catalogLayout[moduleName];
-
-              if (moduleLayout?.groups?.length) {
-                return (
-                  <div key={moduleName}>
-                    {renderInfluencerCommerceModule(moduleName, moduleLayout)}
-                  </div>
-                );
-              }
-
-              return (
-                <div key={moduleName} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-semibold capitalize text-slate-950 dark:text-white">{moduleName}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">{enabledCount} permissions enabled</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => toggleModule(moduleName, enabledCount !== actions.length)}
-                      className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium uppercase tracking-wide"
-                    >
-                      {enabledCount === actions.length ? "Clear module" : "Select module"}
-                    </button>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {actions.map((action) => (
-                      <label key={action} className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm capitalize dark:bg-slate-800">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(form.permissions?.[moduleName]?.[action])}
-                          onChange={(event) => updatePermission(moduleName, action, event.target.checked)}
-                        />
-                        {action}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <button type="submit" disabled={saving || !form.name.trim()} className="w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-medium text-white disabled:opacity-50">
-            {saving ? "Saving role..." : editingId ? "Update role" : "Create role"}
-          </button>
-        </form>
-      </section>
+          </form>
+        </section>
+      )}
     </div>
   );
 }

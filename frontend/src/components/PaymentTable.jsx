@@ -24,11 +24,9 @@ export function PaymentTable({ rows = [], onRefund = null, detailsBasePath = "/a
                 <tr key={payment._id}>
                   <td className="px-4 py-3">
                     <div className="font-semibold text-slate-950 dark:text-white">{payment.orderIds?.[0]?.orderNumber || payment.razorpayOrderId || "Awaiting order"}</div>
-                    <div className="mt-1 font-mono text-xs text-slate-500">{payment.razorpayPaymentId || payment.razorpayOrderId || payment._id}</div>
                   </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                     <div>{payment.userId?.name || "Customer"}</div>
-                    <div className="mt-1 text-xs text-slate-500">{payment.userId?.email || payment.userId?.phone || "No contact"}</div>
                   </td>
                   <td className="px-4 py-3 font-semibold text-slate-950 dark:text-white">{formatCurrency(payment.amount || 0)}</td>
                   <td className="px-4 py-3"><StatusBadge value={payment.displayStatus || payment.status} /></td>

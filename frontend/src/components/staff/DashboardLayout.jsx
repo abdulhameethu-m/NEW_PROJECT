@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useStaffAuthStore } from "../../context/staffAuthStore";
 import { StaffSidebar } from "./Sidebar";
-import { StaffTopbar } from "./Topbar";
+import { Topbar } from "../Topbar";
 import * as staffAuthService from "../../services/staffAuthService";
 import { getStaffModuleByRoute } from "../../config/staffModules";
 import {
@@ -21,7 +21,7 @@ export function StaffDashboardLayout({ children }) {
   const logout = useStaffAuthStore((state) => state.logout);
   const location = useLocation();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastSyncTime, setLastSyncTime] = useState(null);
@@ -152,25 +152,24 @@ export function StaffDashboardLayout({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen overflow-hidden bg-slate-100">
+    <div className={`flex min-h-screen max-w-full overflow-x-hidden bg-slate-100 ${sidebarOpen ? "lg:ml-20" : "lg:ml-0"}`}>
       <StaffSidebar
         permissions={user?.permissions || {}}
         enabledModules={user?.enabledModules || {}}
         isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
         onToggle={() => setSidebarOpen((current) => !current)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <StaffTopbar
-          user={user}
-          role={user?.role || null}
-          permissions={user?.permissions || {}}
-          module={activeModule}
+      <div className="flex min-w-0 max-w-full flex-1 flex-col">
+        <Topbar
+          title={activeModule?.name || "Staff Workspace"}
+          subtitle={activeModule?.description || "Actions authorized by your live role permissions"}
           onMenuToggle={() => setSidebarOpen((current) => !current)}
+          sidebarOpen={sidebarOpen}
         />
-
-        <main className="flex-1 overflow-auto bg-slate-100">
-          <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children || <Outlet />}</div>
+        <main className="min-w-0 max-w-full flex-1 overflow-x-hidden px-4 py-4 sm:px-6 lg:px-8">
+          {children || <Outlet />}
         </main>
       </div>
 

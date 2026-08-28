@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FilterBar } from "../components/FilterBar";
-import { PaymentTable } from "../components/PaymentTable";
-import { RefundModal } from "../components/RefundModal";
+
 import * as paymentService from "../services/paymentService";
 
 function normalizeError(error) {
@@ -9,16 +7,14 @@ function normalizeError(error) {
 }
 
 export function AdminPaymentsPage() {
-  const [filters, setFilters] = useState({ search: "", status: "", method: "" });
-  const [payments, setPayments] = useState([]);
+
   const [overview, setOverview] = useState(null);
   const [codAnalytics, setCodAnalytics] = useState(null);
   const [codSettings, setCodSettings] = useState(null);
   const [razorpaySettings, setRazorpaySettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [refundTarget, setRefundTarget] = useState(null);
-  const [refunding, setRefunding] = useState(false);
+
   const [savingCodSettings, setSavingCodSettings] = useState(false);
   const [savingRazorpaySettings, setSavingRazorpaySettings] = useState(false);
 
@@ -27,12 +23,11 @@ export function AdminPaymentsPage() {
     setError("");
     try {
       const [response, analyticsResponse, settingsResponse] = await Promise.all([
-        paymentService.listPayments(filters),
+        paymentService.listPayments({}),
         paymentService.getCodAnalytics().catch(() => null),
         paymentService.getCodSettings().catch(() => null),
       ]);
       const razorpaySettingsResponse = await paymentService.getRazorpaySettings().catch(() => null);
-      setPayments(response?.payments || []);
       setOverview(response?.overview || null);
       setCodAnalytics(analyticsResponse || null);
       setCodSettings(settingsResponse || null);
@@ -42,38 +37,27 @@ export function AdminPaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   useEffect(() => {
     loadPayments();
   }, [loadPayments]);
 
-  async function handleRefund(payload) {
-    if (!refundTarget) return;
-    setRefunding(true);
-    setError("");
-    try {
-      await paymentService.createRefund({
-        paymentId: refundTarget._id,
-        orderId: refundTarget.orderIds?.[0]?._id,
-        amount: payload.amount,
-        reason: payload.reason,
-      });
-      setRefundTarget(null);
-      await loadPayments();
-    } catch (err) {
-      setError(normalizeError(err));
-    } finally {
-      setRefunding(false);
-    }
-  }
+
 
   async function handleSaveCodSettings() {
     if (!codSettings) return;
     setSavingCodSettings(true);
     setError("");
     try {
-      const response = await paymentService.updateCodSettings(codSettings);
+      const payload = {
+        ...codSettings,
+        minOrderValue: Number(codSettings.minOrderValue) || 0,
+        maxOrderValue: Number(codSettings.maxOrderValue) || 0,
+        defaultFeeValue: Number(codSettings.defaultFeeValue) || 0,
+        vendorHoldDays: Number(codSettings.vendorHoldDays) || 0,
+      };
+      const response = await paymentService.updateCodSettings(payload);
       setCodSettings(response || null);
     } catch (err) {
       setError(normalizeError(err));
@@ -87,7 +71,11 @@ export function AdminPaymentsPage() {
     setSavingRazorpaySettings(true);
     setError("");
     try {
-      const response = await paymentService.updateRazorpaySettings(razorpaySettings);
+      const payload = {
+        ...razorpaySettings,
+        sessionTimeoutMinutes: Number(razorpaySettings.sessionTimeoutMinutes) || 15,
+      };
+      const response = await paymentService.updateRazorpaySettings(payload);
       setRazorpaySettings(response || null);
     } catch (err) {
       setError(normalizeError(err));
@@ -103,37 +91,7 @@ export function AdminPaymentsPage() {
         <p className="mt-1 text-sm text-slate-600">Track captured payments, failed attempts, verification state, and refund controls.</p>
       </section>
 
-      <FilterBar>
-        <input
-          type="text"
-          placeholder="Search by gateway id or receipt"
-          value={filters.search}
-          onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-          className="min-w-[240px] rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-        />
-        <select
-          value={filters.status}
-          onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
-          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-        >
-          <option value="">All statuses</option>
-          <option value="CREATED">Created</option>
-          <option value="PAID">Paid</option>
-          <option value="FAILED">Failed</option>
-          <option value="REFUNDED">Refunded</option>
-          <option value="PARTIALLY_REFUNDED">Partially refunded</option>
-        </select>
-        <select
-          value={filters.method}
-          onChange={(event) => setFilters((current) => ({ ...current, method: event.target.value }))}
-          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-        >
-          <option value="">All methods</option>
-          <option value="ONLINE">Online</option>
-          <option value="COD">COD</option>
-          <option value="COD_ADVANCE">COD advance</option>
-        </select>
-      </FilterBar>
+
 
       {overview ? (
         <div className="grid gap-4 md:grid-cols-4">
@@ -185,7 +143,7 @@ export function AdminPaymentsPage() {
               <input
                 type="number"
                 value={codSettings.minOrderValue ?? 0}
-                onChange={(event) => setCodSettings((current) => ({ ...current, minOrderValue: Number(event.target.value || 0) }))}
+                onChange={(event) => setCodSettings((current) => ({ ...current, minOrderValue: event.target.value === "" ? "" : Number(event.target.value) }))}
                 className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
                 placeholder="Minimum order value"
               />
@@ -195,7 +153,7 @@ export function AdminPaymentsPage() {
               <input
                 type="number"
                 value={codSettings.maxOrderValue ?? 50000}
-                onChange={(event) => setCodSettings((current) => ({ ...current, maxOrderValue: Number(event.target.value || 0) }))}
+                onChange={(event) => setCodSettings((current) => ({ ...current, maxOrderValue: event.target.value === "" ? "" : Number(event.target.value) }))}
                 className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
                 placeholder="Maximum order value (0 for no limit)"
               />
@@ -205,7 +163,7 @@ export function AdminPaymentsPage() {
               <input
                 type="number"
                 value={codSettings.defaultFeeValue ?? 0}
-                onChange={(event) => setCodSettings((current) => ({ ...current, defaultFeeValue: Number(event.target.value || 0) }))}
+                onChange={(event) => setCodSettings((current) => ({ ...current, defaultFeeValue: event.target.value === "" ? "" : Number(event.target.value) }))}
                 className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
                 placeholder="Default COD fee"
               />
@@ -215,7 +173,7 @@ export function AdminPaymentsPage() {
               <input
                 type="number"
                 value={codSettings.vendorHoldDays ?? 3}
-                onChange={(event) => setCodSettings((current) => ({ ...current, vendorHoldDays: Number(event.target.value || 0) }))}
+                onChange={(event) => setCodSettings((current) => ({ ...current, vendorHoldDays: event.target.value === "" ? "" : Number(event.target.value) }))}
                 className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
                 placeholder="Vendor hold days"
               />
@@ -249,7 +207,7 @@ export function AdminPaymentsPage() {
               <input
                 type="number"
                 value={razorpaySettings.sessionTimeoutMinutes ?? 15}
-                onChange={(event) => setRazorpaySettings((current) => ({ ...current, sessionTimeoutMinutes: Number(event.target.value || 15) }))}
+                onChange={(event) => setRazorpaySettings((current) => ({ ...current, sessionTimeoutMinutes: event.target.value === "" ? "" : Number(event.target.value) }))}
                 className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
                 placeholder="Session timeout (min)"
               />
@@ -284,23 +242,7 @@ export function AdminPaymentsPage() {
 
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
 
-      {loading ? (
-        <div className="grid gap-3">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-16 animate-pulse rounded-2xl bg-slate-100" />
-          ))}
-        </div>
-      ) : (
-        <PaymentTable rows={payments} onRefund={setRefundTarget} detailsBasePath="/admin/payment-details" />
-      )}
 
-      <RefundModal
-        open={Boolean(refundTarget)}
-        payment={refundTarget}
-        loading={refunding}
-        onClose={() => setRefundTarget(null)}
-        onSubmit={handleRefund}
-      />
     </div>
   );
 }
