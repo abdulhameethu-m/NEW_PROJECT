@@ -151,30 +151,144 @@ function buildShadowfaxPayload(platformRequest, vendor) {
     (sum, item) => sum + Number(item.weight || 0) * Number(item.units || 0),
     0
   );
+  
+  const isSandbox = (process.env.SHADOWFAX_BASE_URL || "staging").includes("staging");
+  const overridePickupPincode = isSandbox ? 560007 : pickupAddress.pincode;
+  const overrideCustomerPincode = isSandbox ? 110009 : deliveryAddress.postalCode;
+
   return {
-    client_order_id: String(orderDetails.orderId),
-    name: deliveryAddress.fullName,
-    address_line_1: deliveryAddress.line1,
-    address_line_2: deliveryAddress.line2 || "",
-    city: deliveryAddress.city,
-    state: deliveryAddress.state,
-    pincode: deliveryAddress.postalCode,
-    contact_number: deliveryAddress.phone,
-    payment_mode: orderDetails.paymentMethod === "COD" ? "COD" : "Prepaid",
-    order_value: orderDetails.subtotal,
-    order_date: new Date(orderDetails.orderDate).toISOString(),
-    pickup_address: {
-      name: vendor?.shopName || pickupAddress.name,
-      address_line_1: pickupAddress.addressLine1,
-      city: pickupAddress.city,
-      pincode: pickupAddress.pincode,
-      contact_number: pickupAddress.phone
+    order_type: "marketplace",
+    order_details: {
+      client_order_id: String(orderDetails.orderId),
+      product_value: orderDetails.subtotal,
+      payment_mode: orderDetails.paymentMethod === "COD" ? "COD" : "Prepaid",
+      cod_amount: orderDetails.paymentMethod === "COD" ? orderDetails.total : 0,
+      total_amount: orderDetails.total || orderDetails.subtotal,
+      actual_weight: totalWeight > 0 ? Number(totalWeight.toFixed(3)) : 1,
     },
-    weight: totalWeight > 0 ? Number(totalWeight.toFixed(3)) : 1
+    customer_details: {
+      name: deliveryAddress.fullName,
+      contact: deliveryAddress.phone,
+      address_line_1: deliveryAddress.line1,
+      address_line_2: deliveryAddress.line2 || "",
+      city: deliveryAddress.city,
+      state: deliveryAddress.state,
+      pincode: overrideCustomerPincode,
+    },
+    pickup_details: {
+      name: vendor?.shopName || pickupAddress.name || "Vendor",
+      contact: pickupAddress.phone,
+      address_line_1: pickupAddress.addressLine1,
+      address_line_2: pickupAddress.addressLine2 || "",
+      city: pickupAddress.city,
+      state: pickupAddress.state,
+      pincode: overridePickupPincode,
+    },
+    rts_details: {
+      name: vendor?.shopName || pickupAddress.name || "Vendor",
+      contact: pickupAddress.phone,
+      address_line_1: pickupAddress.addressLine1,
+      address_line_2: pickupAddress.addressLine2 || "",
+      city: pickupAddress.city,
+      state: pickupAddress.state,
+      pincode: overridePickupPincode,
+    },
+    product_details: (orderDetails.items || []).map((item) => ({
+      sku_name: item.name,
+      category: "electronics", // Mandatory field in most shadowfax implementations
+      price: item.sellingPrice,
+      seller_details: {
+        seller_name: vendor?.shopName || "Vendor",
+        seller_address: pickupAddress.addressLine1,
+        seller_state: pickupAddress.state,
+      },
+      additional_details: {
+        quantity: item.units,
+      }
+    }))
+  };
+}
+
+function buildShadowfaxReversePickupPayload(returnRequest, order, vendor, pickupAddress) {
+  const isSandbox = (process.env.SHADOWFAX_BASE_URL || "staging").includes("staging");
+  const overrideVendorPincode = isSandbox ? 560007 : pickupAddress.pincode;
+  const overrideCustomerPincode = isSandbox ? 110009 : order.shippingAddress.postalCode;
+
+  return {
+    client_order_number: String(returnRequest._id),
+    warehouse_name: vendor?.shopName || vendor?.companyName || pickupAddress.name || "Vendor",
+    warehouse_address: pickupAddress.addressLine1 || "",
+    destination_pincode: overrideVendorPincode,
+    pickup_type: "regular",
+    price: Number(returnRequest.unitPrice || 0) * Number(returnRequest.quantity || 1),
+    total_amount: Number(returnRequest.unitPrice || 0) * Number(returnRequest.quantity || 1),
+    address_attributes: {
+      name: order.shippingAddress.fullName,
+      address_line: order.shippingAddress.line1,
+      city: order.shippingAddress.city,
+      state: order.shippingAddress.state,
+      pincode: overrideCustomerPincode,
+      phone_number: order.shippingAddress.phone,
+    },
+    skus_attributes: [
+      {
+        name: returnRequest.productName || "Return Item",
+        client_sku_id: String(returnRequest.productId),
+        price: Number(returnRequest.unitPrice || 0),
+        return_reason: returnRequest.reasonCode || "Customer Return",
+        seller_details: {
+          regd_name: vendor?.shopName || vendor?.companyName || pickupAddress.name || "Vendor",
+          regd_address: pickupAddress.addressLine1 || "Vendor Address",
+          state: pickupAddress.state || "State",
+          gstin: vendor?.taxDetails?.gstin || vendor?.gstin || "22AAAAA0000A1Z5" 
+        },
+        taxes: {
+          cgst_amount: 0.0,
+          sgst_amount: 0.0,
+          igst_amount: 0.0,
+          total_tax_amount: 0.0
+        },
+        hsn_code: "85171200", 
+        invoice_id: order?.invoiceNumber || "INV-" + (order?.orderNumber || "1")
+      }
+    ]
   };
 }
 
 class DeliveryService {
+  async createReverseShipment(returnRequest, order, vendor) {
+    const pickupAddress = await normalizePickupAddress(vendor);
+    assertPickupAddressIsComplete(pickupAddress);
+
+    if (!order?.shippingAddress?.postalCode || !SERVICEABLE_PINCODE_PATTERN.test(String(order.shippingAddress.postalCode).trim())) {
+      throw new AppError("Customer pickup pincode is invalid for platform reverse shipping.", 400, "PICKUP_PINCODE_INVALID");
+    }
+
+    const platformRequest = {
+      pickupAddress,
+      order,
+      returnRequest
+    };
+
+    const isShadowfax = logisticsService.providerName === "SHADOWFAX";
+    
+    if (!isShadowfax) {
+      throw new AppError("Only Shadowfax is currently supported for Reverse Pickups.", 503, "LOGISTICS_PROVIDER_UNSUPPORTED");
+    }
+
+    const providerPayload = buildShadowfaxReversePickupPayload(returnRequest, order, vendor, pickupAddress);
+
+    const shipment = await logisticsService.createPlatformReverseShipment({
+      ...platformRequest,
+      providerPayload,
+    });
+    
+    return {
+      ...shipment,
+      vendorAddress: pickupAddress,
+    };
+  }
+
   async createShipment(order, vendor) {
     let resolvedOrder = order;
     let resolvedVendor = vendor;

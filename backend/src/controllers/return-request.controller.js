@@ -194,6 +194,15 @@ async function vendorMarkReceived(req, res, next) {
   }
 }
 
+async function vendorCreatePickup(req, res, next) {
+  try {
+    const doc = await returnRequestService.vendorCreatePickup(req.params.id, req.user);
+    res.json({ success: true, data: doc, message: "Reverse pickup scheduled successfully." });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function vendorAccept(req, res, next) {
   try {
     const { notes } = req.body;
@@ -235,6 +244,7 @@ module.exports = {
   adminResolveDispute,
   vendorGetReturns,
   vendorGetReturn,
+  vendorCreatePickup,
   vendorMarkReceived,
   vendorAccept,
   vendorDispute,

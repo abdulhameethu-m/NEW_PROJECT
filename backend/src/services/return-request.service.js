@@ -381,13 +381,14 @@ class ReturnRequestService {
       decision: "APPROVED",
     };
     doc.resolvedAt = null; // still in progress
+    
     addTimelineEvent(doc, {
       action: "ADMIN_APPROVED",
       previousStatus: previous,
       newStatus: "ADMIN_APPROVED",
       actorId: actor?.sub || actor?._id,
       actorRole: actor?.role || "admin",
-      note: String(note || ""),
+      note: `Admin approved. Awaiting Vendor manual review before initiating reverse pickup.`,
     });
 
     await doc.save();
@@ -397,10 +398,10 @@ class ReturnRequestService {
       action: "return.admin.approved",
       entityType: "ReturnRequest",
       entityId: returnId,
-      metadata: { previousStatus: previous, note },
+      metadata: { previousStatus: previous, trackingId: doc.trackingId, note },
     }).catch(() => null);
 
-    await notificationService.notifyVendorUser(doc.vendorId, "RETURN_APPROVED", { returnId }).catch(() => null);
+    await notificationService.notifyVendorUser(doc.vendorId, "RETURN_APPROVED", { returnId, trackingId: doc.trackingId }).catch(() => null);
 
     return doc;
   }
@@ -484,6 +485,60 @@ class ReturnRequestService {
     };
   }
 
+  // ── Vendor Create Pickup ──────────────────────────────────
+
+  async vendorCreatePickup(returnId, actor) {
+    const vendorId = actor?.vendorId || actor?.vendor?._id;
+    const doc = await ReturnRequest.findById(returnId);
+    if (!doc) throw new AppError("Return request not found", 404, "NOT_FOUND");
+
+    if (String(doc.vendorId) !== String(vendorId)) {
+      throw new AppError("Forbidden: this return does not belong to your store", 403, "FORBIDDEN");
+    }
+
+    assertTransition(doc.status, "RETURN_PICKUP_PENDING");
+    const previous = doc.status;
+
+    const deliveryService = require("./delivery.service");
+    const { Vendor } = require("../models/Vendor");
+    const { Order } = require("../models/Order");
+
+    const order = await Order.findById(doc.orderId);
+    if (!order) throw new AppError("Associated order not found", 404, "NOT_FOUND");
+
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) throw new AppError("Vendor not found", 404, "NOT_FOUND");
+
+    // Connect to real logistics API payload mapping
+    const shipment = await deliveryService.createReverseShipment(doc, order, vendor);
+
+    doc.status = "RETURN_PICKUP_PENDING";
+    doc.trackingId = shipment.trackingId;
+    doc.courierName = shipment.courierName || "Shadowfax Reverse";
+    doc.trackingUrl = shipment.trackingUrl || "";
+    doc.shipmentId = shipment.shipmentId || "";
+    
+    addTimelineEvent(doc, {
+      action: "REVERSE_PICKUP_CREATED",
+      previousStatus: previous,
+      newStatus: "RETURN_PICKUP_PENDING",
+      actorId: actor?.sub || actor?._id,
+      actorRole: "vendor",
+      note: `Vendor initiated reverse pickup. Tracking AWB: ${doc.trackingId}`,
+    });
+
+    await doc.save();
+    await auditService.log({ 
+      actor, 
+      action: "return.vendor.pickup_created", 
+      entityType: "ReturnRequest", 
+      entityId: returnId, 
+      metadata: { previousStatus: previous, trackingId: doc.trackingId } 
+    }).catch(() => null);
+
+    return doc;
+  }
+
   // ── Vendor Mark Received ──────────────────────────────────
 
   async vendorMarkReceived(returnId, actor) {
@@ -555,11 +610,13 @@ class ReturnRequestService {
     });
 
     await doc.save();
+    await Order.updateOne({ _id: doc.orderId }, { $set: { status: "Return Approved" } });
 
     // Transition to REFUND_PENDING and create a Refund record
     await this._transitionToRefundPending(doc, actor);
 
     await auditService.log({ actor, action: "return.vendor.accepted", entityType: "ReturnRequest", entityId: returnId, metadata: { previousStatus: previous } }).catch(() => null);
+
 
     return doc;
   }
@@ -661,6 +718,7 @@ class ReturnRequestService {
     });
 
     await doc.save();
+    await Order.updateOne({ _id: doc.orderId }, { $set: { status: decision === "CUSTOMER_WINS" ? "Return Approved" : "Return Rejected" } });
 
     if (decision === "CUSTOMER_WINS") {
       await this._createReturnRefund(doc, actor);

@@ -21,6 +21,7 @@
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.8.0",
     "react": "^19.2.4",
+    "react-barcode": "^1.6.1",
     "react-date-range": "^2.0.1",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.14.0",

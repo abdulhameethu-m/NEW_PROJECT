@@ -6,7 +6,7 @@ const webhookEventSchema = new mongoose.Schema(
   {
     provider: {
       type: String,
-      enum: ["RAZORPAY", "SHIPROCKET", "LOGISTICS"],
+      enum: ["RAZORPAY", "SHIPROCKET", "LOGISTICS", "SHADOWFAX"],
       required: true,
       index: true,
     },

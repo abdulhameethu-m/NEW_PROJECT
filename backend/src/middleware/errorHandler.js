@@ -52,6 +52,7 @@ function errorHandler(err, req, res, next) {
   if (process.env.NODE_ENV !== "production" && !isAppError) {
     payload.debug = {
       message: err.message,
+      stack: err.stack,
     };
   }
   logger.error("Request error", {

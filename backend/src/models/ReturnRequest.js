@@ -233,6 +233,12 @@ const returnRequestSchema = new mongoose.Schema(
       unique: true,
     },
 
+    // ── Logistics Tracking ─────────────────────────────────────
+    shipmentId: { type: String, trim: true, default: "" },
+    trackingId: { type: String, trim: true, default: "" },
+    trackingUrl: { type: String, trim: true, default: "" },
+    courierName: { type: String, trim: true, default: "" },
+
     // ── Immutable Audit Timeline ───────────────────────────────
     timeline: {
       type: [timelineEventSchema],

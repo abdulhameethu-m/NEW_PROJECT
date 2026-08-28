@@ -130,7 +130,7 @@ class LogisticsService {
   async createShadowfaxShipment(requestPayload) {
     const providerPayload = requestPayload?.providerPayload || {};
     const apiKey = process.env.SHADOWFAX_API_KEY;
-    const baseUrl = process.env.SHADOWFAX_BASE_URL || "https://api-sandbox.shadowfax.in";
+    const baseUrl = process.env.SHADOWFAX_BASE_URL || "https://dale.staging.shadowfax.in";
     
     const headers = { 
       "Authorization": `Token ${apiKey}`,
@@ -138,27 +138,79 @@ class LogisticsService {
     };
 
     try {
-      const response = await axios.post(`${baseUrl}/api/v3/orders/`, providerPayload, { headers });
-      const data = response?.data || {};
+      const response = await axios.post(`${baseUrl}/api/v3/clients/orders`, providerPayload, { headers });
+      const apiResponse = response?.data || {};
+      const payloadData = apiResponse.data || apiResponse;
       
-      const trackingId = data.awb_number || data.tracking_id;
+      const trackingId = payloadData.awb_number || payloadData.tracking_id;
       if (!trackingId) {
-        throw new AppError("Shadowfax did not return an AWB", 502, "SHIPMENT_CREATE_FAILED");
+        throw new AppError("Shadowfax did not return an AWB on forward shipment. Response: " + JSON.stringify(apiResponse), 502, "SHIPMENT_CREATE_FAILED");
       }
 
       return {
         provider: "SHADOWFAX",
-        shipmentId: data.client_order_id || String(trackingId),
+        shipmentId: payloadData.client_order_id || payloadData.client_order_number || String(trackingId),
         trackingId: String(trackingId),
         courierName: "Shadowfax",
-        trackingUrl: data.tracking_url || `https://track.shadowfax.in/track?awb=${trackingId}`,
+        trackingUrl: payloadData.tracking_url || `https://track.shadowfax.in/track?awb=${trackingId}`,
         raw: {
           request: requestPayload,
-          createOrder: data,
+          createOrder: apiResponse,
         }
       };
     } catch (error) {
-      throw new AppError(error?.response?.data?.message || "Shadowfax shipment creation failed", 502, "SHIPMENT_CREATE_FAILED");
+      if (error instanceof AppError) throw error;
+      const errorData = error?.response?.data;
+      const errorMsg = errorData?.message || (errorData ? JSON.stringify(errorData) : error.message || "Shadowfax shipment creation failed");
+      console.error("Shadowfax API Error:", errorMsg, "Payload:", JSON.stringify(providerPayload));
+      throw new AppError(errorMsg, 502, "SHIPMENT_CREATE_FAILED");
+    }
+  }
+
+  async createPlatformReverseShipment(requestPayload) {
+    if (this.providerName === "SHADOWFAX") {
+      return this.createShadowfaxReversePickup(requestPayload);
+    }
+    throw new AppError("Only Shadowfax is supported for reverse pickups currently.", 503, "LOGISTICS_PROVIDER_UNSUPPORTED");
+  }
+
+  async createShadowfaxReversePickup(requestPayload) {
+    const providerPayload = requestPayload?.providerPayload || {};
+    const apiKey = process.env.SHADOWFAX_API_KEY;
+    const baseUrl = process.env.SHADOWFAX_BASE_URL || "https://dale.staging.shadowfax.in";
+    
+    const headers = { 
+      "Authorization": `Token ${apiKey}`,
+      "Content-Type": "application/json"
+    };
+
+    try {
+      const response = await axios.post(`${baseUrl}/api/v3/clients/requests`, providerPayload, { headers });
+      const apiResponse = response?.data || {};
+      const payloadData = apiResponse.data || apiResponse;
+      
+      const trackingId = payloadData.client_request_id || payloadData.awb_number || payloadData.tracking_id;
+      if (!trackingId) {
+        throw new AppError("Shadowfax did not return an AWB for reverse pickup. Response: " + JSON.stringify(apiResponse), 502, "REVERSE_CREATE_FAILED");
+      }
+
+      return {
+        provider: "SHADOWFAX",
+        shipmentId: payloadData.client_order_number || String(trackingId),
+        trackingId: String(trackingId),
+        courierName: "Shadowfax",
+        trackingUrl: payloadData.tracking_url || `https://track.shadowfax.in/track?awb=${trackingId}`,
+        raw: {
+          request: requestPayload,
+          createOrder: apiResponse,
+        }
+      };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      const errorData = error?.response?.data;
+      const errorMsg = errorData?.message || (errorData ? JSON.stringify(errorData) : error.message || "Shadowfax reverse pickup creation failed");
+      console.error("Shadowfax Reverse API Error:", errorMsg, "Payload:", JSON.stringify(providerPayload));
+      throw new AppError(errorMsg, 502, "REVERSE_CREATE_FAILED");
     }
   }
 
@@ -209,6 +261,70 @@ class LogisticsService {
         "PICKUP_REQUEST_FAILED"
       );
     }
+  }
+
+  async getShippingLabel(trackingId, targetProvider) {
+    if (!trackingId) throw new AppError("Tracking ID is required", 400, "MISSING_AWB");
+    
+    const provider = targetProvider || this.providerName;
+
+    if (provider === "SHADOWFAX") {
+      const apiKey = process.env.SHADOWFAX_API_KEY;
+      const baseUrl = process.env.SHADOWFAX_BASE_URL || "https://dale.staging.shadowfax.in";
+      try {
+        const response = await axios.get(`${baseUrl}/api/v2/clients/awb/pdf/?awb_numbers=${trackingId}`, {
+          headers: { Authorization: `Token ${apiKey}` },
+          responseType: "arraybuffer"
+        });
+        return { buffer: response.data, contentType: "application/pdf" };
+      } catch (error) {
+        console.error("Shadowfax PDF API failed, falling back to generated label:", error?.response?.data?.toString?.() || error.message);
+        try {
+          const PDFDocument = require("pdfkit");
+          return await new Promise((resolve) => {
+            const doc = new PDFDocument({ size: [288, 432], margin: 15 }); // 4x6 inch label
+            const chunks = [];
+            doc.on("data", (chunk) => chunks.push(chunk));
+            doc.on("end", () => resolve({ buffer: Buffer.concat(chunks), contentType: "application/pdf" }));
+            
+            doc.rect(5, 5, 278, 422).stroke();
+            doc.fontSize(20).font("Helvetica-Bold").text("SHADOWFAX", { align: "center" });
+            doc.moveDown(0.5);
+            doc.fontSize(10).font("Helvetica").text("STANDARD SHIPPING LABEL", { align: "center" });
+            doc.moveDown(2);
+            doc.fontSize(12).text(`AWB / Tracking ID:`, { align: "center" });
+            doc.fontSize(16).font("Helvetica-Bold").text(`${trackingId}`, { align: "center" });
+            
+            doc.moveDown(2);
+            doc.rect(44, 180, 200, 60).stroke();
+            doc.fontSize(10).font("Helvetica").text("* B A R C O D E *", 44, 205, { align: "center", width: 200 });
+            
+            doc.moveDown(5);
+            doc.fontSize(10).text("Date Generated: " + new Date().toLocaleDateString(), { align: "center" });
+            doc.end();
+          });
+        } catch (pdfError) {
+          throw new AppError("Failed to download standard Shadowfax label format.", 502, "LABEL_DOWNLOAD_FAILED");
+        }
+      }
+    }
+
+    if (provider === "SHIPROCKET") {
+      const token = await this.getShiprocketToken();
+      try {
+        const response = await axios.post("https://apiv2.shiprocket.in/v1/external/courier/generate/awb", { awb: [trackingId] }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const url = response.data?.awb_url;
+        if (!url) throw new Error("No URL returned from Shiprocket");
+        const pdfResponse = await axios.get(url, { responseType: "arraybuffer" });
+        return { buffer: pdfResponse.data, contentType: "application/pdf" };
+      } catch (error) {
+        throw new AppError("Failed to fetch Shiprocket label", 502, "LABEL_DOWNLOAD_FAILED");
+      }
+    }
+
+    throw new AppError("Unsupported provider for shipping label", 400, "PROVIDER_UNSUPPORTED");
   }
 }
 

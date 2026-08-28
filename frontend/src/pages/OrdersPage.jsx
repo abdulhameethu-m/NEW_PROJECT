@@ -216,7 +216,9 @@ export function OrdersPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge value={order.status} />
-                    <StatusBadge value={order.paymentStatus} />
+                    {order.paymentStatus?.toLowerCase() !== order.status?.toLowerCase() && (
+                      <StatusBadge value={order.paymentStatus} />
+                    )}
                   </div>
                 </div>
 

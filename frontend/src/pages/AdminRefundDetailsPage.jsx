@@ -89,7 +89,9 @@ export function AdminRefundDetailsPage() {
             <StatusBadge value={refund?.status} />
             {refund?.refundMethod ? <StatusBadge value={refund.refundMethod} /> : null}
             <StatusBadge value={order?.status} />
-            <StatusBadge value={order?.paymentStatus} />
+            {order?.paymentStatus?.toLowerCase() !== order?.status?.toLowerCase() && (
+              <StatusBadge value={order?.paymentStatus} />
+            )}
           </div>
         </div>
         <Link to="/admin/refunds" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">

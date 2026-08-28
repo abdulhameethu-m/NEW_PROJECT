@@ -160,11 +160,10 @@ const vendorSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-vendorSchema.pre("validate", function ensureVendorCode(next) {
+vendorSchema.pre("validate", function ensureVendorCode() {
   if (!this.vendorCode) {
     this.vendorCode = buildVendorCodeFromId(this._id);
   }
-  next();
 });
 
 vendorSchema.index({ storeSlug: 1, status: 1, isStoreVisible: 1 });

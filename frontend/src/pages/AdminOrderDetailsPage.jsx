@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { confirmAction } from "../services/notificationService";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { deleteOrder, getOrderById, updateOrder } from "../services/adminApi";
+import { deleteOrder, getOrderById, updateOrder, downloadAdminShippingLabel } from "../services/adminApi";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
 import { formatWeight, getWeightUnit, getWeightValue } from "../utils/weight";
@@ -190,6 +190,10 @@ export function AdminOrderDetailsPage() {
     await onSave("Shipped");
   }
 
+  function onPrintLabel() {
+    window.open(`${basePath}/orders/${id}/label`, '_blank');
+  }
+
   async function onDelete() {
     if (!(await confirmAction({ message: "Soft delete this order?", tone: "danger", confirmLabel: "Confirm" }))) return;
     setDeleting(true);
@@ -236,6 +240,16 @@ export function AdminOrderDetailsPage() {
           >
             Mark as Shipped
           </button>
+          
+          {order?.trackingId && (
+            <button
+              type="button"
+              onClick={onPrintLabel}
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Print Label
+            </button>
+          )}
           <Link
             to={`${basePath}/orders/${id}/invoice`}
             className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -281,8 +295,10 @@ export function AdminOrderDetailsPage() {
               <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{items.length} line items</div>
             </div>
             <div className="flex items-center gap-2">
-              <StatusBadge value={order?.paymentStatus} />
               <StatusBadge value={order?.status} />
+              {order?.paymentStatus?.toLowerCase() !== order?.status?.toLowerCase() && (
+                <StatusBadge value={order?.paymentStatus} />
+              )}
             </div>
           </div>
 

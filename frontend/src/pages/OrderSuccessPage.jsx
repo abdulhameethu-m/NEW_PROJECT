@@ -86,6 +86,15 @@ function getOrderShipping(order) {
   );
 }
 
+function getOrderPlatformFee(order) {
+  return Number(
+    order?.pricing?.platformFee ??
+      order?.priceBreakdown?.platformFee ??
+      order?.platformFee ??
+      0
+  );
+}
+
 function getOrderDiscount(order) {
   return Number(
     order?.pricing?.discount ??
@@ -464,32 +473,71 @@ export function OrderSuccessPage() {
                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Pricing breakdown</div>
                 <div className="text-xs text-slate-500 mb-6">{new Date(order.createdAt).toLocaleString()}</div>
 
-                <div className="space-y-5 text-sm font-medium">
-                  <div className="flex items-center justify-between border-b border-dashed border-slate-200 pb-5">
+                <div className="text-sm font-medium">
+                  <div className="flex items-center justify-between border-b border-dashed border-slate-200 pb-2">
                     <div>
                       <div className="text-slate-900 font-bold">Subtotal</div>
-                      <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">SUBTOTAL</div>
+                      <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-0.5">SUBTOTAL</div>
                     </div>
                     <div className="text-slate-900 font-bold">{formatCurrency(getOrderSubtotal(order), { currency: getCurrency(order) })}</div>
                   </div>
 
-                  {(getOrderTax(order) > 0 || getOrderShipping(order) > 0) && (
-                    <div className="flex items-center justify-between border-b border-dashed border-slate-200 pb-5">
+                  {getOrderShipping(order) > 0 && (
+                    <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2">
                       <div>
-                        <div className="text-slate-900 font-bold">Extra fee</div>
-                        <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">CHARGE</div>
+                        <div className="text-slate-900 font-bold">Shipping fee</div>
+                        <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-0.5">CHARGE</div>
                       </div>
                       <div className="text-slate-900 font-bold">
-                        {formatCurrency(getOrderTax(order) + getOrderShipping(order), { currency: getCurrency(order) })}
+                        {formatCurrency(getOrderShipping(order), { currency: getCurrency(order) })}
                       </div>
                     </div>
                   )}
 
+                  {getOrderPlatformFee(order) > 0 && (
+                    <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2">
+                      <div>
+                        <div className="text-slate-900 font-bold">Platform fee</div>
+                        <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-0.5">CHARGE</div>
+                      </div>
+                      <div className="text-slate-900 font-bold">
+                        {formatCurrency(getOrderPlatformFee(order), { currency: getCurrency(order) })}
+                      </div>
+                    </div>
+                  )}
+
+                  {getOrderTax(order) > 0 && (
+                    <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2">
+                      <div>
+                        <div className="text-slate-900 font-bold">Tax</div>
+                        <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-0.5">CHARGE</div>
+                      </div>
+                      <div className="text-slate-900 font-bold">
+                        {formatCurrency(getOrderTax(order), { currency: getCurrency(order) })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Render mapping for dynamic charges like "delivery fee" or "extra fee" */}
+                  {(order?.pricing?.charges || order?.priceBreakdown?.charges || []).map((charge, idx) => (
+                    charge.amount > 0 && (
+                      <div key={idx} className="flex items-center justify-between border-b border-dashed border-slate-200 py-2">
+                        <div>
+                          <div className="text-slate-900 font-bold capitalize">{charge.label || charge.displayName || charge.key?.replace(/_/g, " ")}</div>
+                          <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-0.5">CHARGE</div>
+                        </div>
+                        <div className="text-slate-900 font-bold">
+                          {formatCurrency(charge.amount, { currency: getCurrency(order) })}
+                        </div>
+                      </div>
+                    )
+                  ))}
+
                   {getOrderDiscount(order) > 0 && (
-                    <div className="flex items-center justify-between border-b border-dashed border-slate-200 pb-5">
+                    <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2">
                       <div>
                         <div className="text-emerald-600 font-bold">Discount</div>
-                        <div className="text-[10px] uppercase tracking-wider text-emerald-400 mt-1">SAVINGS</div>
+                        <div className="text-[10px] uppercase tracking-wider text-emerald-400 mt-0.5">SAVINGS</div>
                       </div>
                       <div className="text-emerald-600 font-bold">
                         -{formatCurrency(getOrderDiscount(order), { currency: getCurrency(order) })}
@@ -497,14 +545,14 @@ export function OrderSuccessPage() {
                     </div>
                   )}
                   
-                  <div className="flex items-center justify-between pb-2 text-slate-500 text-xs">
+                  <div className="flex items-center justify-between pb-2 pt-2 text-slate-500 text-xs">
                     <div>Total charges</div>
-                    <div>{formatCurrency(getOrderTax(order) + getOrderShipping(order) - getOrderDiscount(order), { currency: getCurrency(order) })}</div>
+                    <div>{formatCurrency(getOrderTax(order) + getOrderShipping(order) + getOrderPlatformFee(order) + (order?.pricing?.charges || order?.priceBreakdown?.charges || []).reduce((sum, ch) => sum + Number(ch.amount || 0), 0) - getOrderDiscount(order), { currency: getCurrency(order) })}</div>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-[1.25rem] bg-[#f0f6ff] p-5 text-blue-700 mt-2 border border-blue-100">
-                    <span className="font-bold">Grand total</span>
-                    <span className="font-black text-xl">{formatCurrency(order.totalAmount || 0, { currency: getCurrency(order) })}</span>
+                  <div className="flex items-center justify-between rounded-[1rem] bg-[#f0f6ff] p-3 text-blue-700 mt-1 border border-blue-100">
+                    <span className="font-bold text-sm">Grand total</span>
+                    <span className="font-black text-lg">{formatCurrency(order.totalAmount || 0, { currency: getCurrency(order) })}</span>
                   </div>
                 </div>
               </div>

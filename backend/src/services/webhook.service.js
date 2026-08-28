@@ -382,61 +382,101 @@ class WebhookService {
 
     try {
       const awb = data?.awb_number || data?.tracking_id || "";
-      const shipmentId = data?.client_order_id ? String(data.client_order_id) : "";
+      const shipmentId = data?.client_order_id || data?.client_order_number || data?.client_request_id ? String(data.client_order_id || data.client_order_number || data.client_request_id) : "";
       const currentStatus = String(data?.status || "").toLowerCase().trim();
       
-      const order = shipmentId ? await orderRepo.findByShipmentId(shipmentId) || await orderRepo.findByOrderNumber(shipmentId) : await orderRepo.findByTrackingId(awb);
-      
-      if (order) {
-        let nextShippingStatus = order.shippingStatus;
-        let nextPickupStatus = order.pickupStatus;
+      const ReturnRequest = require("../models/ReturnRequest").ReturnRequest;
+      const returnRequest = shipmentId 
+        ? await ReturnRequest.findById(shipmentId).catch(() => null) || await ReturnRequest.findOne({ trackingId: awb })
+        : await ReturnRequest.findOne({ trackingId: awb });
 
-        if (["pickup_scheduled"].includes(currentStatus)) {
-          nextShippingStatus = "PICKUP_SCHEDULED";
-          nextPickupStatus = "SCHEDULED";
-        } else if (["picked_up"].includes(currentStatus)) {
-          nextShippingStatus = "IN_TRANSIT";
-          nextPickupStatus = "COMPLETED";
-        } else if (["in_transit"].includes(currentStatus)) {
-          nextShippingStatus = "IN_TRANSIT";
-        } else if (["out_for_delivery"].includes(currentStatus)) {
-          nextShippingStatus = "OUT_FOR_DELIVERY";
-        } else if (["rto_initiated", "rto_delivered", "failed", "cancelled"].includes(currentStatus)) {
-          nextShippingStatus = "FAILED";
-          nextPickupStatus = order.pickupStatus === "REQUESTED" ? "FAILED" : order.pickupStatus;
-        } else if (["delivered"].includes(currentStatus)) {
-          nextShippingStatus = "DELIVERED";
-          nextPickupStatus = order.pickupStatus === "NOT_REQUESTED" ? "COMPLETED" : order.pickupStatus;
+      if (returnRequest) {
+        let nextStatus = returnRequest.status;
+        if (["assigned_for_pickup", "out_for_pickup", "pickup_scheduled"].includes(currentStatus)) {
+          nextStatus = "RETURN_PICKUP_PENDING";
+        } else if (["picked", "picked_up", "in_transit"].includes(currentStatus)) {
+          nextStatus = "RETURN_IN_TRANSIT";
+        } else if (["returned_to_client", "rts_d", "delivered"].includes(currentStatus)) {
+          nextStatus = "RETURN_IN_TRANSIT"; 
         }
 
-        const lifecycle = applyShippingLifecycle({
-          orderStatus: order.status,
-          shippingMode: order.shippingMode || "PLATFORM",
-          shippingStatus: nextShippingStatus,
-          pickupStatus: nextPickupStatus,
-        });
+        if (nextStatus !== returnRequest.status) {
+          const previous = returnRequest.status;
+          returnRequest.status = nextStatus;
+          
+          if (!returnRequest.timeline) returnRequest.timeline = [];
+          returnRequest.timeline.push({
+            action: `WEBHOOK_${nextStatus}`,
+            previousStatus: previous,
+            newStatus: nextStatus,
+            actorRole: "system",
+            note: `Shadowfax Tracking Update: ${currentStatus}`,
+            timestamp: new Date()
+          });
 
-        const updatedOrder = await orderRepo.updateById(order._id, {
-          status: lifecycle.status,
-          shippingMode: lifecycle.shippingMode,
-          shippingStatus: lifecycle.shippingStatus,
-          pickupStatus: lifecycle.pickupStatus,
-          trackingId: awb || order.trackingId,
-          shipmentId: shipmentId || order.shipmentId,
-          deliveryPartner: "SHADOWFAX",
-          deliveryStatus:
-            lifecycle.shippingStatus === "DELIVERED"
-              ? "DELIVERED"
-              : ["IN_TRANSIT", "OUT_FOR_DELIVERY"].includes(lifecycle.shippingStatus)
-                ? "SHIPPED"
-                : order.deliveryStatus,
-          pickupScheduled: ["SCHEDULED", "COMPLETED"].includes(lifecycle.pickupStatus),
-          ...(lifecycle.pickupStatus === "SCHEDULED" ? { pickupScheduledAt: new Date() } : {}),
-          ...(lifecycle.pickupStatus === "COMPLETED" ? { pickupCompletedAt: new Date() } : {}),
-        });
+          await returnRequest.save();
 
-        if (updatedOrder?.status === "Delivered") {
-          await payoutService.markOrderDelivered(updatedOrder._id);
+          if (nextStatus === "VENDOR_RECEIVED") {
+             const notificationService = require("./notification.service");
+             await notificationService.notifyVendorUser(returnRequest.vendorId, "RETURN_RECEIVED_VENDOR", { returnId: returnRequest._id }).catch(() => null);
+             const auditService = require("./audit.service");
+             await auditService.log({ action: "return.vendor.received_via_webhook", entityType: "ReturnRequest", entityId: returnRequest._id }).catch(() => null);
+          }
+        }
+      } else {
+        const order = shipmentId ? await orderRepo.findByShipmentId(shipmentId) || await orderRepo.findByOrderNumber(shipmentId) : await orderRepo.findByTrackingId(awb);
+        
+        if (order) {
+          let nextShippingStatus = order.shippingStatus;
+          let nextPickupStatus = order.pickupStatus;
+
+          if (["pickup_scheduled"].includes(currentStatus)) {
+            nextShippingStatus = "PICKUP_SCHEDULED";
+            nextPickupStatus = "SCHEDULED";
+          } else if (["picked_up"].includes(currentStatus)) {
+            nextShippingStatus = "IN_TRANSIT";
+            nextPickupStatus = "COMPLETED";
+          } else if (["in_transit"].includes(currentStatus)) {
+            nextShippingStatus = "IN_TRANSIT";
+          } else if (["out_for_delivery"].includes(currentStatus)) {
+            nextShippingStatus = "OUT_FOR_DELIVERY";
+          } else if (["rto_initiated", "rto_delivered", "failed", "cancelled"].includes(currentStatus)) {
+            nextShippingStatus = "FAILED";
+            nextPickupStatus = order.pickupStatus === "REQUESTED" ? "FAILED" : order.pickupStatus;
+          } else if (["delivered"].includes(currentStatus)) {
+            nextShippingStatus = "DELIVERED";
+            nextPickupStatus = order.pickupStatus === "NOT_REQUESTED" ? "COMPLETED" : order.pickupStatus;
+          }
+
+          const lifecycle = applyShippingLifecycle({
+            orderStatus: order.status,
+            shippingMode: order.shippingMode || "PLATFORM",
+            shippingStatus: nextShippingStatus,
+            pickupStatus: nextPickupStatus,
+          });
+
+          const updatedOrder = await orderRepo.updateById(order._id, {
+            status: lifecycle.status,
+            shippingMode: lifecycle.shippingMode,
+            shippingStatus: lifecycle.shippingStatus,
+            pickupStatus: lifecycle.pickupStatus,
+            trackingId: awb || order.trackingId,
+            shipmentId: shipmentId || order.shipmentId,
+            deliveryPartner: "SHADOWFAX",
+            deliveryStatus:
+              lifecycle.shippingStatus === "DELIVERED"
+                ? "DELIVERED"
+                : ["IN_TRANSIT", "OUT_FOR_DELIVERY"].includes(lifecycle.shippingStatus)
+                  ? "SHIPPED"
+                  : order.deliveryStatus,
+            pickupScheduled: ["SCHEDULED", "COMPLETED"].includes(lifecycle.pickupStatus),
+            ...(lifecycle.pickupStatus === "SCHEDULED" ? { pickupScheduledAt: new Date() } : {}),
+            ...(lifecycle.pickupStatus === "COMPLETED" ? { pickupCompletedAt: new Date() } : {}),
+          });
+
+          if (updatedOrder?.status === "Delivered") {
+            await payoutService.markOrderDelivered(updatedOrder._id);
+          }
         }
       }
 

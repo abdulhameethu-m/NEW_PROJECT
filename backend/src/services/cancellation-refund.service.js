@@ -322,6 +322,15 @@ class CancellationRefundService {
           { session: session || undefined }
         );
 
+        // Sync Order Status
+        if (order && (order._id || typeof order === "string")) {
+          await mongoose.model("Order").updateOne(
+            { _id: order._id || order },
+            { $set: { status: "Refunded" } },
+            { session: session || undefined }
+          );
+        }
+
         // Reverse vendor wallet since the refund completes here
         if (order && order.vendorWalletReleasedAt) {
           const paymentService = require("./payment.service");

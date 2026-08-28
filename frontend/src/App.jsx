@@ -142,6 +142,7 @@ const AdminPaymentDetailsPage = lazyNamed(() => import("./pages/AdminPaymentDeta
 const AdminInvoiceDetailsPage = lazyNamed(() => import("./pages/AdminInvoiceDetailsPage"), "AdminInvoiceDetailsPage");
 const AdminOrderCreatePage = lazyNamed(() => import("./pages/AdminOrderCreatePage"), "AdminOrderCreatePage");
 const AdminOrderDetailsPage = lazyNamed(() => import("./pages/AdminOrderDetailsPage"), "AdminOrderDetailsPage");
+const AdminOrderLabelPage = lazyNamed(() => import("./pages/AdminOrderLabelPage"), "default");
 const AdminAnalyticsPage = lazyNamed(() => import("./pages/AdminAnalyticsPage"), "AdminAnalyticsPage");
 const AdminCommerceIntelligencePage = lazyNamed(() => import("./pages/AdminCommerceIntelligencePage"), "AdminCommerceIntelligencePage");
 const AdminProductAnalyticsDetailPage = lazyNamed(() => import("./pages/AdminProductAnalyticsDetailPage"), "AdminProductAnalyticsDetailPage");
@@ -174,6 +175,7 @@ const StaffAnalyticsPage = lazyNamed(() => import("./pages/StaffAnalyticsPage"),
 const StaffSettingsPage = lazyNamed(() => import("./pages/StaffSettingsPage"), "StaffSettingsPage");
 const StaffRolesPage = lazyNamed(() => import("./pages/StaffRolesPage"), "StaffRolesPage");
 const StaffStaffPage = lazyNamed(() => import("./pages/StaffStaffPage"), "StaffStaffPage");
+const VendorShippingLabelPage = lazyNamed(() => import("./pages/VendorShippingLabelPage"), "default");
 
 function LegacySellerProductEditRedirect() {
   const { productId } = useParams();
@@ -283,6 +285,7 @@ export default function App() {
             <Route path="/seller/products" element={<Navigate to="/vendor/products" replace />} />
             <Route path="/seller/products/create" element={<Navigate to="/vendor/products/create" replace />} />
             <Route path="/seller/products/:productId/edit" element={<LegacySellerProductEditRedirect />} />
+            <Route path="/vendor/delivery/:id/label" element={<VendorShippingLabelPage />} />
             <Route path="/vendor" element={<VendorLayout />}>
               <Route index element={<Navigate to="/vendor/dashboard" replace />} />
               <Route path="dashboard" element={<VendorOverviewPage />} />
@@ -367,6 +370,7 @@ export default function App() {
               <Route path="orders/:id/invoice" element={<AdminInvoiceDetailsPage />} />
               <Route path="orders/create" element={<AdminOrderCreatePage />} />
               <Route path="orders/:id" element={<AdminOrderDetailsPage />} />
+              <Route path="orders/:id/label" element={<AdminOrderLabelPage />} />
               <Route path="analytics" element={<AdminAnalyticsPage />} />
               <Route path="commerce-intelligence/settings" element={<AdminCommerceIntelligencePage />} />
               <Route path="commerce-intelligence/related-products" element={<AdminCommerceIntelligencePage />} />

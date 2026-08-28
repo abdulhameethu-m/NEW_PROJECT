@@ -203,45 +203,15 @@ async function submitSelfShipping(order, { trackingId, courierName, trackingUrl,
  * Request platform shipping (shipment creation only)
  */
 async function requestPlatformShipping(order, vendor) {
-  const logisticsService = require("./logistics.service");
+  const deliveryService = require("./delivery.service");
 
   // Check if already requested
   if (order.shipmentId || ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "SHIPPED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.shippingStatus)) {
     throw new AppError("Shipment has already been created for this order", 400, "SHIPMENT_ALREADY_CREATED");
   }
 
-  // Build shipment payload for Shiprocket
-  const shipmentPayload = {
-    order_id: order.orderNumber,
-    order_date: order.createdAt.toISOString().split("T")[0],
-    pickup_location: vendor.shippingSettings?.preferredPickupLocation || "Primary",
-    channel_id: 0,
-    billing_customer_name: order.shippingAddress?.fullName || "Customer",
-    billing_customer_phone: order.shippingAddress?.phone || "",
-    billing_customer_email: order.userId?.email || "",
-    billing_customer_address: order.shippingAddress?.line1 || "",
-    billing_customer_address_2: order.shippingAddress?.line2 || "",
-    billing_customer_city: order.shippingAddress?.city || "",
-    billing_customer_state: order.shippingAddress?.state || "",
-    billing_customer_country: order.shippingAddress?.country || "India",
-    billing_customer_pincode: order.shippingAddress?.postalCode || "",
-    shipping_is_billing: true,
-    order_items: (order.items || []).map((item) => ({
-      name: item.name,
-      sku: item.variantSku || item.productId.toString(),
-      units: item.quantity,
-      selling_price: item.price,
-    })),
-    payment_method: order.paymentMethod === "COD" ? "COD" : "Prepaid",
-    sub_total: order.subtotal,
-    length: 10,
-    breadth: 10,
-    height: 10,
-    weight: 0.5,
-  };
-
-  // Call logistics provider
-  const shipmentData = await logisticsService.createPlatformShipment(shipmentPayload);
+  // Use the polymorphic delivery service to generate the shipment
+  const shipmentData = await deliveryService.createShipment(order, vendor);
 
   // Update order
   order.shippingMode = "PLATFORM";
@@ -257,6 +227,8 @@ async function requestPlatformShipping(order, vendor) {
   order.logisticsMetadata = shipmentData.raw || {};
   order.pickupRequestedAt = new Date();
   order.courierAssignedByRole = "SYSTEM";
+  // Dynamically set deliveryPartner based on the actual provider used
+  order.deliveryPartner = shipmentData.provider === "SHADOWFAX" ? "SHADOWFAX" : "SHIPROCKET";
 
   // Apply lifecycle changes
   const lifecycle = applyShippingLifecycle({

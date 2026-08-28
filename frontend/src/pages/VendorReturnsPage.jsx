@@ -131,8 +131,15 @@ function VendorReturnDetail({ id, onClose, onAction }) {
   }
 
   const r = data;
-  const canReceive = r && ["ADMIN_APPROVED", "RETURN_PICKUP_PENDING", "RETURN_IN_TRANSIT"].includes(r.status);
+  const canReceive = r && ["RETURN_PICKUP_PENDING", "RETURN_IN_TRANSIT"].includes(r.status);
   const canInspect = r && ["VENDOR_RECEIVED", "VENDOR_INSPECTION"].includes(r.status);
+  const canCreatePickup = r && r.status === "ADMIN_APPROVED";
+
+  async function doCreatePickup() {
+    setActionLoading(true);
+    try { await vendorReturnService.createPickup(id); onAction(); onClose(); }
+    catch (e) { setError(e?.response?.data?.message || "Failed to create pickup"); setActionLoading(false); }
+  }
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onClick={onClose}>
@@ -172,8 +179,31 @@ function VendorReturnDetail({ id, onClose, onAction }) {
               )}
             </div>
 
+            {/* Reverse Logistics Tracking */}
+            {r.trackingId && (
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-900/50 dark:bg-sky-900/20">
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-2">Reverse Pickup Tracking</p>
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">Courier: {r.courierName || "Standard Carrier"}</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300">AWB Tracking ID: <span className="font-semibold text-slate-900 dark:text-slate-200">{r.trackingId}</span></p>
+                  </div>
+                  {r.trackingUrl && (
+                    <a href={r.trackingUrl} target="_blank" rel="noreferrer" className="shrink-0 text-sm font-medium text-sky-700 hover:text-sky-800 underline underline-offset-2">
+                      Track Package ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex flex-wrap gap-2">
+              {canCreatePickup && (
+                <button onClick={doCreatePickup} disabled={actionLoading} className="rounded-xl bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50">
+                  {actionLoading ? "…" : "Approve & Create Reverse Pickup"}
+                </button>
+              )}
               {canReceive && (
                 <button onClick={doReceived} disabled={actionLoading} className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50">
                   {actionLoading ? "…" : "Mark as Received"}

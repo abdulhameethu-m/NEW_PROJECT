@@ -862,6 +862,21 @@ async function saveShippingModes(payload, actor, meta) {
   });
   return config;
 }
+async function getShippingLabel(orderId, actor) {
+  const order = await orderRepo.findById(orderId);
+  if (!order) throw new AppError("Order not found", 404, "NOT_FOUND");
+  if (!order.trackingId) throw new AppError("Order has no tracking ID generated", 400, "NO_TRACKING_ID");
+  
+  const logisticsService = require("./logistics.service");
+  let targetProvider = logisticsService.providerName;
+  if (order.deliveryPartner === "SHIPROCKET") {
+    targetProvider = "SHIPROCKET";
+  } else if (order.deliveryPartner === "SHADOWFAX" || (order.trackingUrl && order.trackingUrl.includes("shadowfax"))) {
+    targetProvider = "SHADOWFAX";
+  }
+  
+  return await logisticsService.getShippingLabel(order.trackingId, targetProvider);
+}
 
 function resolveShipmentPhone(order) {
   return order?.shippingAddress?.phone || order?.userId?.phone || "";
@@ -1058,6 +1073,7 @@ module.exports = {
   softDeleteOrder,
   updateOrderStatus,
   resetPlatformData,
+  getShippingLabel,
   listPayouts,
   listReviews,
   deleteReview,

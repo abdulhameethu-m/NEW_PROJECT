@@ -275,6 +275,15 @@ export function VendorOrderDetailsPage() {
           >
             Create Shipment
           </button>
+          {order?.trackingId && (
+            <button
+              type="button"
+              onClick={() => window.open(`/vendor/delivery/${order._id || id}/label`, "_blank")}
+              className="rounded-xl bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+            >
+              Print Label
+            </button>
+          )}
         </div>
       </div>
 
@@ -298,8 +307,10 @@ export function VendorOrderDetailsPage() {
               <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{items.length} line items</div>
             </div>
             <div className="flex items-center gap-2">
-              <StatusBadge value={order?.paymentStatus} />
               <StatusBadge value={order?.status} />
+              {order?.paymentStatus?.toLowerCase() !== order?.status?.toLowerCase() && (
+                <StatusBadge value={order?.paymentStatus} />
+              )}
             </div>
           </div>
 

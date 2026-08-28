@@ -73,3 +73,22 @@ pids
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Temporary AI Validation & Debug Scripts
+test-*.js
+test_*.js
+temp-*.js
+temp-*.cjs
+check-*.js
+fix-*.js
+fix_*.js
+inspect*.js
+scratch/
+scratch.js
+patch.js
+clean.js
+reports/
+knip-report.*
+parsed-knip.json
+test*.pdf
+*.zip

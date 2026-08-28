@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { ReportingToolbar } from "../components/ReportingToolbar";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
@@ -83,7 +84,15 @@ export function VendorOrdersPage() {
           placedAt: new Date(order.createdAt).toLocaleString(),
         }))}
         columns={[
-          { key: "orderNumber", label: "Order" },
+          { 
+            key: "orderNumber", 
+            label: "Order",
+            render: (row) => (
+              <Link to={`/vendor/delivery/${row.id}/edit`} className="font-semibold text-blue-600 hover:underline dark:text-blue-400">
+                {row.orderNumber}
+              </Link>
+            )
+          },
           { key: "customer", label: "Customer" },
           { key: "amount", label: "Amount" },
           { key: "status", label: "Status", render: (row) => <StatusBadge value={row.status} /> },

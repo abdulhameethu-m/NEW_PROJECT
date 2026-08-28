@@ -73,6 +73,7 @@ const injectVendorId = (req, res, next) => {
 
 vendorRouter.get("/", authRequired, vendor, requireApprovedVendor, injectVendorId, ctrl.vendorGetReturns);
 vendorRouter.get("/:id", authRequired, vendor, requireApprovedVendor, injectVendorId, ctrl.vendorGetReturn);
+vendorRouter.post("/:id/create-pickup", authRequired, vendor, requireApprovedVendor, injectVendorId, ctrl.vendorCreatePickup);
 vendorRouter.post("/:id/received", authRequired, vendor, requireApprovedVendor, injectVendorId, ctrl.vendorMarkReceived);
 vendorRouter.post("/:id/accept", authRequired, vendor, requireApprovedVendor, injectVendorId, ctrl.vendorAccept);
 vendorRouter.post(

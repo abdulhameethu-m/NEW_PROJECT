@@ -502,3 +502,16 @@ export async function getCommissionAnalytics(params = {}) {
   const { data } = await adminHttp.get("/api/admin/commission/analytics", { params });
   return data;
 }
+
+export async function downloadAdminShippingLabel(id) {
+  const response = await adminHttp.get(`/api/admin/orders/${id}/shipping-label`, {
+    responseType: "blob",
+  });
+  const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", `shipping-label-${id}.pdf`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}

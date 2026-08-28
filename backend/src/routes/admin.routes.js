@@ -145,6 +145,7 @@ router.patch(
 router.patch("/orders/:id/status", requireWorkspacePermission("orders.update"), express.json(), adminController.updateOrderStatus);
 router.patch("/orders/:id/cancel", requireWorkspacePermission("orders.cancel"), adminController.cancelOrder);
 router.post("/orders/:id/cancel", requireWorkspacePermission("orders.cancel"), express.json(), adminController.cancelOrder);
+router.get("/orders/:id/shipping-label", requireWorkspacePermission("orders.read"), adminController.getShippingLabel);
 router.get("/orders/:id", requireWorkspacePermission("orders.read"), adminController.getOrderById);
 router.get("/cancellation-policies", requireWorkspacePermission("settings.read"), adminController.listCancellationPolicies);
 router.post("/cancellation-policy", requireWorkspacePermission("settings.update"), express.json(), adminController.createCancellationPolicy);

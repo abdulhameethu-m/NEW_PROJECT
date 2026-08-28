@@ -22,6 +22,11 @@ const refundSchema = new mongoose.Schema(
       sparse: true,
       unique: true,
     },
+    returnId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ReturnRequest",
+      index: true,
+    },
     idempotencyKey: {
       type: String,
       trim: true,

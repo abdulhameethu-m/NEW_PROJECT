@@ -242,6 +242,15 @@ const deleteOrder = asyncHandler(async (req, res) => {
   return ok(res, order, "Order deleted");
 });
 
+const getShippingLabel = asyncHandler(async (req, res) => {
+  const adminService = require("../services/admin.service");
+  // Assuming admin.service delegates to logisticsService
+  const { buffer, contentType } = await adminService.getShippingLabel(req.params.id, req.user);
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Content-Disposition", `attachment; filename="shipping-label-${req.params.id}.pdf"`);
+  return res.send(buffer);
+});
+
 const updateOrderStatus = asyncHandler(async (req, res) => {
   const { status } = req.body || {};
   if (!status) throw new AppError("Missing status", 400, "VALIDATION_ERROR");
@@ -393,4 +402,5 @@ module.exports = {
   deleteReview,
   resetPlatformData,
   updateOrderStatus,
+  getShippingLabel,
 };
