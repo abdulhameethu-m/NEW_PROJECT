@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useLocation,  Link  } from "react-router-dom";
 import { getDashboard, getAnalytics, getDailyRevenue } from "../services/adminApi";
 import { DailyRevenueChart } from "../components/DailyRevenueChart";
 import { StatusBadge } from "../components/StatusBadge";

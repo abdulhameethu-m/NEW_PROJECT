@@ -550,8 +550,22 @@ export function AdminRolesPage() {
                       { moduleName: "productModules", label: "Product Modules" },
                       { moduleName: "homepageContainers", label: "Homepage Containers" },
                       { moduleName: "homepageBuilder", label: "Homepage Builder" },
-                      { moduleName: "vendorAccess", label: "Vendor Access" },
-                      { moduleName: "shippingAccess", label: "Shipping Access" },
+                      { 
+                        moduleName: "vendorAccess", 
+                        label: "Vendor Access",
+                        customActions: [
+                          { value: "read", label: "Read" },
+                          { value: "update", label: "Activate/Deactivate" }
+                        ]
+                      },
+                      { 
+                        moduleName: "shippingAccess", 
+                        label: "Shipping Access",
+                        customActions: [
+                          { value: "read", label: "Read" },
+                          { value: "update", label: "Activate/Deactivate" }
+                        ]
+                      },
                     ],
                   },
                   {
@@ -585,7 +599,6 @@ export function AdminRolesPage() {
                       { moduleName: "payouts", label: "Payout Management" },
                       { moduleName: "commission", label: "Commission" },
                       { moduleName: "financeInfluencers", label: "Influencers" },
-                      { moduleName: "settlements", label: "Settlements" },
                     ],
                   },
                   {

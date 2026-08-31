@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { requestInput } from "../services/notificationService";
-import { Link } from "react-router-dom";
+import { useLocation,  Link  } from "react-router-dom";
 import { approveSeller, listSellers, moderateVendorStore, rejectSeller } from "../services/adminApi";
 import { ReportingToolbar } from "../components/ReportingToolbar";
 import { StatusBadge } from "../components/StatusBadge";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
@@ -14,6 +15,7 @@ function normalizeError(err) {
 const PAGE_SIZE = 8;
 
 export function AdminSellersPage() {
+  const { isLegacyAdmin, canAccess, basePath } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [sellers, setSellers] = useState([]);
   const [error, setError] = useState("");
@@ -183,49 +185,57 @@ export function AdminSellersPage() {
 
               <div className="mt-5 flex flex-wrap gap-2 sm:gap-3">
                 <Link
-                  to={`/admin/sellers/${seller._id}`}
+                  to={`${basePath}/sellers/${seller._id}`}
                   className="w-full rounded-xl border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto"
                 >
                   View details
                 </Link>
                 <Link
-                  to={`/admin/vendors/${seller._id}/finance`}
+                  to={`${basePath}/vendors/${seller._id}/finance`}
                   className="w-full rounded-xl border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto"
                 >
                   Finance details
                 </Link>
-                <button
-                  type="button"
-                  disabled={busyId === seller._id || seller.status === "approved"}
-                  onClick={() => handleApprove(seller._id)}
-                  className="w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 sm:w-auto"
-                >
-                  Approve
-                </button>
-                <button
-                  type="button"
-                  disabled={busyId === seller._id || seller.status === "rejected"}
-                  onClick={() => handleReject(seller._id)}
-                  className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200 sm:w-auto"
-                >
-                  Reject
-                </button>
-                <button
-                  type="button"
-                  disabled={busyId === seller._id}
-                  onClick={() => handleStoreModeration(seller._id, seller.isStoreFeatured ? "unfeature" : "feature")}
-                  className="w-full rounded-xl border border-amber-300 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50 sm:w-auto"
-                >
-                  {seller.isStoreFeatured ? "Unfeature Store" : "Feature Store"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busyId === seller._id}
-                  onClick={() => handleStoreModeration(seller._id, seller.isStoreVisible === false ? "show" : "hide")}
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 sm:w-auto"
-                >
-                  {seller.isStoreVisible === false ? "Show Store" : "Hide Store"}
-                </button>
+                {(isLegacyAdmin || canAccess("sellers.approve")) ? (
+                  <button
+                    type="button"
+                    disabled={busyId === seller._id || seller.status === "approved"}
+                    onClick={() => handleApprove(seller._id)}
+                    className="w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 sm:w-auto"
+                  >
+                    Approve
+                  </button>
+                ) : null}
+                {(isLegacyAdmin || canAccess("sellers.reject")) ? (
+                  <button
+                    type="button"
+                    disabled={busyId === seller._id || seller.status === "rejected"}
+                    onClick={() => handleReject(seller._id)}
+                    className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200 sm:w-auto"
+                  >
+                    Reject
+                  </button>
+                ) : null}
+                {(isLegacyAdmin || canAccess("sellers.update")) ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={busyId === seller._id}
+                      onClick={() => handleStoreModeration(seller._id, seller.isStoreFeatured ? "unfeature" : "feature")}
+                      className="w-full rounded-xl border border-amber-300 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50 sm:w-auto"
+                    >
+                      {seller.isStoreFeatured ? "Unfeature Store" : "Feature Store"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyId === seller._id}
+                      onClick={() => handleStoreModeration(seller._id, seller.isStoreVisible === false ? "show" : "hide")}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 sm:w-auto"
+                    >
+                      {seller.isStoreVisible === false ? "Show Store" : "Hide Store"}
+                    </button>
+                  </>
+                ) : null}
               </div>
             </div>
           ))

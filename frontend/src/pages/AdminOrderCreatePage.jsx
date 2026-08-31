@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import { createOrder, listUsers, listProducts } from "../services/adminApi";
 import { formatCurrency } from "../utils/formatCurrency";
 
@@ -8,6 +8,9 @@ function normalizeError(err) {
 }
 
 export function AdminOrderCreatePage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,7 +112,7 @@ export function AdminOrderCreatePage() {
         </div>
         <div className="flex gap-2">
           <Link
-            to="/admin/orders"
+            to={`${basePath}/orders`}
             className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Back

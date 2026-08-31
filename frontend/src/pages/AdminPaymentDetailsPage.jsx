@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useLocation, Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
 import * as paymentService from "../services/paymentService";
@@ -9,6 +9,9 @@ function normalizeError(error) {
 }
 
 export function AdminPaymentDetailsPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const { paymentId } = useParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -37,7 +40,7 @@ export function AdminPaymentDetailsPage() {
           <h1 className="text-2xl font-semibold text-slate-950">Payment details</h1>
           <p className="mt-1 text-sm text-slate-600">Verification status, linked orders, and webhook audit trail.</p>
         </div>
-        <Link to="/admin/payments" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700">
+        <Link to={`${basePath}/payments`} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700">
           Back
         </Link>
       </div>

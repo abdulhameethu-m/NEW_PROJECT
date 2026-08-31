@@ -10,7 +10,7 @@ export function useAdminSession() {
   const legacyUser = useAuthStore((s) => s.user);
   const staffUser = useStaffAuthStore((s) => s.user);
 
-  const isLegacyAdmin = legacyUser && LEGACY_ADMIN_ROLES.includes(legacyUser.role);
+  const isLegacyAdmin = legacyUser && LEGACY_ADMIN_ROLES.includes(String(legacyUser.role).toLowerCase());
   const isStaffSession = !isLegacyAdmin && Boolean(staffUser);
 
   const currentUser = isLegacyAdmin ? legacyUser : isStaffSession ? staffUser : null;

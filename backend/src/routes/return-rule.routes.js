@@ -1,7 +1,5 @@
 const express = require("express");
-const { authRequired, requireRole } = require("../middleware/auth");
-const protect = authRequired;
-const admin = requireRole("admin", "super_admin");
+const { adminWorkspaceAuthRequired, requireWorkspacePermission } = require("../middleware/adminAccess");
 const { ReturnRule } = require("../models/ReturnRule");
 const { Category } = require("../models/Category");
 const { Subcategory } = require("../models/Subcategory");
@@ -11,7 +9,7 @@ const router = express.Router();
 // @route   POST /api/return-rules
 // @desc    Create a new return rule (Admin only)
 // @access  Private/Admin
-router.post("/", protect, admin, async (req, res) => {
+router.post("/", adminWorkspaceAuthRequired, requireWorkspacePermission("returnRules.create", { legacyPermission: "settings:update" }), async (req, res) => {
   try {
     const { categoryId, subCategoryId, ruleType, returnDays } = req.body;
 
@@ -44,7 +42,7 @@ router.post("/", protect, admin, async (req, res) => {
 // @route   GET /api/return-rules
 // @desc    Get all return rules (Admin only)
 // @access  Private/Admin
-router.get("/", protect, admin, async (req, res) => {
+router.get("/", adminWorkspaceAuthRequired, requireWorkspacePermission("returnRules.read", { legacyPermission: "categories:read" }), async (req, res) => {
   try {
     const returnRules = await ReturnRule.find()
       .populate("categoryId", "name")
@@ -59,7 +57,7 @@ router.get("/", protect, admin, async (req, res) => {
 // @route   PUT /api/return-rules/:id
 // @desc    Update a return rule (Admin only)
 // @access  Private/Admin
-router.put("/:id", protect, admin, async (req, res) => {
+router.put("/:id", adminWorkspaceAuthRequired, requireWorkspacePermission("returnRules.update", { legacyPermission: "settings:update" }), async (req, res) => {
   try {
     const { ruleType, returnDays } = req.body;
 
@@ -86,7 +84,7 @@ router.put("/:id", protect, admin, async (req, res) => {
 // @route   DELETE /api/return-rules/:id
 // @desc    Delete a return rule (Admin only)
 // @access  Private/Admin
-router.delete("/:id", protect, admin, async (req, res) => {
+router.delete("/:id", adminWorkspaceAuthRequired, requireWorkspacePermission("returnRules.delete", { legacyPermission: "settings:update" }), async (req, res) => {
   try {
     const returnRule = await ReturnRule.findById(req.params.id);
     if (!returnRule) {

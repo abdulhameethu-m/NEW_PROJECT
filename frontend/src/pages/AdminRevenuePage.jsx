@@ -51,7 +51,7 @@ export function AdminRevenuePage() {
   const loadVendorOptions = useCallback(async () => {
     try {
       setVendorsLoading(true);
-      const vendorsRes = await listSellers({ status: "approved" });
+      const vendorsRes = await listSellers({ status: "approved" }).catch(() => ({ data: [] }));
       const rawVendors = Array.isArray(vendorsRes?.data) ? vendorsRes.data : [];
       const normalizedVendors = rawVendors
         .map((vendor) => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { FilterBar } from "../components/FilterBar";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
@@ -203,6 +203,9 @@ function RefundProcessModal({ refund, loading, onClose, onSubmit }) {
 }
 
 export function AdminRefundsPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [refunds, setRefunds] = useState([]);
   const [overview, setOverview] = useState(null);
   const [status, setStatus] = useState("");
@@ -388,11 +391,11 @@ export function AdminRefundsPage() {
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
                           {customerPaidFee && orderId ? (
-                            <Link to={`/admin/orders/${orderId}`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                            <Link to={`${basePath}/orders/${orderId}`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
                               View Order
                             </Link>
                           ) : (
-                            <Link to={`/admin/refunds/${refund._id}`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                            <Link to={`${basePath}/refunds/${refund._id}`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
                               View
                             </Link>
                           )}

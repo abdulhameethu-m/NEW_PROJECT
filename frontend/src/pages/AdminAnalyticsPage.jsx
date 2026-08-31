@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import {
   ResponsiveContainer,
   BarChart,
@@ -72,6 +72,9 @@ function CustomAxisTick({ x, y, payload, multiline = false }) {
 }
 
 export function AdminAnalyticsPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [draftFilters, setDraftFilters] = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
   const [analytics, setAnalytics] = useState(null);
@@ -86,7 +89,7 @@ export function AdminAnalyticsPage() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([listSellers(), listCategories()])
+    Promise.all([listSellers().catch(() => ({ data: [] })), listCategories().catch(() => ({ data: [] }))])
       .then(([vendorsResponse, categoriesResponse]) => {
         if (!active) return;
         setVendors(Array.isArray(vendorsResponse?.data) ? vendorsResponse.data : []);
@@ -359,7 +362,7 @@ export function AdminAnalyticsPage() {
                 {productRows.slice(0, 24).map((row) => (
                   <tr key={row.productId}>
                     <td className="px-3 py-3 align-top">
-                      <Link to={`/admin/analytics/products/${row.productId}`} className="font-semibold text-slate-950 hover:underline dark:text-white">
+                      <Link to={`${basePath}/analytics/products/${row.productId}`} className="font-semibold text-slate-950 hover:underline dark:text-white">
                         {row.productName}
                       </Link>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{row.categoryName || "Uncategorized"}</div>

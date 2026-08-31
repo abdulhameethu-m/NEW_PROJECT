@@ -9,7 +9,11 @@ const shippingConfigController = require("../controllers/shippingConfig.controll
 const router = express.Router();
 // All routes require admin authentication
 router.use(adminWorkspaceAuthRequired);
-router.use(requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }));
+router.use((req, res, next) => {
+  const permission = req.method === "GET" ? "shippingAccess.read" : "shippingAccess.update";
+  const legacyPermission = req.method === "GET" ? "settings:read" : "settings:update";
+  return requireWorkspacePermission(permission, { legacyPermission })(req, res, next);
+});
 /**
  * POST /admin/shipping-config
  * Create a new shipping rule

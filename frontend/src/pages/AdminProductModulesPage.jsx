@@ -6,6 +6,7 @@ import {
   listAdminProductModules,
   updateAdminProductModule,
 } from "../services/productModuleService";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 const initialForm = {
   name: "",
@@ -19,6 +20,7 @@ function normalizeError(error) {
 }
 
 export function AdminProductModulesPage() {
+  const { isLegacyAdmin, canAccess } = useAdminSession();
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,8 +115,12 @@ export function AdminProductModulesPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => startEdit(item)} className="rounded-xl border px-3 py-1 text-xs">Edit</button>
-                    <button type="button" onClick={() => handleDelete(item._id)} className="rounded-xl border px-3 py-1 text-xs text-rose-700">Delete</button>
+                    {(isLegacyAdmin || canAccess("productModules.update")) ? (
+                      <button type="button" onClick={() => startEdit(item)} className="rounded-xl border px-3 py-1 text-xs">Edit</button>
+                    ) : null}
+                    {(isLegacyAdmin || canAccess("productModules.delete")) ? (
+                      <button type="button" onClick={() => handleDelete(item._id)} className="rounded-xl border px-3 py-1 text-xs text-rose-700">Delete</button>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -123,8 +129,9 @@ export function AdminProductModulesPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{editingId ? "Edit product module" : "Create product module"}</h2>
+      {(isLegacyAdmin || (editingId ? canAccess("productModules.update") : canAccess("productModules.create"))) ? (
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{editingId ? "Edit product module" : "Create product module"}</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Create just the module shell here. Then go to `/admin/attributes` to attach reusable fields to that module.
         </p>
@@ -141,6 +148,7 @@ export function AdminProductModulesPage() {
           </button>
         </form>
       </section>
+      ) : null}
     </div>
   );
 }

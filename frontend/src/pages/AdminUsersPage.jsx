@@ -5,6 +5,7 @@ import { ReportingToolbar } from "../components/ReportingToolbar";
 import { StatusBadge } from "../components/StatusBadge";
 import { InlineToast } from "../components/commerce/InlineToast";
 import { useReporting } from "../hooks/useReporting";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
@@ -13,6 +14,7 @@ function normalizeError(err) {
 const PAGE_SIZE = 10;
 
 export function AdminUsersPage() {
+  const { isLegacyAdmin, canAccess } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [error, setError] = useState("");
@@ -45,7 +47,13 @@ export function AdminUsersPage() {
       setError("");
       try {
         const res = await listUsers(reporting.appliedParams);
-        if (alive) setUsers(res.data.filter((user) => user.role !== "admin"));
+        if (alive) {
+          setUsers(res.data.filter((user) => {
+            if (user.role === "admin") return false;
+            if (!isLegacyAdmin && user.role === "super_admin") return false;
+            return true;
+          }));
+        }
       } catch (err) {
         if (alive) setError(normalizeError(err));
       } finally {
@@ -159,22 +167,26 @@ export function AdminUsersPage() {
                 <div><StatusBadge value={user.role} /></div>
                 <div><StatusBadge value={user.status} /></div>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={busyId === user._id}
-                    onClick={() => handleBlock(user)}
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto"
-                  >
-                    {user.status === "disabled" ? "Unblock" : "Block"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyId === user._id}
-                    onClick={() => handleDelete(user)}
-                    className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200 sm:w-auto"
-                  >
-                    Delete
-                  </button>
+                  {(isLegacyAdmin || canAccess("users.block")) ? (
+                    <button
+                      type="button"
+                      disabled={busyId === user._id}
+                      onClick={() => handleBlock(user)}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto"
+                    >
+                      {user.status === "disabled" ? "Unblock" : "Block"}
+                    </button>
+                  ) : null}
+                  {(isLegacyAdmin || canAccess("users.delete")) ? (
+                    <button
+                      type="button"
+                      disabled={busyId === user._id}
+                      onClick={() => handleDelete(user)}
+                      className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200 sm:w-auto"
+                    >
+                      Delete
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ))}

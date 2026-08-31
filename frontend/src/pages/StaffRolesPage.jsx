@@ -587,7 +587,6 @@ export function StaffRolesPage() {
                       { moduleName: "payouts", label: "Payout Management" },
                       { moduleName: "commission", label: "Commission" },
                       { moduleName: "financeInfluencers", label: "Influencers" },
-                      { moduleName: "settlements", label: "Settlements" },
                     ],
                   },
                   {

@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, Download, Eye, RefreshCw, RotateCcw, ShieldCheck, Wallet } from "lucide-react";
 import {
@@ -276,6 +277,9 @@ function DeliverableRefundModal({ open, data, loading, actionLoading, onClose, o
 }
 
 export function AdminEscrowRefundsPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [data, setData] = useState({ cards: {}, rows: [] });
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -403,7 +407,7 @@ export function AdminEscrowRefundsPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <FinanceTabs items={financeTabs} />
+      <FinanceTabs items={financeTabs.map(tab => tab.to && tab.to.startsWith("/admin") ? { ...tab, to: basePath + tab.to.substring(6) } : tab)} />
 
       <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between dark:border-slate-800 dark:bg-slate-900">
         <div>

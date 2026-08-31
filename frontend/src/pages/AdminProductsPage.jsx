@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { confirmAction } from "../services/notificationService";
-import { Link } from "react-router-dom";
+import { useLocation,  Link  } from "react-router-dom";
 import {
   approveProduct,
   deleteProduct,
@@ -363,12 +363,14 @@ export function AdminProductsPage() {
                             >
                               {selectedProduct === product._id ? "Hide" : "Review"}
                             </button>
-                            <Link
-                              to={`${basePath}/products/${product._id}/edit`}
-                              className="rounded-xl border border-slate-300 px-3 py-2 text-center text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                            >
-                              Edit
-                            </Link>
+                            {(isLegacyAdmin || canAccess("products.update")) ? (
+                              <Link
+                                to={`${basePath}/products/${product._id}/edit`}
+                                className="rounded-xl border border-slate-300 px-3 py-2 text-center text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                              >
+                                Edit
+                              </Link>
+                            ) : null}
                             {String(product.creatorType || "").toUpperCase() === "ADMIN" ? (
                               <Link
                                 to={`${basePath}/inventory/${product._id}`}
@@ -377,14 +379,16 @@ export function AdminProductsPage() {
                                 Inventory
                               </Link>
                             ) : null}
-                            <button
-                              type="button"
-                              disabled={busyId === product._id}
-                              onClick={() => handleToggleActive(product)}
-                              className="rounded-xl border border-indigo-300 px-3 py-2 text-center text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950"
-                            >
-                              {product.isActive ? "Deactivate" : "Activate"}
-                            </button>
+                            {(isLegacyAdmin || canAccess("products.deactivate")) ? (
+                              <button
+                                type="button"
+                                disabled={busyId === product._id}
+                                onClick={() => handleToggleActive(product)}
+                                className="rounded-xl border border-indigo-300 px-3 py-2 text-center text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950"
+                              >
+                                {product.isActive ? "Deactivate" : "Activate"}
+                              </button>
+                            ) : null}
                             {isLegacyAdmin || canAccess("products.delete") ? (
                               <button
                                 type="button"
@@ -430,7 +434,7 @@ export function AdminProductsPage() {
 
                               <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                                 <div className="text-sm font-semibold text-slate-950 dark:text-white">Moderation</div>
-                                {isLegacyAdmin ? (
+                                {(isLegacyAdmin || canAccess("products.review")) ? (
                                   <>
                                     <textarea
                                       value={rejectReason}

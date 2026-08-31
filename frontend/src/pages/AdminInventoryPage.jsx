@@ -1,12 +1,14 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useLocation,  Link  } from "react-router-dom";
 import { getAdminInventorySummary } from "../services/adminApi";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Failed to load admin inventory";
 }
 
 export function AdminInventoryPage() {
+  const { basePath } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -129,7 +131,7 @@ export function AdminInventoryPage() {
                         </td>
                         <td className="px-4 py-4">
                           <Link
-                            to={`/admin/inventory/${product.productId}`}
+                            to={`${basePath}/inventory/${product.productId}`}
                             className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                           >
                             View Details

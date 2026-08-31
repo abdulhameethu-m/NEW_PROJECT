@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { api } from "../services/api";
 import { adminHttp } from "../services/adminHttp";
 import {
@@ -98,6 +98,9 @@ async function loadShippingOptions() {
 }
 
 export function AdminCodAdvancePage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [settings, setSettings] = useState(null);
   const [rules, setRules] = useState([]);
   const [shippingOptions, setShippingOptions] = useState({ states: [], districtsByState: {}, zones: ZONES });
@@ -227,10 +230,10 @@ export function AdminCodAdvancePage() {
       </section>
 
       <section className="grid gap-3 md:grid-cols-2">
-        <Link to="/admin/shipping" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50">
+        <Link to={`${basePath}/shipping`} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50">
           Shipping source: states, districts, and zones
         </Link>
-        <Link to="/admin/finance/cancellation-policies" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50">
+        <Link to={`${basePath}/finance/cancellation-policies`} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50">
           Cancellation source: refund deductions and approval rules
         </Link>
       </section>

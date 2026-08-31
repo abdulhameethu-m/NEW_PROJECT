@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useLocation,  Link  } from "react-router-dom";
 import { FinanceTabs } from "../components/finance/FinanceComponents";
 import { listVendorInvoices } from "../services/invoiceService";
 import { formatCurrency } from "../utils/formatCurrency";
@@ -13,6 +13,9 @@ const financeTabs = [
 ];
 
 export function VendorInvoicesPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [invoices, setInvoices] = useState([]);
@@ -27,7 +30,7 @@ export function VendorInvoicesPage() {
 
   return (
     <div className="grid gap-6">
-      <FinanceTabs items={financeTabs} />
+      <FinanceTabs items={financeTabs.map(tab => tab.to && tab.to.startsWith("/admin") ? { ...tab, to: basePath + tab.to.substring(6) } : tab)} />
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-950">Vendor Invoices</h2>

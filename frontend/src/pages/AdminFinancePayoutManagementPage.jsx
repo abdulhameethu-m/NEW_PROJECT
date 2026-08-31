@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { InlineToast } from "../components/commerce/InlineToast";
 import {
   FinanceField,
@@ -49,6 +49,9 @@ function buildOverview(requests = []) {
 }
 
 export function AdminFinancePayoutManagementPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -145,7 +148,7 @@ export function AdminFinancePayoutManagementPage() {
 
   return (
     <div className="space-y-6">
-      <FinanceTabs items={financeTabs} />
+      <FinanceTabs items={financeTabs.map(tab => tab.to && tab.to.startsWith("/admin") ? { ...tab, to: basePath + tab.to.substring(6) } : tab)} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <PayoutCard label="Total Requested" value={overview.totalAmount} hint="Current page payout request value" />
@@ -190,7 +193,7 @@ export function AdminFinancePayoutManagementPage() {
                 pendingAccounts.map((account) => (
                   <tr key={account._id}>
                     <td className="px-4 py-3">
-                      <Link to={`/admin/vendors/${account.vendorId?._id}/finance`} className="font-semibold text-slate-950 hover:underline">
+                      <Link to={`${basePath}/vendors/${account.vendorId?._id}/finance`} className="font-semibold text-slate-950 hover:underline">
                         {account.vendorId?.companyName || account.vendorId?.shopName || "Vendor"}
                       </Link>
                     </td>
@@ -209,7 +212,7 @@ export function AdminFinancePayoutManagementPage() {
                         >
                           {accountBusyId === account._id ? "Verifying..." : "Verify"}
                         </button>
-                        <Link to={`/admin/vendors/${account.vendorId?._id}/finance`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                        <Link to={`${basePath}/vendors/${account.vendorId?._id}/finance`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
                           View Vendor
                         </Link>
                       </div>
@@ -247,7 +250,7 @@ export function AdminFinancePayoutManagementPage() {
                 requests.map((request) => (
                   <tr key={request._id}>
                     <td className="px-4 py-3">
-                      <Link to={`/admin/vendors/${request.vendorId?._id}/finance`} className="font-semibold text-slate-950 hover:underline">
+                      <Link to={`${basePath}/vendors/${request.vendorId?._id}/finance`} className="font-semibold text-slate-950 hover:underline">
                         {request.vendorId?.companyName || request.vendorId?.shopName || "Vendor"}
                       </Link>
                     </td>
@@ -277,7 +280,7 @@ export function AdminFinancePayoutManagementPage() {
                             </button>
                           </>
                         ) : null}
-                        <Link to={`/admin/vendors/${request.vendorId?._id}/finance`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                        <Link to={`${basePath}/vendors/${request.vendorId?._id}/finance`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
                           View Vendor
                         </Link>
                       </div>

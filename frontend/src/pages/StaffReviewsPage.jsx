@@ -46,6 +46,7 @@ export function StaffReviewsPage() {
   const legacyAuth = useAuthStore((state) => state.user);
   const isLegacyAdmin = legacyAuth && ["admin", "super_admin", "support_admin"].includes(legacyAuth.role?.toLowerCase());
   const canDelete = isLegacyAdmin || hasPermission("reviews.delete");
+  const canApprove = isLegacyAdmin || hasPermission("reviews.approve");
 
   const filteredReviews = useMemo(() => {
     if (statusFilter === "all") return reviews;
@@ -158,9 +159,9 @@ export function StaffReviewsPage() {
                     {review.status ? review.status.charAt(0).toUpperCase() + review.status.slice(1) : "Pending"}
                   </span>
                   
-                  {review.status === "pending" && (
+                  {review.status === "pending" && canApprove && (
                     <div className="flex gap-2">
-                      <button
+                       <button
                         type="button"
                         disabled={busyId === review._id}
                         onClick={() => handleUpdateStatus(review._id, "approved")}

@@ -21,6 +21,7 @@ export function hasStaffPermission(permissions, permission) {
 }
 
 export function hasLegacyPermission(role, permission) {
-  const permissions = LEGACY_ROLE_PERMISSIONS[role] || [];
+  const normRole = String(role || "").toLowerCase();
+  const permissions = LEGACY_ROLE_PERMISSIONS[normRole] || [];
   return permissions.includes("all") || permissions.includes(permission);
 }

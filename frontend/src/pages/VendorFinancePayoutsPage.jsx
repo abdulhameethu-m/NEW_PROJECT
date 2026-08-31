@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import { InlineToast } from "../components/commerce/InlineToast";
 import {
@@ -26,6 +27,9 @@ function normalizeError(error) {
 }
 
 export function VendorFinancePayoutsPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
@@ -60,7 +64,7 @@ export function VendorFinancePayoutsPage() {
 
   return (
     <div className="space-y-6">
-      <FinanceTabs items={financeTabs} />
+      <FinanceTabs items={financeTabs.map(tab => tab.to && tab.to.startsWith("/admin") ? { ...tab, to: basePath + tab.to.substring(6) } : tab)} />
 
       <FilterBar>
         <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900">

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { requestInput } from "../services/notificationService";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useLocation,  Link, useNavigate, useParams  } from "react-router-dom";
 import { approveSeller, getSellerDetails, rejectSeller } from "../services/adminApi";
 import { StatusBadge } from "../components/StatusBadge";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Request failed";
@@ -26,6 +27,7 @@ function resolveBankDetails(vendor) {
 export function AdminVendorDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { basePath, isLegacyAdmin, canAccess } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [vendor, setVendor] = useState(null);
   const [error, setError] = useState("");
@@ -103,8 +105,8 @@ export function AdminVendorDetailsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge value={vendor.status} />
-          <Link to={`/admin/vendors/${id}/finance`} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Finance</Link>
-          <button type="button" onClick={() => navigate("/admin/sellers")} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Back</button>
+          <Link to={`${basePath}/vendors/${id}/finance`} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Finance</Link>
+          <button type="button" onClick={() => navigate(`${basePath}/sellers`)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Back</button>
         </div>
       </div>
 
@@ -167,22 +169,26 @@ export function AdminVendorDetailsPage() {
               </div>
             ) : null}
             <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={busy || vendor.status === "approved"}
-                onClick={handleApprove}
-                className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-              >
-                Approve
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={handleReject}
-                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200"
-              >
-                Reject
-              </button>
+              {(isLegacyAdmin || canAccess("sellers.approve")) ? (
+                <button
+                  type="button"
+                  disabled={busy || vendor.status === "approved"}
+                  onClick={handleApprove}
+                  className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  Approve
+                </button>
+              ) : null}
+              {(isLegacyAdmin || canAccess("sellers.reject")) ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={handleReject}
+                  className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200"
+                >
+                  Reject
+                </button>
+              ) : null}
             </div>
           </div>
         </section>
@@ -192,7 +198,7 @@ export function AdminVendorDetailsPage() {
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Shop images</h2>
-            <Link to="/admin/sellers" className="text-sm font-medium text-blue-600 hover:underline">
+            <Link to={`${basePath}/sellers`} className="text-sm font-medium text-blue-600 hover:underline">
               Back to sellers
             </Link>
           </div>
@@ -206,7 +212,6 @@ export function AdminVendorDetailsPage() {
                 ) : (
                   <img loading="lazy" decoding="async" src={resolveApiAssetUrl(image.url)}
                     alt={`Shop ${idx + 1}`}
-                    loading="lazy"
                     className="h-44 w-full object-cover"
                     onError={() =>
                       setBrokenImages((current) => ({

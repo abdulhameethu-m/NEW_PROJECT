@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useLocation, Link, useParams } from "react-router-dom";
 import { FinanceField, FinanceInput, FinanceTabs, FinanceTextarea, formatFinanceDateTime } from "../components/finance/FinanceComponents";
 import { InvoicePreviewCard } from "../components/invoice/InvoicePreviewCard";
 import { downloadAdminInvoicePdf, getAdminInvoice, getAdminInvoiceAudit, updateAdminInvoiceMetadata } from "../services/invoiceService";
@@ -15,6 +15,9 @@ function normalizeError(error) {
 }
 
 export function AdminInvoiceDetailsPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const { id } = useParams();
   const [invoice, setInvoice] = useState(null);
   const [audit, setAudit] = useState([]);
@@ -88,9 +91,9 @@ export function AdminInvoiceDetailsPage() {
 
   return (
     <div className="grid gap-6">
-      <FinanceTabs items={financeTabs} />
+      <FinanceTabs items={financeTabs.map(tab => tab.to && tab.to.startsWith("/admin") ? { ...tab, to: basePath + tab.to.substring(6) } : tab)} />
       <div className="flex items-center justify-between gap-3">
-        <Link to="/admin/finance/invoices" className="text-sm font-semibold text-sky-700 hover:underline">Back to invoices</Link>
+        <Link to={`${basePath}/finance/invoices`} className="text-sm font-semibold text-sky-700 hover:underline">Back to invoices</Link>
         <button type="button" onClick={() => downloadAdminInvoicePdf(id)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Download PDF</button>
       </div>
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}

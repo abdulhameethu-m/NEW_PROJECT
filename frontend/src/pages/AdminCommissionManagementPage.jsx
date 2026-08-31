@@ -12,6 +12,7 @@ import {
   updateCommissionRule,
 } from "../services/adminApi";
 import { formatCurrency } from "../utils/formatCurrency";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 const initialForm = {
   name: "",
@@ -32,6 +33,11 @@ function normalizeError(error) {
 }
 
 export function AdminCommissionManagementPage() {
+  const { canAccess } = useAdminSession();
+  const canCreate = canAccess("commission.create");
+  const canUpdate = canAccess("commission.update");
+  const canDelete = canAccess("commission.delete");
+
   const [rules, setRules] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -45,6 +51,15 @@ export function AdminCommissionManagementPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  async function safeFetch(promise, fallback) {
+    try {
+      const res = await promise;
+      return res;
+    } catch (err) {
+      return fallback;
+    }
+  }
+
   async function load() {
     setLoading(true);
     setError("");
@@ -52,9 +67,9 @@ export function AdminCommissionManagementPage() {
       const [rulesRes, analyticsRes, vendorsRes, categoriesRes, productsRes] = await Promise.all([
         listCommissionRules(),
         getCommissionAnalytics({ days: 30 }),
-        listSellers({ status: "approved" }),
-        listCategories(),
-        listProducts({ limit: 200 }),
+        safeFetch(listSellers({ status: "approved" }), { data: [] }),
+        safeFetch(listCategories(), { data: [] }),
+        safeFetch(listProducts({ limit: 200 }), { data: { products: [] } }),
       ]);
       setRules(rulesRes?.data?.rules || []);
       setAnalytics(analyticsRes?.data || null);
@@ -187,103 +202,105 @@ export function AdminCommissionManagementPage() {
         <div className="rounded-xl border p-4">30d Orders: <strong>{summary.commissionOrders30d}</strong></div>
       </div>
 
-      <form onSubmit={submit} className="grid gap-3 rounded-xl border p-4 md:grid-cols-3">
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
-          Name
-          <input className="rounded border px-3 py-2 font-normal" placeholder="Rule name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
-        </label>
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
-          Type
-          <select className="rounded border px-3 py-2 font-normal" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}>
-            <option value="percentage">percentage</option>
-            <option value="fixed">fixed</option>
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
-          Value
-          <input className="rounded border px-3 py-2 font-normal" type="number" min="0" step="0.01" value={form.value} onChange={(e) => setForm((p) => ({ ...p, value: e.target.value }))} required />
-        </label>
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
-          Applies To
-          <select className="rounded border px-3 py-2 font-normal" value={form.appliesTo} onChange={(e) => setForm((p) => ({ ...p, appliesTo: e.target.value }))}>
-            <option value="global">global</option>
-            <option value="category">category</option>
-            <option value="vendor">vendor</option>
-            <option value="product">product</option>
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
-          Priority
-          <input className="rounded border px-3 py-2 font-normal" type="number" value={form.priority} onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value }))} placeholder="Priority" />
-        </label>
-        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <input type="checkbox" checked={form.active} onChange={(e) => setForm((p) => ({ ...p, active: e.target.checked }))} />
-          Active
-        </label>
-        {form.appliesTo === "category" ? (
+      {(canCreate || (isEditing && canUpdate)) && (
+        <form onSubmit={submit} className="grid gap-3 rounded-xl border p-4 md:grid-cols-3">
           <label className="grid gap-1 text-sm font-medium text-slate-700">
-            Category ID
-            <select
-              className="rounded border px-3 py-2 font-normal"
-              value={form.categoryId}
-              onChange={(e) => setForm((p) => ({ ...p, categoryId: e.target.value }))}
-              required
-            >
-              <option value="">Select category</option>
-              {categories.map((category) => (
-                <option key={category._id} value={category._id}>
-                  {category._id} - {category.name || "Category"}
-                </option>
-              ))}
+            Name
+            <input className="rounded border px-3 py-2 font-normal" placeholder="Rule name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-slate-700">
+            Type
+            <select className="rounded border px-3 py-2 font-normal" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}>
+              <option value="percentage">percentage</option>
+              <option value="fixed">fixed</option>
             </select>
           </label>
-        ) : null}
-        {form.appliesTo === "vendor" ? (
           <label className="grid gap-1 text-sm font-medium text-slate-700">
-            Vendor ID
-            <select
-              className="rounded border px-3 py-2 font-normal"
-              value={form.vendorId}
-              onChange={(e) => setForm((p) => ({ ...p, vendorId: e.target.value }))}
-              required
-            >
-              <option value="">Select vendor</option>
-              {vendors.map((vendor) => (
-                <option key={vendor._id} value={vendor._id}>
-                  {(vendor.vendorCode || vendor._id)} - {vendor.shopName || vendor.companyName || vendor.userId?.name || "Vendor"}
-                </option>
-              ))}
+            Value
+            <input className="rounded border px-3 py-2 font-normal" type="number" min="0" step="0.01" value={form.value} onChange={(e) => setForm((p) => ({ ...p, value: e.target.value }))} required />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-slate-700">
+            Applies To
+            <select className="rounded border px-3 py-2 font-normal" value={form.appliesTo} onChange={(e) => setForm((p) => ({ ...p, appliesTo: e.target.value }))}>
+              <option value="global">global</option>
+              <option value="category">category</option>
+              <option value="vendor">vendor</option>
+              <option value="product">product</option>
             </select>
           </label>
-        ) : null}
-        {form.appliesTo === "product" ? (
           <label className="grid gap-1 text-sm font-medium text-slate-700">
-            Product ID
-            <select
-              className="rounded border px-3 py-2 font-normal"
-              value={form.productId}
-              onChange={(e) => setForm((p) => ({ ...p, productId: e.target.value }))}
-              required
-            >
-              <option value="">Select product</option>
-              {products.map((product) => (
-                <option key={product._id} value={product._id}>
-                  {product._id} - {product.name || "Product"}
-                </option>
-              ))}
-            </select>
+            Priority
+            <input className="rounded border px-3 py-2 font-normal" type="number" value={form.priority} onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value }))} placeholder="Priority" />
           </label>
-        ) : null}
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
-          Start Date
-          <input className="rounded border px-3 py-2 font-normal" type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))} />
-        </label>
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
-          End Date
-          <input className="rounded border px-3 py-2 font-normal" type="date" value={form.endDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))} />
-        </label>
-        <button disabled={saving} className="rounded bg-slate-900 px-3 py-2 text-white" type="submit">{saving ? "Saving..." : isEditing ? "Update rule" : "Create rule"}</button>
-      </form>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input type="checkbox" checked={form.active} onChange={(e) => setForm((p) => ({ ...p, active: e.target.checked }))} />
+            Active
+          </label>
+          {form.appliesTo === "category" ? (
+            <label className="grid gap-1 text-sm font-medium text-slate-700">
+              Category ID
+              <select
+                className="rounded border px-3 py-2 font-normal"
+                value={form.categoryId}
+                onChange={(e) => setForm((p) => ({ ...p, categoryId: e.target.value }))}
+                required
+              >
+                <option value="">Select category</option>
+                {categories.map((category) => (
+                  <option key={category._id} value={category._id}>
+                    {category._id} - {category.name || "Category"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {form.appliesTo === "vendor" ? (
+            <label className="grid gap-1 text-sm font-medium text-slate-700">
+              Vendor ID
+              <select
+                className="rounded border px-3 py-2 font-normal"
+                value={form.vendorId}
+                onChange={(e) => setForm((p) => ({ ...p, vendorId: e.target.value }))}
+                required
+              >
+                <option value="">Select vendor</option>
+                {vendors.map((vendor) => (
+                  <option key={vendor._id} value={vendor._id}>
+                    {(vendor.vendorCode || vendor._id)} - {vendor.shopName || vendor.companyName || vendor.userId?.name || "Vendor"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {form.appliesTo === "product" ? (
+            <label className="grid gap-1 text-sm font-medium text-slate-700">
+              Product ID
+              <select
+                className="rounded border px-3 py-2 font-normal"
+                value={form.productId}
+                onChange={(e) => setForm((p) => ({ ...p, productId: e.target.value }))}
+                required
+              >
+                <option value="">Select product</option>
+                {products.map((product) => (
+                  <option key={product._id} value={product._id}>
+                    {product._id} - {product.name || "Product"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <label className="grid gap-1 text-sm font-medium text-slate-700">
+            Start Date
+            <input className="rounded border px-3 py-2 font-normal" type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))} />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-slate-700">
+            End Date
+            <input className="rounded border px-3 py-2 font-normal" type="date" value={form.endDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))} />
+          </label>
+          <button disabled={saving} className="rounded bg-slate-900 px-3 py-2 text-white" type="submit">{saving ? "Saving..." : isEditing ? "Update rule" : "Create rule"}</button>
+        </form>
+      )}
 
       <div className="overflow-auto rounded-xl border">
         <table className="min-w-full text-sm">
@@ -302,30 +319,36 @@ export function AdminCommissionManagementPage() {
                 <td className="px-3 py-2">{rule.priority}</td>
                 <td className="px-3 py-2">{rule.active ? "Active" : "Inactive"}</td>
                 <td className="px-3 py-2 space-x-2">
-                  <button
-                    type="button"
-                    disabled={busyRuleId === rule._id}
-                    className="rounded border px-2 py-1 disabled:opacity-50"
-                    onClick={() => startEdit(rule)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyRuleId === rule._id}
-                    className="rounded border px-2 py-1 disabled:opacity-50"
-                    onClick={() => handleToggleRule(rule)}
-                  >
-                    {rule.active ? "Deactivate" : "Activate"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyRuleId === rule._id}
-                    className="rounded border border-rose-300 px-2 py-1 text-rose-700 disabled:opacity-50"
-                    onClick={() => handleDeleteRule(rule)}
-                  >
-                    Delete
-                  </button>
+                  {canUpdate && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={busyRuleId === rule._id}
+                        className="rounded border px-2 py-1 disabled:opacity-50"
+                        onClick={() => startEdit(rule)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyRuleId === rule._id}
+                        className="rounded border px-2 py-1 disabled:opacity-50"
+                        onClick={() => handleToggleRule(rule)}
+                      >
+                        {rule.active ? "Deactivate" : "Activate"}
+                      </button>
+                    </>
+                  )}
+                  {canDelete && (
+                    <button
+                      type="button"
+                      disabled={busyRuleId === rule._id}
+                      className="rounded border border-rose-300 px-2 py-1 text-rose-700 disabled:opacity-50"
+                      onClick={() => handleDeleteRule(rule)}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

@@ -8,6 +8,7 @@ import {
 } from "../services/adminApi";
 import * as categoryService from "../services/categoryService";
 import { listAdminSubcategories } from "../services/subcategoryService";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 const initialForm = {
   name: "",
@@ -25,6 +26,7 @@ function normalizeError(error) {
 }
 
 export function AdminCategoriesPage() {
+  const { isLegacyAdmin, canAccess } = useAdminSession();
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -225,40 +227,46 @@ export function AdminCategoriesPage() {
                   </div>
                   <div className="text-sm text-slate-600 dark:text-slate-300">Order {category.order ?? 0}</div>
                   <div className="flex flex-wrap gap-2 lg:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => startEditing(category)}
-                      className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToggle(category)}
-                      className={`rounded-xl px-3 py-2 text-sm font-medium ${
-                        category.isActive
-                          ? "border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950"
-                          : "bg-emerald-600 text-white hover:bg-emerald-700"
-                      }`}
-                    >
-                      {category.isActive ? "Disable" : "Enable"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        // eslint-disable-next-line no-alert
-                        if (!window.confirm("Delete this category? All its subcategories will also be deleted.")) return;
-                        try {
-                          await deleteCategory(category._id);
-                          await refresh();
-                        } catch (err) {
-                          setError(normalizeError(err));
-                        }
-                      }}
-                      className="rounded-xl border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950"
-                    >
-                      Delete
-                    </button>
+                    {(isLegacyAdmin || canAccess("categories.update")) ? (
+                      <button
+                        type="button"
+                        onClick={() => startEditing(category)}
+                        className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        Edit
+                      </button>
+                    ) : null}
+                    {(isLegacyAdmin || canAccess("categories.update")) ? (
+                      <button
+                        type="button"
+                        onClick={() => handleToggle(category)}
+                        className={`rounded-xl px-3 py-2 text-sm font-medium ${
+                          category.isActive
+                            ? "border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950"
+                            : "bg-emerald-600 text-white hover:bg-emerald-700"
+                        }`}
+                      >
+                        {category.isActive ? "Disable" : "Enable"}
+                      </button>
+                    ) : null}
+                    {(isLegacyAdmin || canAccess("categories.delete")) ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          // eslint-disable-next-line no-alert
+                          if (!window.confirm("Delete this category? All its subcategories will also be deleted.")) return;
+                          try {
+                            await deleteCategory(category._id);
+                            await refresh();
+                          } catch (err) {
+                            setError(normalizeError(err));
+                          }
+                        }}
+                        className="rounded-xl border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950"
+                      >
+                        Delete
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -269,172 +277,174 @@ export function AdminCategoriesPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{editingId ? "Edit category" : "Create category"}</h2>
-        <form className="mt-4 grid gap-4" onSubmit={handleSubmit}>
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Name</span>
-            <input
-              value={form.name}
-              onChange={(event) => {
-                const newName = event.target.value;
-                setForm((current) => ({
-                  ...current,
-                  name: newName,
-                  code: codeModified ? current.code : newName.charAt(0).toUpperCase(),
-                }));
-              }}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              required
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Code</span>
-            <input
-              value={form.code}
-              onChange={(event) => {
-                setCodeModified(true);
-                setCodeError("");
-                setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }));
-              }}
-              className={`rounded-xl border ${codeError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 dark:border-slate-700'} px-4 py-3 text-sm uppercase dark:bg-slate-950 dark:text-white`}
-              placeholder="E"
-            />
-            {codeError && <span className="text-xs text-red-500 mt-1">{codeError}</span>}
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Slug</span>
-            <input
-              value={form.slug}
-              onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              placeholder="Optional"
-            />
-          </label>
-
-          <div className="grid gap-4 sm:grid-cols-2">
+      {(isLegacyAdmin || (editingId ? canAccess("categories.update") : canAccess("categories.create"))) ? (
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{editingId ? "Edit category" : "Create category"}</h2>
+          <form className="mt-4 grid gap-4" onSubmit={handleSubmit}>
             <label className="grid gap-2">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Order</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Name</span>
               <input
-                type="number"
-                min="0"
-                value={form.order}
-                onChange={(event) => setForm((current) => ({ ...current, order: Number(event.target.value || 0) }))}
+                value={form.name}
+                onChange={(event) => {
+                  const newName = event.target.value;
+                  setForm((current) => ({
+                    ...current,
+                    name: newName,
+                    code: codeModified ? current.code : newName.charAt(0).toUpperCase(),
+                  }));
+                }}
                 className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                required
               />
             </label>
-          </div>
 
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Category Logo</span>
-            <div className="flex items-center gap-3">
-              {form.logo ? (
-                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950">
-                  <img loading="lazy" decoding="async" src={form.logo} alt="Category logo preview" className="max-h-full max-w-full rounded" />
-                </div>
-              ) : null}
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Code</span>
               <input
-                type="file"
-                accept="image/*"
-                onChange={handleLogoUpload}
-                className="flex-1 min-w-0 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                value={form.code}
+                onChange={(event) => {
+                  setCodeModified(true);
+                  setCodeError("");
+                  setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }));
+                }}
+                className={`rounded-xl border ${codeError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 dark:border-slate-700'} px-4 py-3 text-sm uppercase dark:bg-slate-950 dark:text-white`}
+                placeholder="E"
               />
+              {codeError && <span className="text-xs text-red-500 mt-1">{codeError}</span>}
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Slug</span>
+              <input
+                value={form.slug}
+                onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))}
+                className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                placeholder="Optional"
+              />
+            </label>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Order</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.order}
+                  onChange={(event) => setForm((current) => ({ ...current, order: Number(event.target.value || 0) }))}
+                  className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                />
+              </label>
             </div>
-          </label>
 
-          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
-            <input
-              type="checkbox"
-              checked={form.isActive}
-              onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))}
-              className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
-            />
-            <span className="text-sm text-slate-700 dark:text-slate-300">Visible on storefront</span>
-          </label>
-
-          <div className="border-t border-slate-200 dark:border-slate-800 pt-6 mt-4 mb-6">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Promotional Banners (Max 2)</h3>
-            <div className="grid gap-6 sm:grid-cols-2">
-              {[0, 1].map((index) => {
-                const banner = form.banners?.[index] || { image: "", title: "", link: "" };
-                return (
-                  <div key={index} className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
-                    <label className="grid gap-2 mb-3">
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Banner {index + 1} Image</span>
-                      <div className="flex items-center gap-3">
-                        {banner.image ? (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950 overflow-hidden shrink-0">
-                            <img loading="lazy" decoding="async" src={banner.image.startsWith('http') ? banner.image : (banner.image.startsWith('data:') ? banner.image : 'http://localhost:5000' + banner.image)} alt="Preview" className="h-full w-full object-cover" />
-                          </div>
-                        ) : null}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleBannerUpload(index, e)}
-                          className="flex-1 min-w-0 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                        />
-                      </div>
-                    </label>
-                    <label className="grid gap-2 mb-3">
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Title</span>
-                      <input
-                        value={banner.title || ""}
-                        onChange={(e) => {
-                          const newTitle = e.target.value;
-                          setForm((current) => {
-                            const banners = [...(current.banners || [])];
-                            banners[index] = { ...banners[index], title: newTitle };
-                            return { ...current, banners };
-                          });
-                        }}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                        placeholder="e.g. Top Picks"
-                      />
-                    </label>
-                    <label className="grid gap-2">
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Redirect Link</span>
-                      <input
-                        value={banner.link || ""}
-                        onChange={(e) => {
-                          const newLink = e.target.value;
-                          setForm((current) => {
-                            const banners = [...(current.banners || [])];
-                            banners[index] = { ...banners[index], link: newLink };
-                            return { ...current, banners };
-                          });
-                        }}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                        placeholder="e.g. /products?category=123"
-                      />
-                    </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Category Logo</span>
+              <div className="flex items-center gap-3">
+                {form.logo ? (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950">
+                    <img loading="lazy" decoding="async" src={form.logo} alt="Category logo preview" className="max-h-full max-w-full rounded" />
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                ) : null}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="flex-1 min-w-0 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                />
+              </div>
+            </label>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
-            >
-              {saving ? "Saving..." : editingId ? "Update category" : "Create category"}
-            </button>
-            {editingId ? (
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-800">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+              />
+              <span className="text-sm text-slate-700 dark:text-slate-300">Visible on storefront</span>
+            </label>
+
+            <div className="border-t border-slate-200 dark:border-slate-800 pt-6 mt-4 mb-6">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Promotional Banners (Max 2)</h3>
+              <div className="grid gap-6 sm:grid-cols-2">
+                {[0, 1].map((index) => {
+                  const banner = form.banners?.[index] || { image: "", title: "", link: "" };
+                  return (
+                    <div key={index} className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
+                      <label className="grid gap-2 mb-3">
+                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Banner {index + 1} Image</span>
+                        <div className="flex items-center gap-3">
+                          {banner.image ? (
+                            <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950 overflow-hidden shrink-0">
+                              <img loading="lazy" decoding="async" src={banner.image.startsWith('http') ? banner.image : (banner.image.startsWith('data:') ? banner.image : 'http://localhost:5000' + banner.image)} alt="Preview" className="h-full w-full object-cover" />
+                            </div>
+                          ) : null}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleBannerUpload(index, e)}
+                            className="flex-1 min-w-0 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                          />
+                        </div>
+                      </label>
+                      <label className="grid gap-2 mb-3">
+                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Title</span>
+                        <input
+                          value={banner.title || ""}
+                          onChange={(e) => {
+                            const newTitle = e.target.value;
+                            setForm((current) => {
+                              const banners = [...(current.banners || [])];
+                              banners[index] = { ...banners[index], title: newTitle };
+                              return { ...current, banners };
+                            });
+                          }}
+                          className="rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                          placeholder="e.g. Top Picks"
+                        />
+                      </label>
+                      <label className="grid gap-2">
+                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Redirect Link</span>
+                        <input
+                          value={banner.link || ""}
+                          onChange={(e) => {
+                            const newLink = e.target.value;
+                            setForm((current) => {
+                              const banners = [...(current.banners || [])];
+                              banners[index] = { ...banners[index], link: newLink };
+                              return { ...current, banners };
+                            });
+                          }}
+                          className="rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                          placeholder="e.g. /products?category=123"
+                        />
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
               <button
-                type="button"
-                onClick={resetForm}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                type="submit"
+                disabled={saving}
+                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
               >
-                Cancel
+                {saving ? "Saving..." : editingId ? "Update category" : "Create category"}
               </button>
-            ) : null}
-          </div>
-        </form>
-      </section>
+              {editingId ? (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
+          </form>
+        </section>
+      ) : null}
     </div>
   );
 }

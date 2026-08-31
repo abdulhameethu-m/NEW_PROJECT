@@ -120,7 +120,7 @@ export function StaffPaymentsPage() {
           ))}
         </div>
       ) : (
-        <PaymentTable rows={payments} onRefund={canRefund ? setRefundTarget : null} detailsBasePath="/admin/payment-details" />
+        <PaymentTable rows={payments} onRefund={canRefund ? setRefundTarget : null} detailsBasePath="/staff/payment-details" />
       )}
 
       <RefundModal

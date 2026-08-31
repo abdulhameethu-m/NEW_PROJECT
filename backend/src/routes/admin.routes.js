@@ -96,45 +96,44 @@ router.get(
 );
 router.get("/analytics", requireWorkspacePermission("analytics.read"), adminController.analytics);
 router.get("/analytics/products/:id", requireWorkspacePermission("analytics.read"), adminController.productAnalyticsDetail);
-router.get("/revenue", requireLegacyAdminPermission("analytics:read"), revenueController.getRevenueSummary);
-router.get("/revenue/vendors", requireLegacyAdminPermission("analytics:read"), revenueController.getVendorRevenue);
-router.get("/revenue/export", requireLegacyAdminPermission("analytics:read"), revenueController.exportRevenue);
+router.get("/revenue", requireWorkspacePermission("revenue.read", { legacyPermission: "analytics:read" }), revenueController.getRevenueSummary);
+router.get("/revenue/vendors", requireWorkspacePermission("revenue.read", { legacyPermission: "analytics:read" }), revenueController.getVendorRevenue);
+router.get("/revenue/export", requireWorkspacePermission("revenue.read", { legacyPermission: "analytics:read" }), revenueController.exportRevenue);
 router.get("/daily-revenue", requireWorkspacePermission("analytics.read"), adminController.dailyRevenue);
-router.get("/audit-logs", requireLegacyAdminPermission("audit:read"), adminController.listAuditLogs);
+router.get("/audit-logs", requireWorkspacePermission("auditLogs.read", { legacyPermission: "audit:read" }), adminController.listAuditLogs);
 router.post(
   "/system/reset-data",
-  requireLegacyAdminPermission("settings:update"),
-  express.json(),
+  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
   adminController.resetPlatformData
 );
 router.get("/users", requireWorkspacePermission("users.read"), adminController.listUsers);
 router.post("/users", requireWorkspacePermission("users.create"), adminController.createUser);
-router.patch("/users/:id/block", requireWorkspacePermission("users.update"), adminController.toggleUserBlocked);
+router.patch("/users/:id/block", requireWorkspacePermission("users.block", { legacyPermission: "users:update" }), adminController.toggleUserBlocked);
 router.delete("/users/:id", requireWorkspacePermission("users.delete"), adminController.deleteUser);
 // Backward-compatible user status endpoint
 router.put("/user/:id/status", requireWorkspacePermission("users.update"), adminController.setUserStatus);
-router.get("/sellers", requireLegacyAdminPermission("vendors:read"), adminController.listVendors);
-router.get("/sellers/:id/store-analytics", requireLegacyAdminPermission("vendors:read"), vendorStorefrontController.adminStoreAnalytics);
-router.patch("/sellers/:id/store-moderation", requireLegacyAdminPermission("vendors:approve"), express.json(), vendorStorefrontController.adminModerateStore);
-router.patch("/sellers/:id/approve", requireLegacyAdminPermission("vendors:approve"), adminController.approveVendor);
-router.patch("/sellers/:id/reject", requireLegacyAdminPermission("vendors:reject"), express.json(), adminController.rejectVendor);
-router.get("/sellers/:id", requireLegacyAdminPermission("vendors:read"), adminController.getVendorDetails);
+router.get("/sellers", requireWorkspacePermission("sellers.read", { legacyPermission: "vendors:read" }), adminController.listVendors);
+router.get("/sellers/:id/store-analytics", requireWorkspacePermission("sellers.read", { legacyPermission: "vendors:read" }), vendorStorefrontController.adminStoreAnalytics);
+router.patch("/sellers/:id/store-moderation", requireWorkspacePermission("sellers.approve", { legacyPermission: "vendors:approve" }), express.json(), vendorStorefrontController.adminModerateStore);
+router.patch("/sellers/:id/approve", requireWorkspacePermission("sellers.approve", { legacyPermission: "vendors:approve" }), adminController.approveVendor);
+router.patch("/sellers/:id/reject", requireWorkspacePermission("sellers.reject", { legacyPermission: "vendors:reject" }), express.json(), adminController.rejectVendor);
+router.get("/sellers/:id", requireWorkspacePermission("sellers.read", { legacyPermission: "vendors:read" }), adminController.getVendorDetails);
 // Backward-compatible vendor routes
-router.get("/vendors", requireLegacyAdminPermission("vendors:read"), adminController.listVendors);
-router.get("/vendor/:id", requireLegacyAdminPermission("vendors:read"), adminController.getVendorDetails);
-router.put("/vendor/:id/approve", requireLegacyAdminPermission("vendors:approve"), adminController.approveVendor);
-router.put("/vendor/:id/reject", requireLegacyAdminPermission("vendors:reject"), express.json(), adminController.rejectVendor);
-router.delete("/vendor/:id", requireLegacyAdminPermission("vendors:delete"), adminController.removeVendor);
+router.get("/vendors", requireWorkspacePermission("sellers.read", { legacyPermission: "vendors:read" }), adminController.listVendors);
+router.get("/vendor/:id", requireWorkspacePermission("sellers.read", { legacyPermission: "vendors:read" }), adminController.getVendorDetails);
+router.put("/vendor/:id/approve", requireWorkspacePermission("sellers.approve", { legacyPermission: "vendors:approve" }), adminController.approveVendor);
+router.put("/vendor/:id/reject", requireWorkspacePermission("sellers.reject", { legacyPermission: "vendors:reject" }), express.json(), adminController.rejectVendor);
+router.delete("/vendor/:id", requireWorkspacePermission("sellers.delete", { legacyPermission: "vendors:delete" }), adminController.removeVendor);
 router.get("/orders", requireWorkspacePermission("orders.read"), adminController.listOrders);
 router.get("/inventory", requireWorkspacePermission("products.read"), adminController.getAdminInventorySummary);
 router.get("/inventory/:id", requireWorkspacePermission("products.read"), adminController.getAdminInventoryProduct);
 router.get("/inventory/:id/variant/:variantId/ledger", requireWorkspacePermission("products.read"), adminController.getAdminInventoryLedger);
 router.post("/inventory/:id/variant/:variantId/adjust", requireWorkspacePermission("products.update"), express.json(), adminController.adjustAdminInventory);
 router.patch("/inventory/:id/variant/:variantId/threshold", requireWorkspacePermission("products.update"), express.json(), adminController.updateAdminInventoryThreshold);
-router.get("/shipping/modes", requireWorkspacePermission("settings.update"), adminController.getShippingModes);
+router.get("/shipping/modes", requireWorkspacePermission("shippingAccess.read", { legacyPermission: "settings:update" }), adminController.getShippingModes);
 router.patch(
   "/shipping/modes",
-  requireWorkspacePermission("settings.update"),
+  requireWorkspacePermission("shippingAccess.activate", { legacyPermission: "settings:update" }),
   express.json(),
   validate([
     body("selfShipping").isBoolean().withMessage("selfShipping must be boolean"),
@@ -147,50 +146,50 @@ router.patch("/orders/:id/cancel", requireWorkspacePermission("orders.cancel"), 
 router.post("/orders/:id/cancel", requireWorkspacePermission("orders.cancel"), express.json(), adminController.cancelOrder);
 router.get("/orders/:id/shipping-label", requireWorkspacePermission("orders.read"), adminController.getShippingLabel);
 router.get("/orders/:id", requireWorkspacePermission("orders.read"), adminController.getOrderById);
-router.get("/cancellation-policies", requireWorkspacePermission("settings.read"), adminController.listCancellationPolicies);
-router.post("/cancellation-policy", requireWorkspacePermission("settings.update"), express.json(), adminController.createCancellationPolicy);
-router.put("/cancellation-policy/:id", requireWorkspacePermission("settings.update"), express.json(), adminController.updateCancellationPolicy);
-router.get("/refunds", requireWorkspacePermission("payments.read"), adminController.listRefundCases);
-router.get("/refunds/:id", requireWorkspacePermission("payments.read"), adminController.getRefundCase);
-router.post("/refunds/:id/process", requireWorkspacePermission("payments.refund"), express.json(), adminController.processRefundCase);
-router.post("/refunds/:id/manual", requireWorkspacePermission("payments.refund"), express.json(), adminController.markManualRefundCase);
-router.post("/refunds/:id/wallet", requireWorkspacePermission("payments.refund"), express.json(), adminController.markWalletRefundCase);
-router.post("/refunds/:id/retry", requireWorkspacePermission("payments.refund"), express.json(), adminController.retryRefundCase);
-router.get("/homepage-containers/schemas", requireWorkspacePermission("settings.read"), homepageContainerController.listContainerSchemas);
-router.get("/homepage-containers/schema/:type", requireWorkspacePermission("settings.read"), homepageContainerController.getContainerSchema);
-router.post("/homepage-containers/media", requireWorkspacePermission("settings.update"), upload.array("images", 20), homepageContainerController.uploadAdminContainerMedia);
-router.post("/homepage-containers/reorder", requireWorkspacePermission("settings.update"), express.json(), homepageContainerController.reorderAdminContainers);
-router.post("/homepage-containers/preview", requireWorkspacePermission("settings.read"), express.json(), homepageContainerController.previewAdminContainer);
-router.get("/homepage-containers", requireWorkspacePermission("settings.read"), homepageContainerController.listAdminContainers);
-router.post("/homepage-containers", requireWorkspacePermission("settings.update"), express.json(), homepageContainerController.createAdminContainer);
-router.get("/homepage-containers/:id", requireWorkspacePermission("settings.read"), homepageContainerController.getAdminContainerById);
-router.put("/homepage-containers/:id", requireWorkspacePermission("settings.update"), express.json(), homepageContainerController.updateAdminContainer);
-router.delete("/homepage-containers/:id", requireWorkspacePermission("settings.update"), homepageContainerController.deleteAdminContainer);
-router.get("/homepage-builder/containers", requireWorkspacePermission("settings.read"), homepageLayoutController.listContainerLibrary);
-router.get("/homepage-builder/layouts", requireWorkspacePermission("settings.read"), homepageLayoutController.listAdminLayouts);
-router.post("/homepage-builder/layouts", requireWorkspacePermission("settings.update"), express.json(), homepageLayoutController.createAdminLayout);
-router.get("/homepage-builder/layouts/:id", requireWorkspacePermission("settings.read"), homepageLayoutController.getAdminLayoutById);
-router.put("/homepage-builder/layouts/:id/draft", requireWorkspacePermission("settings.update"), express.json(), homepageLayoutController.updateAdminLayoutDraft);
-router.post("/homepage-builder/layouts/:id/publish", requireWorkspacePermission("settings.update"), homepageLayoutController.publishAdminLayout);
-router.delete("/homepage-builder/layouts/:id", requireWorkspacePermission("settings.update"), homepageLayoutController.deleteAdminLayout);
-router.get("/homepage-builder/layouts/:id/versions", requireWorkspacePermission("settings.read"), homepageLayoutController.listAdminLayoutVersions);
-router.post("/homepage-builder/layouts/:id/rollback/:versionId", requireWorkspacePermission("settings.update"), homepageLayoutController.rollbackAdminLayoutVersion);
-router.post("/homepage-builder/preview", requireWorkspacePermission("settings.read"), express.json(), homepageLayoutController.previewAdminLayout);
+router.get("/cancellation-policies", requireWorkspacePermission("cancellationPolicies.read"), adminController.listCancellationPolicies);
+router.post("/cancellation-policy", requireWorkspacePermission("cancellationPolicies.create"), express.json(), adminController.createCancellationPolicy);
+router.put("/cancellation-policy/:id", requireWorkspacePermission("cancellationPolicies.update"), express.json(), adminController.updateCancellationPolicy);
+router.get("/refunds", requireWorkspacePermission("refunds.read"), adminController.listRefundCases);
+router.get("/refunds/:id", requireWorkspacePermission("refunds.read"), adminController.getRefundCase);
+router.post("/refunds/:id/process", requireWorkspacePermission("refunds.refund"), express.json(), adminController.processRefundCase);
+router.post("/refunds/:id/manual", requireWorkspacePermission("refunds.refund"), express.json(), adminController.markManualRefundCase);
+router.post("/refunds/:id/wallet", requireWorkspacePermission("refunds.refund"), express.json(), adminController.markWalletRefundCase);
+router.post("/refunds/:id/retry", requireWorkspacePermission("refunds.refund"), express.json(), adminController.retryRefundCase);
+router.get("/homepage-containers/schemas", requireWorkspacePermission("homepageContainers.read", { legacyPermission: "settings:read" }), homepageContainerController.listContainerSchemas);
+router.get("/homepage-containers/schema/:type", requireWorkspacePermission("homepageContainers.read", { legacyPermission: "settings:read" }), homepageContainerController.getContainerSchema);
+router.post("/homepage-containers/media", requireWorkspacePermission("homepageContainers.update", { legacyPermission: "settings:update" }), upload.array("images", 20), homepageContainerController.uploadAdminContainerMedia);
+router.post("/homepage-containers/reorder", requireWorkspacePermission("homepageContainers.update", { legacyPermission: "settings:update" }), express.json(), homepageContainerController.reorderAdminContainers);
+router.post("/homepage-containers/preview", requireWorkspacePermission("homepageContainers.read", { legacyPermission: "settings:read" }), express.json(), homepageContainerController.previewAdminContainer);
+router.get("/homepage-containers", requireWorkspacePermission("homepageContainers.read", { legacyPermission: "settings:read" }), homepageContainerController.listAdminContainers);
+router.post("/homepage-containers", requireWorkspacePermission("homepageContainers.create", { legacyPermission: "settings:update" }), express.json(), homepageContainerController.createAdminContainer);
+router.get("/homepage-containers/:id", requireWorkspacePermission("homepageContainers.read", { legacyPermission: "settings:read" }), homepageContainerController.getAdminContainerById);
+router.put("/homepage-containers/:id", requireWorkspacePermission("homepageContainers.update", { legacyPermission: "settings:update" }), express.json(), homepageContainerController.updateAdminContainer);
+router.delete("/homepage-containers/:id", requireWorkspacePermission("homepageContainers.delete", { legacyPermission: "settings:update" }), homepageContainerController.deleteAdminContainer);
+router.get("/homepage-builder/containers", requireWorkspacePermission("homepageBuilder.read", { legacyPermission: "settings:read" }), homepageLayoutController.listContainerLibrary);
+router.get("/homepage-builder/layouts", requireWorkspacePermission("homepageBuilder.read", { legacyPermission: "settings:read" }), homepageLayoutController.listAdminLayouts);
+router.post("/homepage-builder/layouts", requireWorkspacePermission("homepageBuilder.create", { legacyPermission: "settings:update" }), express.json(), homepageLayoutController.createAdminLayout);
+router.get("/homepage-builder/layouts/:id", requireWorkspacePermission("homepageBuilder.read", { legacyPermission: "settings:read" }), homepageLayoutController.getAdminLayoutById);
+router.put("/homepage-builder/layouts/:id/draft", requireWorkspacePermission("homepageBuilder.update", { legacyPermission: "settings:update" }), express.json(), homepageLayoutController.updateAdminLayoutDraft);
+router.post("/homepage-builder/layouts/:id/publish", requireWorkspacePermission("homepageBuilder.update", { legacyPermission: "settings:update" }), homepageLayoutController.publishAdminLayout);
+router.delete("/homepage-builder/layouts/:id", requireWorkspacePermission("homepageBuilder.delete", { legacyPermission: "settings:update" }), homepageLayoutController.deleteAdminLayout);
+router.get("/homepage-builder/layouts/:id/versions", requireWorkspacePermission("homepageBuilder.read", { legacyPermission: "settings:read" }), homepageLayoutController.listAdminLayoutVersions);
+router.post("/homepage-builder/layouts/:id/rollback/:versionId", requireWorkspacePermission("homepageBuilder.update", { legacyPermission: "settings:update" }), homepageLayoutController.rollbackAdminLayoutVersion);
+router.post("/homepage-builder/preview", requireWorkspacePermission("homepageBuilder.read", { legacyPermission: "settings:read" }), express.json(), homepageLayoutController.previewAdminLayout);
 router.get("/payouts", requireWorkspacePermission("payouts.read"), adminController.listPayouts);
 router.get("/payout-accounts", requireWorkspacePermission("payouts.read"), adminPayoutController.listPayoutAccounts);
 router.get("/payout-requests", requireWorkspacePermission("payouts.read"), adminPayoutController.listPayoutRequests);
 router.get("/payout-requests/:id", requireWorkspacePermission("payouts.read"), adminPayoutController.getPayoutRequestById);
-router.post("/payouts/:id/approve", requireWorkspacePermission("payouts.process"), validate(payoutApprovalSchema), adminPayoutController.approvePayoutRequest);
-router.post("/payouts/:id/reject", requireWorkspacePermission("payouts.process"), validate(payoutRejectionSchema), adminPayoutController.rejectPayoutRequest);
-router.post("/payouts/:id/pay", requireWorkspacePermission("payouts.process"), validate(payoutPaymentSchema), adminPayoutController.payPayoutRequest);
+router.post("/payouts/:id/approve", requireWorkspacePermission("payouts.approve"), validate(payoutApprovalSchema), adminPayoutController.approvePayoutRequest);
+router.post("/payouts/:id/reject", requireWorkspacePermission("payouts.reject"), validate(payoutRejectionSchema), adminPayoutController.rejectPayoutRequest);
+router.post("/payouts/:id/pay", requireWorkspacePermission("payouts.approve"), validate(payoutPaymentSchema), adminPayoutController.payPayoutRequest);
 router.get("/vendors/:vendorId/wallet", requireWorkspacePermission("payouts.read"), adminPayoutController.getVendorWallet);
 router.get("/vendors/:vendorId/ledger", requireWorkspacePermission("payouts.read"), adminPayoutController.getVendorLedger);
 router.get("/vendors/:vendorId/payout-account", requireWorkspacePermission("payouts.read"), adminPayoutController.getVendorPayoutAccount);
 router.post("/payout-accounts/:accountId/verify", requireWorkspacePermission("payouts.process"), adminPayoutController.verifyVendorPayoutAccount);
 router.post("/payout-accounts/:accountId/reject", requireWorkspacePermission("payouts.process"), validate(accountRejectionSchema), adminPayoutController.rejectVendorPayoutAccount);
-router.post("/orders", requireLegacyAdminPermission("orders:create"), validate(createAdminOrderSchema), adminController.createOrder);
+router.post("/orders", requireWorkspacePermission("orders.create", { legacyPermission: "orders:create" }), validate(createAdminOrderSchema), adminController.createOrder);
 router.patch("/orders/:id", requireWorkspacePermission("orders.update"), validate(updateAdminOrderSchema), adminController.updateOrder);
-router.delete("/orders/:id", requireLegacyAdminPermission("orders:delete"), adminController.deleteOrder);
+router.delete("/orders/:id", requireWorkspacePermission("orders.delete", { legacyPermission: "orders:delete" }), adminController.deleteOrder);
 // Products routes - IMPORTANT: Specific routes must come before parameter routes
 router.get("/products", requireWorkspacePermission("products.read"), productController.getProducts);
 router.get("/products/stats", requireWorkspacePermission("products.read"), productController.getProductStats);
@@ -204,72 +203,112 @@ router.delete("/reviews/:id", requireWorkspacePermission("reviews.delete"), admi
 router.get("/products/:id", requireWorkspacePermission("products.read"), productController.getProductById);
 router.patch("/products/:id", requireWorkspacePermission("products.update"), validate(updateProductSchema), productController.updateProduct);
 router.delete("/products/:id", requireWorkspacePermission("products.delete"), productController.deleteProduct);
-router.patch("/products/:id/approve", requireLegacyAdminPermission("products:approve"), productController.approveProduct);
-router.patch("/products/:id/reject", requireLegacyAdminPermission("products:reject"), validate(rejectProductSchema), productController.rejectProduct);
+router.patch("/products/:id/approve", requireWorkspacePermission("products.review", { legacyPermission: "products:approve" }), productController.approveProduct);
+router.patch("/products/:id/reject", requireWorkspacePermission("products.review", { legacyPermission: "products:reject" }), validate(rejectProductSchema), productController.rejectProduct);
 router.get(
   "/categories",
-  requireWorkspacePermission("products.read", { legacyPermission: "categories:read" }),
+  requireWorkspacePermission("categories.read", { legacyPermission: "categories:read" }),
   categoryController.getAdminCategories
 );
-router.post("/categories", requireLegacyAdminPermission("categories:create"), validate(createCategorySchema), categoryController.createCategory);
-router.patch("/categories/:id", requireLegacyAdminPermission("categories:update"), validate(updateCategorySchema), categoryController.updateCategory);
+router.post(
+  "/categories",
+  requireWorkspacePermission("categories.create", { legacyPermission: "categories:create" }),
+  validate(createCategorySchema),
+  categoryController.createCategory
+);
+router.patch(
+  "/categories/:id",
+  requireWorkspacePermission("categories.update", { legacyPermission: "categories:update" }),
+  validate(updateCategorySchema),
+  categoryController.updateCategory
+);
 router.patch(
   "/categories/:id/toggle",
-  requireLegacyAdminPermission("categories:update"),
+  requireWorkspacePermission("categories.update", { legacyPermission: "categories:update" }),
   validate(toggleCategorySchema),
   categoryController.toggleCategory
 );
-router.delete("/categories/:id", requireLegacyAdminPermission("categories:update"), categoryController.deleteCategory);
-router.get("/subcategories", requireLegacyAdminPermission("categories:read"), subcategoryController.getAdminSubcategories);
+router.delete(
+  "/categories/:id",
+  requireWorkspacePermission("categories.delete", { legacyPermission: "categories:update" }),
+  categoryController.deleteCategory
+);
+
+// Subcategories
+router.get(
+  "/subcategories",
+  requireWorkspacePermission("subcategories.read", { legacyPermission: "categories:read" }),
+  subcategoryController.getAdminSubcategories
+);
 router.post(
   "/subcategories",
-  requireLegacyAdminPermission("categories:create"),
+  requireWorkspacePermission("subcategories.create", { legacyPermission: "categories:create" }),
   validate(createSubcategorySchema),
   subcategoryController.createSubcategory
 );
 router.put(
   "/subcategories/:id",
-  requireLegacyAdminPermission("categories:update"),
+  requireWorkspacePermission("subcategories.update", { legacyPermission: "categories:update" }),
   validate(updateSubcategorySchema),
   subcategoryController.updateSubcategory
 );
-router.delete("/subcategories/:id", requireLegacyAdminPermission("categories:update"), subcategoryController.deleteSubcategory);
+router.delete(
+  "/subcategories/:id",
+  requireWorkspacePermission("subcategories.delete", { legacyPermission: "categories:update" }),
+  subcategoryController.deleteSubcategory
+);
 router.patch(
   "/subcategories/:id/status",
-  requireLegacyAdminPermission("categories:update"),
+  requireWorkspacePermission("subcategories.update", { legacyPermission: "categories:update" }),
   validate(updateSubcategoryStatusSchema),
   subcategoryController.updateSubcategoryStatus
 );
-router.get("/attributes", requireLegacyAdminPermission("categories:read"), attributeController.getAdminAttributes);
+
+// Attributes
+router.get(
+  "/attributes",
+  requireWorkspacePermission("attributes.read", { legacyPermission: "categories:read" }),
+  attributeController.getAdminAttributes
+);
 router.post(
   "/attributes",
-  requireLegacyAdminPermission("categories:create"),
+  requireWorkspacePermission("attributes.create", { legacyPermission: "categories:create" }),
   validate(createAttributeSchema),
   attributeController.createAttribute
 );
 router.put(
   "/attributes/:id",
-  requireLegacyAdminPermission("categories:update"),
+  requireWorkspacePermission("attributes.update", { legacyPermission: "categories:update" }),
   validate(updateAttributeSchema),
   attributeController.updateAttribute
 );
-router.delete("/attributes/:id", requireLegacyAdminPermission("categories:update"), attributeController.deleteAttribute);
-router.get("/product-modules", requireLegacyAdminPermission("categories:read"), productModuleController.getAdminProductModules);
+router.delete(
+  "/attributes/:id",
+  requireWorkspacePermission("attributes.delete", { legacyPermission: "categories:update" }),
+  attributeController.deleteAttribute
+);
+
+// Product Modules
+router.get(
+  "/product-modules",
+  requireWorkspacePermission("productModules.read", { legacyPermission: "categories:read" }),
+  productModuleController.getAdminProductModules
+);
 router.post(
   "/product-modules",
-  requireLegacyAdminPermission("categories:create"),
+  requireWorkspacePermission("productModules.create", { legacyPermission: "categories:create" }),
   validate(createProductModuleSchema),
   productModuleController.createProductModule
 );
 router.put(
   "/product-modules/:id",
-  requireLegacyAdminPermission("categories:update"),
+  requireWorkspacePermission("productModules.update", { legacyPermission: "categories:update" }),
   validate(updateProductModuleSchema),
   productModuleController.updateProductModule
 );
 router.delete(
   "/product-modules/:id",
-  requireLegacyAdminPermission("categories:update"),
+  requireWorkspacePermission("productModules.delete", { legacyPermission: "categories:update" }),
   productModuleController.deleteProductModule
 );
 // Role management routes
@@ -287,40 +326,40 @@ router.get(
 );
 router.get(
   "/cod/settings",
-  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
+  requireWorkspacePermission("codAdvance.read", { legacyPermission: "settings:update" }),
   codController.getSettings
 );
 router.put(
   "/cod/settings",
-  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  requireWorkspacePermission("codAdvance.update", { legacyPermission: "settings:update" }),
   express.json(),
   codController.updateSettings
 );
 router.get(
   "/cod/analytics",
-  requireWorkspacePermission("analytics.read", { legacyPermission: "dashboard:read" }),
+  requireWorkspacePermission("codAdvance.read", { legacyPermission: "dashboard:read" }),
   codController.getAnalytics
 );
 router.get(
   "/finance/cod-advance/rules",
-  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
+  requireWorkspacePermission("codAdvance.read", { legacyPermission: "settings:update" }),
   codController.listAdvanceRules
 );
 router.post(
   "/finance/cod-advance/rules",
-  requireWorkspacePermission("settings.create", { legacyPermission: "settings:update" }),
+  requireWorkspacePermission("codAdvance.create", { legacyPermission: "settings:update" }),
   validate(codAdvanceRuleSchema),
   codController.createAdvanceRule
 );
 router.patch(
   "/finance/cod-advance/rules/:id",
-  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  requireWorkspacePermission("codAdvance.update", { legacyPermission: "settings:update" }),
   validate(codAdvanceRuleUpdateSchema),
   codController.updateAdvanceRule
 );
 router.delete(
   "/finance/cod-advance/rules/:id",
-  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  requireWorkspacePermission("codAdvance.delete", { legacyPermission: "settings:update" }),
   codController.deleteAdvanceRule
 );
 router.put(
@@ -445,35 +484,35 @@ router.get(
 );
 router.get(
   "/commission/rules",
-  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
+  requireWorkspacePermission("commission.read", { legacyPermission: "settings:update" }),
   commissionController.listRules
 );
 router.post(
   "/commission/rules",
-  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  requireWorkspacePermission("commission.create", { legacyPermission: "settings:update" }),
   express.json(),
   commissionController.createRule
 );
 router.put(
   "/commission/rules/:id",
-  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  requireWorkspacePermission("commission.update", { legacyPermission: "settings:update" }),
   express.json(),
   commissionController.updateRule
 );
 router.patch(
   "/commission/rules/:id/active",
-  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  requireWorkspacePermission("commission.update", { legacyPermission: "settings:update" }),
   express.json(),
   commissionController.toggleRule
 );
 router.delete(
   "/commission/rules/:id",
-  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
+  requireWorkspacePermission("commission.delete", { legacyPermission: "settings:update" }),
   commissionController.deleteRule
 );
 router.get(
   "/commission/analytics",
-  requireWorkspacePermission("analytics.read", { legacyPermission: "dashboard:read" }),
+  requireWorkspacePermission("commission.read", { legacyPermission: "dashboard:read" }),
   commissionController.getAdminAnalytics
 );
 router.post(
@@ -608,39 +647,7 @@ router.get(
   requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
   pricingController.getPricingCategories
 );
-router.get(
-  "/commission/rules",
-  requireWorkspacePermission("settings.read", { legacyPermission: "settings:update" }),
-  commissionController.listRules
-);
-router.post(
-  "/commission/rules",
-  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
-  express.json(),
-  commissionController.createRule
-);
-router.put(
-  "/commission/rules/:id",
-  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
-  express.json(),
-  commissionController.updateRule
-);
-router.patch(
-  "/commission/rules/:id/active",
-  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
-  express.json(),
-  commissionController.toggleRule
-);
-router.delete(
-  "/commission/rules/:id",
-  requireWorkspacePermission("settings.update", { legacyPermission: "settings:update" }),
-  commissionController.deleteRule
-);
-router.get(
-  "/commission/analytics",
-  requireWorkspacePermission("analytics.read", { legacyPermission: "dashboard:read" }),
-  commissionController.getAdminAnalytics
-);
+
 router.post(
   "/pricing-categories",
   requireWorkspacePermission("settings.create", { legacyPermission: "settings:update" }),

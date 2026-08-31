@@ -3,10 +3,15 @@ const router = express.Router();
 const configController = require("../controllers/config.controller");
 const { authRequired, requireRole } = require("../middleware/auth");
 
+const { adminWorkspaceAuthRequired, requireWorkspacePermission } = require("../middleware/adminAccess");
+
 // All configuration routes require admin authentication.
 // Platform default initialization is CLI-only: npm run bootstrap:platform.
-router.use(authRequired);
-router.use(requireRole("admin", "super_admin", "support_admin", "finance_admin"));
+router.use(adminWorkspaceAuthRequired);
+router.use((req, res, next) => {
+  const perm = req.method === "GET" ? "settings.read" : "settings.update";
+  return requireWorkspacePermission(perm, { legacyPermission: "settings:update" })(req, res, next);
+});
 
 /**
  * GET /api/config

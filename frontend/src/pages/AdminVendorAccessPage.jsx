@@ -18,6 +18,7 @@ import {
   ShoppingCart,
   Truck,
 } from "lucide-react";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 const MODULE_ICONS = {
   delivery: Truck,
@@ -52,6 +53,7 @@ function Toggle({ checked, disabled, loading, onClick, color = "bg-blue-500" }) 
 }
 
 export default function AdminVendorAccessPage() {
+  const { isLegacyAdmin, canAccess } = useAdminSession();
   const {
     modules,
     loading,
@@ -230,33 +232,37 @@ export default function AdminVendorAccessPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <Toggle
-                            checked={module.enabled}
-                            loading={pendingControl === `${module.key}:global`}
-                            onClick={() =>
-                              handleModuleUpdate(
-                                module.key,
-                                { enabled: !module.enabled },
-                                "global"
-                              )
-                            }
-                            color="bg-green-500"
-                          />
+                          {(isLegacyAdmin || (!module.enabled && canAccess("vendorAccess.activate")) || (module.enabled && canAccess("vendorAccess.deactivate"))) ? (
+                            <Toggle
+                              checked={module.enabled}
+                              loading={pendingControl === `${module.key}:global`}
+                              onClick={() =>
+                                handleModuleUpdate(
+                                  module.key,
+                                  { enabled: !module.enabled },
+                                  "global"
+                                )
+                              }
+                              color="bg-green-500"
+                            />
+                          ) : null}
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <Toggle
-                            checked={module.vendorEnabled}
-                            disabled={!module.enabled}
-                            loading={pendingControl === `${module.key}:vendor`}
-                            onClick={() =>
-                              handleModuleUpdate(
-                                module.key,
-                                { vendorEnabled: !module.vendorEnabled },
-                                "vendor"
-                              )
-                            }
-                            color="bg-blue-500"
-                          />
+                          {(isLegacyAdmin || (!module.vendorEnabled && canAccess("vendorAccess.activate")) || (module.vendorEnabled && canAccess("vendorAccess.deactivate"))) ? (
+                            <Toggle
+                              checked={module.vendorEnabled}
+                              disabled={!module.enabled}
+                              loading={pendingControl === `${module.key}:vendor`}
+                              onClick={() =>
+                                handleModuleUpdate(
+                                  module.key,
+                                  { vendorEnabled: !module.vendorEnabled },
+                                  "vendor"
+                                )
+                              }
+                              color="bg-blue-500"
+                            />
+                          ) : null}
                         </td>
                       </tr>
                     );

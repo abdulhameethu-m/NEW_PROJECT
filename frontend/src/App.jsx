@@ -408,31 +408,111 @@ export default function App() {
             <Route path="unauthorized" element={<StaffUnauthorizedPage />} />
 
             <Route element={<StaffPermissionRoute permission="users.read" />}>
-              <Route path="users" element={<StaffUsersPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="sellers.read" />}>
+              <Route path="sellers" element={<AdminSellersPage />} />
+              <Route path="sellers/:id" element={<AdminVendorDetailsPage />} />
+              <Route path="vendors/:id/finance" element={<AdminVendorFinancePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="inventory.read" />}>
+              <Route path="inventory" element={<AdminInventoryPage />} />
+              <Route path="inventory/:productId" element={<AdminInventoryDetailsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="categories.read" />}>
+              <Route path="categories" element={<AdminCategoriesPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="subcategories.read" />}>
+              <Route path="subcategories" element={<AdminSubcategoriesPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="returnRules.read" />}>
+              <Route path="return-rules" element={<AdminReturnRulesPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="catalogRequests.read" />}>
+              <Route path="catalog-requests" element={<AdminCatalogRequestsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="attributes.read" />}>
+              <Route path="attributes" element={<AdminAttributesPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="productModules.read" />}>
+              <Route path="product-modules" element={<AdminProductModulesPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="homepageContainers.read" />}>
+              <Route path="homepage-containers" element={<AdminHomepageContainersPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="homepageBuilder.read" />}>
+              <Route path="marketing/homepage-builder" element={<AdminHomepageBuilderPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="vendorAccess.read" />}>
+              <Route path="vendor-access" element={<AdminVendorAccessPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="shippingAccess.read" />}>
+              <Route path="vendor-access/shipping" element={<AdminShippingModesPage />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="orders.read" />}>
-              <Route path="orders" element={<StaffOrdersPage />} />
+              <Route path="orders" element={<AdminOrdersPage />} />
+              <Route path="orders/create" element={<AdminOrderCreatePage />} />
+              <Route path="orders/:id" element={<AdminOrderDetailsPage />} />
+              <Route path="orders/:id/label" element={<AdminOrderLabelPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="pickups.read" />}>
+              <Route path="pickups" element={<AdminPickupsPage />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="products.read" />}>
-              <Route path="products" element={<StaffProductsPage />} />
+              <Route path="products" element={<AdminProductsPage />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="products.create" />}>
-              <Route path="products/create" element={<StaffProductCreate />} />
+              <Route path="products/create" element={<AdminProductCreate />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="products.update" />}>
-              <Route path="products/:id/edit" element={<StaffProductEdit />} />
+              <Route path="products/:id/edit" element={<AdminProductEdit />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="reviews.read" />}>
               <Route path="reviews" element={<StaffReviewsPage />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="payments.read" />}>
-              <Route path="payments" element={<StaffPaymentsPage />} />
+              <Route path="payments" element={<AdminPaymentsPage />} />
+              <Route path="payment-details/:paymentId" element={<AdminPaymentDetailsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="refunds.read" />}>
+              <Route path="refunds" element={<AdminRefundsPage />} />
+              <Route path="refunds/:id" element={<AdminRefundDetailsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="returns.read" />}>
+              <Route path="returns" element={<AdminReturnsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="escrowRefunds.read" />}>
+              <Route path="finance/escrow-refunds" element={<AdminEscrowRefundsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="cancellationPolicies.read" />}>
+              <Route path="finance/cancellation-policies" element={<AdminCancellationPoliciesPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="codAdvance.read" />}>
+              <Route path="finance/cod-advance" element={<AdminCodAdvancePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="invoices.read" />}>
+              <Route path="finance/invoices" element={<AdminInvoicesPage />} />
+              <Route path="finance/invoices/settings" element={<AdminInvoiceSettingsPage />} />
+              <Route path="orders/:id/invoice" element={<AdminInvoiceDetailsPage />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="payouts.read" />}>
-              <Route path="payouts" element={<StaffPayoutsPage />} />
+              <Route path="payouts" element={<AdminPayoutsPage />} />
+              <Route path="finance/payouts" element={<AdminFinancePayoutManagementPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="commission.read" />}>
+              <Route path="commission" element={<AdminCommissionManagementPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="financeInfluencers.read" />}>
+              <Route path="influencers" element={<AdminInfluencerPage />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="analytics.read" />}>
-              <Route path="analytics" element={<StaffAnalyticsPage />} />
+              <Route path="analytics" element={<AdminAnalyticsPage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="revenue.read" />}>
+              <Route path="revenue" element={<AdminRevenuePage />} />
+            </Route>
+            <Route element={<StaffPermissionRoute permission="auditLogs.read" />}>
+              <Route path="audit-logs" element={<AuditLogsPage />} />
             </Route>
             <Route element={<StaffPermissionRoute permission="influencerCommerce.dashboardRead" />}>
               <Route path="influencer-commerce" element={<AdminInfluencerCommercePage />} />

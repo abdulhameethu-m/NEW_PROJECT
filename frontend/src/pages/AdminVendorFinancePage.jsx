@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useLocation, Link, useParams } from "react-router-dom";
 import { InlineToast } from "../components/commerce/InlineToast";
 import {
   FinanceInfoBanner,
@@ -31,6 +31,9 @@ function normalizeError(error) {
 }
 
 export function AdminVendorFinancePage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
@@ -109,7 +112,7 @@ export function AdminVendorFinancePage() {
 
   return (
     <div className="space-y-6">
-      <FinanceTabs items={financeTabs} />
+      <FinanceTabs items={financeTabs.map(tab => tab.to && tab.to.startsWith("/admin") ? { ...tab, to: basePath + tab.to.substring(6) } : tab)} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -117,10 +120,10 @@ export function AdminVendorFinancePage() {
           <div className="mt-1 text-2xl font-semibold text-slate-950">{vendor?.companyName || vendor?.shopName || "Vendor"}</div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to={`/admin/sellers/${id}`} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">
+          <Link to={`${basePath}/sellers/${id}`} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">
             Vendor Profile
           </Link>
-          <Link to="/admin/finance/payouts" className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
+          <Link to={`${basePath}/finance/payouts`} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
             Back to Payouts
           </Link>
         </div>

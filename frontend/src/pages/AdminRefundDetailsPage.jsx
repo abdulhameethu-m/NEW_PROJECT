@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useLocation, Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { getRefundCase } from "../services/adminApi";
 import { formatCurrency } from "../utils/formatCurrency";
@@ -46,6 +46,9 @@ function isCodAdvanceRefund(refund, order) {
 }
 
 export function AdminRefundDetailsPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const { id } = useParams();
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -94,7 +97,7 @@ export function AdminRefundDetailsPage() {
             )}
           </div>
         </div>
-        <Link to="/admin/refunds" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">
+        <Link to={`${basePath}/refunds`} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">
           Back to Refunds
         </Link>
       </div>

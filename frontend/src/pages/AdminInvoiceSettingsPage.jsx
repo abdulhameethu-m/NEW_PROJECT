@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FinanceField, FinanceInput, FinanceTabs, FinanceTextarea } from "../components/finance/FinanceComponents";
 import { InvoicePreviewCard } from "../components/invoice/InvoicePreviewCard";
@@ -37,6 +38,9 @@ function normalizeError(error) {
 }
 
 export function AdminInvoiceSettingsPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -178,7 +182,7 @@ export function AdminInvoiceSettingsPage() {
 
   return (
     <div className="grid gap-6">
-      <FinanceTabs items={financeTabs} />
+      <FinanceTabs items={financeTabs.map(tab => tab.to && tab.to.startsWith("/admin") ? { ...tab, to: basePath + tab.to.substring(6) } : tab)} />
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
 
       <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">

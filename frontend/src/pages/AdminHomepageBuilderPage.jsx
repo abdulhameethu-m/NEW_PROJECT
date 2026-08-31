@@ -35,10 +35,8 @@ import {
   Upload,
 } from "lucide-react";
 import { DynamicHomepageRenderer } from "../components/homepage/DynamicHomepageRenderer";
-import { useAuthStore } from "../context/authStore";
-import { useStaffAuthStore } from "../context/staffAuthStore";
-import { hasStaffPermission } from "../utils/staffPermissions";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
+import { useAdminSession } from "../hooks/useAdminSession";
 import {
   createHomepageBuilderLayout,
   deleteHomepageBuilderLayout,
@@ -378,13 +376,11 @@ export function AdminHomepageBuilderPage() {
   const prevPreviewDeviceRef = useRef(null);
   const previewBackoffRef = useRef(0);
 
-  const authUser = useAuthStore((store) => store.user);
-  const authAuthenticated = useAuthStore((store) => store.isAuthenticated);
-  const staffAuthenticated = useStaffAuthStore((store) => store.isAuthenticated);
-  const staffUser = useStaffAuthStore((store) => store.user);
-  const isLegacyAdmin = ["admin", "super_admin", "support_admin", "finance_admin"].includes(String(authUser?.role || "").toLowerCase());
-  const canEdit = isLegacyAdmin || hasStaffPermission(staffUser?.permissions, "settings.update");
-  const hasAuth = Boolean(authAuthenticated || staffAuthenticated);
+  const { isLegacyAdmin, canAccess, isAuthenticated } = useAdminSession();
+  const canEdit = isLegacyAdmin || canAccess("homepageBuilder.update");
+  const canCreate = isLegacyAdmin || canAccess("homepageBuilder.create");
+  const canDelete = isLegacyAdmin || canAccess("homepageBuilder.delete");
+  const hasAuth = Boolean(isAuthenticated);
 
   const libraryMap = useMemo(() => new Map(containerLibrary.map((item) => [String(item._id), item])), [containerLibrary]);
   const selectedSlot = useMemo(() => draft.layouts.find((layout) => layout.id === selectedSlotId) || null, [draft.layouts, selectedSlotId]);
@@ -579,7 +575,7 @@ export function AdminHomepageBuilderPage() {
   }, [activeLayoutId, draft, hasAuth, isDefault, layoutName, layoutUpdatedAt, pageContext, selectedDevice, vendorLayoutType]);
 
   const handleCreateLayoutDocument = useCallback(async () => {
-    if (!canEdit) return;
+    if (!canCreate) return;
     
     let index = layouts.length + 1;
     let name = `Homepage Layout ${index}`;
@@ -797,7 +793,7 @@ export function AdminHomepageBuilderPage() {
   );
 
   const handleDeleteLayout = useCallback(async () => {
-    if (!activeLayoutId || !canEdit) return;
+    if (!activeLayoutId || !canDelete) return;
     if (!(await confirmAction({
       title: "Delete homepage layout",
       message: "Delete this homepage layout and revision history?",
@@ -859,7 +855,7 @@ export function AdminHomepageBuilderPage() {
 
             <div className="flex flex-wrap items-center gap-2">
               <LayoutChooser layouts={layouts} activeLayoutId={activeLayoutId} onSelect={(id) => openLayout(id, containerLibrary)} />
-              <IconButton label="New Layout" onClick={handleCreateLayoutDocument} disabled={!canEdit}>
+              <IconButton label="New Layout" onClick={handleCreateLayoutDocument} disabled={!canCreate}>
                 <Plus className="h-4 w-4" />
               </IconButton>
               <IconButton label="Save Draft" onClick={() => persistDraft(draft)} disabled={!canEdit || saving || !activeLayoutId}>
@@ -868,7 +864,7 @@ export function AdminHomepageBuilderPage() {
               <IconButton label={pageContext === "VENDOR_STORE" ? "Publish Vendor Layout" : "Publish Homepage"} onClick={handlePublish} disabled={!canEdit || publishing || !activeLayoutId || validationMessages.length > 0} primary>
                 {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               </IconButton>
-              <IconButton label="Delete Layout" onClick={handleDeleteLayout} disabled={!canEdit || !activeLayoutId} danger>
+              <IconButton label="Delete Layout" onClick={handleDeleteLayout} disabled={!canDelete || !activeLayoutId} danger>
                 <Trash2 className="h-4 w-4" />
               </IconButton>
             </div>
@@ -933,7 +929,7 @@ export function AdminHomepageBuilderPage() {
         </div>
 
         {!activeLayoutId ? (
-          <EmptyLayoutState canEdit={canEdit} onCreate={handleCreateLayoutDocument} />
+          <EmptyLayoutState canCreate={canCreate} onCreate={handleCreateLayoutDocument} />
         ) : (
           <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
             <ContainerLibrary
@@ -1487,12 +1483,12 @@ function LayoutChooser({ layouts, activeLayoutId, onSelect }) {
   );
 }
 
-function EmptyLayoutState({ canEdit, onCreate }) {
+function EmptyLayoutState({ canCreate, onCreate }) {
   return (
     <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
       <Archive className="mx-auto h-8 w-8 text-slate-400" />
       <div className="mt-3 text-base font-semibold text-slate-950">No homepage builder layout yet</div>
-      <button type="button" onClick={onCreate} disabled={!canEdit} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+      <button type="button" onClick={onCreate} disabled={!canCreate} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
         <Plus className="h-4 w-4" />
         Create Layout
       </button>
@@ -1504,7 +1500,7 @@ function ContainerThumb({ container, large = false }) {
   const src = resolveContainerThumbnail(container);
   return (
     <span className={`${large ? "h-14 w-14" : "h-11 w-11"} flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100`}>
-      {src ? <img loading="lazy" decoding="async" src={src} alt={getContainerLabel(container)} className="h-full w-full object-cover" loading="lazy" /> : <LayoutDashboard className="h-5 w-5 text-slate-400" />}
+      {src ? <img loading="lazy" decoding="async" src={src} alt={getContainerLabel(container)} className="h-full w-full object-cover" /> : <LayoutDashboard className="h-5 w-5 text-slate-400" />}
     </span>
   );
 }

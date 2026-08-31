@@ -15,7 +15,7 @@ const {
 } = require("../jobs/settlement.job");
 const router = express.Router();
 // All routes require authentication and admin access
-router.use(authRequired);
+// router.use(authRequired);
 router.use(adminWorkspaceAuthRequired);
 /**
  * POST /admin/settlement/run

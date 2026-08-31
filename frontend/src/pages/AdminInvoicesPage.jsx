@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { FinanceTabs } from "../components/finance/FinanceComponents";
 import { ReportingToolbar } from "../components/ReportingToolbar";
 import { listAdminInvoices } from "../services/invoiceService";
@@ -17,6 +17,9 @@ function normalizeError(error) {
 }
 
 export function AdminInvoicesPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [invoices, setInvoices] = useState([]);
@@ -63,7 +66,7 @@ export function AdminInvoicesPage() {
 
   return (
     <div className="grid gap-6">
-      <FinanceTabs items={financeTabs} />
+      <FinanceTabs items={financeTabs.map(tab => tab.to && tab.to.startsWith("/admin") ? { ...tab, to: basePath + tab.to.substring(6) } : tab)} />
 
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
 
@@ -122,7 +125,7 @@ export function AdminInvoicesPage() {
                     <td className="px-4 py-3 text-slate-700">{invoice.paymentStatus} / {invoice.orderStatus}</td>
                     <td className="px-4 py-3 text-right font-semibold text-slate-950">{formatCurrency(invoice.totalAmount, { currency: invoice.currency })}</td>
                     <td className="px-4 py-3">
-                      <Link to={`/admin/orders/${invoice.orderId}/invoice`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                      <Link to={`${basePath}/orders/${invoice.orderId}/invoice`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                         Open
                       </Link>
                     </td>

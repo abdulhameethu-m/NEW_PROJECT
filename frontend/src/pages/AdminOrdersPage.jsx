@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { confirmAction } from "../services/notificationService";
-import { Link } from "react-router-dom";
+import { useLocation,  Link  } from "react-router-dom";
 import { deleteOrder, listOrders } from "../services/adminApi";
 import { AdminTable } from "../components/AdminTable";
 import { ReportingToolbar } from "../components/ReportingToolbar";
@@ -16,7 +16,7 @@ function normalizeError(err) {
 }
 
 export function AdminOrdersPage() {
-  const { basePath, isLegacyAdmin } = useAdminSession();
+  const { basePath, isLegacyAdmin, canAccess } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState("");
@@ -114,7 +114,7 @@ export function AdminOrdersPage() {
 
         {isLegacyAdmin ? (
           <Link
-            to="/admin/orders/create"
+            to={`${basePath}/orders/create`}
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
           >
             Create order
@@ -226,7 +226,7 @@ export function AdminOrdersPage() {
                   >
                     View / Edit
                   </Link>
-                  {isLegacyAdmin ? (
+                  {(isLegacyAdmin || canAccess("orders.delete")) ? (
                     <button
                       type="button"
                       disabled={busyId === order._id}

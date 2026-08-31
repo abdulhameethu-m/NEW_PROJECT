@@ -9,6 +9,7 @@ import {
   listAdminAttributes,
   updateAdminAttribute,
 } from "../services/attributeService";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 const initialForm = {
   name: "",
@@ -36,6 +37,7 @@ function normalizeError(error) {
 }
 
 export function AdminAttributesPage() {
+  const { isLegacyAdmin, canAccess } = useAdminSession();
   const { categories } = useCategories({ includeInactive: true });
   const [subcategoriesMap, setSubcategoriesMap] = useState({});
   const [attributes, setAttributes] = useState([]);
@@ -72,7 +74,7 @@ export function AdminAttributesPage() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [attributeRes, moduleRes] = await Promise.all([listAdminAttributes(), listAdminProductModules()]);
+      const [attributeRes, moduleRes] = await Promise.all([listAdminAttributes(), listAdminProductModules().catch(() => ({ data: [] }))]);
       setAttributes(Array.isArray(attributeRes?.data) ? attributeRes.data : []);
       setModules(Array.isArray(moduleRes?.data) ? moduleRes.data : []);
     } catch (err) {
@@ -382,12 +384,16 @@ export function AdminAttributesPage() {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <button type="button" onClick={() => startEdit(item)} className="rounded-xl border px-3 py-1 text-xs">
-                              Edit
-                            </button>
-                            <button type="button" onClick={() => handleDelete(item._id)} className="rounded-xl border px-3 py-1 text-xs text-rose-700">
-                              Delete
-                            </button>
+                            {(isLegacyAdmin || canAccess("attributes.update")) ? (
+                              <button type="button" onClick={() => startEdit(item)} className="rounded-xl border px-3 py-1 text-xs">
+                                Edit
+                              </button>
+                            ) : null}
+                            {(isLegacyAdmin || canAccess("attributes.delete")) ? (
+                              <button type="button" onClick={() => handleDelete(item._id)} className="rounded-xl border px-3 py-1 text-xs text-rose-700">
+                                Delete
+                              </button>
+                            ) : null}
                           </div>
                         </div>
                       ))}
@@ -402,8 +408,9 @@ export function AdminAttributesPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{editingId ? "Edit field" : "Create field"}</h2>
+      {(isLegacyAdmin || (editingId ? canAccess("attributes.update") : canAccess("attributes.create"))) ? (
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{editingId ? "Edit field" : "Create field"}</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           {editingId
             ? "Update this field's configuration."
@@ -624,6 +631,7 @@ export function AdminAttributesPage() {
           </button>
         </form>
       </section>
+      ) : null}
     </div>
   );
 }

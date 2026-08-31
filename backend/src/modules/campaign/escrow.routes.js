@@ -8,15 +8,11 @@ const escrowController = require("./escrow.controller");
 
 const router = express.Router();
 const vendorAuth = [authRequired, requireRole("vendor"), requireApprovedVendor];
-const requireSettlementsRead = requireWorkspacePermission("influencerCommerce.settlementsRead", {
-  legacyPermission: "payouts:process",
-});
+
 const requireSettlementsCreate = requireWorkspacePermission("influencerCommerce.settlementsCreate", {
   legacyPermission: "payouts:process",
 });
-const requireSettlementsUpdate = requireWorkspacePermission("influencerCommerce.settlementsUpdate", {
-  legacyPermission: "payouts:process",
-});
+
 const requireVendorCampaignCommissionRead = requireWorkspacePermission("influencerCommerce.vendorCampaignCommissionRead", {
   legacyPermission: "influencerCommerce:settings",
 });
@@ -154,14 +150,14 @@ router.get(
 router.get(
   "/admin/release-queue",
   adminWorkspaceAuthRequired,
-  requireSettlementsRead,
+  requireWorkspacePermission("escrowRefunds.read", { legacyPermission: "payouts:process" }),
   escrowController.listReleaseQueue
 );
 
 router.post(
   "/admin/release-payment/:campaignId",
   adminWorkspaceAuthRequired,
-  requireSettlementsUpdate,
+  requireWorkspacePermission("escrowRefunds.refund", { legacyPermission: "payouts:process" }),
   validate(
     Joi.object({
       influencerId: Joi.string().required(),
@@ -178,7 +174,7 @@ router.post(
 router.get(
   "/admin/refund-requests",
   adminWorkspaceAuthRequired,
-  requireSettlementsRead,
+  requireWorkspacePermission("escrowRefunds.read", { legacyPermission: "payouts:process" }),
   escrowController.listRefundRequests
 );
 
@@ -189,7 +185,7 @@ router.get(
 router.get(
   "/admin/escrow-refunds",
   adminWorkspaceAuthRequired,
-  requireSettlementsRead,
+  requireWorkspacePermission("escrowRefunds.read", { legacyPermission: "payouts:process" }),
   escrowController.listEscrowRefundDashboard
 );
 
@@ -200,7 +196,7 @@ router.get(
 router.get(
   "/admin/escrow-refunds/:campaignId/deliverables",
   adminWorkspaceAuthRequired,
-  requireSettlementsRead,
+  requireWorkspacePermission("escrowRefunds.read", { legacyPermission: "payouts:process" }),
   validate(Joi.object({ campaignId: Joi.string().required() }), "params"),
   escrowController.listEscrowRefundDeliverables
 );
@@ -212,7 +208,7 @@ router.get(
 router.post(
   "/admin/escrow-refunds/:campaignId/deliverables/:deliverableId/refund",
   adminWorkspaceAuthRequired,
-  requireSettlementsUpdate,
+  requireWorkspacePermission("escrowRefunds.refund", { legacyPermission: "payouts:process" }),
   validate(
     Joi.object({
       campaignId: Joi.string().required(),
@@ -282,7 +278,7 @@ router.post(
 router.post(
   "/admin/approve-refund/:refundId",
   adminWorkspaceAuthRequired,
-  requireSettlementsUpdate,
+  requireWorkspacePermission("escrowRefunds.refund", { legacyPermission: "payouts:process" }),
   validate(
     Joi.object({
       approvalReason: Joi.string().max(1000).allow(""),
@@ -298,7 +294,7 @@ router.post(
 router.post(
   "/admin/approve-and-process-refund/:refundId",
   adminWorkspaceAuthRequired,
-  requireSettlementsUpdate,
+  requireWorkspacePermission("escrowRefunds.refund", { legacyPermission: "payouts:process" }),
   validate(Joi.object({ refundId: Joi.string().required() }), "params"),
   validate(
     Joi.object({
@@ -316,7 +312,7 @@ router.post(
 router.post(
   "/admin/reject-refund/:refundId",
   adminWorkspaceAuthRequired,
-  requireSettlementsUpdate,
+  requireWorkspacePermission("escrowRefunds.reject", { legacyPermission: "payouts:process" }),
   validate(
     Joi.object({
       rejectionReason: Joi.string().required(),
@@ -332,7 +328,7 @@ router.post(
 router.post(
   "/admin/process-refund/:refundId",
   adminWorkspaceAuthRequired,
-  requireSettlementsUpdate,
+  requireWorkspacePermission("escrowRefunds.refund", { legacyPermission: "payouts:process" }),
   escrowController.processRefund
 );
 
@@ -343,7 +339,7 @@ router.post(
 router.get(
   "/admin/statistics",
   adminWorkspaceAuthRequired,
-  requireSettlementsRead,
+  requireWorkspacePermission("escrowRefunds.read", { legacyPermission: "payouts:process" }),
   escrowController.getRefundStats
 );
 
@@ -354,7 +350,7 @@ router.get(
 router.get(
   "/admin/payment-orders",
   adminWorkspaceAuthRequired,
-  requireSettlementsRead,
+  requireWorkspacePermission("escrowRefunds.read", { legacyPermission: "payouts:process" }),
   escrowController.listPaymentOrders
 );
 

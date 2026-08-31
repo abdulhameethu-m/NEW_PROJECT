@@ -5,6 +5,7 @@ const shippingController = require("../controllers/shipping.controller");
 const shippingConfigController = require("../controllers/shippingConfig.controller");
 const { validate } = require("../middleware/validate");
 const { body } = require("express-validator");
+const { adminWorkspaceAuthRequired, requireWorkspacePermission } = require("../middleware/adminAccess");
 
 const router = express.Router();
 const vendorAuth = [authRequired, requireRole("vendor"), requireApprovedVendor];
@@ -69,12 +70,10 @@ router.patch(
  * ==================== ADMIN ROUTES ====================
  */
 // Get platform shipping modes configuration
-router.get("/admin/modes", authRequired, requireRole("admin"), shippingController.getShippingModesConfig);
+router.get("/admin/modes", adminWorkspaceAuthRequired, requireWorkspacePermission("shippingAccess.read", { legacyPermission: "settings:read" }), shippingController.getShippingModesConfig);
 // Update platform shipping modes configuration (feature flags)
 router.patch(
-  "/admin/modes",
-  authRequired,
-  requireRole("admin"),
+  "/admin/modes", adminWorkspaceAuthRequired, requireWorkspacePermission("shippingAccess.update", { legacyPermission: "settings:update" }),
   validate([
     body("selfShipping")
       .isBoolean()
@@ -88,8 +87,7 @@ router.patch(
 // Override shipping mode for an order
 router.patch(
   "/admin/orders/:orderId/mode",
-  authRequired,
-  requireRole("admin"),
+  adminWorkspaceAuthRequired, requireWorkspacePermission("orders.update", { legacyPermission: "orders:update" }),
   validate([
     body("shippingMode")
       .isIn(["SELF", "PLATFORM"])
@@ -100,8 +98,7 @@ router.patch(
 // Update order shipping status
 router.patch(
   "/admin/orders/:orderId/status",
-  authRequired,
-  requireRole("admin"),
+  adminWorkspaceAuthRequired, requireWorkspacePermission("orders.update", { legacyPermission: "orders:update" }),
   validate([
     body("shippingStatus")
       .optional()
@@ -121,12 +118,10 @@ router.patch(
   shippingController.updateOrderShippingStatus
 );
 // Get vendor shipping modes (admin view)
-router.get("/admin/vendors/:vendorId", authRequired, requireRole("admin"), shippingController.getVendorShippingModesAdmin);
+router.get("/admin/vendors/:vendorId", adminWorkspaceAuthRequired, requireWorkspacePermission("shippingAccess.read", { legacyPermission: "settings:read" }), shippingController.getVendorShippingModesAdmin);
 // Update vendor allowed shipping modes (admin control)
 router.patch(
-  "/admin/vendors/:vendorId",
-  authRequired,
-  requireRole("admin"),
+  "/admin/vendors/:vendorId", adminWorkspaceAuthRequired, requireWorkspacePermission("shippingAccess.update", { legacyPermission: "settings:update" }),
   validate([
     body("allowedShippingModes")
       .optional()

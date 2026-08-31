@@ -3,6 +3,7 @@ const { authRequired, requireRole } = require("../middleware/auth");
 const { requireApprovedVendor } = require("../middleware/vendorApproval");
 const { upload } = require("../middleware/upload");
 const ctrl = require("../controllers/return-request.controller");
+const { adminWorkspaceAuthRequired, requireWorkspacePermission } = require("../middleware/adminAccess");
 
 const router = express.Router();
 
@@ -47,13 +48,13 @@ router.get(
 
 const adminRouter = express.Router();
 
-adminRouter.get("/stats", authRequired, admin, ctrl.adminGetStats);
-adminRouter.get("/disputes", authRequired, admin, ctrl.adminGetDisputes);
-adminRouter.get("/", authRequired, admin, ctrl.adminListReturns);
-adminRouter.get("/:id", authRequired, admin, ctrl.adminGetReturn);
-adminRouter.post("/:id/approve", authRequired, admin, ctrl.adminApproveReturn);
-adminRouter.post("/:id/reject", authRequired, admin, ctrl.adminRejectReturn);
-adminRouter.post("/:id/resolve-dispute", authRequired, admin, ctrl.adminResolveDispute);
+adminRouter.get("/stats", adminWorkspaceAuthRequired, requireWorkspacePermission("returns.read"), ctrl.adminGetStats);
+adminRouter.get("/disputes", adminWorkspaceAuthRequired, requireWorkspacePermission("returns.read"), ctrl.adminGetDisputes);
+adminRouter.get("/", adminWorkspaceAuthRequired, requireWorkspacePermission("returns.read"), ctrl.adminListReturns);
+adminRouter.get("/:id", adminWorkspaceAuthRequired, requireWorkspacePermission("returns.read"), ctrl.adminGetReturn);
+adminRouter.post("/:id/approve", adminWorkspaceAuthRequired, requireWorkspacePermission("returns.update"), ctrl.adminApproveReturn);
+adminRouter.post("/:id/reject", adminWorkspaceAuthRequired, requireWorkspacePermission("returns.update"), ctrl.adminRejectReturn);
+adminRouter.post("/:id/resolve-dispute", adminWorkspaceAuthRequired, requireWorkspacePermission("returns.update"), ctrl.adminResolveDispute);
 
 // ── Vendor Routes ─────────────────────────────────────────────
 // GET    /api/vendor/returns               — list vendor's approved returns

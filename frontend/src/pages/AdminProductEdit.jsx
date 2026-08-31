@@ -1,9 +1,11 @@
-import { useParams } from "react-router-dom";
+import { useLocation,  useParams  } from "react-router-dom";
 import { ProductEditor } from "../components/ProductEditor";
 import { createProduct, generateAdminProductNumber, getProductById, updateProduct, uploadAdminProductImages } from "../services/adminService";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 export function AdminProductEdit() {
   const { id } = useParams();
+  const { basePath } = useAdminSession();
 
   return (
     <ProductEditor
@@ -12,8 +14,8 @@ export function AdminProductEdit() {
       title="Edit Product"
       createLabel="Create Product"
       updateLabel="Save Changes"
-      backTo="/admin/products"
-      listPath="/admin/products"
+      backTo={`${basePath}/products`}
+      listPath={`${basePath}/products`}
       fetchProduct={getProductById}
       generateProductNumber={generateAdminProductNumber}
       createProduct={createProduct}

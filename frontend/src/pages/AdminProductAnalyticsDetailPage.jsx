@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useLocation, Link, useParams } from "react-router-dom";
 import {
   ResponsiveContainer,
   LineChart,
@@ -22,6 +22,9 @@ function normalizeError(error) {
 }
 
 export function AdminProductAnalyticsDetailPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const { productId } = useParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -68,7 +71,7 @@ export function AdminProductAnalyticsDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <Link to="/admin/analytics" className="text-sm font-semibold text-sky-700 hover:underline dark:text-sky-300">
+        <Link to={`${basePath}/analytics`} className="text-sm font-semibold text-sky-700 hover:underline dark:text-sky-300">
           Back to product analytics
         </Link>
         {product.productStatus ? <StatusBadge value={product.productStatus} /> : null}

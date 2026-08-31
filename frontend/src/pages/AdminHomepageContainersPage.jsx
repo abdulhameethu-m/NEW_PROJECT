@@ -36,6 +36,7 @@ import {
 import { listCategories, listInfluencers, listProducts, listSellers, listSubcategories } from "../services/adminApi";
 import { formatCurrency } from "../utils/formatCurrency";
 import { resolveApiAssetUrl } from "../utils/resolveUrl";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 const defaultLayout = {
   widthType: "boxed",
@@ -402,6 +403,7 @@ function containerToForm(container, schema) {
 }
 
 export function AdminHomepageContainersPage() {
+  const { isLegacyAdmin, canAccess } = useAdminSession();
   const [containers, setContainers] = useState([]);
   const [containerSchemas, setContainerSchemas] = useState([]);
   const [activeSchema, setActiveSchema] = useState(null);
@@ -499,11 +501,11 @@ export function AdminHomepageContainersPage() {
     try {
       const [schemaRes, vendorsRes, influencersRes, categoriesRes, subcategoriesRes, productsRes] = await Promise.all([
         getHomepageContainerSchemas(),
-        listSellers({ status: "approved" }),
-        listInfluencers(),
-        listCategories(),
-        listSubcategories(),
-        listProducts({ limit: 200, status: "APPROVED" }),
+        listSellers({ status: "approved" }).catch(() => ({ data: [] })),
+        listInfluencers().catch(() => ({ data: [] })),
+        listCategories().catch(() => ({ data: [] })),
+        listSubcategories().catch(() => ({ data: [] })),
+        listProducts({ limit: 200, status: "APPROVED" }).catch(() => ({ data: { products: [] } })),
       ]);
 
       setContainerSchemas(schemaRes?.data || []);
@@ -773,6 +775,7 @@ export function AdminHomepageContainersPage() {
         </div>
 
         <div className="mt-8 grid items-start gap-8 xl:grid-cols-[minmax(0,7fr)_minmax(420px,3fr)]">
+          {(isLegacyAdmin || (editingId ? canAccess("homepageContainers.update") : canAccess("homepageContainers.create"))) ? (
           <form onSubmit={handleSubmit} className="min-w-0 space-y-6">
             <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-5 py-4 dark:border-slate-800 dark:bg-slate-950/30">
               <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
@@ -1181,6 +1184,11 @@ export function AdminHomepageContainersPage() {
               </div>
             </div>
           </form>
+          ) : (
+            <div className="rounded-3xl border border-dashed border-slate-300 px-6 py-12 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400 min-w-0">
+              You do not have permission to {editingId ? "edit" : "create"} homepage containers.
+            </div>
+          )}
 
           <LivePreviewSidebar
             form={form}
@@ -1208,6 +1216,7 @@ export function AdminHomepageContainersPage() {
             <div className="text-sm text-slate-500 dark:text-slate-400">Select containers to update height / offsets</div>
             <div className="flex items-center gap-2">
               <div className="text-sm text-slate-600 dark:text-slate-300">{selectedIds.length} selected</div>
+              {(isLegacyAdmin || canAccess("homepageContainers.update")) && (
               <button
                 type="button"
                 disabled={selectedIds.length < 2}
@@ -1249,6 +1258,7 @@ export function AdminHomepageContainersPage() {
               >
                 Match Selected
               </button>
+              )}
             </div>
           </div>
           {loading ? (
@@ -1303,21 +1313,27 @@ export function AdminHomepageContainersPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => handleMove(container, "up")} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200">
-                        Move Up
-                      </button>
-                      <button type="button" onClick={() => handleMove(container, "down")} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200">
-                        Move Down
-                      </button>
-                      <button type="button" onClick={() => startEdit(container)} className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white dark:bg-white dark:text-slate-900">
-                        Edit
-                      </button>
-                      <button type="button" onClick={() => handleToggleDisable(container)} className={`rounded-2xl border px-4 py-3 text-sm font-medium ${container.status === "DISABLED" ? "border-emerald-200 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300" : "border-amber-200 text-amber-700 dark:border-amber-900 dark:text-amber-300"}`}>
-                        {container.status === "DISABLED" ? "Enable" : "Disable"}
-                      </button>
-                      <button type="button" onClick={() => handleDelete(container._id)} className="rounded-2xl border border-rose-200 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-900 dark:text-rose-300">
-                        Delete
-                      </button>
+                      {(isLegacyAdmin || canAccess("homepageContainers.update")) && (
+                        <>
+                          <button type="button" onClick={() => handleMove(container, "up")} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                            Move Up
+                          </button>
+                          <button type="button" onClick={() => handleMove(container, "down")} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                            Move Down
+                          </button>
+                          <button type="button" onClick={() => startEdit(container)} className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white dark:bg-white dark:text-slate-900">
+                            Edit
+                          </button>
+                          <button type="button" onClick={() => handleToggleDisable(container)} className={`rounded-2xl border px-4 py-3 text-sm font-medium ${container.status === "DISABLED" ? "border-emerald-200 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300" : "border-amber-200 text-amber-700 dark:border-amber-900 dark:text-amber-300"}`}>
+                            {container.status === "DISABLED" ? "Enable" : "Disable"}
+                          </button>
+                        </>
+                      )}
+                      {(isLegacyAdmin || canAccess("homepageContainers.delete")) && (
+                        <button type="button" onClick={() => handleDelete(container._id)} className="rounded-2xl border border-rose-200 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-900 dark:text-rose-300">
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 </article>

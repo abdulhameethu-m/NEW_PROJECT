@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { confirmAction } from "../services/notificationService";
 import { AlertTriangle, DatabaseZap } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { resetPlatformData } from "../services/adminApi";
 import { adminHttp } from "../services/adminHttp";
 import { usePlatformFeatures } from "../context/PlatformFeaturesContext";
@@ -13,6 +13,9 @@ function normalizePatchError(err) {
 }
 
 export function AdminSettingsPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const { reload } = usePlatformFeatures();
   const [enabled, setEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -144,7 +147,7 @@ export function AdminSettingsPage() {
             Manage logos, favicon, SEO branding, theme colors, and rollback history without touching storefront code.
           </p>
           <Link
-            to="/admin/settings/company-branding"
+            to={`${basePath}/settings/company-branding`}
             className="mt-4 inline-flex rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-slate-950"
           >
             Open Company Branding
@@ -157,7 +160,7 @@ export function AdminSettingsPage() {
             Customize the storefront appearance dynamically. Change colors and preview them in real time without redeploying.
           </p>
           <Link
-            to="/admin/settings/dynamic-theme"
+            to={`${basePath}/settings/dynamic-theme`}
             className="mt-4 inline-flex rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-slate-950"
           >
             Manage Theme
@@ -170,7 +173,7 @@ export function AdminSettingsPage() {
             Temporarily disable public access to the platform while upgrades, deployments, migrations, or maintenance are in progress.
           </p>
           <Link
-            to="/admin/settings/maintenance"
+            to={`${basePath}/settings/maintenance`}
             className="mt-4 inline-flex rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-slate-950"
           >
             Configure Maintenance

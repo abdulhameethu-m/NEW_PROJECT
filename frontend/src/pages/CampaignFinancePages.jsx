@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
  
 import { useEffect, useMemo, useState } from "react";
 import { Filter, RefreshCw, SlidersHorizontal } from "lucide-react";
@@ -155,7 +156,7 @@ function CampaignFinancePage({ audience, title, description, loader }) {
 
   return (
     <div className="space-y-6">
-      {audience === "vendor" ? <FinanceTabs items={vendorTabs} /> : null}
+      {audience === "vendor" ? <FinanceTabs items={vendorTabs.map(tab => tab.to && tab.to.startsWith("/admin") ? { ...tab, to: basePath + tab.to.substring(6) } : tab)} /> : null}
       {audience !== "influencer" ? <div>
         <h1 className="text-2xl font-semibold text-slate-950 dark:text-white">{title}</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
@@ -223,6 +224,9 @@ function CampaignFinancePage({ audience, title, description, loader }) {
 }
 
 export function VendorCampaignFinancePage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   return <CampaignFinancePage audience="vendor" title="Campaign Finance" description="Campaign-generated revenue, influencer costs, escrow and vendor net revenue." loader={getVendorCampaignFinance} />;
 }
 

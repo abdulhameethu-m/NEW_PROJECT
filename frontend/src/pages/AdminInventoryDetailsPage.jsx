@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useLocation,  Link, useParams  } from "react-router-dom";
 import {
   adjustAdminInventory,
   getAdminInventoryLedger,
   getAdminInventoryProduct,
   updateAdminInventoryThreshold,
 } from "../services/adminApi";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 function normalizeError(err) {
   return err?.response?.data?.message || err?.message || "Failed to load admin inventory";
@@ -16,6 +17,7 @@ const DECREASE_REASONS = ["Damaged", "Expired", "Lost", "Warehouse Correction", 
 
 export function AdminInventoryDetailsPage() {
   const { productId } = useParams();
+  const { basePath, isLegacyAdmin, canAccess } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [inventory, setInventory] = useState(null);
@@ -248,7 +250,7 @@ export function AdminInventoryDetailsPage() {
       )}
 
       <div className="flex items-center gap-3">
-        <Link to="/admin/inventory" className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:text-slate-200">
+        <Link to={`${basePath}/inventory`} className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:text-slate-200">
           Back
         </Link>
         <div>
@@ -391,93 +393,103 @@ export function AdminInventoryDetailsPage() {
 
           {selectedVariant ? (
             <>
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-                <div className="text-sm font-semibold text-slate-950 dark:text-white">Adjust Stock</div>
-                <div className="mt-3 grid gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">Adjustment Type</label>
-                    <select
-                      value={adjustmentForm.adjustmentType}
-                      onChange={(event) => setAdjustmentForm((current) => ({ ...current, adjustmentType: event.target.value, reason: "" }))}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                    >
-                      <option value="INCREASE">Increase Stock</option>
-                      <option value="DECREASE">Decrease Stock</option>
-                    </select>
+              {(isLegacyAdmin || canAccess("inventory.updateStock")) ? (
+                <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">Adjust Stock</div>
+                  <div className="mt-3 grid gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">Adjustment Type</label>
+                      <select
+                        value={adjustmentForm.adjustmentType}
+                        onChange={(event) => setAdjustmentForm((current) => ({ ...current, adjustmentType: event.target.value, reason: "" }))}
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                      >
+                        <option value="INCREASE">Increase Stock</option>
+                        <option value="DECREASE">Decrease Stock</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">Quantity</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={adjustmentForm.quantity}
+                        onChange={(event) => setAdjustmentForm((current) => ({ ...current, quantity: event.target.value }))}
+                        placeholder="e.g. 5"
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">Reason</label>
+                      <select
+                        value={adjustmentForm.reason}
+                        onChange={(event) => setAdjustmentForm((current) => ({ ...current, reason: event.target.value }))}
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                      >
+                        <option value="">Select a reason...</option>
+                        {currentReasons.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">Notes {adjustmentForm.adjustmentType === 'DECREASE' && <span className="text-rose-500">*</span>}</label>
+                      <textarea
+                        value={adjustmentForm.notes}
+                        onChange={(event) => setAdjustmentForm((current) => ({ ...current, notes: event.target.value }))}
+                        placeholder={adjustmentForm.adjustmentType === 'DECREASE' ? "Required for decreases" : "Optional notes"}
+                        rows={2}
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                      />
+                    </div>
+
+                    <div className="mt-1 rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800">
+                      <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                        <span>Current Stock</span>
+                        <span>{selectedVariant.stock}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                        <span>Adjustment</span>
+                        <span className={adjustmentForm.adjustmentType === "INCREASE" ? "text-emerald-600 font-medium" : "text-rose-600 font-medium"}>
+                          {adjustmentForm.adjustmentType === "INCREASE" ? "+" : "-"}{previewQty}
+                        </span>
+                      </div>
+                      <div className="mt-2 border-t border-slate-200 dark:border-slate-700 pt-2 flex justify-between font-bold text-slate-950 dark:text-white">
+                        <span>Preview Stock</span>
+                        <span className={previewStock < 0 ? "text-rose-600" : ""}>{previewStock}</span>
+                      </div>
+                    </div>
+
+                    <button onClick={handleInitiateAdjustment} className="mt-2 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200 transition-colors shadow-sm">
+                      Review Adjustment
+                    </button>
                   </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">Quantity</label>
+                </div>
+              ) : null}
+
+              {(isLegacyAdmin || canAccess("inventory.updateThreshold")) ? (
+                <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">Low Stock Threshold</div>
+                  <div className="mt-3 flex gap-2">
                     <input
                       type="number"
-                      min="1"
-                      value={adjustmentForm.quantity}
-                      onChange={(event) => setAdjustmentForm((current) => ({ ...current, quantity: event.target.value }))}
-                      placeholder="e.g. 5"
+                      min="0"
+                      value={thresholdValue}
+                      onChange={(event) => setThresholdValue(Number(event.target.value || 0))}
                       className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                     />
+                    <button onClick={handleUpdateThreshold} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 transition-colors">
+                      Update
+                    </button>
                   </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">Reason</label>
-                    <select
-                      value={adjustmentForm.reason}
-                      onChange={(event) => setAdjustmentForm((current) => ({ ...current, reason: event.target.value }))}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                    >
-                      <option value="">Select a reason...</option>
-                      {currentReasons.map(r => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">Notes {adjustmentForm.adjustmentType === 'DECREASE' && <span className="text-rose-500">*</span>}</label>
-                    <textarea
-                      value={adjustmentForm.notes}
-                      onChange={(event) => setAdjustmentForm((current) => ({ ...current, notes: event.target.value }))}
-                      placeholder={adjustmentForm.adjustmentType === 'DECREASE' ? "Required for decreases" : "Optional notes"}
-                      rows={2}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                    />
-                  </div>
-
-                  <div className="mt-1 rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800">
-                    <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                      <span>Current Stock</span>
-                      <span>{selectedVariant.stock}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                      <span>Adjustment</span>
-                      <span className={adjustmentForm.adjustmentType === "INCREASE" ? "text-emerald-600 font-medium" : "text-rose-600 font-medium"}>
-                        {adjustmentForm.adjustmentType === "INCREASE" ? "+" : "-"}{previewQty}
-                      </span>
-                    </div>
-                    <div className="mt-2 border-t border-slate-200 dark:border-slate-700 pt-2 flex justify-between font-bold text-slate-950 dark:text-white">
-                      <span>Preview Stock</span>
-                      <span className={previewStock < 0 ? "text-rose-600" : ""}>{previewStock}</span>
-                    </div>
-                  </div>
-
-                  <button onClick={handleInitiateAdjustment} className="mt-2 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200 transition-colors shadow-sm">
-                    Review Adjustment
-                  </button>
                 </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-                <div className="text-sm font-semibold text-slate-950 dark:text-white">Low Stock Threshold</div>
-                <div className="mt-3 flex gap-2">
-                  <input
-                    type="number"
-                    min="0"
-                    value={thresholdValue}
-                    onChange={(event) => setThresholdValue(Number(event.target.value || 0))}
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                  />
-                  <button onClick={handleUpdateThreshold} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 transition-colors">
-                    Update
-                  </button>
+              ) : null}
+              
+              {!(isLegacyAdmin || canAccess("inventory.updateStock") || canAccess("inventory.updateThreshold")) && (
+                <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  You do not have permission to manage inventory limits here.
                 </div>
-              </div>
+              )}
             </>
           ) : (
             <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">

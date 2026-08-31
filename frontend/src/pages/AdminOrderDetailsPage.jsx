@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { confirmAction } from "../services/notificationService";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useLocation,  Link, useNavigate, useParams  } from "react-router-dom";
 import { deleteOrder, getOrderById, updateOrder, downloadAdminShippingLabel } from "../services/adminApi";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatCurrency } from "../utils/formatCurrency";
@@ -63,7 +63,7 @@ function getRemainingCodAmount(order) {
 }
 
 export function AdminOrderDetailsPage() {
-  const { basePath, isLegacyAdmin } = useAdminSession();
+  const { basePath, isLegacyAdmin, canAccess } = useAdminSession();
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -129,7 +129,7 @@ export function AdminOrderDetailsPage() {
   const hasCodAdvance = order?.paymentMethod === "COD" && paymentSummary.advanceAmount > 0;
   const unifiedPricingBreakdown = order?.unifiedPricingBreakdown || null;
 
-  const canSave = useMemo(() => !!order && !saving && !loading, [order, saving, loading]);
+  const canSave = useMemo(() => !!order && !saving && !loading && (isLegacyAdmin || canAccess("orders.update")), [order, saving, loading, isLegacyAdmin, canAccess]);
   const hasTrackingFields = Boolean(trackingId.trim() && trackingUrl.trim());
 
   function validateTrackingFields(nextStatus) {
@@ -256,7 +256,7 @@ export function AdminOrderDetailsPage() {
           >
             Invoice
           </Link>
-          {isLegacyAdmin ? (
+          {(isLegacyAdmin || canAccess("orders.delete")) ? (
             <button
               type="button"
               disabled={loading || deleting}

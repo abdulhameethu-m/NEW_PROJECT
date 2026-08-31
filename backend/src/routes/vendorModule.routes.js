@@ -2,7 +2,7 @@ const express = require("express");
 const vendorModuleController = require("../controllers/vendorModule.controller");
 const {
   adminWorkspaceAuthRequired,
-  requireLegacyAdminPermission,
+  requireWorkspacePermission,
 } = require("../middleware/adminAccess");
 const { authRequired, requireRole } = require("../middleware/auth");
 const { requireApprovedVendor } = require("../middleware/vendorApproval");
@@ -20,46 +20,46 @@ router.post("/vendor/check", authRequired, requireRole("vendor"), requireApprove
 router.get(
   "/",
   adminWorkspaceAuthRequired,
-  requireLegacyAdminPermission("dashboard:read"),
+  requireWorkspacePermission("vendorAccess.read", { legacyPermission: "dashboard:read" }),
   vendorModuleController.getAllModules
 );
 router.get(
   "/stats/overview",
   adminWorkspaceAuthRequired,
-  requireLegacyAdminPermission("dashboard:read"),
+  requireWorkspacePermission("vendorAccess.read", { legacyPermission: "dashboard:read" }),
   vendorModuleController.getModuleStats
 );
 router.get(
   "/:key",
   adminWorkspaceAuthRequired,
-  requireLegacyAdminPermission("dashboard:read"),
+  requireWorkspacePermission("vendorAccess.read", { legacyPermission: "dashboard:read" }),
   vendorModuleController.getModuleByKey
 );
 router.patch(
   "/:key",
   adminWorkspaceAuthRequired,
-  requireLegacyAdminPermission("dashboard:read"),
+  requireWorkspacePermission("vendorAccess.update", { legacyPermission: "dashboard:read" }),
   vendorModuleController.updateVendorModuleSettings
 );
 // 🔥 CRITICAL: Vendor access control
 router.patch(
   "/:key/vendor-access",
   adminWorkspaceAuthRequired,
-  requireLegacyAdminPermission("dashboard:read"),
+  requireWorkspacePermission("vendorAccess.update", { legacyPermission: "dashboard:read" }),
   vendorModuleController.updateModuleVendorAccess
 );
 // Global status update
 router.patch(
   "/:key/status",
   adminWorkspaceAuthRequired,
-  requireLegacyAdminPermission("dashboard:read"),
+  requireWorkspacePermission("vendorAccess.update", { legacyPermission: "dashboard:read" }),
   vendorModuleController.updateModuleGlobalStatus
 );
 // Initialize modules (run once during setup)
 router.post(
   "/init",
   adminWorkspaceAuthRequired,
-  requireLegacyAdminPermission("dashboard:read"),
+  requireWorkspacePermission("settings.update", { legacyPermission: "dashboard:read" }),
   vendorModuleController.initializeModules
 );
 module.exports = router;

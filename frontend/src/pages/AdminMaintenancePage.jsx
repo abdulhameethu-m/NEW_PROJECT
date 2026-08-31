@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { ArrowLeft, Save, AlertTriangle, PlayCircle, ShieldAlert } from "lucide-react";
 import { adminHttp } from "../services/adminHttp";
 import { confirmAction } from "../services/notificationService";
 import MaintenancePage from "./MaintenancePage"; // for preview
 
 export function AdminMaintenancePage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
@@ -102,7 +105,7 @@ export function AdminMaintenancePage() {
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
-            to="/admin/settings"
+            to={`${basePath}/settings`}
             className="rounded-xl border border-slate-200 bg-white p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-300"
           >
             <ArrowLeft className="h-5 w-5" />

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { listAdminCatalogRequests, reviewCatalogRequest } from "../services/catalogRequestService";
 import { requestInput } from "../services/notificationService";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 export function AdminCatalogRequestsPage() {
+  const { isLegacyAdmin, canAccess } = useAdminSession();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -91,12 +93,12 @@ export function AdminCatalogRequestsPage() {
                         <button disabled className="rounded-lg bg-emerald-600 px-3 py-2 text-white opacity-80">Approved</button>
                       ) : item.status === "rejected" ? (
                         <button disabled className="rounded-lg bg-rose-600 px-3 py-2 text-white opacity-80">Rejected</button>
-                      ) : (
+                      ) : (isLegacyAdmin || canAccess("catalogRequests.update")) ? (
                         <>
                           <button onClick={() => handleDecision(item.requestId, "approve")} className="rounded-lg bg-emerald-600 px-3 py-2 text-white">Approve</button>
                           <button onClick={() => handleDecision(item.requestId, "reject")} className="rounded-lg bg-rose-600 px-3 py-2 text-white">Reject</button>
                         </>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                 </tr>

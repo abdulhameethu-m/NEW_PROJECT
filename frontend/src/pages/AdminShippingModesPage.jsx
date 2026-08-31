@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, ShieldCheck, Truck } from "lucide-react";
 import { getShippingModes, updateShippingModes } from "../services/adminApi";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 function Toggle({ checked, disabled, onClick }) {
   return (
@@ -22,6 +23,7 @@ function Toggle({ checked, disabled, onClick }) {
 }
 
 export function AdminShippingModesPage() {
+  const { isLegacyAdmin, canAccess } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -120,7 +122,9 @@ export function AdminShippingModesPage() {
                   <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
                     {modes[item.key] ? "ON" : "OFF"}
                   </span>
-                  <Toggle checked={Boolean(modes[item.key])} disabled={loading || saving} onClick={() => toggle(item.key)} />
+                  {(isLegacyAdmin || (!modes[item.key] && canAccess("shippingAccess.activate")) || (modes[item.key] && canAccess("shippingAccess.deactivate"))) ? (
+                    <Toggle checked={Boolean(modes[item.key])} disabled={loading || saving} onClick={() => toggle(item.key)} />
+                  ) : null}
                 </div>
               </div>
             );

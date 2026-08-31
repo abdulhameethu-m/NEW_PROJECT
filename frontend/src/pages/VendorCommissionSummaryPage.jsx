@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FinanceTabs } from "../components/finance/FinanceComponents";
 import { VendorDataTable, VendorMetricCard, VendorSection } from "../components/VendorPanel";
@@ -58,6 +59,9 @@ function buildOverviewCharges(dynamicCharges = []) {
 }
 
 export function VendorCommissionSummaryPage() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState({ overview: null, chargeColumns: [], orders: [] });
@@ -93,7 +97,7 @@ export function VendorCommissionSummaryPage() {
   const overviewCharges = buildOverviewCharges(dynamicCharges);
   return (
     <div className="space-y-6">
-      <FinanceTabs items={financeTabs} />
+      <FinanceTabs items={financeTabs.map(tab => tab.to && tab.to.startsWith("/admin") ? { ...tab, to: basePath + tab.to.substring(6) } : tab)} />
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <VendorMetricCard label="Gross Order Amount" value={formatCurrency(overview.totalGross)} />

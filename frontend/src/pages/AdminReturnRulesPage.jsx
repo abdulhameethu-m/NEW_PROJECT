@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { listCategories } from "../services/adminApi";
 import { listAdminSubcategories } from "../services/subcategoryService";
 import { getReturnRules, createReturnRule, updateReturnRule, deleteReturnRule } from "../services/returnRule.service";
+import { useAdminSession } from "../hooks/useAdminSession";
 
 const initialForm = {
   categoryId: "",
@@ -15,6 +16,7 @@ function normalizeError(error) {
 }
 
 export default function AdminReturnRulesPage() {
+  const { isLegacyAdmin, canAccess } = useAdminSession();
   const [rules, setRules] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
@@ -135,29 +137,33 @@ export default function AdminReturnRulesPage() {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2 lg:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => startEditing(rule)}
-                      className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        // eslint-disable-next-line no-alert
-                        if (!window.confirm("Delete this return rule?")) return;
-                        try {
-                          await deleteReturnRule(rule._id);
-                          await refresh();
-                        } catch (err) {
-                          setError(normalizeError(err));
-                        }
-                      }}
-                      className="rounded-xl border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950"
-                    >
-                      Delete
-                    </button>
+                    {(isLegacyAdmin || canAccess("returnRules.update")) ? (
+                      <button
+                        type="button"
+                        onClick={() => startEditing(rule)}
+                        className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        Edit
+                      </button>
+                    ) : null}
+                    {(isLegacyAdmin || canAccess("returnRules.delete")) ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          // eslint-disable-next-line no-alert
+                          if (!window.confirm("Delete this return rule?")) return;
+                          try {
+                            await deleteReturnRule(rule._id);
+                            await refresh();
+                          } catch (err) {
+                            setError(normalizeError(err));
+                          }
+                        }}
+                        className="rounded-xl border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950"
+                      >
+                        Delete
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -168,84 +174,86 @@ export default function AdminReturnRulesPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{editingId ? "Edit return rule" : "Create return rule"}</h2>
-        <form className="mt-4 grid gap-4" onSubmit={handleSubmit}>
-          
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Category</span>
-            <select
-              value={form.categoryId}
-              disabled={!!editingId || loading}
-              onChange={(e) => setForm(c => ({...c, categoryId: e.target.value, subCategoryId: ""}))}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:opacity-50"
-              required
-            >
-              <option value="">Select Category</option>
-              {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-            </select>
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Subcategory</span>
-            <select
-              value={form.subCategoryId}
-              disabled={!!editingId || !form.categoryId || loading}
-              onChange={(e) => setForm(c => ({...c, subCategoryId: e.target.value}))}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:opacity-50"
-              required
-            >
-              <option value="">Select Subcategory</option>
-              {filteredSubcategories.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-            </select>
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Rule Type</span>
-            <select
-              value={form.ruleType}
-              onChange={(e) => setForm(c => ({...c, ruleType: e.target.value}))}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-            >
-              <option value="returnable">Returnable</option>
-              <option value="no_return">No Return</option>
-            </select>
-          </label>
-
-          {form.ruleType === "returnable" && (
+      {(isLegacyAdmin || (editingId ? canAccess("returnRules.update") : canAccess("returnRules.create"))) ? (
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{editingId ? "Edit return rule" : "Create return rule"}</h2>
+          <form className="mt-4 grid gap-4" onSubmit={handleSubmit}>
+            
             <label className="grid gap-2">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Return Days</span>
-              <input
-                type="number"
-                min="1"
-                value={form.returnDays}
-                onChange={(e) => setForm(c => ({...c, returnDays: parseInt(e.target.value) || 0}))}
-                className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Category</span>
+              <select
+                value={form.categoryId}
+                disabled={!!editingId || loading}
+                onChange={(e) => setForm(c => ({...c, categoryId: e.target.value, subCategoryId: ""}))}
+                className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:opacity-50"
                 required
-              />
-            </label>
-          )}
-
-          <div className="flex flex-wrap gap-2 mt-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
-            >
-              {saving ? "Saving..." : editingId ? "Update rule" : "Create rule"}
-            </button>
-            {editingId ? (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               >
-                Cancel
+                <option value="">Select Category</option>
+                {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </select>
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Subcategory</span>
+              <select
+                value={form.subCategoryId}
+                disabled={!!editingId || !form.categoryId || loading}
+                onChange={(e) => setForm(c => ({...c, subCategoryId: e.target.value}))}
+                className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white disabled:opacity-50"
+                required
+              >
+                <option value="">Select Subcategory</option>
+                {filteredSubcategories.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+              </select>
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Rule Type</span>
+              <select
+                value={form.ruleType}
+                onChange={(e) => setForm(c => ({...c, ruleType: e.target.value}))}
+                className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              >
+                <option value="returnable">Returnable</option>
+                <option value="no_return">No Return</option>
+              </select>
+            </label>
+
+            {form.ruleType === "returnable" && (
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Return Days</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.returnDays}
+                  onChange={(e) => setForm(c => ({...c, returnDays: parseInt(e.target.value) || 0}))}
+                  className="rounded-xl border border-slate-300 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                  required
+                />
+              </label>
+            )}
+
+            <div className="flex flex-wrap gap-2 mt-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+              >
+                {saving ? "Saving..." : editingId ? "Update rule" : "Create rule"}
               </button>
-            ) : null}
-          </div>
-        </form>
-      </section>
+              {editingId ? (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
+          </form>
+        </section>
+      ) : null}
     </div>
   );
 }
