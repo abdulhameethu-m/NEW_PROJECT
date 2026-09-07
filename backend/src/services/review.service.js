@@ -14,6 +14,7 @@ const { User } = require("../models/User");
 const vendorRepo = require("../repositories/vendor.repository");
 const auditService = require("./audit.service");
 const notificationService = require("./notification.service");
+const mediaService = require("./media.service");
 
 const REVIEW_MEDIA_DIR = path.join(process.cwd(), "uploads", "reviews");
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -104,38 +105,18 @@ async function uploadReviewFiles(files = []) {
     throw new AppError("Review video must be 50 MB or smaller", 400, "FILE_SIZE");
   }
 
-  const { enabled, cloudinary } = configureCloudinary();
   const uploadOne = async (file) => {
-    if (enabled) {
-      const uploaded = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder: "reviews",
-            resource_type: VIDEO_TYPES.has(file.mimetype) ? "video" : "image",
-          },
-          (err, res) => (err ? reject(err) : resolve(res))
-        );
-        stream.end(file.buffer);
-      });
-
-      return {
-        url: uploaded.secure_url,
-        publicId: uploaded.public_id,
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
-      };
-    }
-
-    await fs.promises.mkdir(REVIEW_MEDIA_DIR, { recursive: true });
-    const filename = createMediaName(file.originalname);
-    await fs.promises.writeFile(path.join(REVIEW_MEDIA_DIR, filename), file.buffer);
+    const uploadedAsset = await mediaService.uploadIfNotExists(file, {
+      folder: "reviews",
+      visibility: "public"
+    });
     return {
-      url: `/uploads/reviews/${filename}`,
-      publicId: null,
-      originalName: file.originalname,
+      _id: uploadedAsset._id,
+      url: uploadedAsset.url,
+      publicId: uploadedAsset.publicId,
+      originalName: uploadedAsset.originalFilename || file.originalname,
       mimeType: file.mimetype,
-      size: file.size,
+      size: uploadedAsset.fileSize || file.size,
     };
   };
 
@@ -143,6 +124,9 @@ async function uploadReviewFiles(files = []) {
     images: await Promise.all(images.map(uploadOne)),
     videos: await Promise.all(videos.map(uploadOne)),
   };
+
+  // registry back-fill added after the return intentionally — uploadOne already
+  // returned before we reach here. Fire-and-forget registration happens below.
 }
 
 async function notifySafely(task) {
@@ -362,6 +346,18 @@ class ReviewService {
       status: "pending",
       moderatedAt: new Date(),
     });
+
+    // Link references to created review
+    const allUploaded = [...media.images, ...media.videos];
+    for (const item of allUploaded) {
+      if (item._id) {
+        await mediaService.addReference(item._id, {
+          entityType: "ProductReview",
+          entityId: review._id,
+          field: "media"
+        });
+      }
+    }
 
     await refreshProductSummary(payload.productId);
 

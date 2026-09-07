@@ -16,6 +16,7 @@ const {
   flattenModulesDataToAttributes,
 } = require("./attribute.service");
 const { uploadMany } = require("../utils/upload");
+const mediaService = require("./media.service");
 const {
   normalizeDynamicFilterQuery,
   validateAndNormalizeFilterAttributes,
@@ -846,22 +847,32 @@ class ProductService {
     return await productRepo.restoreSale(productId, quantity, amount, variantId);
   }
 
-  async uploadProductImages(files = [], { folder = "products", productName = "", variantTitle = "" } = {}) {
-    const uploaded = await uploadMany(files, { folder });
+  async uploadProductImages(files = [], { folder = "products", productName = "", variantTitle = "", entityId = null, createdBy = null } = {}) {
+    const uploaded = await Promise.all(
+      files.map((file) =>
+        mediaService.uploadIfNotExists(file, {
+          folder,
+          entityType: "Product",
+          entityId: entityId || "unknown",
+          field: "images",
+          createdBy,
+        })
+      )
+    );
 
     return uploaded.map((item, index) => ({
-      url: item.url,
+      url: item.url || item.secureUrl,
       altText: buildDefaultAltText({
-        originalName: item.originalName,
+        originalName: item.originalFilename || item.originalName,
         productName,
         variantTitle,
       }),
       isPrimary: false,
       sortOrder: index,
-      originalName: item.originalName,
+      originalName: item.originalFilename || item.originalName,
       mimeType: item.mimeType,
-      size: item.size,
-      publicId: item.publicId,
+      size: item.fileSize || item.size,
+      publicId: item.publicId || item.cloudinaryPublicId,
     }));
   }
 }

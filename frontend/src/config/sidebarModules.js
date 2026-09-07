@@ -33,6 +33,7 @@ import {
   PackageCheck,
   SlidersHorizontal,
   Undo2,
+  Database,
 } from "lucide-react";
 
 export const ADMIN_PRIMARY_ITEM = {
@@ -190,6 +191,7 @@ export const ADMIN_SECTION_ITEMS = [
       { name: "Pricing Categories", path: "/admin/pricing-categories", permission: "pricingCategories.read", icon: Tags },
       { name: "Staff Roles", path: "/admin/roles", permission: "roles.read", icon: ShieldCheck },
       { name: "Staff Accounts", path: "/admin/staff", permission: "staff.read", icon: UserCog },
+      { name: "Media Manager", path: "/admin/media", icon: Database },
     ],
   },
 ];

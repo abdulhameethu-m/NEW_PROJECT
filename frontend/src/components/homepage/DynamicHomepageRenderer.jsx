@@ -15,7 +15,7 @@ import {
 } from "../../config/homepageContainerTypes";
 
 const DEFAULT_CANVAS_WIDTH = {
-  desktop: 1440,
+  desktop: 1920,
   tablet: 768,
   mobile: 375,
 };
@@ -95,16 +95,21 @@ export const DynamicHomepageRenderer = memo(function DynamicHomepageRenderer({
 const DynamicHomepageRow = memo(function DynamicHomepageRow({ row, bareContainers = false, bareOuterLayout = false, bareCarouselShell = false, renderContext }) {
   const columnCount = DEVICE_COLUMNS[renderContext.device] || DEVICE_COLUMNS.desktop;
 
+  const isMobile = renderContext.device === "mobile";
+
   return (
     <div
-      className="grid gap-x-6 gap-y-0"
+      className="grid gap-y-0"
       style={{
         gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
         gridAutoFlow: "row dense",
+        columnGap: isMobile ? "0px" : "1.5rem",
       }}
     >
       {(row.columns || []).map((column, columnIndex) => {
         const columnStyle = resolveColumnStyle(column, renderContext);
+        const isFirstColumn = columnIndex === 0;
+        const isLastColumn = columnIndex === row.columns.length - 1;
 
         return (
           <div key={column.id || `${row.id || row.order || "row"}-column-${column.order ?? columnIndex}`} style={columnStyle} className="min-w-0 space-y-0">
@@ -113,6 +118,8 @@ const DynamicHomepageRow = memo(function DynamicHomepageRow({ row, bareContainer
                 key={container.instanceId || container._id || `${column.id || column.order || columnIndex}-container-${containerIndex}`}
                 container={container}
                 inline
+                isFirstColumn={isFirstColumn}
+                isLastColumn={isLastColumn}
                 bareContainers={bareContainers}
                 bareOuterLayout={bareOuterLayout}
                 bareCarouselShell={bareCarouselShell}
@@ -126,7 +133,7 @@ const DynamicHomepageRow = memo(function DynamicHomepageRow({ row, bareContainer
   );
 });
 
-const DynamicHomepageSection = memo(function DynamicHomepageSection({ container, inline = false, bareContainers = false, bareOuterLayout = false, bareCarouselShell = false, renderContext }) {
+const DynamicHomepageSection = memo(function DynamicHomepageSection({ container, inline = false, isFirstColumn = true, isLastColumn = true, bareContainers = false, bareOuterLayout = false, bareCarouselShell = false, renderContext }) {
   const trackedRef = useRef(false);
 
   useEffect(() => {
@@ -149,12 +156,15 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
   const bannerCarouselLike = container.containerType === "BANNER_CAROUSEL";
   const bannerLike = container.containerType === "BANNER" || bannerCarouselLike || container.containerType === "SLIDER";
   const isCarousel = container.containerType === "CAROUSEL";
-  const widthStyles = resolveContainerDimensionStyle(layout, renderContext, {
-    inline,
-    contentSized,
-    isBanner: bannerLike,
-    container,
-  });
+  const isMobileBanner = bannerLike && renderContext.device === "mobile";
+  const widthStyles = isMobileBanner
+    ? { width: "100%" }
+    : resolveContainerDimensionStyle(layout, renderContext, {
+        inline,
+        contentSized,
+        isBanner: bannerLike,
+        container,
+      });
   const previewBare = container?.previewBare === true || bareContainers;
   const stripOuterLayout = bareOuterLayout && !previewBare;
 
@@ -174,8 +184,12 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
       }),
     ...(renderContext.device === "mobile" && (container.containerType === "BANNER" || bannerCarouselLike) && !previewBare && !stripOuterLayout
       ? {
+          width: "100%",
+          maxWidth: "none",
           height: "auto",
           minHeight: undefined,
+          marginLeft: 0,
+          marginRight: 0,
         }
       : {}),
   };
@@ -191,8 +205,11 @@ const DynamicHomepageSection = memo(function DynamicHomepageSection({ container,
   }
 
   if (isCarousel && !previewBare && !stripOuterLayout) {
-    const sideMargin = renderContext.device === "mobile" ? "1.25rem" : "2rem";
-    wrapperStyle.margin = `${layout.marginTop ?? 16}px ${sideMargin} ${layout.marginBottom ?? 16}px ${sideMargin}`;
+    const defaultMarginLeft = renderContext.device === "mobile" ? "1.25rem" : isFirstColumn ? "1.25rem" : "0px";
+    const defaultMarginRight = renderContext.device === "mobile" ? "1.25rem" : isLastColumn ? "1.25rem" : "0px";
+    const sideMarginLeft = layout.marginLeft ? `${layout.marginLeft}px` : defaultMarginLeft;
+    const sideMarginRight = layout.marginRight ? `${layout.marginRight}px` : defaultMarginRight;
+    wrapperStyle.margin = `${layout.marginTop ?? 16}px ${sideMarginRight} ${layout.marginBottom ?? 16}px ${sideMarginLeft}`;
     wrapperStyle.borderRadius = "1rem";
     wrapperStyle.overflow = "hidden";
     wrapperStyle.background = resolveContainerBackground(layout, themeStyles);
@@ -276,6 +293,9 @@ function resolveContainerDimensionStyle(layout, renderContext, options = {}) {
     if (!value) return;
     if (options.contentSized) {
       styles.minHeight = `${value}px`;
+    } else if (width && height) {
+      styles.aspectRatio = `${width} / ${height}`;
+      styles.height = "auto";
     } else {
       styles.height = `${value}px`;
     }
@@ -287,13 +307,16 @@ function resolveContainerDimensionStyle(layout, renderContext, options = {}) {
       applyHeight(exactSize.height);
     } else if (!options.contentSized && height && width) {
       styles.aspectRatio = `${width} / ${height}`;
+      styles.height = "auto";
     }
   } else if (exactSize.width) {
-    styles.width = `${exactSize.width}px`;
+    styles.width = "100%";
+    styles.maxWidth = `${exactSize.width}px`;
     if (exactSize.height) {
       applyHeight(exactSize.height);
     } else if (!options.contentSized && height && width) {
       styles.aspectRatio = `${width} / ${height}`;
+      styles.height = "auto";
     }
   } else {
     styles.width = "100%";
@@ -308,6 +331,10 @@ function resolveContainerDimensionStyle(layout, renderContext, options = {}) {
 
   if (options.isBanner) {
     styles.width = "100%";
+    // On mobile/tablet, never cap banner width with maxWidth — let it fill the container.
+    if (renderContext.device !== "desktop") {
+      delete styles.maxWidth;
+    }
   }
 
   return styles;
@@ -337,7 +364,7 @@ function resolveContainerLayout(container) {
   return {
     width: pickFinite(layout.width),
     widthType: layout.widthType || (rawWidth === "full" ? "full" : rawWidth === "narrow" ? "narrow" : rawWidth === "medium" ? "medium" : rawWidth === "boxed" || rawWidth === "wide" || rawWidth === "content" ? "boxed" : "custom"),
-    customWidth: Number(layout.customWidth || String(rawWidth).replace(/[^\d.-]/g, "") || 1400),
+    customWidth: Number(layout.customWidth || String(rawWidth).replace(/[^\d.-]/g, "") || 1920),
     height: pickFinite(layout.height),
     heightType: layout.heightType || (rawHeight === "auto" || !rawHeight ? "auto" : "custom"),
     customHeight: Number(layout.customHeight || String(rawHeight).replace(/[^\d.-]/g, "") || 450),
@@ -387,9 +414,9 @@ function resolveConfiguredWidth(layout, canvasWidth) {
     case "narrow":
       return 900;
     case "medium":
-      return 1200;
+      return 1440;
     case "boxed":
-      return 1400;
+      return 1920;
     default:
       return null;
   }
@@ -747,7 +774,7 @@ function compactNumber(value) {
 function CarouselContainer({ container, bareContainers = false, bareOuterLayout = false, bareCarouselShell = false }) {
   const config = container.config || {};
   return (
-    <div className={bareContainers || bareOuterLayout || container?.previewBare === true ? "" : "px-4 pb-4 pt-2 sm:px-5 sm:pb-5 sm:pt-2 lg:px-6 lg:pb-6 lg:pt-3"}>
+    <div className={bareContainers || bareOuterLayout || container?.previewBare === true ? "" : "px-2 pb-2 pt-1 sm:px-3 sm:pb-3 sm:pt-2 lg:px-2 lg:pb-3 lg:pt-2"}>
       <ProductCarousel
         items={container.products || []}
         title={container.title}

@@ -40,7 +40,7 @@ import { useAdminSession } from "../hooks/useAdminSession";
 
 const defaultLayout = {
   widthType: "boxed",
-  customWidth: 1400,
+  customWidth: 1920,
   heightType: "auto",
   customHeight: 450,
   alignment: "center",
@@ -242,9 +242,9 @@ function resolveLayoutWidth(layout = {}) {
     case "narrow":
       return 900;
     case "medium":
-      return 1200;
+      return 1440;
     case "boxed":
-      return 1400;
+      return 1920;
     default:
       return defaultLayout.customWidth;
   }

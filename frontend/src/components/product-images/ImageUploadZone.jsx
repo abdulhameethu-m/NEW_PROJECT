@@ -6,6 +6,7 @@ export function ImageUploadZone({
   description,
   helperText,
   onFilesSelected,
+  onOpenMediaPicker,
   disabled = false,
   compact = false,
   isUploading = false,
@@ -77,6 +78,18 @@ export function ImageUploadZone({
             <ImagePlus className="h-4 w-4" />
             Browse Files
           </button>
+          {onOpenMediaPicker && (
+            <button
+              type="button"
+              onClick={onOpenMediaPicker}
+              className="pointer-events-auto inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[color:var(--commerce-accent)] dark:bg-slate-900 dark:border-slate-700 dark:text-white dark:hover:bg-slate-800"
+            >
+              <svg className="w-4 h-4 text-violet-600 dark:text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              Media Manager
+            </button>
+          )}
           <span className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">or drag & drop</span>
         </div>
         {helperText ? <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">{helperText}</p> : null}

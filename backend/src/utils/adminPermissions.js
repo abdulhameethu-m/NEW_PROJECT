@@ -62,8 +62,12 @@ function normalizeRole(role) {
   return String(role || "").trim().toLowerCase();
 }
 function hasPermission(role, permission) {
+  const normalizedRole = normalizeRole(role);
+  if (normalizedRole === "super_admin" || normalizedRole === "admin") {
+    return true;
+  }
   const normalized = String(permission || "").replace(/\./g, ":");
-  return (ROLE_PERMISSIONS[normalizeRole(role)] || []).includes(normalized);
+  return (ROLE_PERMISSIONS[normalizedRole] || []).includes(normalized);
 }
 module.exports = {
   ADMIN_ROLES,

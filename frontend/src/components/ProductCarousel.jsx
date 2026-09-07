@@ -27,22 +27,29 @@ export function ProductCarousel({
   const touchStartXRef = useRef(0);
   const touchEndXRef = useRef(0);
 
-  // Detect responsive breakpoints
+  // Detect responsive breakpoints based on CONTAINER width, not viewport width.
+  // This is critical when the carousel sits inside a narrow column (e.g. 50% split layout).
   useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      if (width < 640) {
-        setItemsPerView(mobileItemsPerView);
-      } else if (width < 1024) {
-        setItemsPerView(tabletItemsPerView);
-      } else {
-        setItemsPerView(desktopItemsPerView);
-      }
+    const computeItems = (width) => {
+      if (width < 560) return mobileItemsPerView;
+      if (width < 860) return tabletItemsPerView;
+      return desktopItemsPerView;
     };
 
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    if (!containerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = entry.contentRect.width;
+        setItemsPerView(computeItems(w));
+      }
+    });
+
+    observer.observe(containerRef.current);
+    // Initial calculation
+    setItemsPerView(computeItems(containerRef.current.clientWidth));
+
+    return () => observer.disconnect();
   }, [desktopItemsPerView, mobileItemsPerView, tabletItemsPerView]);
 
   // Calculate max carousel index
@@ -102,7 +109,7 @@ export function ProductCarousel({
 
   const shellClassName = bare
     ? ""
-    : "overflow-hidden rounded-2xl border border-white/60 bg-white/72 p-2 shadow-[0_35px_120px_-55px_rgba(15,23,42,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 sm:p-3 lg:p-4";
+    : "overflow-hidden rounded-2xl border border-white/60 bg-white/72 p-2 shadow-[0_35px_120px_-55px_rgba(15,23,42,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72";
 
   // Show loading skeletons
   if (loading) {

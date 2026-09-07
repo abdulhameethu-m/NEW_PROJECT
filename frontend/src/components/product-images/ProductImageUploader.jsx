@@ -3,6 +3,7 @@ import { confirmAction } from "../../services/notificationService";
 import { ImagePreviewGrid } from "./ImagePreviewGrid";
 import { ImageUploadZone } from "./ImageUploadZone";
 import { createImageFingerprint, hydrateManagedImages, syncManagedImages, validateImageFiles } from "../../utils/productImages";
+import { MediaPickerModal } from "../admin/MediaPickerModal";
 
 function reorderImages(images, fromIndex, toIndex) {
   if (fromIndex === null || toIndex === null || fromIndex === toIndex) return images;
@@ -26,6 +27,7 @@ export function ProductImageUploader({
   const [isUploading, setIsUploading] = useState(false);
   const [messages, setMessages] = useState([]);
   const [dragIndex, setDragIndex] = useState(null);
+  const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
 
   const managedImages = hydrateManagedImages(images, { fallbackAlt: productName || "Product image", idPrefix: "product-image" });
   const latestImagesRef = useRef(managedImages);
@@ -146,6 +148,27 @@ export function ProductImageUploader({
     onChange?.(syncManagedImages(managedImages.map((image, imageIndex) => (imageIndex === index ? { ...image, altText: value } : image)), { fallbackAlt: productName }));
   }
 
+  function handleMediaPickerSelect(selectedAssets) {
+    if (!selectedAssets?.length) return;
+    
+    const baseImages = getLatestImages();
+    const hydratedAssets = selectedAssets.map((asset, index) => ({
+      id: `picked-${asset._id}-${Date.now()}-${index}`,
+      url: asset.secureUrl,
+      altText: asset.originalFilename || productName || "Product image",
+      isPrimary: false,
+      sortOrder: baseImages.length + index,
+      status: "uploaded",
+      uploadProgress: 100,
+      fileFingerprint: asset.contentHash || "",
+      error: "",
+      publicId: asset.cloudinaryPublicId,
+      _id: asset._id,
+    }));
+
+    onChange?.(syncManagedImages([...baseImages, ...hydratedAssets], { fallbackAlt: productName }));
+  }
+
   return (
     <div className={compact ? "space-y-4" : "space-y-5"}>
       <ImageUploadZone
@@ -153,6 +176,7 @@ export function ProductImageUploader({
         description={description}
         helperText={`${helperText} ${remainingSlots} slot${remainingSlots === 1 ? "" : "s"} remaining.`}
         onFilesSelected={handleFilesSelected}
+        onOpenMediaPicker={() => setIsMediaPickerOpen(true)}
         disabled={remainingSlots === 0}
         compact={compact}
         isUploading={isUploading}
@@ -182,6 +206,13 @@ export function ProductImageUploader({
         onRemove={handleRemove}
         onSetPrimary={handleSetPrimary}
         onAltTextChange={handleAltTextChange}
+      />
+
+      <MediaPickerModal
+        isOpen={isMediaPickerOpen}
+        onClose={() => setIsMediaPickerOpen(false)}
+        onSelect={handleMediaPickerSelect}
+        maxSelect={remainingSlots}
       />
     </div>
   );

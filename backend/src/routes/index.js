@@ -55,6 +55,8 @@ const campaignFinanceRoutes = require("../modules/campaignFinance/routes");
 const campaignFinanceController = require("../modules/campaignFinance/controller");
 const recommendationRoutes = require("../modules/recommendation/routes");
 const analyticsRoutes = require("../modules/analytics/routes");
+const mediaRoutes = require("./media.routes");
+const albumRoutes = require("./album.routes");
 
 function deprecatedApiAlias(canonicalPath) {
   return (_req, res, next) => {
@@ -140,5 +142,7 @@ router.get(
 
 router.use("/recommendations", recommendationRoutes);
 router.use("/", analyticsRoutes);
+router.use("/admin/media", mediaRoutes);
+router.use("/admin/albums", albumRoutes);
 
 module.exports = router;

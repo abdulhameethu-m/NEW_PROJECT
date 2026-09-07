@@ -250,7 +250,7 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         {/* Top Left Discount Ribbon */}
         {discountPercent > 0 && (
           <div 
-            className="absolute top-0 left-0 z-20 w-[3.25rem] h-[3.25rem] sm:w-[5rem] sm:h-[5rem] bg-yellow-400"
+            className="absolute top-0 left-0 z-20 w-[2.75rem] h-[2.75rem] sm:w-[3.75rem] sm:h-[3.75rem] bg-yellow-400"
             style={{ 
               clipPath: 'polygon(0 0, 100% 0, 0 100%)',
               WebkitClipPath: 'polygon(0 0, 100% 0, 0 100%)',
@@ -258,9 +258,9 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
               willChange: 'transform'
             }}
           >
-            <div className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 flex flex-col items-start translate-z-0">
-              <span className="text-[10px] sm:text-[14px] font-extrabold text-blue-950 leading-none">{discountPercent}%</span>
-              <span className="text-[7px] sm:text-[10px] font-bold text-blue-950 leading-none mt-0.5">OFF</span>
+            <div className="absolute top-1 left-1.5 sm:top-1.5 sm:left-2 flex flex-col items-start translate-z-0">
+              <span className="text-[9px] sm:text-[12px] font-extrabold text-blue-950 leading-none">{discountPercent}%</span>
+              <span className="text-[6px] sm:text-[8px] font-bold text-blue-950 leading-none mt-0.5">OFF</span>
             </div>
           </div>
         )}
@@ -313,21 +313,15 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
 
       {/* Product Info Section */}
       <div className={`flex flex-col flex-grow ${dense ? "p-2 gap-1" : "p-2.5 sm:p-3 gap-1"}`}>
-        {/* Category & Rating */}
-        <div className="flex items-center justify-between">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-blue-600 line-clamp-1">
-            {product.category || "FEATURED"}
-          </p>
-          {/* Rating */}
-          {product?.ratings?.averageRating > 0 && (
-            <div className="flex items-center gap-1">
-              <Star className="h-2.5 sm:h-3 w-2.5 sm:w-3 fill-amber-500 text-amber-500" />
-              <span className="text-[9px] sm:text-[10px] font-semibold text-slate-600">
-                {Number(product.ratings.averageRating).toFixed(1)}
-              </span>
-            </div>
-          )}
-        </div>
+        {/* Rating */}
+        {product?.ratings?.averageRating > 0 && (
+          <div className="flex items-center gap-1 mb-1">
+            <Star className="h-2.5 sm:h-3 w-2.5 sm:w-3 fill-amber-500 text-amber-500" />
+            <span className="text-[9px] sm:text-[10px] font-semibold text-slate-600">
+              {Number(product.ratings.averageRating).toFixed(1)}
+            </span>
+          </div>
+        )}
 
         {/* Product Name */}
         <div className="mt-0.5">
@@ -341,12 +335,12 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
 
         {/* Pricing */}
         <div className="flex flex-col mt-0.5">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[15px] sm:text-[16px] font-extrabold text-slate-900 tracking-tight">
+          <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 mt-1">
+            <span className="text-[15px] sm:text-[16px] font-extrabold text-slate-900 tracking-tight leading-none">
               {formatCurrency(product.discountPrice || product.price)}
             </span>
             {product.discountPrice && (
-              <span className="text-[11px] sm:text-[12px] text-slate-400 line-through font-medium">
+              <span className="text-[11px] sm:text-[12px] text-slate-400 line-through font-medium leading-none">
                 {formatCurrency(product.price)}
               </span>
             )}

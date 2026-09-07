@@ -21,7 +21,7 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
   const scrollTimeoutRef = useRef(null);
   const dropdownTimeoutRef = useRef(null);
   const [localMinimized, setLocalMinimized] = useState(false);
-  
+
   const minimized = isMinimized !== undefined ? isMinimized : localMinimized;
   const toggleMinimized = onToggleMinimize || (() => setLocalMinimized(!localMinimized));
 
@@ -144,8 +144,8 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
                       className="flex flex-row items-center justify-start gap-1.5 px-2 py-0.5 h-full transition-all duration-200 relative group/btn focus:outline-none"
                     >
                       <div className={`h-6 w-6 rounded-md flex items-center justify-center overflow-hidden transition-all duration-200 flex-shrink-0 ${isSelected
-                          ? "bg-[#e0f0ff] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                          : "bg-transparent text-slate-800 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                        ? "bg-[#e0f0ff] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                        : "bg-transparent text-slate-800 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                         }`}>
                         {IconComponent ? (
                           <div className="h-4 w-4">
@@ -157,8 +157,8 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
                       </div>
 
                       <span className={`text-[13px] sm:text-sm whitespace-nowrap leading-tight tracking-tight ${isSelected
-                          ? "font-bold text-slate-900 dark:text-white"
-                          : "font-medium text-slate-700 dark:text-slate-300 group-hover/btn:text-slate-900 dark:group-hover/btn:text-white"
+                        ? "font-bold text-slate-900 dark:text-white"
+                        : "font-medium text-slate-700 dark:text-slate-300 group-hover/btn:text-slate-900 dark:group-hover/btn:text-white"
                         }`}>
                         {category.name}
                       </span>
@@ -264,26 +264,23 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
             {categoryList.map((category) => {
               const isSelected = selectedCategory?.id === category.id || selectedCategory?.slug === category.slug;
               const IconComponent = category.IconComponent;
-              
+
               return (
                 <button
                   key={category.id}
                   type="button"
                   onClick={() => handleCategorySelect(category)}
-                  className={`flex items-center justify-start flex-shrink-0 group focus:outline-none relative transition-all duration-300 ${
-                    minimized
+                  className={`flex items-center justify-start flex-shrink-0 group focus:outline-none relative transition-all duration-300 ${minimized
                       ? "flex-row gap-1.5 px-2 py-1 min-w-auto"
                       : "flex-col gap-0 min-w-[60px] pb-1.5"
-                  }`}
+                    }`}
                 >
                   <div
-                    className={`flex items-center justify-center overflow-hidden transition-all duration-300 flex-shrink-0 ${
-                      minimized ? "h-7 w-7 rounded-[8px]" : "h-12 w-12 rounded-[14px]"
-                    } ${
-                      isSelected
+                    className={`flex items-center justify-center overflow-hidden transition-all duration-300 flex-shrink-0 ${minimized ? "h-7 w-7 rounded-[8px]" : "h-12 w-12 rounded-[14px]"
+                      } ${isSelected
                         ? "bg-[#e0f0ff] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                         : "bg-transparent text-slate-800 dark:text-slate-300"
-                    }`}
+                      }`}
                   >
                     {IconComponent ? (
                       <div className={`transition-all duration-300 ${minimized ? 'w-4 h-4' : 'w-6 h-6'}`}>
@@ -296,29 +293,26 @@ function CategoryNavigationComponent({ categories = [], onSelect, selectedCatego
                     )}
                   </div>
                   <span
-                    className={`text-center leading-tight tracking-tight transition-all duration-300 ${
-                      minimized ? "text-[12px] whitespace-nowrap" : "text-[11px] truncate w-full pt-0.5"
-                    } ${
-                      isSelected
+                    className={`text-center leading-tight tracking-tight transition-all duration-300 ${minimized ? "text-[12px] whitespace-nowrap" : "text-[11px] truncate w-full pt-0.5"
+                      } ${isSelected
                         ? "font-bold text-slate-900 dark:text-white"
                         : "font-medium text-slate-700 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white"
-                    }`}
+                      }`}
                   >
                     {category.name}
                   </span>
-                  
+
                   {isSelected && (
-                    <div className={`absolute bottom-0 bg-blue-600 dark:bg-blue-500 rounded-full transition-all duration-300 ${
-                      minimized ? "left-1 right-1 h-[2px]" : "left-1/2 -translate-x-1/2 w-6 h-[2px]"
-                    }`} />
+                    <div className={`absolute bottom-0 bg-blue-600 dark:bg-blue-500 rounded-full transition-all duration-300 ${minimized ? "left-1 right-1 h-[2px]" : "left-1/2 -translate-x-1/2 w-6 h-[2px]"
+                      }`} />
                   )}
                 </button>
               );
             })}
           </div>
           <div className="pr-3 pl-1 flex items-center justify-center h-full">
-            <button 
-              onClick={toggleMinimized} 
+            <button
+              onClick={toggleMinimized}
               className="p-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors active:scale-95"
               aria-label={minimized ? "Maximize categories" : "Minimize categories"}
             >

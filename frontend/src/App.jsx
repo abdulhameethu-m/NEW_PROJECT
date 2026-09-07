@@ -158,6 +158,7 @@ const AdminCommissionManagementPage = lazyNamed(() => import("./pages/AdminCommi
 const AdminPricingCategoriesPage = lazyDefault(() => import("./pages/AdminPricingCategoriesPage"));
 const AdminRolesPage = lazyNamed(() => import("./pages/AdminRolesPage"), "AdminRolesPage");
 const AdminStaffPage = lazyNamed(() => import("./pages/AdminStaffPage"), "AdminStaffPage");
+const AdminMediaManagerPage = lazyDefault(() => import("./pages/AdminMediaManagerPage"));
 const AdminInfluencerPage = lazyNamed(() => import("./pages/AdminInfluencerPage"), "AdminInfluencerPage");
 const AdminInfluencerCommercePage = lazyNamed(() => import("./pages/AdminInfluencerCommercePage"), "AdminInfluencerCommercePage");
 const AdminCampaignFinancePage = lazyNamed(() => import("./pages/CampaignFinancePages"), "AdminCampaignFinancePage");
@@ -394,6 +395,7 @@ export default function App() {
               <Route path="reviews" element={<StaffReviewsPage />} />
               <Route path="roles" element={<AdminRolesPage />} />
               <Route path="staff" element={<AdminStaffPage />} />
+              <Route path="media" element={<AdminMediaManagerPage />} />
               <Route path="influencers" element={<AdminInfluencerPage />} />
               <Route path="influencer-commerce/campaign-finance" element={<AdminCampaignFinancePage />} />
               <Route path="influencer-commerce/*" element={<AdminInfluencerCommercePage />} />

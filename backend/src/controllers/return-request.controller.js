@@ -5,34 +5,20 @@ const { configureCloudinary } = require("../config/cloudinary");
 // ── Evidence Upload Helper ────────────────────────────────────
 
 async function uploadEvidenceToCloudinary(files = [], folder = "returns/evidence") {
-  const { enabled, cloudinary } = configureCloudinary();
-  if (!enabled) {
-    throw new AppError("Media upload service is not configured", 503, "CLOUDINARY_NOT_CONFIGURED");
-  }
-
   const urls = [];
+  const assets = [];
   for (const file of files) {
-    const result = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
-        {
-          folder,
-          resource_type: "image",
-          allowed_formats: ["jpg", "jpeg", "png", "webp"],
-          transformation: [{ quality: "auto", fetch_format: "auto" }],
-        },
-        (error, result) => {
-          if (error) {
-            console.error("Cloudinary Return Evidence Upload Error:", error);
-            reject(new AppError(`Evidence upload failed: ${error.message || JSON.stringify(error)}`, 502, "UPLOAD_FAILED"));
-          } else {
-            resolve(result);
-          }
-        }
-      ).end(file.buffer);
+    const asset = await returnRequestService.__mediaService.uploadIfNotExists(file, {
+      folder,
+      entityType: "ReturnRequest",
+      entityId: "unknown",
+      field: "evidence",
+      visibility: "restricted"
     });
-    urls.push(result.secure_url);
+    urls.push(asset.url);
+    assets.push(asset);
   }
-  return urls;
+  return { urls, assets };
 }
 
 // ── Customer Controllers ──────────────────────────────────────
@@ -43,12 +29,15 @@ async function customerCreateReturn(req, res, next) {
     const { orderId, productId, variantSku, quantity, reasonCode, customerDescription, subCategoryId } = req.body;
 
     let customerEvidence = [];
+    let uploadedAssets = [];
     if (req.files && req.files.length > 0) {
       if (req.files.length > 5) {
         return next(new AppError("Maximum 5 evidence photos allowed", 400, "VALIDATION_ERROR"));
       }
       const folder = `returns/evidence/customer/${Date.now()}`;
-      customerEvidence = await uploadEvidenceToCloudinary(req.files, folder);
+      const uploadResult = await uploadEvidenceToCloudinary(req.files, folder);
+      customerEvidence = uploadResult.urls;
+      uploadedAssets = uploadResult.assets;
     }
 
     const returnRequest = await returnRequestService.createReturnRequest({
@@ -62,6 +51,15 @@ async function customerCreateReturn(req, res, next) {
       subCategoryId: subCategoryId || null,
       actor,
     });
+
+    // Link references
+    for (const asset of uploadedAssets) {
+      await returnRequestService.__mediaService.addReference(asset._id, {
+        entityType: "ReturnRequest",
+        entityId: returnRequest._id,
+        field: "customerEvidence",
+      });
+    }
 
     res.status(201).json({ success: true, data: returnRequest, message: "Return request submitted successfully" });
   } catch (err) {
@@ -217,14 +215,27 @@ async function vendorDispute(req, res, next) {
   try {
     const { reasonCode, description } = req.body;
     let evidence = [];
+    let uploadedAssets = [];
     if (req.files && req.files.length > 0) {
       if (req.files.length > 5) {
         return next(new AppError("Maximum 5 vendor evidence photos allowed", 400, "VALIDATION_ERROR"));
       }
       const folder = `returns/evidence/vendor/${Date.now()}`;
-      evidence = await uploadEvidenceToCloudinary(req.files, folder);
+      const uploadResult = await uploadEvidenceToCloudinary(req.files, folder);
+      evidence = uploadResult.urls;
+      uploadedAssets = uploadResult.assets;
     }
     const doc = await returnRequestService.vendorDispute(req.params.id, req.user, { reasonCode, description, evidence });
+    
+    // Link references
+    for (const asset of uploadedAssets) {
+      await returnRequestService.__mediaService.addReference(asset._id, {
+        entityType: "ReturnRequest",
+        entityId: doc._id,
+        field: "vendorEvidence",
+      });
+    }
+    
     res.json({ success: true, data: doc, message: "Dispute submitted. Admin will review." });
   } catch (err) {
     next(err);
