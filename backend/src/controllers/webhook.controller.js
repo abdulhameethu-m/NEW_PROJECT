@@ -27,4 +27,13 @@ const shadowfaxWebhook = asyncHandler(async (req, res) => {
   return ok(res, result);
 });
 
-module.exports = { razorpayWebhook, shiprocketWebhook, shadowfaxWebhook };
+const delhiveryWebhook = asyncHandler(async (req, res) => {
+  const signature = req.headers["x-delhivery-signature"]; // Some installations use tokens or headers
+  const result = await webhookService.handleDelhiveryWebhook(req.body, {
+    rawBody: req.rawBody || JSON.stringify(req.body || {}),
+    signature,
+  });
+  return ok(res, result);
+});
+
+module.exports = { razorpayWebhook, shiprocketWebhook, shadowfaxWebhook, delhiveryWebhook };

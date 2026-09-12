@@ -22,6 +22,7 @@ const inventoryService = require("./inventory.service");
 const { buildOrderSnapshot, generateInvoiceNumber } = require("./order-document.service");
 const codService = require("./cod.service");
 const guestCartService = require("./guestCart.service");
+const shippingQuoteService = require("./shipping-quote.service");
 const { Order } = require("../models/Order");
 const { Payment } = require("../models/Payment");
 const { Vendor } = require("../models/Vendor");
@@ -600,9 +601,45 @@ class CheckoutService {
     };
   }
 
+  async _attachDynamicShippingOptions(userId, summary, shippingAddress) {
+    if (!shippingAddress?.postalCode) return summary;
+    try {
+      // Ensure shipping object exists on summary
+      if (!summary.shipping) summary.shipping = {};
+
+      const originPincode = summary.shipping.originPincode
+        || process.env.WAREHOUSE_PINCODE
+        || process.env.SHIPROCKET_WAREHOUSE_PINCODE
+        || "500001"; // Fallback: Hyderabad
+
+      const weightGrams = Math.max(500, summary.itemCount * 500);
+
+      const quotes = await shippingQuoteService.generateQuotes({
+        originPincode,
+        destinationPincode: String(shippingAddress.postalCode),
+        weightGrams,
+        cartId: userId,
+        userId,
+      });
+      summary.shipping.options = quotes.shippingOptions;
+      summary.shipping.quoteId = quotes.quoteId;
+      summary.shipping.expiresAt = quotes.expiresAt;
+    } catch (e) {
+      logger.warn("Failed fetching dynamic shipping quotes", { msg: e.message, code: e.code });
+    }
+    return summary;
+  }
+
   async prepare(userId, { currency, shippingAddress, paymentMethod, trackingToken = "" } = {}) {
     const cachedSummary = getCachedPreparedCheckout(userId, { shippingAddress, paymentMethod, trackingToken });
     if (cachedSummary) {
+      // Always regenerate shipping options fresh from DB so admin provider toggle/pricing
+      // changes take effect immediately without waiting for cache expiry.
+      if (shippingAddress?.postalCode) {
+        const enrichedSummary = await this._attachDynamicShippingOptions(userId, cachedSummary, shippingAddress);
+        setCachedPreparedCheckout(userId, { shippingAddress, paymentMethod, trackingToken }, enrichedSummary);
+        return enrichedSummary;
+      }
       return cachedSummary;
     }
 
@@ -759,8 +796,9 @@ class CheckoutService {
       codAdvance: codAdvance || undefined,
     };
 
-    setCachedPreparedCheckout(userId, { shippingAddress, paymentMethod, trackingToken }, summary);
-    return summary;
+    const finalSummary = await this._attachDynamicShippingOptions(userId, summary, shippingAddress);
+    setCachedPreparedCheckout(userId, { shippingAddress, paymentMethod, trackingToken }, finalSummary);
+    return finalSummary;
   }
 
   async createOrderFromPreparedCheckout(
@@ -776,6 +814,8 @@ class CheckoutService {
       razorpayPaymentId = "",
       fraudFlags = [],
       trackingToken = null,
+      shippingQuoteId = null,
+      selectedProvider = null,
     } = {}
   ) {
     const summary = preparedCheckout || {};
@@ -815,7 +855,26 @@ class CheckoutService {
     const discountCharge = chargesBreakdown.find(
       (c) => c.key === "discount" || String(c.displayName || "").toLowerCase().includes("discount")
     );
-    const shippingFee = roundMoney(shippingCharge?.amount || 0);
+    let shippingFee = roundMoney(shippingCharge?.amount || 0);
+    let assignedShippingQuoteSnapshot = null;
+    let fallbackLogisticsProvider = "SHIPROCKET";
+    
+    if (shippingQuoteId && selectedProvider) {
+      try {
+         const validatedQuote = shippingQuoteService.validateAndSelectQuote(
+           shippingQuoteId, 
+           selectedProvider, 
+           { cartId: userId, userId, destinationPincode: shippingAddress.postalCode }
+         );
+         shippingFee = roundMoney(validatedQuote.price || shippingFee); 
+         fallbackLogisticsProvider = validatedQuote.provider;
+         assignedShippingQuoteSnapshot = validatedQuote;
+      } catch (e) {
+         logger.error("Shipping quote validation failed on checkout creation", { msg: e.message });
+         throw e;
+      }
+    }
+
     const codAdvance =
       paymentMethod === "COD"
         ? await codService.resolveAdvanceQuote({
@@ -997,6 +1056,14 @@ class CheckoutService {
         razorpayOrderId: razorpayOrderId || undefined,
         razorpayPaymentId: razorpayPaymentId || undefined,
         paymentCapturedAt: paymentStatus === "Paid" ? new Date() : undefined,
+        logisticsProvider: fallbackLogisticsProvider,
+        shippingQuoteId: shippingQuoteId || undefined,
+        shippingProvider: fallbackLogisticsProvider,
+        shippingService: assignedShippingQuoteSnapshot?.service || "Standard",
+        providerCost: assignedShippingQuoteSnapshot?.providerCost || 0,
+        shippingCustomerPrice: shippingFee,
+        estimatedDeliveryDate: assignedShippingQuoteSnapshot?.estimatedDeliveryDate,
+        shippingQuoteSnapshot: assignedShippingQuoteSnapshot || {},
         fraudFlags,
         shippingMode: vendorShipping.defaultShippingMode,
         shippingStatus: "NOT_SHIPPED",

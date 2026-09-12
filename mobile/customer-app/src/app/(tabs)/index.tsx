@@ -65,7 +65,7 @@ export default function HomeScreen() {
     if (layout && Array.isArray(layout.containers) && layout.containers.length > 0) {
       return (
         <View className="pb-10">
-          {layout.containers.map((container: any) => {
+          {layout.containers.map((container: any, index: number) => {
             switch (container.containerType) {
               case 'BANNER':
               case 'BANNER_CAROUSEL':
@@ -82,7 +82,7 @@ export default function HomeScreen() {
                 const ctaUrl = primaryMedia.ctaUrl || container.config?.ctaUrl;
 
                 return (
-                  <View key={container._id || container.instanceId} className="mb-4">
+                  <View key={`${container._id || container.instanceId || 'container'}-${index}`} className="mb-4">
                     <HomeBanner
                       title={title}
                       subtitle={subtitle}
@@ -97,7 +97,7 @@ export default function HomeScreen() {
               case 'CAROUSEL':
               case 'GRID':
                 return (
-                  <View key={container._id || container.instanceId} className="mb-4">
+                  <View key={`${container._id || container.instanceId || 'container'}-${index}`} className="mb-4">
                     <HomeFeatured
                       title={container.title}
                       products={container.products || []}
@@ -107,7 +107,7 @@ export default function HomeScreen() {
                 );
               case 'CATEGORY_SHOWCASE':
                 return (
-                  <View key={container._id || container.instanceId} className="mb-4">
+                  <View key={`${container._id || container.instanceId || 'container'}-${index}`} className="mb-4">
                     <HomeCategories
                       categories={container.categories || []}
                       isLoading={false}

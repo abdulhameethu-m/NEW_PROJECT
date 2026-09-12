@@ -89,6 +89,7 @@ router.use("/webhooks", webhookRoutes);
 router.use("/wishlist", wishlistRoutes);
 router.use("/compare", compareRoutes);
 router.use("/user", userRoutes);
+router.use("/users", deprecatedApiAlias("/api/user"), userRoutes);
 router.use("/categories", categoryRoutes);
 router.use("/subcategories", subcategoryRoutes);
 router.use("/attributes", attributeRoutes);

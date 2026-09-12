@@ -95,6 +95,13 @@ export function AdminShippingConfigPage() {
   const [success, setSuccess] = useState("");
   const [rules, setRules] = useState([]);
   const [stats, setStats] = useState(null);
+  const [logisticsProviders, setLogisticsProviders] = useState(["SHIPROCKET", "SHADOWFAX", "DELHIVERY"]);
+  const [partnerRules, setPartnerRules] = useState({
+     SHIPROCKET: { markupType: "PERCENTAGE", markupValue: 10, etaBuffer: 1 },
+     SHADOWFAX: { markupType: "PERCENTAGE", markupValue: 10, etaBuffer: 1 },
+     DELHIVERY: { markupType: "PERCENTAGE", markupValue: 10, etaBuffer: 1 },
+  });
+  const [savingLogistics, setSavingLogistics] = useState(false);
   const [availableStates, setAvailableStates] = useState(["Tamil Nadu"]);
   const [districtsByState, setDistrictsByState] = useState({});
   const [locationStates, setLocationStates] = useState([createLocationState()]);
@@ -137,17 +144,30 @@ export function AdminShippingConfigPage() {
     setLocationStates(states.length ? states.map(normalizeLocationStateForForm) : [createLocationState()]);
   }, []);
 
+  const loadLogisticsConfig = useCallback(async () => {
+    try {
+      const [{ data: pData }, { data: rData }] = await Promise.all([
+         adminHttp.get("/api/config/active_logistics_providers").catch(() => ({ data: null })),
+         adminHttp.get("/api/config/logistics_partner_pricing_rules").catch(() => ({ data: null }))
+      ]);
+      if (pData?.data?.value) setLogisticsProviders(pData.data.value);
+      if (rData?.data?.value) setPartnerRules(rData.data.value);
+    } catch {
+      // safely fallback
+    }
+  }, []);
+
   const loadPage = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      await Promise.all([loadRules(), loadStatistics(), loadOptions(), loadLocationConfig()]);
+      await Promise.all([loadRules(), loadStatistics(), loadOptions(), loadLocationConfig(), loadLogisticsConfig()]);
     } catch (e) {
       setError(normalizeError(e));
     } finally {
       setLoading(false);
     }
-  }, [loadLocationConfig, loadOptions, loadRules, loadStatistics]);
+  }, [loadLocationConfig, loadLogisticsConfig, loadOptions, loadRules, loadStatistics]);
 
   useEffect(() => {
     loadPage();
@@ -157,6 +177,54 @@ export function AdminShippingConfigPage() {
     setFormData(createRuleForm(stateOptions[0] || "Tamil Nadu"));
     setEditingRuleId(null);
     setShowForm(false);
+  }
+
+  async function toggleLogistics(provider) {
+    setSavingLogistics(true);
+    const next = logisticsProviders.includes(provider) 
+        ? logisticsProviders.filter((p) => p !== provider) 
+        : [...logisticsProviders, provider];
+    
+    if (next.length === 0) {
+       setError("At least one logistics provider must remain active.");
+       setSavingLogistics(false);
+       return;
+    }
+    
+    setLogisticsProviders(next);
+    try {
+        await adminHttp.patch("/api/config/active_logistics_providers", {
+            value: next,
+            description: "Globally enabled logistics providers array."
+        });
+        setSuccess(`Logistics provider ${provider} ${next.includes(provider) ? 'enabled' : 'disabled'}.`);
+    } catch(err) {
+        setError(normalizeError(err));
+    } finally {
+        setSavingLogistics(false);
+    }
+  }
+
+  const handleChangeRule = (provider, field, value) => {
+    setPartnerRules(prev => ({
+       ...prev,
+       [provider]: { ...prev[provider], [field]: value }
+    }));
+  };
+
+  async function handleSaveRules() {
+    setSavingLogistics(true);
+    try {
+       await adminHttp.patch("/api/config/logistics_partner_pricing_rules", {
+           value: partnerRules,
+           description: "Pricing margins and ETA buffers applied dynamically per logistics provider."
+       });
+       setSuccess("Partner routing configurations saved successfully.");
+    } catch(err) {
+       setError(normalizeError(err));
+    } finally {
+       setSavingLogistics(false);
+    }
   }
 
   function handleEditRule(rule) {
@@ -405,6 +473,73 @@ export function AdminShippingConfigPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-gray-900">Active Logistics Partners</h2>
+            <p className="mt-1 text-sm text-gray-600">Configure global delivery providers, apply cost margins on top of their real-time API fees, and add ETA safety buffers to the displayed dates.</p>
+            <div className="mt-6 grid gap-6 xl:grid-cols-3">
+              {["SHIPROCKET", "SHADOWFAX", "DELHIVERY"].map(provider => {
+                 const isEnabled = logisticsProviders.includes(provider);
+                 const rule = partnerRules[provider] || {};
+                 return (
+                   <div key={provider} className="rounded-xl border border-gray-200 overflow-hidden text-sm">
+                     <div className="bg-gray-50 flex items-center justify-between p-4 border-b border-gray-200">
+                       <span className="font-semibold text-gray-900 uppercase">{provider}</span>
+                       <button
+                         type="button"
+                         role="switch"
+                         aria-checked={isEnabled}
+                         disabled={savingLogistics}
+                         onClick={() => toggleLogistics(provider)}
+                         className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition ${isEnabled ? "border-green-500 bg-green-500" : "border-gray-300 bg-gray-200"}`}
+                       >
+                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${isEnabled ? "translate-x-6" : "translate-x-1"}`} />
+                       </button>
+                     </div>
+                     <div className="p-4 grid gap-4">
+                       <label>
+                         <span className="block text-xs font-semibold text-gray-600 mb-1">Fee Margin Type</span>
+                         <select 
+                           value={rule.markupType || "PERCENTAGE"} 
+                           onChange={(e) => handleChangeRule(provider, "markupType", e.target.value)}
+                           className="w-full rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 disabled:opacity-60"
+                           disabled={!isEnabled}
+                         >
+                           <option value="PERCENTAGE">Percentage Over Cost (%)</option>
+                           <option value="FIXED">Flat Markup (₹)</option>
+                         </select>
+                       </label>
+                       <label>
+                         <span className="block text-xs font-semibold text-gray-600 mb-1">Markup Value</span>
+                         <input 
+                           type="number"
+                           value={rule.markupValue ?? 10} 
+                           onChange={(e) => handleChangeRule(provider, "markupValue", Number(e.target.value))}
+                           className="w-full rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 disabled:opacity-60"
+                           disabled={!isEnabled}
+                         />
+                       </label>
+                       <label>
+                         <span className="block text-xs font-semibold text-gray-600 mb-1">Safety ETA padding (days)</span>
+                         <input 
+                           type="number"
+                           value={rule.etaBuffer ?? 0} 
+                           onChange={(e) => handleChangeRule(provider, "etaBuffer", Number(e.target.value))}
+                           className="w-full rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 disabled:opacity-60"
+                           disabled={!isEnabled}
+                         />
+                       </label>
+                     </div>
+                   </div>
+                 )
+              })}
+            </div>
+            <div className="mt-5">
+              <button type="button" onClick={handleSaveRules} disabled={savingLogistics} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                {savingLogistics ? "Saving Config..." : "Save Route Overrides"}
+              </button>
             </div>
           </section>
 

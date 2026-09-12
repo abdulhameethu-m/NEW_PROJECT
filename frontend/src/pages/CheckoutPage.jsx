@@ -191,6 +191,8 @@ export function CheckoutPage() {
   const [addressForm, setAddressForm] = useState(EMPTY_ADDRESS_FORM);
   const [paymentMethod, setPaymentMethod] = useState("COD");
   const [currentStep, setCurrentStep] = useState("summary");
+  const [selectedShippingProvider, setSelectedShippingProvider] = useState("");
+  const [selectedShippingQuoteId, setSelectedShippingQuoteId] = useState("");
   const [showAddressSelector, setShowAddressSelector] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showCodConfirmPopup, setShowCodConfirmPopup] = useState(false);
@@ -490,6 +492,12 @@ export function CheckoutPage() {
             guestCartItems
           );
           setSummary(nextSummary);
+          const opts = nextSummary?.shipping?.options || [];
+          const uniqueOpts = opts.filter((o, i) => opts.findIndex(x => x.provider === o.provider) === i);
+          if (uniqueOpts.length && !selectedShippingProvider) {
+            setSelectedShippingProvider(uniqueOpts[0].provider);
+            setSelectedShippingQuoteId(uniqueOpts[0].quoteId);
+          }
           setCodAvailability(nextSummary?.codAvailability || null);
         }
       } catch (refreshError) {
@@ -556,6 +564,12 @@ export function CheckoutPage() {
     loadPreparedCheckout(activeAddress, paymentMethod)
       .then((nextSummary) => {
         setSummary(nextSummary);
+        const opts = nextSummary?.shipping?.options || [];
+        const uniqueOpts = opts.filter((o, i) => opts.findIndex(x => x.provider === o.provider) === i);
+        if (uniqueOpts.length && !selectedShippingProvider) {
+          setSelectedShippingProvider(uniqueOpts[0].provider);
+          setSelectedShippingQuoteId(uniqueOpts[0].quoteId);
+        }
         setCodAvailability(nextSummary?.codAvailability || null);
         setAmountPulse(true);
       })
@@ -710,17 +724,26 @@ export function CheckoutPage() {
 
     try {
       const trackingContext = loadTrackingContext();
+      
+      const allOpts = summary?.shipping?.options || [];
+      const selectedShippingOption = allOpts.find(op => op.provider === selectedShippingProvider) || allOpts[0] || null;
+      const deliveryPayload = {
+        shippingAddress,
+        paymentMethod: "COD",
+        trackingToken: trackingContext?.trackingToken,
+      };
+      if (selectedShippingOption) {
+        deliveryPayload.shippingQuoteId = selectedShippingOption.quoteId;
+        deliveryPayload.selectedProvider = selectedShippingOption.provider;
+      }
+
       if (!isAuthenticated) {
         redirectToLoginForFinalCheckout(shippingAddress);
         return;
       }
 
       if (paymentMethod === "COD" && !(codAdvance?.enabled && Number(codAdvance?.advanceAmount || 0) > 0)) {
-        const response = await checkoutService.createOrder({
-          shippingAddress,
-          paymentMethod: "COD",
-          trackingToken: trackingContext?.trackingToken,
-        });
+        const response = await checkoutService.createOrder(deliveryPayload);
         const orders = response?.data?.orders || [];
         const payment = response?.data?.payment || null;
         
@@ -734,12 +757,15 @@ export function CheckoutPage() {
         return;
       }
 
+      const onlinePayload = {
+        cartId: "current",
+        ...deliveryPayload
+      };
+      // Online Payload overriding COD
+      onlinePayload.paymentMethod = paymentMethod;
+
       const [orderRes] = await Promise.all([
-        (paymentMethod === "COD" ? paymentService.createCodAdvanceOrder : paymentService.createRazorpayOrder)({
-          cartId: "current",
-          shippingAddress,
-          trackingToken: trackingContext?.trackingToken,
-        }),
+        (paymentMethod === "COD" ? paymentService.createCodAdvanceOrder : paymentService.createRazorpayOrder)(onlinePayload),
         ensureRazorpay(),
       ]);
       const razorpayData = orderRes || {};
@@ -1295,13 +1321,70 @@ export function CheckoutPage() {
 
             </section>
 
+            {(summary?.shipping?.options && summary.shipping.options.length > 0) && (
+              <section className="relative z-10 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                    3. Choose Delivery Method
+                  </h2>
+                </div>
+
+                <div className="mt-5 grid gap-3">
+                  {/* Deduplicate by provider before rendering */}
+                  {summary.shipping.options
+                    .filter((o, i, arr) => arr.findIndex(x => x.provider === o.provider) === i)
+                    .map((option) => (
+                    <button
+                      key={option.provider}
+                      type="button"
+                      onClick={() => {
+                        setSelectedShippingProvider(option.provider);
+                        setSelectedShippingQuoteId(option.quoteId);
+                      }}
+                      className={`rounded-[1.5rem] border p-4 text-left transition-all ${
+                        selectedShippingProvider === option.provider
+                          ? "border-green-600 bg-green-50/50 shadow-sm"
+                          : "border-slate-200 hover:border-slate-300 bg-white dark:border-slate-800 dark:hover:border-slate-700 dark:bg-slate-900"
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <div className="text-base font-bold text-slate-900 dark:text-white uppercase">{option.provider} - {option.service}</div>
+                          <div className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                            Estimated Delivery: {new Date(option.estimatedDeliveryDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[1.05rem] font-bold text-slate-900 dark:text-white">{formatCurrency(option.price)}</div>
+                        </div>
+                        <div
+                          className={`shrink-0 flex items-center justify-center h-5 w-5 rounded-full border-2 transition-colors ${
+                            selectedShippingProvider === option.provider
+                              ? "border-green-600"
+                              : "border-slate-300 dark:border-slate-600"
+                          }`}
+                        >
+                          {selectedShippingProvider === option.provider && (
+                            <div className="h-2.5 w-2.5 rounded-full bg-green-600" />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <section className="relative z-10 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-900">
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100/50">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                 </div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                  3. Choose Payment
+                  {summary?.shipping?.options?.length > 0 ? "4" : "3"}. Choose Payment
                 </h2>
               </div>
 

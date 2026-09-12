@@ -67,6 +67,32 @@ async function getConfigByKey(key, user = {}) {
       updatedBy: actorId(user),
     });
     config = created.toObject();
+  } else if (!config && key === "active_logistics_providers") {
+    const created = await PlatformConfig.create({
+      key: "active_logistics_providers",
+      value: ["SHIPROCKET", "SHADOWFAX", "DELHIVERY"],
+      description: "Array of provider identifiers that are considered globally enabled.",
+      category: "shipping",
+      type: "array",
+      isPublic: false,
+      updatedBy: actorId(user),
+    });
+    config = created.toObject();
+  } else if (!config && key === "logistics_partner_pricing_rules") {
+    const created = await PlatformConfig.create({
+      key: "logistics_partner_pricing_rules",
+      value: {
+        SHIPROCKET: { markupType: "PERCENTAGE", markupValue: 10, etaBuffer: 1 },
+        SHADOWFAX: { markupType: "PERCENTAGE", markupValue: 10, etaBuffer: 1 },
+        DELHIVERY: { markupType: "PERCENTAGE", markupValue: 10, etaBuffer: 1 },
+      },
+      description: "Pricing margins and ETA buffers applied dynamically per logistics provider.",
+      category: "shipping",
+      type: "object",
+      isPublic: false,
+      updatedBy: actorId(user),
+    });
+    config = created.toObject();
   }
 
   if (!config) {
@@ -86,7 +112,13 @@ async function updateConfig(key, payload = {}, user = {}, meta = {}) {
     throw new AppError("Value is required", 400, "VALIDATION_ERROR");
   }
 
-  const config = await PlatformConfig.findOne({ key });
+  let config = await PlatformConfig.findOne({ key });
+  if (!config) {
+    // Attempt bootstrap sequence by calling the GET handler
+    await getConfigByKey(key, user);
+    config = await PlatformConfig.findOne({ key });
+  }
+
   if (!config) {
     throw new AppError("Configuration not found", 404, "NOT_FOUND");
   }

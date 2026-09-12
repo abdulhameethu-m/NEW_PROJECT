@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
-import { Trash2 } from 'lucide-react-native';
+import { Trash2, ArrowRight } from 'lucide-react-native';
 import { useCart, useUpdateCartQuantity, useRemoveCartItem, useClearCart } from '../../hooks/useCart';
 import { CartItem as CartItemType } from '../../types/cart';
 import { CartItem } from '../../components/cart/CartItem';
@@ -22,15 +22,16 @@ export default function CartScreen() {
   if (status !== 'AUTHENTICATED') {
     return (
       <SafeAreaScreen className="flex-1 bg-white dark:bg-slate-900">
-        <View className="flex-1 items-center justify-center p-8">
-          <Text className="text-xl font-bold text-slate-900 dark:text-white mb-2">Login Required</Text>
-          <Text className="text-slate-500 text-center mb-8">Please login to view and manage your cart.</Text>
-          <Pressable 
-            onPress={() => router.push('/(tabs)/profile')}
-            className="bg-primary w-full h-12 rounded-xl items-center justify-center"
+        <View style={styles.centerContainer}>
+          <Text style={styles.authTitle}>Login Required</Text>
+          <Text style={styles.authSubtitle}>Please login to view and manage your cart.</Text>
+          <TouchableOpacity 
+            onPress={() => router.push('/(auth)/login')}
+            activeOpacity={0.8}
+            style={styles.primaryBtn}
           >
-            <Text className="text-white font-semibold">Go to Login</Text>
-          </Pressable>
+            <Text style={styles.primaryBtnText}>Go to Login</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaScreen>
     );
@@ -43,8 +44,10 @@ export default function CartScreen() {
   if (error) {
     return (
       <SafeAreaScreen className="flex-1 bg-white dark:bg-slate-900">
-        <View className="flex-1 items-center justify-center p-4">
-          <Text className="text-red-500 font-medium mb-4">{error.message || 'Failed to load cart'}</Text>
+        <View style={styles.centerContainer}>
+          <Text style={{ color: '#ef4444', fontWeight: '500', marginBottom: 16 }}>
+            {error.message || 'Failed to load cart'}
+          </Text>
         </View>
       </SafeAreaScreen>
     );
@@ -65,34 +68,39 @@ export default function CartScreen() {
   if (!cart?.items?.length) {
     return (
       <SafeAreaScreen className="flex-1 bg-white dark:bg-slate-900">
-        <View className="h-14 justify-center px-4 border-b border-slate-100 dark:border-slate-800">
-          <Text className="text-xl font-bold text-slate-900 dark:text-white">Shopping Cart</Text>
+        <View style={styles.navHeader}>
+          <Text style={styles.navTitle}>Shopping Cart</Text>
         </View>
         <CartEmptyState />
       </SafeAreaScreen>
     );
   }
 
+  const totalQuantity = cart.items.reduce((acc, item) => acc + item.quantity, 0);
+
   return (
     <SafeAreaScreen className="flex-1 bg-slate-50 dark:bg-black">
-      <View className="h-14 flex-row items-center justify-between px-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-        <Text className="text-xl font-bold text-slate-900 dark:text-white">
-          Shopping Cart ({cart.items.reduce((acc, item) => acc + item.quantity, 0)})
+      {/* Top Header */}
+      <View style={styles.navHeader}>
+        <Text style={styles.navTitle}>
+          Shopping Cart ({totalQuantity})
         </Text>
-        <Pressable 
-          className="w-10 h-10 items-center justify-center rounded-full active:bg-slate-100 dark:active:bg-slate-800"
+        <TouchableOpacity 
+          style={styles.clearBtn}
           onPress={() => clearCart()}
           disabled={isClearing}
+          activeOpacity={0.7}
         >
-          {isClearing ? <ActivityIndicator size="small" /> : <Trash2 size={20} className="text-red-500" />}
-        </Pressable>
+          {isClearing ? <ActivityIndicator size="small" color="#ef4444" /> : <Trash2 size={20} color="#64748b" />}
+        </TouchableOpacity>
       </View>
 
+      {/* Cart Items List */}
       <FlatList
         data={cart.items}
-        keyExtractor={(item) => `${item.productId._id}::${item.variantId}`}
+        keyExtractor={(item) => `${item.productId._id}::${item.variantId || 'default'}`}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 32 }}
         renderItem={({ item }) => (
           <CartItem
             item={item}
@@ -101,20 +109,131 @@ export default function CartScreen() {
           />
         )}
         ListFooterComponent={
-           <View className="mt-4">
-             <CartSummary 
-               subtotal={cart.totalAmount}
-               totalAmount={cart.totalAmount}
-               currency={cart.currency}
-             />
-             <View className="px-4 pb-8 bg-white dark:bg-slate-900">
-               <Pressable className="w-full h-14 bg-primary rounded-xl items-center justify-center active:bg-primary/90">
-                 <Text className="text-white font-bold text-lg">Checkout</Text>
-               </Pressable>
-             </View>
-           </View>
+          <CartSummary 
+            subtotal={cart.totalAmount}
+            totalAmount={cart.totalAmount}
+            currency={cart.currency}
+            onCheckout={() => router.push('/checkout')}
+          />
         }
       />
+
+      {/* Sticky Bottom Action Bar with Move to Checkout */}
+      <View style={styles.bottomBar}>
+        <View style={styles.bottomBarContent}>
+          <View>
+            <Text style={styles.totalLabel}>Total Amount</Text>
+            <Text style={styles.totalValue}>
+              ₹{cart.totalAmount.toLocaleString('en-IN')}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => router.push('/checkout')}
+            activeOpacity={0.8}
+            style={styles.checkoutBtn}
+          >
+            <Text style={styles.checkoutBtnText}>Move to Checkout</Text>
+            <ArrowRight size={16} color="#ffffff" style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
+        </View>
+      </View>
     </SafeAreaScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  navHeader: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  navTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  clearBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  authTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 8,
+  },
+  authSubtitle: {
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  primaryBtn: {
+    backgroundColor: '#4f46e5',
+    width: '100%',
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  bottomBar: {
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+  },
+  bottomBarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  totalLabel: {
+    fontSize: 11,
+    color: '#94a3b8',
+    fontWeight: '500',
+  },
+  totalValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  checkoutBtn: {
+    paddingHorizontal: 24,
+    height: 48,
+    backgroundColor: '#4f46e5',
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkoutBtnText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+});

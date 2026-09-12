@@ -1,11 +1,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, FlatList, ActivityIndicator, Text, Pressable } from 'react-native';
+import { View, FlatList, ActivityIndicator, Text, Pressable, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Heart } from 'lucide-react-native';
 
 import { useProduct } from '../../hooks/useProduct';
 import { useProductReviews } from '../../hooks/useProductReviews';
+import { useAddCartItem } from '../../hooks/useCart';
+import { useWishlist, useToggleWishlist } from '../../hooks/useWishlist';
+import { useAuthStore } from '../../stores/authStore';
 import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer';
 import { ProductGallery } from '../../components/product/ProductGallery';
 import { ProductInfo } from '../../components/product/ProductInfo';
@@ -15,14 +18,17 @@ import { ProductDescription } from '../../components/product/ProductDescription'
 import { ReviewSummary } from '../../components/product/ReviewSummary';
 import { ReviewCard } from '../../components/product/ReviewCard';
 import { ReviewForm } from '../../components/product/ReviewForm';
-import { ProductVariant } from '../../types/catalog';
 
 export default function ProductDetailsScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   
+  const status = useAuthStore(state => state.status);
+  const isAuthenticated = status === 'AUTHENTICATED';
+
   const [isReviewFormVisible, setIsReviewFormVisible] = useState(false);
+  const [isBuyingNow, setIsBuyingNow] = useState(false);
 
   const { data: product, isLoading: isProductLoading, isError: isProductError } = useProduct(slug);
   const { 
@@ -32,6 +38,11 @@ export default function ProductDetailsScreen() {
     fetchNextPage,
     isFetchingNextPage
   } = useProductReviews(product?._id);
+
+  // Cart & Wishlist hooks
+  const { mutateAsync: addCartItem, isPending: isAddingToCart } = useAddCartItem();
+  const { data: wishlistItems = [] } = useWishlist();
+  const { mutate: toggleWishlist, isPending: isWishlistLoading } = useToggleWishlist();
 
   const [activeVariantId, setActiveVariantId] = useState<string | null>(null);
 
@@ -50,9 +61,100 @@ export default function ProductDetailsScreen() {
     return product.variants?.find(v => v.variantId === activeVariantId) || null;
   }, [product, activeVariantId]);
 
+  const isWishlisted = useMemo(() => {
+    if (!product?._id) return false;
+    return wishlistItems.some(item => {
+      const prodId = typeof item.product === 'object' ? (item.product as any)?._id : item.product;
+      return String(prodId) === String(product._id);
+    });
+  }, [wishlistItems, product?._id]);
+
   const reviews = useMemo(() => {
     return reviewsData?.pages.flatMap(page => page.reviews) || [];
   }, [reviewsData]);
+
+  // Wishlist Toggle Handler
+  const handleToggleWishlist = () => {
+    if (!isAuthenticated) {
+      router.push('/(auth)/login');
+      return;
+    }
+    if (!product?._id) return;
+
+    toggleWishlist({
+      productId: product._id,
+      active: !isWishlisted,
+      variantId: activeVariant?.variantId,
+    });
+  };
+
+  // Add To Cart Handler
+  const handleAddToCart = async () => {
+    if (!isAuthenticated) {
+      router.push('/(auth)/login');
+      return;
+    }
+    if (!product?._id) return;
+    if (product.stock <= 0) return;
+
+    try {
+      const res = await addCartItem({
+        productId: product._id,
+        quantity: 1,
+        variantId: activeVariant?.variantId,
+      });
+
+      // Find the item added to the cart
+      let addedItem = res?.cart?.items?.find((i: any) => {
+        const id = typeof i.productId === 'object' ? i.productId._id : i.productId;
+        return String(id) === String(product._id);
+      });
+
+      if (!addedItem && res?.cart?.items?.length) {
+        addedItem = res.cart.items[res.cart.items.length - 1];
+      }
+
+      if (addedItem) {
+        router.push({
+          pathname: '/cart-drawer' as any,
+          params: {
+            cartItemId: addedItem._id,
+            productId: product._id,
+            quantity: addedItem.quantity,
+          },
+        });
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Could not add product to cart';
+      Alert.alert('Cart Error', msg);
+    }
+  };
+
+  // Buy Now Handler (Add to cart & immediately navigate to Checkout)
+  const handleBuyNow = async () => {
+    if (!isAuthenticated) {
+      router.push('/(auth)/login');
+      return;
+    }
+    if (!product?._id) return;
+    if (product.stock <= 0) return;
+
+    setIsBuyingNow(true);
+    try {
+      await addCartItem({
+        productId: product._id,
+        quantity: 1,
+        variantId: activeVariant?.variantId,
+      });
+
+      router.push('/checkout');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Could not initiate checkout';
+      Alert.alert('Checkout Error', msg);
+    } finally {
+      setIsBuyingNow(false);
+    }
+  };
 
   if (isProductLoading) {
     return (
@@ -72,14 +174,13 @@ export default function ProductDetailsScreen() {
   }
 
   const renderHeader = () => {
-    // Determine overlapping presentation states
     const displayImages = activeVariant?.images && activeVariant.images.length > 0 
       ? activeVariant.images 
       : product.images;
 
     return (
       <View className="pb-4">
-        {/* Keeping strict standard back navigation for product app */}
+        {/* Top bar with back arrow */}
         <View 
           className="flex-row items-center px-4 pb-2 bg-white dark:bg-slate-950 z-10" 
           style={{ paddingTop: insets.top + 8 }}
@@ -104,7 +205,7 @@ export default function ProductDetailsScreen() {
         <ProductDescription description={product.description} />
         <ProductAttributes attributes={product.attributes} />
         
-        {/* Placeholder for "Sold By" component from Phase 6 */}
+        {/* "Sold By" component */}
         <View className="px-4 py-4 mt-2 bg-white dark:bg-slate-950">
           <Text className="text-lg font-bold text-slate-900 dark:text-white mb-4">Sold By</Text>
           <View className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex-row items-center">
@@ -157,6 +258,8 @@ export default function ProductDetailsScreen() {
     return <View className="h-32 bg-white dark:bg-slate-950" />;
   };
 
+  const isOutOfStock = product.stock <= 0;
+
   return (
     <View className="flex-1 bg-slate-50 dark:bg-slate-900">
       <ResponsiveContainer>
@@ -176,7 +279,7 @@ export default function ProductDetailsScreen() {
           contentContainerStyle={{ paddingBottom: insets.bottom }}
         />
         
-        {/* Fixed Bottom Cart Bar matching Target UI */}
+        {/* Fixed Bottom Action Bar */}
         <View 
           className="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-950 pt-4 pb-4 px-4 border-t border-slate-200 dark:border-slate-800 flex-row items-center rounded-t-3xl shadow-lg shadow-black/10"
           style={{ paddingBottom: Math.max(insets.bottom, 16) }}
@@ -185,14 +288,64 @@ export default function ProductDetailsScreen() {
             <View className="w-10 h-1 bg-slate-300 dark:bg-slate-700 rounded-full" />
           </View>
           
-          <Pressable className="w-12 h-12 rounded-2xl border border-slate-200 dark:border-slate-700 items-center justify-center mr-3 mt-2">
-            <Heart size={22} className="text-slate-600 dark:text-slate-400" />
+          {/* Wishlist Button */}
+          <Pressable 
+            onPress={handleToggleWishlist}
+            disabled={isWishlistLoading}
+            className={`w-12 h-12 rounded-2xl border items-center justify-center mr-3 mt-2 active:scale-95 transition-all ${
+              isWishlisted
+                ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/40'
+                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'
+            }`}
+            accessibilityLabel="Wishlist"
+          >
+            {isWishlistLoading ? (
+              <ActivityIndicator size="small" color="#ef4444" />
+            ) : (
+              <Heart 
+                size={22} 
+                color={isWishlisted ? '#ef4444' : '#64748b'} 
+                fill={isWishlisted ? '#ef4444' : 'transparent'} 
+              />
+            )}
           </Pressable>
-          <Pressable className="flex-1 bg-[#0f172a] h-12 rounded-xl items-center justify-center mr-2 mt-2">
-            <Text className="text-white font-bold">Add to Cart</Text>
+
+          {/* Add to Cart Button */}
+          <Pressable 
+            onPress={handleAddToCart}
+            disabled={isAddingToCart || isBuyingNow || isOutOfStock}
+            className={`flex-1 h-12 rounded-xl items-center justify-center mr-2 mt-2 active:opacity-90 ${
+              isOutOfStock
+                ? 'bg-slate-300 dark:bg-slate-800 opacity-60'
+                : 'bg-[#0f172a] active:bg-[#1e293b]'
+            }`}
+            accessibilityLabel="Add to Cart"
+          >
+            {isAddingToCart ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Text className="text-white font-bold">
+                {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
+              </Text>
+            )}
           </Pressable>
-          <Pressable className="flex-1 bg-[#f97316] h-12 rounded-xl items-center justify-center mt-2">
-            <Text className="text-white font-bold">Buy Now</Text>
+
+          {/* Buy Now Button */}
+          <Pressable 
+            onPress={handleBuyNow}
+            disabled={isAddingToCart || isBuyingNow || isOutOfStock}
+            className={`flex-1 h-12 rounded-xl items-center justify-center mt-2 active:opacity-90 ${
+              isOutOfStock
+                ? 'bg-slate-300 dark:bg-slate-800 opacity-60'
+                : 'bg-[#f97316] active:bg-[#ea580c]'
+            }`}
+            accessibilityLabel="Buy Now"
+          >
+            {isBuyingNow ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Text className="text-white font-bold">Buy Now</Text>
+            )}
           </Pressable>
         </View>
 

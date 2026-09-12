@@ -209,6 +209,59 @@ function buildShadowfaxPayload(platformRequest, vendor) {
   };
 }
 
+function buildDelhiveryPayload(platformRequest, vendor) {
+  const { orderDetails, deliveryAddress, pickupAddress } = platformRequest;
+  const totalWeight = (orderDetails.items || []).reduce(
+    (sum, item) => sum + Number(item.weight || 0) * Number(item.units || 0),
+    0
+  );
+  
+  return {
+    pickup_location: {
+      name: vendor?.shopName || pickupAddress.name || "Primary",
+      add: pickupAddress.addressLine1,
+      city: pickupAddress.city,
+      pin: pickupAddress.pincode,
+      country: "India",
+      phone: pickupAddress.phone,
+    },
+    shipments: [
+      {
+        name: deliveryAddress.fullName,
+        add: deliveryAddress.line1 + (deliveryAddress.line2 ? " " + deliveryAddress.line2 : ""),
+        pin: deliveryAddress.postalCode,
+        city: deliveryAddress.city,
+        state: deliveryAddress.state,
+        country: "India",
+        phone: deliveryAddress.phone,
+        order: String(orderDetails.orderId),
+        payment_mode: orderDetails.paymentMethod === "COD" ? "COD" : "Prepaid",
+        return_pin: pickupAddress.pincode,
+        return_city: pickupAddress.city,
+        return_phone: pickupAddress.phone,
+        return_add: pickupAddress.addressLine1,
+        return_state: pickupAddress.state,
+        return_country: "India",
+        products_desc: (orderDetails.items || []).map(i => i.name).join(", "),
+        hsn_code: "85171200",
+        cod_amount: orderDetails.paymentMethod === "COD" ? orderDetails.total || orderDetails.subtotal : 0,
+        order_date: new Date(orderDetails.orderDate).toISOString(),
+        total_amount: orderDetails.total || orderDetails.subtotal,
+        quantity: (orderDetails.items || []).reduce((sum, item) => sum + Number(item.units), 0),
+        cgst: 0,
+        sgst: 0,
+        igst: 0,
+        seller_name: vendor?.shopName || "Vendor",
+        seller_add: pickupAddress.addressLine1,
+        seller_cst: vendor?.taxDetails?.gstin || vendor?.gstin || "N/A",
+        seller_tin: vendor?.taxDetails?.gstin || vendor?.gstin || "N/A",
+        consignee_gst_amount: 0,
+        integrated_gst_amount: 0,
+      }
+    ]
+  };
+}
+
 function buildShadowfaxReversePickupPayload(returnRequest, order, vendor, pickupAddress) {
   const isSandbox = (process.env.SHADOWFAX_BASE_URL || "staging").includes("staging");
   const overrideVendorPincode = isSandbox ? 560007 : pickupAddress.pincode;
@@ -270,10 +323,10 @@ class DeliveryService {
       returnRequest
     };
 
-    const isShadowfax = logisticsService.providerName === "SHADOWFAX";
+    const targetProviderId = (order.logisticsProvider || process.env.LOGISTICS_PROVIDER || "SHIPROCKET").toUpperCase();
     
-    if (!isShadowfax) {
-      throw new AppError("Only Shadowfax is currently supported for Reverse Pickups.", 503, "LOGISTICS_PROVIDER_UNSUPPORTED");
+    if (targetProviderId === "DELHIVERY" || targetProviderId === "SHIPROCKET") {
+      throw new AppError("Only Shadowfax is currently supported for Reverse Pickups in MVP.", 503, "LOGISTICS_PROVIDER_UNSUPPORTED");
     }
 
     const providerPayload = buildShadowfaxReversePickupPayload(returnRequest, order, vendor, pickupAddress);
@@ -300,11 +353,16 @@ class DeliveryService {
     if (!resolvedOrder) throw new AppError("Order not found", 404, "NOT_FOUND");
     const platformRequest = await buildPlatformShipmentRequest(resolvedOrder, resolvedVendor);
     
-    // Choose correct payload builder based on `.env` configuration
-    const isShadowfax = logisticsService.providerName === "SHADOWFAX";
-    const providerPayload = isShadowfax 
-      ? buildShadowfaxPayload(platformRequest, resolvedVendor) 
-      : buildShiprocketPayload(platformRequest, resolvedVendor);
+    const targetProviderId = (resolvedOrder.logisticsProvider || process.env.LOGISTICS_PROVIDER || "SHIPROCKET").toUpperCase();
+    
+    let providerPayload;
+    if (targetProviderId === "SHADOWFAX") {
+      providerPayload = buildShadowfaxPayload(platformRequest, resolvedVendor);
+    } else if (targetProviderId === "DELHIVERY") {
+      providerPayload = buildDelhiveryPayload(platformRequest, resolvedVendor);
+    } else {
+      providerPayload = buildShiprocketPayload(platformRequest, resolvedVendor);
+    }
 
     const shipment = await logisticsService.createPlatformShipment({
       ...platformRequest,

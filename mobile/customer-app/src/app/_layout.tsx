@@ -70,6 +70,8 @@ function RootLayoutNav() {
           animation: 'fade',
         }} 
       />
+      <Stack.Screen name="checkout" options={{ headerShown: false }} />
+      <Stack.Screen name="order-success" options={{ headerShown: false }} />
     </Stack>
   );
 }

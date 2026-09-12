@@ -491,6 +491,100 @@ class WebhookService {
       throw error;
     }
   }
+
+  async handleDelhiveryWebhook(data, { rawBody, signature } = {}) {
+    logisticsService.verifyWebhookSignature(rawBody, signature);
+    const shipmentData = data?.Shipment || data;
+    const awb = shipmentData?.Waybill || shipmentData?.awb || "";
+    const currentStatus = String(shipmentData?.Status?.Status || shipmentData?.Status?.StatusType || shipmentData?.status || "unknown");
+    
+    const eventId = buildEventId("DELHIVERY", currentStatus, JSON.stringify(data || {}));
+    const hash = payloadHash(rawBody || JSON.stringify(data || {}));
+    
+    const existing = await webhookEventRepo.findByEventId(eventId);
+    if (existing) return { status: "duplicate_ignored", eventId };
+
+    const webhookRecord = await webhookEventRepo.create({
+      provider: "DELHIVERY",
+      eventType: currentStatus,
+      eventId,
+      providerEventId: String(awb),
+      payloadHash: hash,
+      receivedAt: new Date(),
+      signatureVerified: true,
+      status: "RECEIVED",
+      payload: data,
+    });
+
+    try {
+      if (!awb) throw new AppError("Delhivery webhook missing Waybill", 400, "MISSING_AWB");
+      const order = await orderRepo.findByTrackingId(awb);
+      
+      if (order) {
+        let nextShippingStatus = order.shippingStatus;
+        let nextPickupStatus = order.pickupStatus;
+        
+        const statusMap = String(currentStatus).toLowerCase().trim();
+
+        if (statusMap.includes("pickup") && statusMap.includes("scheduled")) {
+          nextShippingStatus = "PICKUP_SCHEDULED";
+          nextPickupStatus = "SCHEDULED";
+        } else if (statusMap.includes("manifested") || statusMap.includes("dispatched") || statusMap.includes("picked")) {
+          nextShippingStatus = "IN_TRANSIT";
+          nextPickupStatus = "COMPLETED";
+        } else if (statusMap.includes("in transit") || statusMap.includes("pending")) {
+          nextShippingStatus = "IN_TRANSIT";
+        } else if (statusMap.includes("out for delivery")) {
+          nextShippingStatus = "OUT_FOR_DELIVERY";
+        } else if (statusMap.includes("rto") || statusMap.includes("undelivered")) {
+          nextShippingStatus = "FAILED";
+          nextPickupStatus = order.pickupStatus === "REQUESTED" ? "FAILED" : order.pickupStatus;
+        } else if (statusMap.includes("delivered")) {
+          nextShippingStatus = "DELIVERED";
+          nextPickupStatus = order.pickupStatus === "NOT_REQUESTED" ? "COMPLETED" : order.pickupStatus;
+        }
+
+        const lifecycle = applyShippingLifecycle({
+          orderStatus: order.status,
+          shippingMode: order.shippingMode || "PLATFORM",
+          shippingStatus: nextShippingStatus,
+          pickupStatus: nextPickupStatus,
+        });
+
+        const updatedOrder = await orderRepo.updateById(order._id, {
+          status: lifecycle.status,
+          shippingMode: lifecycle.shippingMode,
+          shippingStatus: lifecycle.shippingStatus,
+          pickupStatus: lifecycle.pickupStatus,
+          trackingId: awb,
+          deliveryPartner: "DELHIVERY",
+          deliveryStatus:
+            lifecycle.shippingStatus === "DELIVERED"
+              ? "DELIVERED"
+              : ["IN_TRANSIT", "OUT_FOR_DELIVERY"].includes(lifecycle.shippingStatus)
+                ? "SHIPPED"
+                : order.deliveryStatus,
+          pickupScheduled: ["SCHEDULED", "COMPLETED"].includes(lifecycle.pickupStatus),
+          ...(lifecycle.pickupStatus === "SCHEDULED" ? { pickupScheduledAt: new Date() } : {}),
+          ...(lifecycle.pickupStatus === "COMPLETED" ? { pickupCompletedAt: new Date() } : {}),
+        });
+
+        if (updatedOrder?.status === "Delivered") {
+          await payoutService.markOrderDelivered(updatedOrder._id);
+        }
+      }
+
+      await webhookEventRepo.updateById(webhookRecord._id, {
+        $set: { status: "PROCESSED", processedAt: new Date() },
+      });
+      return { status: "ok", eventId };
+    } catch (error) {
+      await webhookEventRepo.updateById(webhookRecord._id, {
+        $set: { status: "FAILED", errorMessage: error.message },
+      });
+      throw error;
+    }
+  }
 }
 
 module.exports = new WebhookService();

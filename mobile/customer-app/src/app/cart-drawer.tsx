@@ -294,14 +294,12 @@ export default function CartDrawerScreen() {
           
           <Pressable 
             onPress={() => {
-              // Placeholder for Phase 8 integration
-              console.log("Routing to non-existent checkout boundary");
-              router.back();
+              router.push('/checkout');
             }}
-            className="w-full bg-emerald-500 items-center justify-center flex-row gap-2 rounded-[14px] py-4"
+            className="w-full bg-emerald-500 items-center justify-center flex-row gap-2 rounded-[14px] py-4 active:bg-emerald-600"
           >
             <ShieldCheck size={18} color="white" />
-            <Text className="text-white font-extrabold text-[16px]">Checkout Available Soon</Text>
+            <Text className="text-white font-extrabold text-[16px]">Proceed to Checkout</Text>
           </Pressable>
         </View>
 

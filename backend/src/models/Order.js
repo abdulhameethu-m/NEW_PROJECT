@@ -335,6 +335,16 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
     logisticsProvider: { type: String, trim: true, default: "SHIPROCKET" },
+    shippingQuoteId: { type: String, trim: true, index: true },
+    shippingProvider: { type: String, trim: true },
+    shippingService: { type: String, trim: true },
+    providerCost: { type: Number, min: 0, default: 0 },
+    shippingCustomerPrice: { type: Number, min: 0, default: 0 },
+    estimatedDeliveryDate: { type: Date },
+    shippingQuoteSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     pickupAddressSnapshot: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
