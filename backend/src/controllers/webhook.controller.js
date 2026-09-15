@@ -3,8 +3,9 @@ const { asyncHandler } = require("../utils/asyncHandler");
 const webhookService = require("../services/webhook.service");
 
 const razorpayWebhook = asyncHandler(async (req, res) => {
-  const signature = req.headers["x-razorpay-signature"];
-  const rawBody = req.rawBody || (Buffer.isBuffer(req.body) ? req.body.toString("utf8") : JSON.stringify(req.body));
+  const headerSig = req.headers["x-razorpay-signature"];
+  const signature = Array.isArray(headerSig) ? headerSig[0] : headerSig;
+  const rawBody = req.rawBody || (Buffer.isBuffer(req.body) ? req.body.toString("utf8") : (typeof req.body === "string" ? req.body : JSON.stringify(req.body || {})));
   const result = await webhookService.handleRazorpayWebhook(rawBody, signature);
   return ok(res, result);
 });

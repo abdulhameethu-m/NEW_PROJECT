@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  BackHandler,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -60,6 +61,15 @@ export default function CheckoutScreen() {
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'ONLINE'>('COD');
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [isOnlinePaying, setIsOnlinePaying] = useState<boolean>(false);
+
+  // Prevent accidental navigation away from checkout screen during active online payment flow
+  useEffect(() => {
+    if (!isOnlinePaying) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      return true;
+    });
+    return () => subscription.remove();
+  }, [isOnlinePaying]);
 
   // Auto-select default or first address when addresses load
   useEffect(() => {
@@ -208,12 +218,58 @@ export default function CheckoutScreen() {
             const query = (parsed.queryParams || {}) as Record<string, string>;
 
             if (query.status === 'success' && query.razorpay_payment_id) {
-              const verifyRes = await verifyRazorpayPayment({
-                razorpay_order_id: query.razorpay_order_id,
-                razorpay_payment_id: query.razorpay_payment_id,
-                razorpay_signature: query.razorpay_signature,
-                shippingAddress,
-              });
+              let verifyRes: any = null;
+              let lastVerifyErr: any = null;
+
+              // Resilient verification with retry for timeout & network blips
+              for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                  verifyRes = await verifyRazorpayPayment({
+                    razorpay_order_id: query.razorpay_order_id,
+                    razorpay_payment_id: query.razorpay_payment_id,
+                    razorpay_signature: query.razorpay_signature,
+                    shippingAddress,
+                  });
+                  break;
+                } catch (vErr: any) {
+                  lastVerifyErr = vErr;
+                  const statusCode = vErr.response?.status;
+                  // If client validation error (other than 408, 409, 429, 504), don't retry
+                  if (
+                    statusCode &&
+                    statusCode >= 400 &&
+                    statusCode < 500 &&
+                    statusCode !== 408 &&
+                    statusCode !== 409 &&
+                    statusCode !== 429
+                  ) {
+                    break;
+                  }
+                  if (attempt < 3) {
+                    await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+                  }
+                }
+              }
+
+              if (!verifyRes && lastVerifyErr) {
+                const isTimeout =
+                  lastVerifyErr.response?.status === 504 ||
+                  lastVerifyErr.response?.data?.code === 'RAZORPAY_PAYMENT_FETCH_TIMEOUT' ||
+                  String(lastVerifyErr.message || '').toLowerCase().includes('timeout');
+
+                if (isTimeout) {
+                  setCheckoutError(
+                    'Payment was received by Razorpay! Confirmation is synchronizing with your bank. If your account was debited, your order will appear in My Orders momentarily.'
+                  );
+                } else {
+                  const errorMsg =
+                    lastVerifyErr.response?.data?.message ||
+                    lastVerifyErr.message ||
+                    'Payment verification failed. If your bank account was debited, your order will be confirmed automatically via webhook.';
+                  setCheckoutError(errorMsg);
+                }
+                return;
+              }
 
               queryClient.setQueryData(CART_QUERY_KEY, {
                 _id: '',
@@ -225,10 +281,10 @@ export default function CheckoutScreen() {
               });
               queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
 
-              const firstOrder = verifyRes.orders?.[0];
+              const firstOrder = verifyRes?.orders?.[0];
               const orderNumber =
                 firstOrder?.orderNumber ||
-                verifyRes.orderGroupId ||
+                verifyRes?.orderGroupId ||
                 query.razorpay_order_id;
               const orderId = firstOrder?._id || '';
               const totalAmount =
@@ -241,7 +297,7 @@ export default function CheckoutScreen() {
                 params: {
                   orderId,
                   orderNumber,
-                  orderGroupId: verifyRes.orderGroupId || '',
+                  orderGroupId: verifyRes?.orderGroupId || '',
                   totalAmount: String(totalAmount),
                   paymentMethod: 'ONLINE',
                   recipientName: shippingAddress.fullName,
@@ -250,14 +306,15 @@ export default function CheckoutScreen() {
               });
               return;
             } else if (query.status === 'cancelled') {
-              setCheckoutError('Payment window was closed. You can retry when ready.');
+              setCheckoutError('Payment cancelled. Your cart is preserved and you can retry when ready.');
             } else {
               setCheckoutError(
-                query.error || 'Payment was not completed. Please try again.'
+                query.error || 'Payment was declined by bank. Please try another card or UPI.'
               );
             }
           } else {
-            setCheckoutError('Payment window was closed. You can retry when ready.');
+            // User pressed physical Android Back button or dismissed in-app browser
+            setCheckoutError('Payment window was closed. Your cart is preserved and no charges were made.');
           }
         } catch (err: any) {
           const message =

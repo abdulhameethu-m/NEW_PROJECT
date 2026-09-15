@@ -93,12 +93,18 @@ const listPayments = asyncHandler(async (req, res) => {
 
 const getRazorpaySettings = asyncHandler(async (req, res) => {
   const result = await paymentService.getGatewayConfig();
-  return ok(res, result, "Razorpay settings loaded");
+  const origin = `${req.protocol}://${req.get("host")}`;
+  const settingsData = result?.toObject ? result.toObject({ virtuals: true }) : { ...(result || {}) };
+  settingsData.canonicalWebhookUrl = `${origin}/api/webhooks/razorpay`;
+  return ok(res, settingsData, "Razorpay settings loaded");
 });
 
 const updateRazorpaySettings = asyncHandler(async (req, res) => {
   const result = await paymentService.updateGatewayConfig(req.body || {}, req.user?._id || req.user?.sub || null);
-  return ok(res, result, "Razorpay settings updated");
+  const origin = `${req.protocol}://${req.get("host")}`;
+  const settingsData = result?.toObject ? result.toObject({ virtuals: true }) : { ...(result || {}) };
+  settingsData.canonicalWebhookUrl = `${origin}/api/webhooks/razorpay`;
+  return ok(res, settingsData, "Razorpay settings updated");
 });
 
 const getPaymentDetails = asyncHandler(async (req, res) => {

@@ -25,6 +25,7 @@ const guestCartService = require("./guestCart.service");
 const shippingQuoteService = require("./shipping-quote.service");
 const { Order } = require("../models/Order");
 const { Payment } = require("../models/Payment");
+const PaymentGatewayConfig = require("../models/PaymentGatewayConfig");
 const { Vendor } = require("../models/Vendor");
 const commissionRuleService = require("./commission-rule.service");
 const productAnalyticsService = require("./product-analytics.service");
@@ -775,14 +776,68 @@ class CheckoutService {
       }
     }
 
+    let finalCharges = Array.isArray(pricingBreakdown.charges) ? [...pricingBreakdown.charges] : [];
+    let chargesTotal = Number(pricingBreakdown.chargesTotal || 0);
+    let finalTotal = Number(pricingBreakdown.total || subtotal);
+
+    if (paymentMethod === "ONLINE") {
+      try {
+        const gatewayConfig = await PaymentGatewayConfig.findOne({ provider: "RAZORPAY" }).lean();
+        if (gatewayConfig && gatewayConfig.isEnabled) {
+          const discountPct = Number(gatewayConfig.prepaidDiscountPercentage || 0);
+          const discountFixed = Number(gatewayConfig.prepaidDiscountFixed || 0);
+          const feePct = Number(gatewayConfig.gatewayFeePercentage || 0);
+          const feeFixed = Number(gatewayConfig.gatewayFeeFixed || 0);
+
+          let discountAmount = 0;
+          if (discountPct > 0 || discountFixed > 0) {
+            discountAmount = roundMoney((subtotal * discountPct) / 100 + discountFixed);
+            if (discountAmount > 0) {
+              finalCharges.push({
+                key: "prepaid_discount",
+                displayName: discountPct > 0 
+                  ? `Prepaid Razorpay Discount (${discountPct}%${discountFixed ? ` + ₹${discountFixed}` : ""})` 
+                  : `Prepaid Razorpay Discount (₹${discountFixed})`,
+                category: "DISCOUNT",
+                amount: -discountAmount,
+                type: "PREPAID_DISCOUNT",
+                paymentMethod: "ONLINE",
+              });
+            }
+          }
+
+          let feeAmount = 0;
+          if (feePct > 0 || feeFixed > 0) {
+            feeAmount = roundMoney((subtotal * feePct) / 100 + feeFixed);
+            if (feeAmount > 0) {
+              finalCharges.push({
+                key: "gateway_fee",
+                displayName: "Payment Gateway Fee",
+                category: "FEE",
+                amount: feeAmount,
+                type: "GATEWAY_FEE",
+                paymentMethod: "ONLINE",
+              });
+            }
+          }
+
+          const netAdjustment = feeAmount - discountAmount;
+          chargesTotal = roundMoney(chargesTotal + netAdjustment);
+          finalTotal = Math.max(0, roundMoney(finalTotal + netAdjustment));
+        }
+      } catch (err) {
+        logger.warn("Failed to apply payment gateway config discount/fee to checkout summary", { error: err.message });
+      }
+    }
+
     const summary = {
       ...buildSummaryShape({
       currency: currency || cart.currency || "INR",
       sellers,
       subtotal,
-      charges: pricingBreakdown.charges,
-      chargesTotal: pricingBreakdown.chargesTotal,
-      total: pricingBreakdown.total,
+      charges: finalCharges,
+      chargesTotal: roundMoney(chargesTotal),
+      total: roundMoney(finalTotal),
       itemCount: totalItemCount,
       shipping: shippingData,
       paymentMethod: pricingBreakdown.paymentMethod,

@@ -142,11 +142,13 @@ function buildAmountBreakdown(summary = {}) {
       )
     ),
     prepaidDiscount: roundMoney(
-      getChargeAmount(
-        charges,
-        (charge) =>
-          String(charge?.key || "").toLowerCase().includes("discount") ||
-          String(charge?.displayName || "").toLowerCase().includes("discount")
+      Math.abs(
+        getChargeAmount(
+          charges,
+          (charge) =>
+            String(charge?.key || "").toLowerCase().includes("discount") ||
+            String(charge?.displayName || "").toLowerCase().includes("discount")
+        )
       )
     ),
     taxAmount: roundMoney(
@@ -1038,11 +1040,12 @@ class PaymentService {
     if (!razorpayPaymentId) {
       throw new AppError("Razorpay payment id is required", 400, "PAYMENT_REFERENCE_MISSING");
     }
+    const timeoutMs = Math.max(3000, Number(process.env.RAZORPAY_PAYMENT_FETCH_TIMEOUT_MS || 8000));
     try {
       const razorpay = this.getRazorpayClient();
       return await withTimeout(
         razorpay.payments.fetch(razorpayPaymentId),
-        Number(process.env.RAZORPAY_PAYMENT_FETCH_TIMEOUT_MS || 8000),
+        timeoutMs,
         "Razorpay payment fetch timed out"
       );
     } catch (error) {
@@ -1161,7 +1164,73 @@ class PaymentService {
       throw new AppError("Payment verification failed", 400, "PAYMENT_VERIFICATION_FAILED");
     }
 
-    const gatewayPayment = await this.fetchGatewayPayment(razorpay_payment_id);
+    let gatewayPayment;
+    try {
+      gatewayPayment = await this.fetchGatewayPayment(razorpay_payment_id);
+    } catch (fetchError) {
+      logger.warn("Gateway payment fetch failed or timed out; checking webhook fulfillment and retrying", {
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+        error: fetchError.message,
+      });
+
+      // 1. Check if webhook already fulfilled the payment
+      let freshPayment = await paymentRepo.findByRazorpayOrderId(razorpay_order_id);
+      if (
+        freshPayment &&
+        (freshPayment.status === "AUTHORIZED" || freshPayment.status === "PAID") &&
+        freshPayment.orderIds?.length > 0
+      ) {
+        logger.info("Payment was fulfilled via webhook during fetch timeout fallback", {
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+        });
+        return await this.fulfillPaidPayment({
+          paymentId: freshPayment._id,
+          paymentSessionId: freshPayment.paymentSessionId,
+          userId,
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+        });
+      }
+
+      // 2. Retry fetch once with a 5s timeout
+      try {
+        const razorpay = this.getRazorpayClient();
+        gatewayPayment = await withTimeout(
+          razorpay.payments.fetch(razorpay_payment_id),
+          5000,
+          "Razorpay payment fetch retry timed out"
+        );
+      } catch (retryError) {
+        // 3. Check webhook again after retry attempt
+        freshPayment = await paymentRepo.findByRazorpayOrderId(razorpay_order_id);
+        if (
+          freshPayment &&
+          (freshPayment.status === "AUTHORIZED" || freshPayment.status === "PAID") &&
+          freshPayment.orderIds?.length > 0
+        ) {
+          logger.info("Payment was fulfilled via webhook during secondary fetch fallback", {
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+          });
+          return await this.fulfillPaidPayment({
+            paymentId: freshPayment._id,
+            paymentSessionId: freshPayment.paymentSessionId,
+            userId,
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+          });
+        }
+
+        throw new AppError(
+          "Payment verification timed out with Razorpay. If your account was debited, your order will be confirmed automatically via webhook within moments.",
+          504,
+          "RAZORPAY_PAYMENT_FETCH_TIMEOUT",
+          { razorpayOrderId: razorpay_order_id, razorpayPaymentId: razorpay_payment_id }
+        );
+      }
+    }
     if (!gatewayPayment?.id) {
       throw new AppError("Invalid payment returned by gateway", 409, "INVALID_GATEWAY_PAYMENT");
     }
