@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { Star, Heart, ShoppingBag, Plus } from 'lucide-react-native';
+import { Star, Heart, ShoppingBag } from 'lucide-react-native';
 import { Product } from '../../types/catalog';
 import { useRouter } from 'expo-router';
 import { useWishlist, useToggleWishlist } from '../../hooks/useWishlist';
@@ -11,6 +11,11 @@ import { ActivityIndicator } from 'react-native';
 interface ProductCardProps {
   product: Product;
 }
+
+const formatPrice = (val: number, curr?: string) => {
+  const sym = (!curr || curr === 'INR') ? '₹' : curr === 'USD' ? '$' : curr;
+  return `${sym}${val.toLocaleString('en-IN')}`;
+};
 
 export const ProductCard = memo(({ product }: ProductCardProps) => {
   const router = useRouter();
@@ -26,7 +31,6 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
   };
   
   const handleQuickAdd = () => {
-    // Capture the primary variation ID safely if the API bundles a single default dimension
     const defaultVariant = product.variants?.[0];
     const variantId = defaultVariant?.variantId || (defaultVariant as any)?._id;
 
@@ -34,15 +38,12 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
       { productId: product._id, quantity: 1, ...(variantId ? { variantId } : {}) },
       {
         onSuccess: (data) => {
-          // Identify the exact matching payload to launch the drawer deterministically
           let addedItem = data.cart.items.find((i: any) => {
               const id = typeof i.productId === 'object' ? i.productId._id : i.productId;
               return String(id) === String(product._id);
           });
           
           if (!addedItem && data.cart.items.length > 0) {
-             // Fallback: If exact match fails, use the last item in the array or explicitly 
-             // we can still just route with the raw product ID so the drawer can show fallback state!
              addedItem = data.cart.items[data.cart.items.length - 1];
           }
 
@@ -80,7 +81,7 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
     <View 
       className="flex-1 m-1 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800"
     >
-      {/* Visual Image Banner - acts as hit target for Product Detail Route */}
+      {/* Visual Image Banner */}
       <Pressable onPress={handlePress} className="aspect-square w-full bg-slate-50 dark:bg-slate-800 relative">
         {imageUrl ? (
           <Image
@@ -108,7 +109,7 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
         )}
       </Pressable>
 
-      {/* Floating Actions Overlay - Independent of Product Details router hit targets */}
+      {/* Floating Actions Overlay */}
       <View className="absolute top-0 left-0 w-full aspect-square" pointerEvents="box-none">
         {/* Add to Cart Floating Button */}
         <Pressable 
@@ -144,7 +145,7 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
         </Pressable>
       </View>
 
-      {/* Text Context - also routes to details */}
+      {/* Text Content */}
       <Pressable onPress={handlePress} className="p-3">
         <Text numberOfLines={2} className="text-sm font-medium text-slate-900 dark:text-slate-100 h-10">
           {product.name}
@@ -162,19 +163,49 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
           ) : null}
         </View>
 
-        <View className="flex-row items-center mt-2 flex-wrap justify-between">
-          <View className="flex-row items-center flex-wrap flex-1">
-            <Text className="text-sm font-bold text-slate-900 dark:text-white mr-1.5" numberOfLines={1}>
-              {product.currency || 'INR'} {displayPrice ? displayPrice.toLocaleString() : '0'}
+        {/* Clear, Non-Truncating Price Display */}
+        <View style={styles.priceContainer}>
+          <Text
+            style={styles.currentPrice}
+            numberOfLines={1}
+            allowFontScaling={false}
+          >
+            {formatPrice(displayPrice, product.currency)}
+          </Text>
+          {hasDiscount && (
+            <Text
+              style={styles.originalPrice}
+              numberOfLines={1}
+              allowFontScaling={false}
+            >
+              {formatPrice(price, product.currency)}
             </Text>
-            {hasDiscount && (
-              <Text className="text-[11px] text-slate-400 line-through" numberOfLines={1}>
-                {price ? price.toLocaleString() : ''}
-              </Text>
-            )}
-          </View>
+          )}
         </View>
       </Pressable>
     </View>
   );
+});
+
+const styles = StyleSheet.create({
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 6,
+    flexWrap: 'wrap',
+    columnGap: 6,
+    rowGap: 2,
+  },
+  currentPrice: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0f172a',
+    flexShrink: 0,
+  },
+  originalPrice: {
+    fontSize: 12,
+    color: '#94a3b8',
+    textDecorationLine: 'line-through',
+    fontWeight: '500',
+  },
 });

@@ -138,19 +138,19 @@ export const CheckoutSummaryCard: React.FC<CheckoutSummaryCardProps> = ({
           </Text>
         </View>
 
-        {/* Delivery / Shipping Charges */}
-        <View className="flex-row justify-between items-center py-0.5">
-          <Text className="text-slate-400 text-xs font-medium">Delivery Charges</Text>
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#6366f1" />
-          ) : shippingFee === 0 ? (
-            <Text className="font-bold text-xs text-emerald-600 dark:text-emerald-400">FREE</Text>
-          ) : (
-            <Text className="font-semibold text-xs text-slate-900 dark:text-slate-100">
-              ₹{shippingFee.toLocaleString('en-IN')}
-            </Text>
-          )}
-        </View>
+        {/* Delivery / Shipping Charges - Only shown if configured by admin and > 0 */}
+        {shippingFee > 0 && (
+          <View className="flex-row justify-between items-center py-0.5">
+            <Text className="text-slate-400 text-xs font-medium">Delivery Charges</Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#6366f1" />
+            ) : (
+              <Text className="font-semibold text-xs text-slate-900 dark:text-slate-100">
+                ₹{shippingFee.toLocaleString('en-IN')}
+              </Text>
+            )}
+          </View>
+        )}
 
         {/* Admin Configured Fees & Charges (e.g. Extra Fee, Platform Fee, COD Fee, etc.) */}
         {adminCharges.map((charge, idx) => (

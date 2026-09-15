@@ -72,6 +72,11 @@ function RootLayoutNav() {
       />
       <Stack.Screen name="checkout" options={{ headerShown: false }} />
       <Stack.Screen name="order-success" options={{ headerShown: false }} />
+      <Stack.Screen name="orders/index" options={{ headerShown: false }} />
+      <Stack.Screen name="orders/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="addresses/index" options={{ headerShown: false }} />
+      <Stack.Screen name="profile/edit" options={{ headerShown: false }} />
+      <Stack.Screen name="profile/security" options={{ headerShown: false }} />
     </Stack>
   );
 }

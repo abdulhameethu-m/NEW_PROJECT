@@ -1,7 +1,24 @@
 import React, { useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Dimensions,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Check, ShoppingBag, ArrowRight, Package, Truck, ShieldCheck } from 'lucide-react-native';
+import {
+  Check,
+  ShoppingBag,
+  ArrowRight,
+  Package,
+  MapPin,
+  ShieldCheck,
+  Truck,
+  CreditCard,
+  Banknote,
+} from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -18,14 +35,14 @@ const { width } = Dimensions.get('window');
 
 // Confetti particle configuration
 const PARTICLES = [
-  { id: 1, angle: 0, distance: 68, color: '#10b981', size: 8 },
-  { id: 2, angle: 45, distance: 75, color: '#6366f1', size: 10 },
-  { id: 3, angle: 90, distance: 70, color: '#f59e0b', size: 7 },
-  { id: 4, angle: 135, distance: 76, color: '#ec4899', size: 9 },
-  { id: 5, angle: 180, distance: 68, color: '#3b82f6', size: 8 },
-  { id: 6, angle: 225, distance: 78, color: '#10b981', size: 11 },
-  { id: 7, angle: 270, distance: 72, color: '#8b5cf6', size: 8 },
-  { id: 8, angle: 315, distance: 74, color: '#f97316', size: 10 },
+  { id: 1, angle: 0, distance: 70, color: '#10b981', size: 8 },
+  { id: 2, angle: 45, distance: 78, color: '#6366f1', size: 10 },
+  { id: 3, angle: 90, distance: 72, color: '#f59e0b', size: 7 },
+  { id: 4, angle: 135, distance: 80, color: '#ec4899', size: 9 },
+  { id: 5, angle: 180, distance: 70, color: '#3b82f6', size: 8 },
+  { id: 6, angle: 225, distance: 82, color: '#10b981', size: 10 },
+  { id: 7, angle: 270, distance: 74, color: '#8b5cf6', size: 8 },
+  { id: 8, angle: 315, distance: 78, color: '#f97316', size: 10 },
 ];
 
 const ConfettiDot = ({
@@ -75,6 +92,7 @@ const ConfettiDot = ({
 export default function OrderSuccessScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
+    orderId?: string;
     orderNumber?: string;
     orderGroupId?: string;
     totalAmount?: string;
@@ -83,6 +101,7 @@ export default function OrderSuccessScreen() {
     deliveryCity?: string;
   }>();
 
+  const orderId = params.orderId || '';
   const orderNumber = params.orderNumber || 'CONFIRMED';
   const totalAmount = params.totalAmount ? Number(params.totalAmount) : 0;
   const paymentMethod = params.paymentMethod || 'COD';
@@ -105,29 +124,14 @@ export default function OrderSuccessScreen() {
     );
 
     // 2. Ripple rings shockwave expansion
-    ring1Scale.value = withDelay(
-      150,
-      withTiming(2.2, { duration: 750 })
-    );
-    ring1Opacity.value = withDelay(
-      150,
-      withTiming(0, { duration: 750 })
-    );
+    ring1Scale.value = withDelay(150, withTiming(2.2, { duration: 750 }));
+    ring1Opacity.value = withDelay(150, withTiming(0, { duration: 750 }));
 
-    ring2Scale.value = withDelay(
-      280,
-      withTiming(2.5, { duration: 800 })
-    );
-    ring2Opacity.value = withDelay(
-      280,
-      withTiming(0, { duration: 800 })
-    );
+    ring2Scale.value = withDelay(280, withTiming(2.5, { duration: 800 }));
+    ring2Opacity.value = withDelay(280, withTiming(0, { duration: 800 }));
 
     // 3. Popping particles burst outwards
-    particleProgress.value = withDelay(
-      200,
-      withTiming(1, { duration: 650 })
-    );
+    particleProgress.value = withDelay(200, withTiming(1, { duration: 650 }));
   }, []);
 
   const tickStyle = useAnimatedStyle(() => ({
@@ -144,14 +148,16 @@ export default function OrderSuccessScreen() {
     opacity: ring2Opacity.value,
   }));
 
+  const isCod = paymentMethod === 'COD';
+
   return (
-    <SafeAreaScreen className="flex-1 bg-slate-50 dark:bg-black">
+    <SafeAreaScreen style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 20, paddingBottom: 50, alignItems: 'center' }}
+        contentContainerStyle={styles.scrollContent}
       >
         {/* Celebratory Popping Checkmark Container */}
-        <View className="mt-8 mb-5 items-center justify-center h-44 w-44">
+        <View style={styles.animationContainer}>
           {/* Shockwave Ripple Ring 2 */}
           <Animated.View
             style={[
@@ -212,118 +218,380 @@ export default function OrderSuccessScreen() {
               tickStyle,
             ]}
           >
-            <View className="w-20 h-20 rounded-full border-2 border-emerald-300/40 items-center justify-center">
-              <Check size={48} color="white" strokeWidth={3.5} />
+            <View style={styles.innerTickRing}>
+              <Check size={46} color="#ffffff" strokeWidth={3.5} />
             </View>
           </Animated.View>
         </View>
 
         {/* Order Confirmed Text (Slides up) */}
-        <Animated.View entering={FadeInUp.delay(220).duration(400)} className="items-center mb-6">
-          <Text className="text-2xl font-black text-slate-900 dark:text-white text-center tracking-tight">
+        <Animated.View entering={FadeInUp.delay(220).duration(400)} style={styles.titleSection}>
+          <Text style={styles.titleText} allowFontScaling={false}>
             Order Confirmed!
           </Text>
-          <Text className="text-slate-500 dark:text-slate-400 text-xs text-center mt-1.5 px-4 leading-5">
-            Thank you, <Text className="font-bold text-slate-800 dark:text-slate-200">{recipientName}</Text>! Your order has been placed and is being packed.
+          <Text style={styles.subtitleText} allowFontScaling={false}>
+            Thank you, <Text style={styles.recipientHighlight}>{recipientName}</Text>! Your order has been placed and is being packed.
           </Text>
         </Animated.View>
 
         {/* Order Details Card (Slides up) */}
-        <Animated.View
-          entering={FadeInUp.delay(360).duration(450)}
-          className="w-full bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm mb-5"
-        >
-          {/* Order Reference */}
-          <View className="pb-3.5 border-b border-slate-100 dark:border-slate-800 flex-row items-center justify-between">
-            <View>
-              <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                Order Number
+        <Animated.View entering={FadeInUp.delay(360).duration(450)} style={styles.card}>
+          {/* Order Header: Number + Status Badge */}
+          <View style={styles.cardHeader}>
+            <View style={styles.orderNumberBlock}>
+              <Text style={styles.orderNumberLabel} allowFontScaling={false}>
+                ORDER NUMBER
               </Text>
-              <Text className="text-base font-extrabold text-indigo-600 dark:text-indigo-400">
+              <Text style={styles.orderNumberText} numberOfLines={1} allowFontScaling={false}>
                 #{orderNumber}
               </Text>
             </View>
 
-            <View className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-full">
-              <Text className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+            <View style={styles.confirmedBadge}>
+              <Text style={styles.confirmedBadgeText} allowFontScaling={false}>
                 Confirmed
               </Text>
             </View>
           </View>
 
-          {/* Meta rows */}
-          <View className="py-3.5 border-b border-slate-100 dark:border-slate-800 space-y-2.5">
+          <View style={styles.divider} />
+
+          {/* Information Rows */}
+          <View style={styles.infoRows}>
             {/* Payment Mode */}
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <Package size={15} className="text-slate-400 mr-2" />
-                <Text className="text-xs text-slate-500 dark:text-slate-400">Payment Mode</Text>
+            <View style={styles.infoRow}>
+              <View style={styles.infoLabelGroup}>
+                {isCod ? (
+                  <Banknote size={16} color="#64748b" style={styles.infoIcon} />
+                ) : (
+                  <CreditCard size={16} color="#64748b" style={styles.infoIcon} />
+                )}
+                <Text style={styles.infoLabel} allowFontScaling={false}>
+                  Payment Mode
+                </Text>
               </View>
-              <View className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-md">
-                <Text className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  {paymentMethod === 'COD' ? 'Cash on Delivery' : 'Online Payment'}
+              <View style={styles.paymentMethodPill}>
+                <Text style={styles.paymentMethodText} allowFontScaling={false}>
+                  {isCod ? 'Cash on Delivery' : 'Online Payment'}
                 </Text>
               </View>
             </View>
 
-            {/* Delivery To */}
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center flex-1 mr-2">
-                <Truck size={15} className="text-slate-400 mr-2 flex-shrink-0" />
-                <Text className="text-xs text-slate-500 dark:text-slate-400">Deliver To</Text>
+            {/* Deliver To */}
+            <View style={styles.infoRow}>
+              <View style={styles.infoLabelGroup}>
+                <MapPin size={16} color="#64748b" style={styles.infoIcon} />
+                <Text style={styles.infoLabel} allowFontScaling={false}>
+                  Deliver To
+                </Text>
               </View>
-              <Text className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[55%]" numberOfLines={1}>
+              <Text style={styles.addressValue} numberOfLines={1} allowFontScaling={false}>
                 {deliveryCity}
               </Text>
             </View>
 
             {/* Estimated Delivery */}
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <ShieldCheck size={15} className="text-slate-400 mr-2" />
-                <Text className="text-xs text-slate-500 dark:text-slate-400">Estimated Delivery</Text>
+            <View style={styles.infoRow}>
+              <View style={styles.infoLabelGroup}>
+                <ShieldCheck size={16} color="#64748b" style={styles.infoIcon} />
+                <Text style={styles.infoLabel} allowFontScaling={false}>
+                  Estimated Delivery
+                </Text>
               </View>
-              <Text className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              <Text style={styles.deliveryEstimateText} allowFontScaling={false}>
                 3 - 5 Business Days
               </Text>
             </View>
           </View>
 
+          <View style={styles.divider} />
+
           {/* Total Amount Row */}
-          <View className="pt-3.5 flex-row items-center justify-between">
+          <View style={styles.totalRow}>
             <View>
-              <Text className="text-xs font-bold text-slate-900 dark:text-white">
-                {paymentMethod === 'COD' ? 'Payable on Delivery' : 'Total Paid'}
+              <Text style={styles.totalLabel} allowFontScaling={false}>
+                {isCod ? 'Payable on Delivery' : 'Total Paid'}
               </Text>
-              <Text className="text-[10px] text-slate-400">All taxes & fees included</Text>
+              <Text style={styles.totalSubtitle} allowFontScaling={false}>
+                All taxes & fees included
+              </Text>
             </View>
-            <Text className="text-xl font-black text-indigo-600 dark:text-indigo-400">
+            <Text style={styles.totalAmount} allowFontScaling={false}>
               ₹{totalAmount.toLocaleString('en-IN')}
             </Text>
           </View>
         </Animated.View>
 
         {/* Action Buttons (Slide up) */}
-        <Animated.View entering={FadeInUp.delay(500).duration(450)} className="w-full space-y-2.5">
-          <Pressable
-            onPress={() => router.replace('/(tabs)/shop')}
-            className="w-full h-12 bg-indigo-600 rounded-xl flex-row items-center justify-center active:bg-indigo-700 shadow-md shadow-indigo-200 dark:shadow-none"
+        <Animated.View entering={FadeInUp.delay(500).duration(450)} style={styles.actionsContainer}>
+          <TouchableOpacity
+            onPress={() => {
+              if (orderId) {
+                router.replace({
+                  pathname: '/orders/[id]' as any,
+                  params: { id: orderId },
+                });
+              } else {
+                router.replace('/orders' as any);
+              }
+            }}
+            style={styles.primaryBtn}
+            activeOpacity={0.82}
           >
-            <ShoppingBag size={17} color="white" className="mr-2" />
-            <Text className="text-white font-bold text-sm">Continue Shopping</Text>
-          </Pressable>
+            <Truck size={18} color="#ffffff" style={{ marginRight: 8 }} />
+            <Text style={styles.primaryBtnText} allowFontScaling={false}>
+              Track Order
+            </Text>
+          </TouchableOpacity>
 
-          <Pressable
-            onPress={() => router.replace('/(tabs)')}
-            className="w-full h-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex-row items-center justify-center active:bg-slate-50 dark:active:bg-slate-800"
+          <TouchableOpacity
+            onPress={() => router.replace('/(tabs)/shop')}
+            style={styles.secondaryBtn}
+            activeOpacity={0.82}
           >
-            <Text className="text-slate-700 dark:text-slate-200 font-bold text-sm mr-2">
+            <ShoppingBag size={18} color="#1e293b" style={{ marginRight: 8 }} />
+            <Text style={styles.secondaryBtnText} allowFontScaling={false}>
+              Continue Shopping
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.replace('/(tabs)')}
+            style={styles.textBtn}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.textBtnTitle} allowFontScaling={false}>
               Back to Home
             </Text>
-            <ArrowRight size={15} className="text-slate-400" />
-          </Pressable>
+            <ArrowRight size={14} color="#64748b" style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
         </Animated.View>
       </ScrollView>
     </SafeAreaScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 48,
+    alignItems: 'center',
+  },
+  animationContainer: {
+    marginTop: 18,
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 140,
+    width: 140,
+  },
+  innerTickRing: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 12,
+  },
+  titleText: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#0f172a',
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  subtitleText: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 20,
+  },
+  recipientHighlight: {
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  card: {
+    width: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 14,
+  },
+  orderNumberBlock: {
+    flex: 1,
+    marginRight: 10,
+  },
+  orderNumberLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94a3b8',
+    letterSpacing: 0.8,
+    marginBottom: 3,
+  },
+  orderNumberText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#4f46e5',
+  },
+  confirmedBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    borderRadius: 20,
+  },
+  confirmedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#047857',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+  },
+  infoRows: {
+    paddingVertical: 12,
+    gap: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 28,
+  },
+  infoLabelGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  infoIcon: {
+    marginRight: 8,
+  },
+  infoLabel: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  paymentMethodPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+  },
+  paymentMethodText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  addressValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+    maxWidth: '55%',
+    textAlign: 'right',
+  },
+  deliveryEstimateText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 14,
+  },
+  totalLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  totalSubtitle: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  totalAmount: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#4f46e5',
+  },
+  actionsContainer: {
+    width: '100%',
+    gap: 12,
+  },
+  primaryBtn: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#4f46e5',
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4f46e5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  secondaryBtn: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryBtnText: {
+    color: '#1e293b',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  textBtn: {
+    width: '100%',
+    height: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  textBtnTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+});

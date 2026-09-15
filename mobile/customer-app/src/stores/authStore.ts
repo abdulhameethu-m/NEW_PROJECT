@@ -4,10 +4,21 @@ export type AuthStatus = 'INITIALIZING' | 'UNAUTHENTICATED' | 'AUTHENTICATING' |
 
 export interface User {
   id: string;
+  _id?: string;
   name?: string;
   email?: string;
   phone?: string;
   role?: string;
+  avatarUrl?: string | null;
+  preferences?: {
+    theme?: string;
+    notificationPreferences?: {
+      orderUpdates?: boolean;
+      deliveryAlerts?: boolean;
+      paymentAlerts?: boolean;
+      promotions?: boolean;
+    };
+  };
 }
 
 interface AuthState {

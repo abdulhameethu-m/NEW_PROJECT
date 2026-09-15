@@ -18,6 +18,8 @@ export const ProductInfo = ({ product, activeVariant }: Props) => {
   const discountPercent = hasDiscount
     ? Math.round(((displayPrice - displayDiscountPrice) / displayPrice) * 100)
     : 0;
+
+  const currencySymbol = (!product.currency || product.currency === 'INR') ? '₹' : product.currency === 'USD' ? '$' : product.currency;
     
   return (
     <View className="px-4 py-4 bg-white dark:bg-slate-950 mt-1">
@@ -43,11 +45,11 @@ export const ProductInfo = ({ product, activeVariant }: Props) => {
       {/* Pricing row matching exact target mock */}
       <View className="flex-row items-center mb-1">
         <Text className="text-[28px] font-bold text-slate-900 dark:text-white mr-2">
-          {product.currency} {finalPrice?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {currencySymbol}{finalPrice?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </Text>
         {hasDiscount && (
           <Text className="text-sm font-medium text-slate-400 line-through mb-1">
-            {product.currency} {displayPrice?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {currencySymbol}{displayPrice?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </Text>
         )}
       </View>
@@ -56,7 +58,7 @@ export const ProductInfo = ({ product, activeVariant }: Props) => {
       {hasDiscount && (
         <View className="flex-row items-center justify-between mt-1">
           <Text className="text-teal-600 dark:text-teal-400 font-bold text-sm max-w-[70%]">
-            You save {product.currency} {(displayPrice - displayDiscountPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Inclusive of all taxes)
+            You save {currencySymbol}{((displayPrice || 0) - (displayDiscountPrice || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Inclusive of all taxes)
           </Text>
           <View className="bg-rose-100 dark:bg-rose-900/40 px-2 py-1.5 rounded-lg items-center">
             <Text className="text-rose-600 dark:text-rose-400 text-sm font-black text-center leading-4">{discountPercent}%{'\n'}OFF</Text>

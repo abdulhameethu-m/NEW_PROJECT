@@ -17,6 +17,7 @@ interface AddressFormModalProps {
   visible: boolean;
   onClose: () => void;
   onSave: (address: Omit<UserAddress, '_id'>) => Promise<void>;
+  initialData?: UserAddress | null;
   isLoading?: boolean;
 }
 
@@ -24,6 +25,7 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
   visible,
   onClose,
   onSave,
+  initialData,
   isLoading = false,
 }) => {
   const [name, setName] = useState('');
@@ -34,6 +36,27 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
   const [pincode, setPincode] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    if (initialData) {
+      setName(initialData.name || '');
+      setPhone(initialData.phone || '');
+      setAddressLine(initialData.addressLine || '');
+      setCity(initialData.city || '');
+      setState(initialData.state || '');
+      setPincode(initialData.pincode || '');
+      setIsDefault(!!initialData.isDefault);
+    } else {
+      setName('');
+      setPhone('');
+      setAddressLine('');
+      setCity('');
+      setState('');
+      setPincode('');
+      setIsDefault(false);
+    }
+    setErrors({});
+  }, [initialData, visible]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -108,7 +131,7 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
           {/* Header */}
           <View className="flex-row items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800">
             <Text className="text-xl font-bold text-slate-900 dark:text-white">
-              Add Delivery Address
+              {initialData ? 'Edit Delivery Address' : 'Add Delivery Address'}
             </Text>
             <Pressable
               onPress={onClose}
@@ -284,7 +307,9 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
               {isLoading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-white font-bold text-base">Save Address</Text>
+                <Text className="text-white font-bold text-base">
+                  {initialData ? 'Update Address' : 'Save Address'}
+                </Text>
               )}
             </Pressable>
           </ScrollView>

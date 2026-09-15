@@ -124,11 +124,13 @@ export default function CheckoutScreen() {
 
       const firstOrder = result.orders?.[0];
       const orderNumber = firstOrder?.orderNumber || result.orderGroupId || 'ORD-SUCCESS';
+      const orderId = firstOrder?._id || '';
       const totalAmount = firstOrder?.totalAmount ?? preparedSummary?.totalAmount ?? 0;
 
       router.replace({
         pathname: '/order-success',
         params: {
+          orderId,
           orderNumber,
           orderGroupId: result.orderGroupId || '',
           totalAmount: String(totalAmount),
@@ -228,6 +230,7 @@ export default function CheckoutScreen() {
                 firstOrder?.orderNumber ||
                 verifyRes.orderGroupId ||
                 query.razorpay_order_id;
+              const orderId = firstOrder?._id || '';
               const totalAmount =
                 firstOrder?.totalAmount ??
                 preparedSummary?.totalAmount ??
@@ -236,6 +239,7 @@ export default function CheckoutScreen() {
               router.replace({
                 pathname: '/order-success',
                 params: {
+                  orderId,
                   orderNumber,
                   orderGroupId: verifyRes.orderGroupId || '',
                   totalAmount: String(totalAmount),

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { listAddresses, createAddress, deleteAddress } from '../api/address';
+import { listAddresses, createAddress, updateAddress, deleteAddress } from '../api/address';
 import { UserAddress } from '../types/checkout';
 import { useAuthStore } from '../stores/authStore';
 
@@ -28,6 +28,37 @@ export function useCreateAddress() {
           return [newAddress, ...prev.map((a) => ({ ...a, isDefault: false }))];
         }
         return [newAddress, ...prev];
+      });
+      queryClient.invalidateQueries({ queryKey: ADDRESSES_QUERY_KEY });
+    },
+  });
+}
+
+export function useUpdateAddress() {
+  const queryClient = useQueryClient();
+
+  return useMutation<UserAddress, Error, { id: string; payload: Partial<UserAddress> }>({
+    mutationFn: ({ id, payload }) => updateAddress(id, payload),
+    onSuccess: (updatedAddress) => {
+      queryClient.setQueryData<UserAddress[]>(ADDRESSES_QUERY_KEY, (prev = []) => {
+        return prev.map((a) => (a._id === updatedAddress._id ? updatedAddress : a));
+      });
+      queryClient.invalidateQueries({ queryKey: ADDRESSES_QUERY_KEY });
+    },
+  });
+}
+
+export function useSetDefaultAddress() {
+  const queryClient = useQueryClient();
+
+  return useMutation<UserAddress, Error, string>({
+    mutationFn: (id: string) => updateAddress(id, { isDefault: true }),
+    onSuccess: (updatedAddress) => {
+      queryClient.setQueryData<UserAddress[]>(ADDRESSES_QUERY_KEY, (prev = []) => {
+        return prev.map((a) => ({
+          ...a,
+          isDefault: a._id === updatedAddress._id,
+        }));
       });
       queryClient.invalidateQueries({ queryKey: ADDRESSES_QUERY_KEY });
     },
