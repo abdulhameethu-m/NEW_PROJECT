@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 
 import { clearCookies } from './cookieManager';
+import { logToTerminal } from '../utils/errorHandler';
 
 export const apiClient = axios.create({
   baseURL: ENV.API_URL,
@@ -49,8 +50,11 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     
+    // Log API failure to developer terminal so user is not disturbed inside app
+    logToTerminal(`API ${originalRequest?.method?.toUpperCase() || 'REQUEST'} ${originalRequest?.url || ''}`, error);
+
     // Ignore 401 on login or refresh to prevent infinite loops
-    if (originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh')) {
+    if (originalRequest?.url?.includes('/auth/login') || originalRequest?.url?.includes('/auth/refresh')) {
       return Promise.reject(error);
     }
 

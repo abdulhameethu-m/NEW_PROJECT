@@ -13,6 +13,7 @@ import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer
 import { AxiosError } from 'axios';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
+import { logToTerminal } from '../../utils/errorHandler';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -41,6 +42,7 @@ export default function LoginScreen() {
       setUser(user);
       router.replace('/(tabs)');
     } catch (err: any) {
+      logToTerminal('User Login Error', err);
       if (err instanceof AxiosError) {
         const errorMsg = err.response?.data?.message || err.response?.data?.error?.message || 'Invalid credentials or network error.';
         setGlobalError(errorMsg);

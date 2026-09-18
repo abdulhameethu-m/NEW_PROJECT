@@ -237,6 +237,7 @@ export const VENDOR_STATIC_ITEMS = [
     key: "workspace",
     items: [
       { name: "Catalog Requests", path: "/vendor/catalog-requests", icon: FileSearch },
+      { name: "Media Manager", path: "/vendor/media", icon: Database },
       { name: "Ready for Pickup", path: "/vendor/pickups", icon: Truck },
       { name: "Offers", path: "/vendor/offers", icon: Percent },
       { name: "Support", path: "/vendor/support", icon: HeadphonesIcon, notificationModule: "WORKSPACE", notificationSubModule: "SUPPORT" },

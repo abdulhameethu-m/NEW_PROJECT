@@ -34,7 +34,15 @@
           "imageWidth": 76
         }
       ],
-      "@preeternal/react-native-cookie-manager"
+      "@preeternal/react-native-cookie-manager",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow UChooseMe to access your photos to select a profile picture.",
+          "cameraPermission": "Allow UChooseMe to access your camera to take a profile photo."
+        }
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,

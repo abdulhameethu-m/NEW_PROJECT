@@ -57,6 +57,8 @@ const recommendationRoutes = require("../modules/recommendation/routes");
 const analyticsRoutes = require("../modules/analytics/routes");
 const mediaRoutes = require("./media.routes");
 const albumRoutes = require("./album.routes");
+const vendorMediaRoutes = require("./vendor-media.routes");
+const vendorAlbumRoutes = require("./vendor-album.routes");
 
 function deprecatedApiAlias(canonicalPath) {
   return (_req, res, next) => {
@@ -69,6 +71,8 @@ function deprecatedApiAlias(canonicalPath) {
 const router = Router();
 
 router.use("/auth", authRoutes);
+router.use("/vendor/media", vendorMediaRoutes);
+router.use("/vendor/albums", vendorAlbumRoutes);
 router.use("/vendor/returns", vendorReturnRouter);
 router.use("/vendor", vendorRoutes);
 router.use("/vendor-stores", vendorStorefrontRoutes);

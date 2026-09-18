@@ -46,7 +46,7 @@ export const userApi = {
   },
 
   updateProfile: async (payload: UpdateProfilePayload): Promise<UserProfileResponse> => {
-    if (payload.avatarUri) {
+    if (payload.avatarUri && !payload.avatarUri.startsWith('http')) {
       const formData = new FormData();
 
       const filename = payload.avatarUri.split('/').pop() || 'avatar.jpg';
@@ -79,6 +79,9 @@ export const userApi = {
       if (payload.name !== undefined) body.name = payload.name;
       if (payload.phone !== undefined) body.phone = payload.phone;
       if (payload.email !== undefined) body.email = payload.email;
+      if (payload.avatarUri && payload.avatarUri.startsWith('http')) {
+        body.avatarUrl = payload.avatarUri;
+      }
       if (payload.notificationPreferences !== undefined) {
         body.notificationPreferences = payload.notificationPreferences;
       }

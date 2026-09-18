@@ -417,9 +417,11 @@ class ProductService {
         draftPayload.weight = normalizeProductWeight(productData.weight);
       }
       if (!mongoose.Types.ObjectId.isValid(draftPayload.categoryId)) delete draftPayload.categoryId;
-      if (!mongoose.Types.ObjectId.isValid(draftPayload.subCategoryId)) delete draftPayload.subCategoryId;
-
-      return await productRepo.create(draftPayload);
+      const draftProduct = await productRepo.create(draftPayload);
+      if (draftProduct?.images?.length) {
+        mediaService.syncEntityReferences("Product", draftProduct._id, draftProduct.images).catch(() => {});
+      }
+      return draftProduct;
     }
 
     // Generate slug from name
@@ -488,6 +490,9 @@ class ProductService {
     };
 
     const product = await productRepo.create(productPayload);
+    if (product?.images?.length) {
+      mediaService.syncEntityReferences("Product", product._id, product.images).catch(() => {});
+    }
     await productAnalyticsService.ensureProductAnalyticsSeed(product);
     return product;
   }
@@ -653,6 +658,9 @@ class ProductService {
     }
 
     const updatedProduct = await productRepo.updateById(productId, updateData);
+    if (updatedProduct?.images) {
+      mediaService.syncEntityReferences("Product", updatedProduct._id, updatedProduct.images).catch(() => {});
+    }
     await productAnalyticsService.ensureProductAnalyticsSeed(updatedProduct);
     return updatedProduct;
   }
@@ -679,6 +687,7 @@ class ProductService {
 
     // Admin and vendor deletes permanently remove the product.
     const deletedProduct = await productRepo.deleteById(productId);
+    mediaService.removeEntityReferences("Product", productId).catch(() => {});
     await productAnalyticsService.markProductDeleted(productId);
     return deletedProduct;
   }

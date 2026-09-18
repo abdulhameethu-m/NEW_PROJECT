@@ -1,8 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { adminHttp } from "../../services/adminHttp";
+import { api } from "../../services/api";
+import { useAuthStore } from "../../context/authStore";
 import { Search } from "lucide-react";
 
 export function MediaPickerModal({ isOpen, onClose, onSelect, maxSelect = 1 }) {
+  const user = useAuthStore((s) => s.user);
+  const isVendor = user?.role === "vendor";
+  const http = isVendor ? api : adminHttp;
+  const mediaEndpoint = isVendor ? "/api/vendor/media" : "/api/admin/media";
+  const albumEndpoint = isVendor ? "/api/vendor/albums" : "/api/admin/albums";
+
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,7 +33,7 @@ export function MediaPickerModal({ isOpen, onClose, onSelect, maxSelect = 1 }) {
       if (selectedView === "FAVORITES") params.isFavorite = true;
       else if (selectedView !== "ALL") params.albumId = selectedView;
       
-      const { data } = await adminHttp.get("/api/admin/media", { params });
+      const { data } = await http.get(mediaEndpoint, { params });
       // Extra safety filter for images that are valid for insertion
       const onlyImages = (data.assets || []).filter(a => a.resourceType === "image" && (a.status === "READY" || a.status === "ORPHANED"));
       setAssets(onlyImages);
@@ -35,14 +43,14 @@ export function MediaPickerModal({ isOpen, onClose, onSelect, maxSelect = 1 }) {
     } finally {
       setLoading(false);
     }
-  }, [page, search, selectedView]);
+  }, [page, search, selectedView, http, mediaEndpoint]);
 
   const fetchAlbums = useCallback(async () => {
     try {
-      const { data } = await adminHttp.get("/api/admin/albums");
+      const { data } = await http.get(albumEndpoint);
       setAlbums(data.albums || []);
     } catch { /* */ }
-  }, []);
+  }, [http, albumEndpoint]);
 
   useEffect(() => {
     if (isOpen) {
@@ -91,7 +99,7 @@ export function MediaPickerModal({ isOpen, onClose, onSelect, maxSelect = 1 }) {
     }
 
     try {
-      await adminHttp.post("/api/admin/media/upload", formData, {
+      await http.post(`${mediaEndpoint}/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setPage(1);

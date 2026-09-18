@@ -124,10 +124,20 @@ async function uploadIfNotExists(file, context = {}) {
 
   const hash = calculateContentHash(file.buffer);
 
-  // ── Step 1: Check for existing READY asset ────────────────────────────────
-  const existing = await MediaAsset.findOne({ contentHash: hash, status: "READY" });
+  // ── Step 1: Check for existing READY or ORPHANED asset ───────────────────
+  const existing = await MediaAsset.findOne({
+    contentHash: hash,
+    status: { $in: ["READY", "ORPHANED"] },
+  });
   if (existing) {
-    logger.info(`[MediaRegistry] Dedup hit for hash ${hash.slice(0, 16)}… (asset ${existing._id})`);
+    if (existing.status === "ORPHANED") {
+      existing.status = "READY";
+      existing.orphanedAt = undefined;
+      await existing.save();
+      logger.info(`[MediaRegistry] Revived ORPHANED asset for hash ${hash.slice(0, 16)}… (asset ${existing._id})`);
+    } else {
+      logger.info(`[MediaRegistry] Dedup hit for hash ${hash.slice(0, 16)}… (asset ${existing._id})`);
+    }
     if (entityType && entityId) {
       await addReference(existing._id, { entityType, entityId, field });
     }
@@ -333,9 +343,12 @@ async function reconcileUsage(mediaId) {
  * @param {string} [opts.format]
  * @param {string} [opts.search]  - searches originalFilename / cloudinaryPublicId / contentHash prefix
  */
-async function listAssets({ page = 1, limit = 20, status, entityType, entityId, format, search, albumId, isFavorite } = {}) {
+async function listAssets({ page = 1, limit = 20, status, entityType, entityId, format, resourceType, search, albumId, isFavorite, createdBy } = {}) {
   const filter = {};
 
+  if (createdBy) {
+    filter.createdBy = String(createdBy);
+  }
   if (status) {
     filter.status = status;
   } else {
@@ -343,6 +356,7 @@ async function listAssets({ page = 1, limit = 20, status, entityType, entityId, 
     filter.status = { $ne: "DELETED" };
   }
   if (format) filter.format = format;
+  if (resourceType && resourceType !== "all") filter.resourceType = resourceType;
   if (isFavorite === "true" || isFavorite === true) filter.isFavorite = true;
   if (albumId) filter.albums = albumId;
   if (entityType && entityId) {
@@ -376,8 +390,11 @@ async function listAssets({ page = 1, limit = 20, status, entityType, entityId, 
 /**
  * Get a single asset by ID.
  */
-async function getAsset(mediaId) {
-  return MediaAsset.findById(mediaId).lean();
+async function getAsset(mediaId, createdBy = null) {
+  const asset = await MediaAsset.findById(mediaId).lean();
+  if (!asset) return null;
+  if (createdBy && asset.createdBy && String(asset.createdBy) !== String(createdBy)) return null;
+  return asset;
 }
 
 /**
@@ -401,11 +418,15 @@ async function listOrphans({ page = 1, limit = 50 } = {}) {
  *  - If Cloudinary deletion fails, the asset is NOT marked DELETED.
  *
  * @param {string|ObjectId} mediaId
+ * @param {string|null} [createdBy]
  * @returns {{ success: boolean, message: string }}
  */
-async function safeDelete(mediaId) {
+async function safeDelete(mediaId, createdBy = null) {
   const asset = await MediaAsset.findById(mediaId);
   if (!asset) return { success: false, message: "Asset not found" };
+  if (createdBy && asset.createdBy && String(asset.createdBy) !== String(createdBy)) {
+    return { success: false, message: "Asset not found or unauthorized" };
+  }
   if (asset.status === "DELETED") return { success: true, message: "Already deleted" };
 
   // Recount from the embedded references array for consistency
@@ -447,6 +468,13 @@ async function safeDelete(mediaId) {
   asset.status    = "DELETED";
   asset.deletedAt = new Date();
   await asset.save();
+
+  try {
+    const { MediaAlbum } = require("../models/MediaAlbum");
+    await MediaAlbum.updateMany({ coverImage: mediaId }, { $unset: { coverImage: "" } });
+  } catch {
+    // best-effort cleanup
+  }
 
   logger.info(`[MediaRegistry] Asset ${mediaId} deleted (public_id: ${asset.cloudinaryPublicId})`);
   return { success: true, message: "Asset deleted successfully" };
@@ -523,12 +551,21 @@ async function registerExistingAsset(uploadResult, context = {}, buffer = null) 
 // ── Metrics ───────────────────────────────────────────────────────────────────
 
 /**
- * Return aggregate statistics for the Admin Media Dashboard.
+ * Return aggregate statistics for the Media Dashboard.
+ * If createdBy is provided, metrics are strictly scoped to that tenant.
  */
-async function getMetrics() {
+async function getMetrics(createdBy = null) {
+  const match = createdBy ? { createdBy: String(createdBy) } : {};
   const [statusCounts, totalCloudinary] = await Promise.all([
-    MediaAsset.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
-    MediaAsset.countDocuments({ cloudinaryPublicId: { $ne: null }, status: { $ne: "DELETED" } }),
+    MediaAsset.aggregate([
+      ...(createdBy ? [{ $match: { createdBy: String(createdBy) } }] : []),
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]),
+    MediaAsset.countDocuments({
+      ...match,
+      cloudinaryPublicId: { $ne: null },
+      status: { $ne: "DELETED" }
+    }),
   ]);
 
   const byStatus = Object.fromEntries(statusCounts.map((s) => [s._id, s.count]));
@@ -555,9 +592,10 @@ async function getMetrics() {
 /**
  * Toggle favorite status of a single media asset
  */
-async function toggleFavorite(mediaId) {
+async function toggleFavorite(mediaId, createdBy = null) {
   const asset = await MediaAsset.findById(mediaId);
   if (!asset) return null;
+  if (createdBy && asset.createdBy && String(asset.createdBy) !== String(createdBy)) return null;
   asset.isFavorite = !asset.isFavorite;
   await asset.save();
   return asset;
@@ -565,15 +603,24 @@ async function toggleFavorite(mediaId) {
 
 /**
  * Perform bulk action on selected assets
- * actions: addToAlbum, moveToAlbum, delete
+ * actions: addToAlbum, removeFromAlbum, moveToAlbum, delete
  */
 async function bulkAction(action, assetIds, context = {}) {
-  const { targetAlbumId } = context;
+  const { targetAlbumId, createdBy } = context;
+  const baseFilter = { _id: { $in: assetIds } };
+  if (createdBy) {
+    baseFilter.createdBy = String(createdBy);
+    if (targetAlbumId) {
+      const { MediaAlbum } = require("../models/MediaAlbum");
+      const album = await MediaAlbum.findOne({ _id: targetAlbumId, createdBy: String(createdBy) });
+      if (!album) throw new Error("Target album not found or unauthorized");
+    }
+  }
   
   if (action === "addToAlbum") {
     if (!targetAlbumId) throw new Error("targetAlbumId required for addToAlbum");
     const res = await MediaAsset.updateMany(
-      { _id: { $in: assetIds } },
+      baseFilter,
       { $addToSet: { albums: targetAlbumId } }
     );
     return { modifiedCount: res.modifiedCount };
@@ -582,7 +629,7 @@ async function bulkAction(action, assetIds, context = {}) {
   if (action === "removeFromAlbum") {
     if (!targetAlbumId) throw new Error("targetAlbumId required for removeFromAlbum");
     const res = await MediaAsset.updateMany(
-      { _id: { $in: assetIds } },
+      baseFilter,
       { $pull: { albums: targetAlbumId } }
     );
     return { modifiedCount: res.modifiedCount };
@@ -592,7 +639,7 @@ async function bulkAction(action, assetIds, context = {}) {
     // Moves to one album exclusively
     if (!targetAlbumId) throw new Error("targetAlbumId required for moveToAlbum");
     const res = await MediaAsset.updateMany(
-      { _id: { $in: assetIds } },
+      baseFilter,
       { $set: { albums: [targetAlbumId] } }
     );
     return { modifiedCount: res.modifiedCount };
@@ -602,7 +649,7 @@ async function bulkAction(action, assetIds, context = {}) {
     let deletedCount = 0;
     let failedCount = 0;
     for (const id of assetIds) {
-      const res = await safeDelete(id);
+      const res = await safeDelete(id, createdBy);
       if (res.success) deletedCount++;
       else failedCount++;
     }
@@ -610,6 +657,97 @@ async function bulkAction(action, assetIds, context = {}) {
   }
 
   throw new Error("Invalid bulk action");
+}
+
+// ── Entity Reference Synchronization ──────────────────────────────────────────
+
+/**
+ * Synchronize references for an entity's media assets.
+ * Matches assets by _id, secureUrl, or cloudinaryPublicId.
+ *
+ * @param {string} entityType - e.g. "Product"
+ * @param {string|ObjectId} entityId
+ * @param {Array<object|string>} mediaItems - array of images/videos or objects with { url, publicId, _id, mediaId }
+ * @param {string} field - e.g. "images"
+ */
+async function syncEntityReferences(entityType, entityId, mediaItems = [], field = "images") {
+  if (!entityType || !entityId || !Array.isArray(mediaItems)) return;
+  const strId = String(entityId);
+
+  const mediaIds = [];
+  const urls = [];
+  const publicIds = [];
+
+  for (const item of mediaItems) {
+    if (!item) continue;
+    if (typeof item === "string") {
+      urls.push(item);
+    } else {
+      if (item._id) mediaIds.push(item._id);
+      if (item.mediaId) mediaIds.push(item.mediaId);
+      if (item.url || item.secureUrl) urls.push(item.url || item.secureUrl);
+      if (item.publicId || item.cloudinaryPublicId) publicIds.push(item.publicId || item.cloudinaryPublicId);
+    }
+  }
+
+  const orClauses = [];
+  if (mediaIds.length) orClauses.push({ _id: { $in: mediaIds } });
+  if (urls.length) orClauses.push({ secureUrl: { $in: urls } });
+  if (publicIds.length) orClauses.push({ cloudinaryPublicId: { $in: publicIds } });
+
+  if (!orClauses.length) return;
+
+  try {
+    const matchedAssets = await MediaAsset.find({
+      $or: orClauses,
+      status: { $ne: "DELETED" },
+    });
+
+    const matchedIds = new Set(matchedAssets.map((a) => String(a._id)));
+
+    for (const asset of matchedAssets) {
+      await addReference(asset._id, { entityType, entityId: strId, field });
+    }
+
+    // Remove reference from assets previously tagged with this entity but no longer in mediaItems
+    const previouslyReferenced = await MediaAsset.find({
+      "references.entityType": entityType,
+      "references.entityId": strId,
+      status: { $ne: "DELETED" },
+    });
+
+    for (const prev of previouslyReferenced) {
+      if (!matchedIds.has(String(prev._id))) {
+        await removeReference(prev._id, entityType, strId);
+      }
+    }
+  } catch (err) {
+    logger.warn(`[MediaRegistry] syncEntityReferences failed for ${entityType}/${strId}: ${err.message}`);
+  }
+}
+
+/**
+ * Remove all references for a deleted entity.
+ *
+ * @param {string} entityType - e.g. "Product"
+ * @param {string|ObjectId} entityId
+ */
+async function removeEntityReferences(entityType, entityId) {
+  if (!entityType || !entityId) return;
+  const strId = String(entityId);
+
+  try {
+    const referenced = await MediaAsset.find({
+      "references.entityType": entityType,
+      "references.entityId": strId,
+    });
+
+    for (const asset of referenced) {
+      await removeReference(asset._id, entityType, strId);
+    }
+  } catch (err) {
+    logger.warn(`[MediaRegistry] removeEntityReferences failed for ${entityType}/${strId}: ${err.message}`);
+  }
 }
 
 // ── Exports ───────────────────────────────────────────────────────────────────
@@ -628,4 +766,6 @@ module.exports = {
   getMetrics,
   toggleFavorite,
   bulkAction,
+  syncEntityReferences,
+  removeEntityReferences,
 };

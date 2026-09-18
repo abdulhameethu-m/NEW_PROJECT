@@ -1,9 +1,18 @@
-import CookieManager from '@preeternal/react-native-cookie-manager';
+let CookieManager: any = null;
+
+try {
+  const mod = require('@preeternal/react-native-cookie-manager');
+  CookieManager = mod?.default || mod;
+} catch {
+  // Gracefully fallback if the native module is not registered in the current binary
+}
 
 export const clearCookies = async () => {
   try {
-    await CookieManager.clearAll();
+    if (CookieManager && typeof CookieManager.clearAll === 'function') {
+      await CookieManager.clearAll();
+    }
   } catch (error) {
-    console.error('Failed to clear native cookies:', error);
+    console.warn('Failed to clear native cookies:', error);
   }
 };

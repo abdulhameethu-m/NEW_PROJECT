@@ -196,6 +196,28 @@ describe("uploadIfNotExists — duplicate file (deduplication)", () => {
     expect(MediaAsset.create).not.toHaveBeenCalled();
     expect(result.url).toBe("https://res.cloudinary.com/test/existing.jpg");
   });
+
+  it("revives an ORPHANED asset to READY without re-uploading to Cloudinary", async () => {
+    setupCloudinaryMock();
+
+    const orphanedAsset = makeSaveableAsset({
+      status: "ORPHANED",
+      orphanedAt: new Date(),
+      secureUrl: "https://res.cloudinary.com/test/orphaned.jpg",
+      cloudinaryPublicId: "orphaned_public_id",
+    });
+    MediaAsset.findOne.mockResolvedValue(orphanedAsset);
+
+    const file = makeFile("same bytes");
+    const result = await mediaService.uploadIfNotExists(file, makeContext());
+
+    expect(MediaAsset.create).not.toHaveBeenCalled();
+    expect(orphanedAsset.status).toBe("READY");
+    expect(orphanedAsset.orphanedAt).toBeUndefined();
+    expect(orphanedAsset.save).toHaveBeenCalled();
+    expect(result.url).toBe("https://res.cloudinary.com/test/orphaned.jpg");
+    expect(result.wasDeduplicated).toBe(true);
+  });
 });
 
 // ── uploadIfNotExists — race condition ───────────────────────────────────────

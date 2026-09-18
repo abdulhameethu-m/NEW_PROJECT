@@ -280,6 +280,7 @@ class UserService {
     }
 
     if (payload.name) update.name = payload.name;
+    if (payload.avatarUrl !== undefined) update.avatarUrl = payload.avatarUrl;
 
     if (payload.notificationPreferences) {
       update["preferences.notificationPreferences"] = payload.notificationPreferences;

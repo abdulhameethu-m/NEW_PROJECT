@@ -64,6 +64,10 @@ const pageMeta = {
     title: "Catalog Requests",
     subtitle: "Search the master catalog and request new categories, subcategories, attributes, or product modules.",
   },
+  "/vendor/media": {
+    title: "Media Manager",
+    subtitle: "Organize, upload, and manage your product and storefront digital assets in albums.",
+  },
   "/vendor/earnings": {
     title: "Earnings",
     subtitle: "Track total earnings, pending payouts, and order payment health.",

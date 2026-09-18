@@ -159,6 +159,7 @@ const AdminPricingCategoriesPage = lazyDefault(() => import("./pages/AdminPricin
 const AdminRolesPage = lazyNamed(() => import("./pages/AdminRolesPage"), "AdminRolesPage");
 const AdminStaffPage = lazyNamed(() => import("./pages/AdminStaffPage"), "AdminStaffPage");
 const AdminMediaManagerPage = lazyDefault(() => import("./pages/AdminMediaManagerPage"));
+const VendorMediaManagerPage = lazyDefault(() => import("./pages/VendorMediaManagerPage"));
 const AdminInfluencerPage = lazyNamed(() => import("./pages/AdminInfluencerPage"), "AdminInfluencerPage");
 const AdminInfluencerCommercePage = lazyNamed(() => import("./pages/AdminInfluencerCommercePage"), "AdminInfluencerCommercePage");
 const AdminCampaignFinancePage = lazyNamed(() => import("./pages/CampaignFinancePages"), "AdminCampaignFinancePage");
@@ -312,6 +313,7 @@ export default function App() {
               <Route path="delivery/:id/edit" element={<VendorModuleRoute moduleKey="delivery"><VendorOrderDetailsPage /></VendorModuleRoute>} />
               <Route path="pickups" element={<VendorModuleRoute moduleKey="delivery"><VendorPickupQueuePage /></VendorModuleRoute>} />
               <Route path="catalog-requests" element={<VendorCatalogRequestsPage />} />
+              <Route path="media" element={<VendorMediaManagerPage />} />
               <Route path="reviews" element={<VendorModuleRoute moduleKey="reviews"><VendorReviewsPage /></VendorModuleRoute>} />
               <Route path="returns" element={<VendorModuleRoute moduleKey="returns"><VendorReturnsPage /></VendorModuleRoute>} />
               <Route path="offers" element={<VendorOffersPage />} />

@@ -13,6 +13,7 @@ import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer
 import { AxiosError } from 'axios';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
+import { logToTerminal } from '../../utils/errorHandler';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -50,6 +51,7 @@ export default function RegisterScreen() {
       setUser(user);
       router.replace('/(tabs)');
     } catch (err: any) {
+      logToTerminal('User Registration Error', err);
       if (err instanceof AxiosError) {
         const errorMsg = err.response?.data?.message || err.response?.data?.error?.message || 'Registration failed. Please check your inputs.';
         setGlobalError(errorMsg);

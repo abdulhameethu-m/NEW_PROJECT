@@ -23,8 +23,7 @@ const MediaAlbumSchema = new Schema(
       min: 0,
     },
     createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
+      type: Schema.Types.Mixed,
       required: true,
     },
   },

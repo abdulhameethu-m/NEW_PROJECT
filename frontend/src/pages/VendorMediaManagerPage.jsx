@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { adminHttp } from "../services/adminHttp";
+import { api } from "../services/api";
 import { 
   Search, 
   Film, 
@@ -444,8 +444,8 @@ function ConfirmBulkDeleteDialog({ count, onConfirm, onCancel, loading }) {
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
-export default function AdminMediaManagerPage() {
+// ── Main Vendor Media Manager Page ────────────────────────────────────────────
+export default function VendorMediaManagerPage() {
   const [assets, setAssets]             = useState([]);
   const [albums, setAlbums]             = useState([]);
   const [metrics, setMetrics]           = useState(null);
@@ -499,14 +499,14 @@ export default function AdminMediaManagerPage() {
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const { data } = await adminHttp.get("/api/admin/media/metrics");
+      const { data } = await api.get("/api/vendor/media/metrics");
       if (data?.metrics) setMetrics(data.metrics);
     } catch { /* best-effort metrics */ }
   }, []);
 
   const fetchAlbums = useCallback(async () => {
     try {
-      const { data } = await adminHttp.get("/api/admin/albums");
+      const { data } = await api.get("/api/vendor/albums");
       setAlbums(data.albums || []);
     } catch { /* best-effort albums */ }
   }, []);
@@ -523,7 +523,7 @@ export default function AdminMediaManagerPage() {
       else if (selectedView === "ORPHANED") params.status = "ORPHANED";
       else if (selectedView !== "ALL") params.albumId = selectedView;
       
-      const { data } = await adminHttp.get("/api/admin/media", { params });
+      const { data } = await api.get("/api/vendor/media", { params });
       setAssets(data.assets || []);
       setPagination({
         total: data.total || 0,
@@ -562,7 +562,7 @@ export default function AdminMediaManagerPage() {
 
   async function handleToggleFavorite(id) {
     try {
-      const { data } = await adminHttp.put(`/api/admin/media/${id}/favorite`);
+      const { data } = await api.put(`/api/vendor/media/${id}/favorite`);
       setAssets(prev => prev.map(a => a._id === id ? { ...a, isFavorite: data.asset.isFavorite } : a));
       if (selectedAsset?._id === id) {
         setSelectedAsset(prev => ({ ...prev, isFavorite: data.asset.isFavorite }));
@@ -587,7 +587,7 @@ export default function AdminMediaManagerPage() {
     }
 
     try {
-      const { data } = await adminHttp.post("/api/admin/media/upload", formData, {
+      const { data } = await api.post("/api/vendor/media/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       showToast(data.message || "Assets uploaded successfully");
@@ -604,7 +604,7 @@ export default function AdminMediaManagerPage() {
 
   async function handleCreateAlbum(payload) {
     try {
-      await adminHttp.post("/api/admin/albums", payload);
+      await api.post("/api/vendor/albums", payload);
       showToast("Album created!");
       setShowCreateAlbum(false);
       fetchAlbums();
@@ -616,7 +616,7 @@ export default function AdminMediaManagerPage() {
   async function handleBulkAction(action, targetAlbumId = null) {
     try {
       const assetIds = Array.from(selectedIds);
-      const res = await adminHttp.post("/api/admin/media/bulk-action", { action, assetIds, targetAlbumId });
+      const res = await api.post("/api/vendor/media/bulk-action", { action, assetIds, targetAlbumId });
       
       if (action === "addToAlbum") showToast(`Added ${assetIds.length} assets to album`);
       if (action === "removeFromAlbum") showToast(`Removed ${assetIds.length} assets from this album`);
@@ -641,7 +641,7 @@ export default function AdminMediaManagerPage() {
     if (!window.confirm("Are you sure you want to permanently delete this media asset?")) return;
     setDeletingSingle(true);
     try {
-      const { data } = await adminHttp.delete(`/api/admin/media/${id}`);
+      const { data } = await api.delete(`/api/vendor/media/${id}`);
       if (data.success) {
         showToast("Asset deleted successfully");
         setSelectedAsset(null);
@@ -659,7 +659,7 @@ export default function AdminMediaManagerPage() {
   async function handleDeleteAlbum(albumId) {
     if (!window.confirm("Are you sure you want to delete this album? Photos inside will NOT be deleted.")) return;
     try {
-      await adminHttp.delete(`/api/admin/albums/${albumId}`);
+      await api.delete(`/api/vendor/albums/${albumId}`);
       showToast("Album deleted");
       if (selectedView === albumId) setSelectedView("ALL");
       fetchAlbums();
@@ -671,7 +671,7 @@ export default function AdminMediaManagerPage() {
   async function handleReconcile(id) {
     setReconciling(true);
     try {
-      const { data } = await adminHttp.post(`/api/admin/media/${id}/reconcile`);
+      const { data } = await api.post(`/api/vendor/media/${id}/reconcile`);
       setSelectedAsset(data.asset);
       fetchAssets();
       showToast("Usage count reconciled");
