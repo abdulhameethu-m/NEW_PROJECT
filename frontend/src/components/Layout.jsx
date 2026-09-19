@@ -54,6 +54,7 @@ const VENDOR_WORKSPACE_SEGMENTS = new Set([
   "status",
   "support",
   "catalog-requests",
+  "media",
 ]);
 const INFLUENCER_WORKSPACE_SEGMENTS = new Set([
   "affiliate-links",

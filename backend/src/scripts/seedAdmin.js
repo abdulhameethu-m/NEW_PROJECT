@@ -32,7 +32,7 @@ function resolveAdminRole() {
   return role;
 }
 
-async function seedAdmin() {
+async function seedAdmin(options = {}) {
   const name = requireEnv("ADMIN_NAME");
   const phone = requireEnv("ADMIN_PHONE");
   const email = requireEnv("ADMIN_EMAIL").toLowerCase();
@@ -61,27 +61,36 @@ async function seedAdmin() {
     updatedAt: now,
   };
 
+  if (options.preferredId && mongoose.Types.ObjectId.isValid(options.preferredId)) {
+    payload._id = options.preferredId;
+  }
+
   if (existing) {
     existing.set(payload);
     await existing.save();
     console.log(`Admin account updated for ${email} by ${executedBy}.`);
-    return;
+    return existing;
   }
 
-  await User.create({
+  const created = await User.create({
     ...payload,
     createdAt: now,
   });
   console.log(`Admin account created for ${email} by ${executedBy}.`);
+  return created;
 }
 
-seedAdmin()
-  .then(async () => {
-    await mongoose.disconnect();
-    process.exit(0);
-  })
-  .catch(async (error) => {
-    console.error(`Admin seed failed: ${error.message}`);
-    await mongoose.disconnect().catch(() => {});
-    process.exit(1);
-  });
+if (require.main === module) {
+  seedAdmin()
+    .then(async () => {
+      await mongoose.disconnect();
+      process.exit(0);
+    })
+    .catch(async (error) => {
+      console.error(`Admin seed failed: ${error.message}`);
+      await mongoose.disconnect().catch(() => {});
+      process.exit(1);
+    });
+}
+
+module.exports = { seedAdmin };

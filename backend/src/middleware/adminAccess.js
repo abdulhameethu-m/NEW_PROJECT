@@ -76,6 +76,7 @@ async function adminWorkspaceAuthRequired(req, res, next) {
       permissions,
       status: staff.status,
       authType: "staff",
+      sid: payload.sid,
     };
     req.user = {
       sub: String(staff._id),
@@ -83,6 +84,7 @@ async function adminWorkspaceAuthRequired(req, res, next) {
       roleId: req.staff.roleId,
       permissions,
       authType: "staff",
+      sid: payload.sid,
     };
     req.authContext = { type: "staff" };
     logger.debug("Staff authenticated", { staffId: payload.sub, path: req.path });

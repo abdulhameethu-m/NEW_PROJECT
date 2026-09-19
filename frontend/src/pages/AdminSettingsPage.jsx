@@ -9,7 +9,13 @@ import { usePlatformFeatures } from "../context/PlatformFeaturesContext";
 const RESET_CONFIRMATION = "RESET ALL DATA";
 
 function normalizePatchError(err) {
-  return err?.response?.data?.message || err?.message || "Request failed.";
+  return (
+    err?.response?.data?.details?.message ||
+    err?.response?.data?.debug?.message ||
+    err?.response?.data?.message ||
+    err?.message ||
+    "Request failed."
+  );
 }
 
 export function AdminSettingsPage() {
@@ -79,10 +85,14 @@ export function AdminSettingsPage() {
     setResetResult(null);
     try {
       const response = await resetPlatformData(resetConfirmation);
-      const result = response?.data || {};
+      const result = response?.data?.collectionsCleared !== undefined
+        ? response.data
+        : (response?.data || response || {});
       setResetResult(result);
       setResetConfirmation("");
       setResetMessage(`Platform data reset completed. ${result.deletedDocuments || 0} documents removed from ${result.collectionsCleared || 0} collections.`);
+      await load().catch(() => {});
+      await reload().catch(() => {});
     } catch (err) {
       setResetError(normalizePatchError(err));
     } finally {

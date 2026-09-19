@@ -309,37 +309,189 @@ async function removeVendor(vendorId, actor, meta) {
   return { user: updatedUser };
 }
 
-async function resetPlatformData() {
+async function resetPlatformData(options = {}) {
   const mongoose = require("mongoose");
+  if (!mongoose.connection || mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
+    throw new AppError("Database connection is not available. Please try again in a moment.", 503, "DB_UNAVAILABLE");
+  }
+
   const db = mongoose.connection.db;
-  const collections = await db.listCollections().toArray();
+  const rawCollections = await db.listCollections().toArray();
   const systemCollections = new Set(["system.indexes", "system.profile"]);
   const deletionStats = {
     collectionsCleared: 0,
     deletedDocuments: 0,
   };
 
-  await Promise.all(
-    collections.map(async (collectionInfo) => {
-      const name = collectionInfo.name;
-      if (!name || systemCollections.has(name) || name.startsWith("system.")) {
-        return;
-      }
-
-      const collection = db.collection(name);
-      const result = await collection.deleteMany({});
-      deletionStats.collectionsCleared += 1;
-      deletionStats.deletedDocuments += result.deletedCount || 0;
-    })
-  );
-
-  await auditService.log({
-    actor: { role: "system" },
-    action: "admin.platform.data_reset",
-    entityType: "System",
-    entityId: null,
-    metadata: deletionStats,
+  // Filter out system collections and views
+  const collectionsToClear = rawCollections.filter((c) => {
+    const name = c.name;
+    if (!name || c.type === "view") return false;
+    if (systemCollections.has(name) || name.startsWith("system.") || name.startsWith("fs.") || name.includes("$")) {
+      return false;
+    }
+    return true;
   });
+
+  // Execute deletions in controlled batches of 10 to avoid Atlas connection pool exhaustion
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < collectionsToClear.length; i += BATCH_SIZE) {
+    const batch = collectionsToClear.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (collectionInfo) => {
+        const name = collectionInfo.name;
+        try {
+          const collection = db.collection(name);
+          const result = await collection.deleteMany({});
+          deletionStats.collectionsCleared += 1;
+          deletionStats.deletedDocuments += result.deletedCount || 0;
+        } catch (colErr) {
+          logger.warn(`Platform reset skipped or failed for collection "${name}"`, {
+            error: colErr.message,
+          });
+        }
+      })
+    );
+  }
+
+  // Restore operational baseline so platform stays immediately usable
+  try {
+    const { ensurePredefinedStaffRoles } = require("../modules/staff/services/role.service");
+    await ensurePredefinedStaffRoles();
+  } catch (err) {
+    logger.warn("Predefined roles restore failed during reset", { error: err.message });
+  }
+
+  try {
+    const { ensureDefaultPricingCategories } = require("./pricing-category.service");
+    await ensureDefaultPricingCategories();
+  } catch (err) {
+    logger.warn("Pricing categories restore failed during reset", { error: err.message });
+  }
+
+  try {
+    const vendorModuleService = require("./vendorModule.service");
+    await vendorModuleService.ensureModulesInitialized();
+  } catch (err) {
+    logger.warn("Vendor modules restore failed during reset", { error: err.message });
+  }
+
+  try {
+    const PlatformConfig = require("../models/PlatformConfig");
+    await Promise.all([
+      PlatformConfig.findOneAndUpdate(
+        { key: "influencer_commerce_enabled" },
+        {
+          $setOnInsert: {
+            key: "influencer_commerce_enabled",
+            value: true,
+            description: "When false, influencer commerce, vendor influencer tools, storefront reels, and tracking attribution are disabled.",
+            category: "feature",
+            type: "boolean",
+            isPublic: true,
+          },
+        },
+        { upsert: true }
+      ),
+      PlatformConfig.findOneAndUpdate(
+        { key: "shipping_modes" },
+        {
+          $setOnInsert: {
+            key: "shipping_modes",
+            value: { selfShipping: true, platformShipping: true },
+            description: "Enabled shipping fulfillment modes across platform.",
+            category: "shipping",
+            type: "object",
+            isPublic: true,
+          },
+        },
+        { upsert: true }
+      ),
+      PlatformConfig.findOneAndUpdate(
+        { key: "maintenance_mode" },
+        {
+          $setOnInsert: {
+            key: "maintenance_mode",
+            value: { enabled: false },
+            description: "Temporarily disable public access to the platform while upgrades, deployments, migrations, or maintenance are in progress.",
+            category: "general",
+            type: "object",
+            isPublic: true,
+          },
+        },
+        { upsert: true }
+      ),
+      PlatformConfig.findOneAndUpdate(
+        { key: "active_logistics_providers" },
+        {
+          $setOnInsert: {
+            key: "active_logistics_providers",
+            value: ["SHIPROCKET", "SHADOWFAX", "DELHIVERY"],
+            description: "Array of provider identifiers that are considered globally enabled.",
+            category: "shipping",
+            type: "array",
+            isPublic: false,
+          },
+        },
+        { upsert: true }
+      ),
+    ]);
+  } catch (cfgErr) {
+    logger.warn("Platform config defaults restore failed during reset", { error: cfgErr.message });
+  }
+
+  // Restore root administrator account so login and access continue working seamlessly
+  try {
+    const { seedAdmin } = require("../scripts/seedAdmin");
+    const preferredId = (options?.actor?.sub && (options?.actor?.role === "super_admin" || options?.actor?.role === "admin"))
+      ? options.actor.sub
+      : undefined;
+    await seedAdmin({ preferredId });
+  } catch (adminErr) {
+    logger.warn("seedAdmin failed during data reset", { error: adminErr.message });
+  }
+
+  // If the actor is a staff member, recreate their staff record and session so their current token remains valid
+  if (options?.staff?._id && options?.staff?.roleId) {
+    try {
+      const { Staff } = require("../modules/staff/models/Staff");
+      const { StaffSession } = require("../modules/staff/models/StaffSession");
+      await Staff.create({
+        _id: options.staff._id,
+        name: options.staff.name || "Staff Member",
+        email: options.staff.email,
+        roleId: options.staff.roleId,
+        status: options.staff.status || "active",
+      });
+      if (options.actor?.sid) {
+        await StaffSession.create({
+          _id: options.actor.sid,
+          staffId: options.staff._id,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        });
+      }
+    } catch (staffErr) {
+      logger.warn("Staff session restore failed during data reset", { error: staffErr.message });
+    }
+  }
+
+  // Audit log the reset event
+  try {
+    const actorId = options?.actor?.sub && mongoose.Types.ObjectId.isValid(options.actor.sub)
+      ? options.actor.sub
+      : undefined;
+    await auditService.log({
+      actor: { sub: actorId, role: options?.actor?.role || "system" },
+      action: "admin.platform.data_reset",
+      entityType: "System",
+      entityId: null,
+      metadata: deletionStats,
+      ipAddress: options?.ipAddress,
+      userAgent: options?.userAgent,
+    });
+  } catch (auditErr) {
+    logger.warn("Audit logging failed for data reset", { error: auditErr.message });
+  }
 
   return deletionStats;
 }

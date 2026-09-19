@@ -25,9 +25,11 @@ import {
   User as UserIcon,
   Lock,
   Edit3,
+  RotateCcw,
 } from 'lucide-react-native';
 import { useOrders } from '../../hooks/useOrders';
 import { useWishlist } from '../../hooks/useWishlist';
+import { useCustomerReturns } from '../../hooks/useReturns';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -35,9 +37,11 @@ export default function ProfileScreen() {
 
   const { data: ordersData } = useOrders(undefined, 1, 10);
   const { data: wishlistItems = [] } = useWishlist();
+  const { data: returnsData } = useCustomerReturns({ limit: 20 });
 
   const ordersCount = ordersData?.orders?.length || 0;
   const wishlistCount = wishlistItems.length;
+  const returnsCount = returnsData?.returns?.length || 0;
 
   const handleLogout = () => {
     Alert.alert(
@@ -216,6 +220,34 @@ export default function ProfileScreen() {
                 Check delivery status and order history
               </Text>
             </View>
+            <ChevronRight size={18} color="#94a3b8" />
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/returns' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuItemIconBg, { backgroundColor: '#f0f9ff' }]}>
+              <RotateCcw size={18} color="#0284c7" />
+            </View>
+            <View style={styles.menuItemInfo}>
+              <Text style={styles.menuItemTitle} allowFontScaling={false}>
+                Returns & Refunds
+              </Text>
+              <Text style={styles.menuItemSubtitle} allowFontScaling={false}>
+                Track pickup status and refund progress
+              </Text>
+            </View>
+            {returnsCount > 0 && (
+              <View style={[styles.hubBadge, { backgroundColor: '#e0f2fe', marginRight: 8 }]}>
+                <Text style={[styles.hubBadgeText, { color: '#0284c7' }]} allowFontScaling={false}>
+                  {returnsCount}
+                </Text>
+              </View>
+            )}
             <ChevronRight size={18} color="#94a3b8" />
           </TouchableOpacity>
 

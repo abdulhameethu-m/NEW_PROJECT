@@ -346,7 +346,13 @@ const resetPlatformData = asyncHandler(async (req, res) => {
     throw new AppError("Invalid confirmation text", 400, "VALIDATION_ERROR");
   }
 
-  const result = await adminService.resetPlatformData();
+  const result = await adminService.resetPlatformData({
+    actor: req.user,
+    authContext: req.authContext,
+    staff: req.staff,
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
   return ok(res, result, "Platform data reset completed");
 });
 

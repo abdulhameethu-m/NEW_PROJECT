@@ -19,12 +19,16 @@ import {
   HelpCircle,
   ShoppingBag,
   Calendar,
+  RotateCcw,
+  ArrowRight,
 } from 'lucide-react-native';
 import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
 import { useOrderDetails, useCancelOrder } from '../../hooks/useOrders';
+import { useCustomerReturns } from '../../hooks/useReturns';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
 import { OrderTrackingTimeline } from '../../components/orders/OrderTrackingTimeline';
 import { CancelOrderModal } from '../../components/orders/CancelOrderModal';
+import { ReturnRequestModal } from '../../components/returns/ReturnRequestModal';
 
 const formatDateTime = (isoString?: string) => {
   if (!isoString) return '';
@@ -49,9 +53,11 @@ export default function OrderDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: order, isLoading, error, refetch } = useOrderDetails(id);
+  const { data: returnsData, refetch: refetchReturns } = useCustomerReturns({ limit: 50 });
   const cancelOrderMutation = useCancelOrder();
 
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [isReturnModalVisible, setIsReturnModalVisible] = useState(false);
 
   if (isLoading) {
     return (
@@ -119,6 +125,16 @@ export default function OrderDetailsScreen() {
 
   const normStatus = (order.status || '').toLowerCase();
   const isCancellable = ['pending', 'placed', 'packed'].includes(normStatus);
+  const isReturnEligible = normStatus === 'delivered';
+
+  const existingReturn = returnsData?.returns?.find((ret) => {
+    const retOrderId = typeof ret.orderId === 'object' ? (ret.orderId as any)?._id : ret.orderId;
+    const retOrderNumber = typeof ret.orderId === 'object' ? (ret.orderId as any)?.orderNumber : undefined;
+    return (
+      (retOrderId && String(retOrderId) === String(order._id)) ||
+      (retOrderNumber && String(retOrderNumber) === String(order.orderNumber))
+    );
+  });
 
   const handleConfirmCancel = async (reason: string, notes?: string) => {
     if (!order?._id) return;
@@ -180,6 +196,38 @@ export default function OrderDetailsScreen() {
 
         {/* Live Tracking Milestones */}
         <OrderTrackingTimeline order={order} />
+
+        {/* Existing Return Banner if customer already initiated return */}
+        {existingReturn && (
+          <TouchableOpacity
+            style={styles.existingReturnBanner}
+            onPress={() => router.push(`/returns/${existingReturn._id}` as any)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.existingReturnBannerTop}>
+              <View style={styles.existingReturnBannerTitleRow}>
+                <View style={styles.existingReturnIconBg}>
+                  <RotateCcw size={16} color="#0284c7" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.existingReturnBannerTitle} allowFontScaling={false}>
+                    Return Request #{existingReturn.returnNumber || existingReturn._id.slice(-6).toUpperCase()}
+                  </Text>
+                  <Text style={styles.existingReturnBannerSub} allowFontScaling={false}>
+                    Status:{' '}
+                    <Text style={{ fontWeight: '700', color: '#0369a1' }}>
+                      {existingReturn.status.replace(/_/g, ' ')}
+                    </Text>
+                  </Text>
+                </View>
+              </View>
+              <ArrowRight size={18} color="#0284c7" />
+            </View>
+            <Text style={styles.existingReturnBannerHint} allowFontScaling={false}>
+              Tap to track pickup agent arrival, courier AWB, and refund progress →
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Ordered Items Card */}
         <View style={styles.card}>
@@ -374,6 +422,32 @@ export default function OrderDetailsScreen() {
             </TouchableOpacity>
           )}
 
+          {isReturnEligible && !existingReturn && (
+            <TouchableOpacity
+              style={styles.returnOrderBtn}
+              onPress={() => setIsReturnModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <RotateCcw size={16} color="#0284c7" style={{ marginRight: 6 }} />
+              <Text style={styles.returnOrderBtnText} allowFontScaling={false}>
+                Return or Replace Items
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {existingReturn && (
+            <TouchableOpacity
+              style={styles.viewReturnBtn}
+              onPress={() => router.push(`/returns/${existingReturn._id}` as any)}
+              activeOpacity={0.8}
+            >
+              <RotateCcw size={16} color="#0284c7" style={{ marginRight: 6 }} />
+              <Text style={styles.viewReturnBtnText} allowFontScaling={false}>
+                View Return Details & Pickup
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.continueShopBtn}
             onPress={() => router.push('/(tabs)/shop')}
@@ -394,6 +468,19 @@ export default function OrderDetailsScreen() {
         onConfirm={handleConfirmCancel}
         isSubmitting={cancelOrderMutation.isPending}
         paymentMethod={order.paymentMethod}
+      />
+
+      {/* Return Request Modal */}
+      <ReturnRequestModal
+        visible={isReturnModalVisible}
+        onClose={() => setIsReturnModalVisible(false)}
+        order={order}
+        onSuccess={(returnId) => {
+          setIsReturnModalVisible(false);
+          refetchReturns();
+          refetch();
+          router.push(`/returns/${returnId}` as any);
+        }}
       />
     </SafeAreaScreen>
   );
@@ -695,5 +782,78 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#4f46e5',
+  },
+  existingReturnBanner: {
+    backgroundColor: '#f0f9ff',
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+  },
+  existingReturnBannerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  existingReturnBannerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  existingReturnIconBg: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#e0f2fe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  existingReturnBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0369a1',
+  },
+  existingReturnBannerSub: {
+    fontSize: 12,
+    color: '#0284c7',
+    marginTop: 2,
+  },
+  existingReturnBannerHint: {
+    fontSize: 11,
+    color: '#0284c7',
+    marginTop: 8,
+    fontWeight: '500',
+  },
+  returnOrderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f9ff',
+    borderWidth: 1.5,
+    borderColor: '#bae6fd',
+    height: 48,
+    borderRadius: 12,
+  },
+  returnOrderBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0284c7',
+  },
+  viewReturnBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f9ff',
+    borderWidth: 1.5,
+    borderColor: '#38bdf8',
+    height: 48,
+    borderRadius: 12,
+  },
+  viewReturnBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0284c7',
   },
 });
