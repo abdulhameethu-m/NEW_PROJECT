@@ -138,11 +138,11 @@ describe('CheckoutPage Component', () => {
     // The page shows a loader initially, then renders the actual content
     await waitFor(() => {
       // It should display the Delivery Address section
-      expect(screen.getByText(/Select delivery address/i)).toBeInTheDocument();
+      expect(screen.getByText(/Delivery Address/i)).toBeInTheDocument();
       // It should display Order Summary section
-      expect(screen.getByText(/Review your order/i)).toBeInTheDocument();
-      // It should display Payment options
-      expect(screen.getByText(/Choose payment/i)).toBeInTheDocument();
+      expect(screen.getByText(/Order Summary/i)).toBeInTheDocument();
+      // It should display Payment Method / Choose Payment section
+      expect(screen.getByText(/Choose Payment/i)).toBeInTheDocument();
     });
   });
 
@@ -158,6 +158,6 @@ describe('CheckoutPage Component', () => {
     renderComponent();
     
     // Check for the specific empty text button
-    expect(await screen.findByText(/Go to shopping/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Go to Shopping/i)).toBeInTheDocument();
   });
 });

@@ -458,7 +458,7 @@ export function CartDrawer() {
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#c7d2fe] bg-white px-2 py-3 text-[13px] font-bold text-[#3730A3] transition-all hover:bg-[#eef2ff] active:scale-[0.98] dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 >
                   <ShoppingBag className="h-4 w-4" />
-                  Continue Shop
+                  Continue Shopping
                 </button>
               </div>
   
