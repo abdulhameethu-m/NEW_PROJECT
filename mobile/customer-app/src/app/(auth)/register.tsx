@@ -14,6 +14,7 @@ import { AxiosError } from 'axios';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { logToTerminal } from '../../utils/errorHandler';
+import { safeGoBack } from '../../utils/safeNavigation';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -83,7 +84,7 @@ export default function RegisterScreen() {
             {/* Header Area */}
             <View className="relative mb-6">
               <TouchableOpacity 
-                onPress={() => router.back()}
+                onPress={() => safeGoBack(router, '/(auth)/login')}
                 className="absolute top-0 left-0 w-10 h-10 bg-white rounded-full items-center justify-center shadow-sm border border-slate-100 z-10"
                 style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 }}
               >

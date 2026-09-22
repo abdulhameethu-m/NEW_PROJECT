@@ -39,6 +39,12 @@ apiClient.interceptors.request.use(
     const csrfToken = useAuthStore.getState().csrfToken;
     if (csrfToken) {
       config.headers['x-csrf-token'] = csrfToken;
+      const existingCookie = (config.headers['Cookie'] as string) || '';
+      if (!existingCookie.includes('csrf_token=')) {
+        config.headers['Cookie'] = existingCookie
+          ? `${existingCookie}; csrf_token=${csrfToken}`
+          : `csrf_token=${csrfToken}`;
+      }
     }
     return config;
   },
@@ -50,8 +56,16 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     
-    // Log API failure to developer terminal so user is not disturbed inside app
-    logToTerminal(`API ${originalRequest?.method?.toUpperCase() || 'REQUEST'} ${originalRequest?.url || ''}`, error);
+    const isRoutineAuthCheck =
+      error.response?.status === 401 &&
+      (originalRequest?.url?.includes('/users/me') ||
+        originalRequest?.url?.includes('/auth/login') ||
+        originalRequest?.url?.includes('/auth/refresh'));
+
+    // Log genuine API failures to developer terminal so user is not disturbed inside app
+    if (!isRoutineAuthCheck) {
+      logToTerminal(`API ${originalRequest?.method?.toUpperCase() || 'REQUEST'} ${originalRequest?.url || ''}`, error);
+    }
 
     // Ignore 401 on login or refresh to prevent infinite loops
     if (originalRequest?.url?.includes('/auth/login') || originalRequest?.url?.includes('/auth/refresh')) {
@@ -102,7 +116,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 403 && errorData?.code?.includes('CSRF')) {
       // Typically we'd try to fetch a new CSRF token and retry
       // For Phase 1, we just reject, and the caller can call fetchCsrfToken()
-      console.warn('CSRF Token error detected for URL:', originalRequest.url, errorData);
+      logToTerminal('CSRF Token', { message: `CSRF error for URL: ${originalRequest.url}`, response: error.response });
     }
 
     return Promise.reject(error);

@@ -14,6 +14,8 @@ import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
 import { useOrders } from '../../hooks/useOrders';
 import { OrderCard } from '../../components/orders/OrderCard';
 import { Order } from '../../types/order';
+import { InvoicePreviewModal } from '../../components/invoice/InvoicePreviewModal';
+import { safeGoBack } from '../../utils/safeNavigation';
 
 const FILTER_TABS = [
   { id: 'ALL', label: 'All Orders' },
@@ -24,9 +26,10 @@ const FILTER_TABS = [
 
 export default function OrdersListScreen() {
   const router = useRouter();
-  const [selectedTab, setSelectedTab] = useState('ALL');
+  const [selectedTab, setSelectedTab] = useState<string>('ALL');
+  const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<Order | null>(null);
 
-  // Backend supports status filtering directly.
+  // Fetch customer orders with high limit for smooth UX directly.
   // For ACTIVE tab, we map to Pending/Shipped or filter client-side for immediate responsive experience.
   const { data, isLoading, isRefetching, refetch } = useOrders(undefined, 1, 50);
 
@@ -89,7 +92,7 @@ export default function OrdersListScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeGoBack(router, '/(tabs)/profile')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -142,7 +145,11 @@ export default function OrdersListScreen() {
           data={orders}
           keyExtractor={(item) => item._id}
           renderItem={({ item }) => (
-            <OrderCard order={item} onPress={() => handleOrderPress(item)} />
+            <OrderCard
+              order={item}
+              onPress={() => handleOrderPress(item)}
+              onInvoicePress={() => setSelectedInvoiceOrder(item)}
+            />
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -157,6 +164,14 @@ export default function OrdersListScreen() {
           }
         />
       )}
+
+      {/* Invoice Preview & Download Modal */}
+      <InvoicePreviewModal
+        visible={!!selectedInvoiceOrder}
+        orderId={selectedInvoiceOrder?._id || null}
+        orderNumber={selectedInvoiceOrder?.orderNumber}
+        onClose={() => setSelectedInvoiceOrder(null)}
+      />
     </SafeAreaScreen>
   );
 }

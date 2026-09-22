@@ -15,6 +15,7 @@ import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
 import { useCustomerReturns } from '../../hooks/useReturns';
 import { ReturnStatusBadge } from '../../components/returns/ReturnStatusBadge';
 import { ReturnRequest } from '../../types/return';
+import { safeGoBack } from '../../utils/safeNavigation';
 
 type FilterTab = 'ALL' | 'ACTIVE' | 'REFUNDED' | 'REJECTED';
 
@@ -124,7 +125,7 @@ export default function ReturnsListScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeGoBack(router, '/(tabs)/profile')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >

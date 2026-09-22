@@ -21,6 +21,7 @@ import {
   Calendar,
   RotateCcw,
   ArrowRight,
+  FileText,
 } from 'lucide-react-native';
 import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
 import { useOrderDetails, useCancelOrder } from '../../hooks/useOrders';
@@ -29,6 +30,8 @@ import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
 import { OrderTrackingTimeline } from '../../components/orders/OrderTrackingTimeline';
 import { CancelOrderModal } from '../../components/orders/CancelOrderModal';
 import { ReturnRequestModal } from '../../components/returns/ReturnRequestModal';
+import { InvoicePreviewModal } from '../../components/invoice/InvoicePreviewModal';
+import { safeGoBack } from '../../utils/safeNavigation';
 
 const formatDateTime = (isoString?: string) => {
   if (!isoString) return '';
@@ -58,13 +61,14 @@ export default function OrderDetailsScreen() {
 
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
   const [isReturnModalVisible, setIsReturnModalVisible] = useState(false);
+  const [isInvoiceModalVisible, setIsInvoiceModalVisible] = useState(false);
 
   if (isLoading) {
     return (
       <SafeAreaScreen style={styles.screen}>
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => safeGoBack(router, '/orders')}
             style={styles.backBtn}
             activeOpacity={0.7}
           >
@@ -90,7 +94,7 @@ export default function OrderDetailsScreen() {
       <SafeAreaScreen style={styles.screen}>
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => safeGoBack(router, '/orders')}
             style={styles.backBtn}
             activeOpacity={0.7}
           >
@@ -153,7 +157,7 @@ export default function OrderDetailsScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeGoBack(router, '/orders')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -162,7 +166,13 @@ export default function OrderDetailsScreen() {
         <Text style={styles.headerTitle} allowFontScaling={false}>
           Order Details
         </Text>
-        <View style={{ width: 38 }} />
+        <TouchableOpacity
+          style={styles.invoiceHeaderBtn}
+          onPress={() => setIsInvoiceModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <FileText size={18} color="#0284c7" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -187,10 +197,23 @@ export default function OrderDetailsScreen() {
           <View style={styles.orderOverviewDivider} />
 
           <View style={styles.orderOverviewBottom}>
-            <Calendar size={13} color="#64748b" style={{ marginRight: 6 }} />
-            <Text style={styles.orderOverviewDate} allowFontScaling={false}>
-              Placed on {formatDateTime(order.createdAt)}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Calendar size={13} color="#64748b" style={{ marginRight: 6 }} />
+              <Text style={styles.orderOverviewDate} allowFontScaling={false}>
+                Placed on {formatDateTime(order.createdAt)}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.invoiceOverviewBtn}
+              onPress={() => setIsInvoiceModalVisible(true)}
+              activeOpacity={0.75}
+            >
+              <FileText size={12} color="#0284c7" style={{ marginRight: 4 }} />
+              <Text style={styles.invoiceOverviewBtnText} allowFontScaling={false}>
+                Tax Invoice
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -449,6 +472,37 @@ export default function OrderDetailsScreen() {
           )}
 
           <TouchableOpacity
+            style={styles.downloadInvoiceBtn}
+            onPress={() => setIsInvoiceModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <FileText size={16} color="#0284c7" style={{ marginRight: 6 }} />
+            <Text style={styles.downloadInvoiceBtnText} allowFontScaling={false}>
+              View & Download Tax Invoice
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.orderSupportBtn}
+            onPress={() =>
+              router.push({
+                pathname: '/support/new',
+                params: {
+                  orderId: order._id,
+                  orderNumber: order.orderNumber,
+                  category: 'Orders & Delivery',
+                },
+              } as any)
+            }
+            activeOpacity={0.8}
+          >
+            <HelpCircle size={16} color="#64748b" style={{ marginRight: 6 }} />
+            <Text style={styles.orderSupportBtnText} allowFontScaling={false}>
+              Need Help with this Order?
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.continueShopBtn}
             onPress={() => router.push('/(tabs)/shop')}
             activeOpacity={0.8}
@@ -481,6 +535,14 @@ export default function OrderDetailsScreen() {
           refetch();
           router.push(`/returns/${returnId}` as any);
         }}
+      />
+
+      {/* Invoice Preview & Download Modal */}
+      <InvoicePreviewModal
+        visible={isInvoiceModalVisible}
+        orderId={order._id}
+        orderNumber={order.orderNumber}
+        onClose={() => setIsInvoiceModalVisible(false)}
       />
     </SafeAreaScreen>
   );
@@ -556,6 +618,7 @@ const styles = StyleSheet.create({
   orderOverviewBottom: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   orderOverviewDate: {
     fontSize: 12,
@@ -855,5 +918,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#0284c7',
+  },
+  invoiceHeaderBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f9ff',
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  invoiceOverviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  invoiceOverviewBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0284c7',
+  },
+  downloadInvoiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#bae6fd',
+    height: 48,
+    borderRadius: 12,
+  },
+  downloadInvoiceBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0284c7',
+  },
+  orderSupportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    height: 48,
+    borderRadius: 12,
+  },
+  orderSupportBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
   },
 });

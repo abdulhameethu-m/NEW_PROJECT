@@ -2,13 +2,18 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { View, FlatList, ActivityIndicator, Text, Pressable, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Heart } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Heart, BadgeCheck } from 'lucide-react-native';
+import { Image } from 'expo-image';
+import { safeGoBack } from '../../utils/safeNavigation';
+import { resolveUrl } from '../../utils/resolveUrl';
 
 import { useProduct } from '../../hooks/useProduct';
 import { useProductReviews } from '../../hooks/useProductReviews';
 import { useAddCartItem } from '../../hooks/useCart';
 import { useWishlist, useToggleWishlist } from '../../hooks/useWishlist';
 import { useAuthStore } from '../../stores/authStore';
+import { useVendorStorefront } from '../../hooks/useVendor';
+import { StoreFollowButton } from '../../components/vendor/StoreFollowButton';
 import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer';
 import { ProductGallery } from '../../components/product/ProductGallery';
 import { ProductInfo } from '../../components/product/ProductInfo';
@@ -43,6 +48,12 @@ export default function ProductDetailsScreen() {
   const { mutateAsync: addCartItem, isPending: isAddingToCart } = useAddCartItem();
   const { data: wishlistItems = [] } = useWishlist();
   const { mutate: toggleWishlist, isPending: isWishlistLoading } = useToggleWishlist();
+
+  // Seller storefront hook
+  const sellerSlug = typeof product?.sellerId === 'object' && product?.sellerId
+    ? (product.sellerId.storeSlug || product.sellerId._id)
+    : (typeof product?.sellerId === 'string' ? product.sellerId : undefined);
+  const { data: sellerStorefront } = useVendorStorefront(sellerSlug);
 
   const [activeVariantId, setActiveVariantId] = useState<string | null>(null);
 
@@ -168,7 +179,7 @@ export default function ProductDetailsScreen() {
     return (
       <View className="flex-1 bg-white dark:bg-slate-950 justify-center items-center p-4">
         <Text className="text-red-500 mb-4">Error loading product details</Text>
-        <Text onPress={() => router.back()} className="text-indigo-600 font-medium">Go Back</Text>
+        <Text onPress={() => safeGoBack(router, '/(tabs)/shop')} className="text-indigo-600 font-medium">Go Back</Text>
       </View>
     );
   }
@@ -188,7 +199,7 @@ export default function ProductDetailsScreen() {
           <ChevronLeft 
             size={28} 
             className="text-slate-900 dark:text-slate-100 mr-2" 
-            onPress={() => router.back()} 
+            onPress={() => safeGoBack(router, '/(tabs)/shop')} 
           />
           <Text className="text-lg font-bold text-slate-900 dark:text-white flex-1" numberOfLines={1}>
             {product.name}
@@ -206,24 +217,68 @@ export default function ProductDetailsScreen() {
         <ProductAttributes attributes={product.attributes} />
         
         {/* "Sold By" component */}
-        <View className="px-4 py-4 mt-2 bg-white dark:bg-slate-950">
-          <Text className="text-lg font-bold text-slate-900 dark:text-white mb-4">Sold By</Text>
-          <View className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex-row items-center">
-            <View className="w-12 h-12 bg-blue-600 rounded-lg justify-center items-center mr-3">
-              <Text className="text-white font-bold text-xs">{product.sellerId?.shopName?.substring(0, 3) || 'SIM'}</Text>
+        {product?.sellerId && (
+          <View className="px-4 py-4 mt-2 bg-white dark:bg-slate-950">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-base font-bold text-slate-900 dark:text-white">Sold By</Text>
+              {sellerSlug ? (
+                <Pressable
+                  onPress={() => router.push({ pathname: '/stores/[slug]', params: { slug: sellerSlug } })}
+                  className="flex-row items-center"
+                >
+                  <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mr-1">Visit Store</Text>
+                  <ChevronRight size={14} color="#6366f1" />
+                </Pressable>
+              ) : null}
             </View>
-            <View className="flex-1">
-              <View className="flex-row items-center">
-                <Text className="font-bold text-slate-900 dark:text-white mr-1">{product.sellerId?.shopName || 'Store'}</Text>
-              </View>
-              <Text className="text-slate-500 text-xs mt-0.5">⭐ New  ·  80 Followers</Text>
-            </View>
-            <View className="flex-row">
-              <Pressable className="bg-indigo-500 px-3 py-1.5 rounded mr-2"><Text className="text-white text-xs font-bold">View Profile</Text></Pressable>
-              <Pressable className="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded"><Text className="text-slate-900 dark:text-slate-100 text-xs font-bold">Follow</Text></Pressable>
+
+            <View className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/60 dark:bg-slate-900/50 flex-row items-center">
+              <Pressable
+                onPress={() => sellerSlug && router.push({ pathname: '/stores/[slug]', params: { slug: sellerSlug } })}
+                className="mr-3"
+              >
+                {sellerStorefront?.vendor?.logoUrl || product.sellerId.logoUrl ? (
+                  <Image
+                    source={{ uri: resolveUrl(sellerStorefront?.vendor?.logoUrl || product.sellerId.logoUrl) }}
+                    style={{ width: 48, height: 48, borderRadius: 12 }}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View className="w-12 h-12 rounded-xl bg-indigo-600 justify-center items-center">
+                    <Text className="text-white font-bold text-base">
+                      {(product.sellerId?.shopName || sellerStorefront?.vendor?.vendorName || 'Store').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+
+              <Pressable
+                onPress={() => sellerSlug && router.push({ pathname: '/stores/[slug]', params: { slug: sellerSlug } })}
+                className="flex-1 mr-2"
+              >
+                <View className="flex-row items-center flex-wrap">
+                  <Text className="font-bold text-slate-900 dark:text-white text-base mr-1" numberOfLines={1}>
+                    {sellerStorefront?.vendor?.vendorName || product.sellerId?.shopName || 'Merchant Store'}
+                  </Text>
+                  {sellerStorefront?.vendor?.verified && (
+                    <BadgeCheck size={16} color="#4f46e5" />
+                  )}
+                </View>
+                <Text className="text-slate-500 dark:text-slate-400 text-xs mt-0.5">
+                  ⭐ {sellerStorefront?.vendor?.rating ? sellerStorefront.vendor.rating.toFixed(1) : '4.8'} ({sellerStorefront?.vendor?.totalReviews ?? 0}) · {sellerStorefront?.vendor?.followersCount ?? 0} followers
+                </Text>
+              </Pressable>
+
+              {sellerSlug && (
+                <StoreFollowButton
+                  storeSlug={sellerSlug}
+                  isFollowing={sellerStorefront?.isFollowing ?? false}
+                  size="sm"
+                />
+              )}
             </View>
           </View>
-        </View>
+        )}
 
         <ReviewSummary ratings={product.ratings} />
         

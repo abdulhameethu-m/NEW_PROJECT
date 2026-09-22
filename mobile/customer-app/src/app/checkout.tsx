@@ -9,6 +9,7 @@ import {
   BackHandler,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { safeGoBack } from '../utils/safeNavigation';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { useQueryClient } from '@tanstack/react-query';
@@ -371,7 +372,7 @@ export default function CheckoutScreen() {
       <SafeAreaScreen className="flex-1 bg-white dark:bg-slate-900">
         <View style={styles.navHeader}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => safeGoBack(router, '/(tabs)/cart')}
             activeOpacity={0.7}
             style={styles.backBtn}
           >
@@ -403,7 +404,7 @@ export default function CheckoutScreen() {
       <View style={styles.navHeader}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => safeGoBack(router, '/(tabs)/cart')}
             activeOpacity={0.7}
             style={styles.backBtn}
           >

@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { safeGoBack } from '../../utils/safeNavigation';
 import {
   ChevronLeft,
   MapPin,
@@ -107,7 +108,7 @@ export default function AddressesScreen() {
       {/* Navigation Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeGoBack(router, '/(tabs)/profile')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >

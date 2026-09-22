@@ -1,13 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
-import { ChevronRight, Package, Calendar } from 'lucide-react-native';
+import { ChevronRight, Package, Calendar, FileText } from 'lucide-react-native';
 import { Order } from '../../types/order';
 import { OrderStatusBadge } from './OrderStatusBadge';
 
 interface OrderCardProps {
   order: Order;
   onPress: () => void;
+  onInvoicePress?: () => void;
 }
 
 const formatDate = (isoString?: string) => {
@@ -24,7 +25,7 @@ const formatDate = (isoString?: string) => {
   }
 };
 
-export const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
+export const OrderCard: React.FC<OrderCardProps> = ({ order, onPress, onInvoicePress }) => {
   const firstItem = order.items?.[0];
   const otherItemsCount = (order.items?.length || 1) - 1;
 
@@ -123,11 +124,29 @@ export const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
           </View>
         </View>
 
-        <View style={styles.detailsBtn}>
-          <Text style={styles.detailsBtnText} allowFontScaling={false}>
-            Details
-          </Text>
-          <ChevronRight size={15} color="#4f46e5" />
+        <View style={styles.actionsRow}>
+          {onInvoicePress && (
+            <TouchableOpacity
+              style={styles.invoiceBtn}
+              onPress={(e) => {
+                e.stopPropagation();
+                onInvoicePress();
+              }}
+              activeOpacity={0.7}
+            >
+              <FileText size={12} color="#0284c7" style={{ marginRight: 4 }} />
+              <Text style={styles.invoiceBtnText} allowFontScaling={false}>
+                Invoice
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.detailsBtn}>
+            <Text style={styles.detailsBtnText} allowFontScaling={false}>
+              Details
+            </Text>
+            <ChevronRight size={15} color="#4f46e5" />
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -278,6 +297,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#475569',
     fontWeight: '600',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  invoiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  invoiceBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284c7',
   },
   detailsBtn: {
     flexDirection: 'row',

@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@ta
 import { useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { authApi } from '../api/auth';
-import { View, Text, TouchableOpacity, ActivityIndicator, Platform, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Platform, StyleSheet, BackHandler } from 'react-native';
 import { getPendingImage, wasCameraSessionActive, clearPendingPhoto } from '../utils/imagePickerService';
 import { initErrorHandler, logToTerminal } from '../utils/errorHandler';
 
@@ -108,6 +108,40 @@ function RootLayoutNav() {
     };
   }, [status, segments, router, rootNavigationState?.key]);
 
+  // Handle Android hardware back press gracefully
+  useEffect(() => {
+    const onBackPress = () => {
+      // If we are at the root level of the app (tabs root or auth login), exit cleanly
+      const isAtRootTab = segments[0] === '(tabs)' && (!segments[1] || (segments[1] as string) === 'index');
+      const isAtRootAuth = segments[0] === '(auth)' && (!segments[1] || (segments[1] as string) === 'login');
+
+      if (isAtRootTab || isAtRootAuth) {
+        BackHandler.exitApp();
+        return true;
+      }
+
+      if (router.canGoBack()) {
+        try {
+          router.back();
+          return true;
+        } catch {
+          // Ignore and fallback
+        }
+      }
+
+      // If cannot go back, safely fallback
+      if (segments[0] === '(auth)') {
+        router.replace('/(auth)/login');
+      } else {
+        router.replace('/(tabs)');
+      }
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [router, segments]);
+
   return (
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
@@ -125,9 +159,19 @@ function RootLayoutNav() {
         <Stack.Screen name="order-success" options={{ headerShown: false }} />
         <Stack.Screen name="orders/index" options={{ headerShown: false }} />
         <Stack.Screen name="orders/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="orders/[id]/invoice" options={{ headerShown: false }} />
+        <Stack.Screen name="returns/index" options={{ headerShown: false }} />
+        <Stack.Screen name="returns/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="wishlist" options={{ headerShown: false }} />
         <Stack.Screen name="addresses/index" options={{ headerShown: false }} />
         <Stack.Screen name="profile/edit" options={{ headerShown: false }} />
         <Stack.Screen name="profile/security" options={{ headerShown: false }} />
+        <Stack.Screen name="stores/index" options={{ headerShown: false }} />
+        <Stack.Screen name="stores/[slug]" options={{ headerShown: false }} />
+        <Stack.Screen name="stores/followed" options={{ headerShown: false }} />
+        <Stack.Screen name="support/index" options={{ headerShown: false }} />
+        <Stack.Screen name="support/new" options={{ headerShown: false }} />
+        <Stack.Screen name="support/[id]" options={{ headerShown: false }} />
       </Stack>
 
       {status === 'INITIALIZING' && (

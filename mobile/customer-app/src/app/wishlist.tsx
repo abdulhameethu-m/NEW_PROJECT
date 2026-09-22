@@ -6,6 +6,7 @@ import { ProductCard } from '../components/catalog/ProductCard';
 import { ChevronLeft, Heart } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
+import { safeGoBack } from '../utils/safeNavigation';
 
 export default function WishlistScreen() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function WishlistScreen() {
     return (
       <SafeAreaScreen className="flex-1 bg-white dark:bg-slate-900">
         <View className="h-14 flex-row items-center px-4 border-b border-slate-100 dark:border-slate-800">
-          <Pressable onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-slate-100 dark:active:bg-slate-800">
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)')} className="p-2 -ml-2 rounded-full active:bg-slate-100 dark:active:bg-slate-800">
             <ChevronLeft size={24} className="text-slate-900 dark:text-white" />
           </Pressable>
           <Text className="text-xl font-bold text-slate-900 dark:text-white ml-2">Wishlist</Text>
@@ -59,7 +60,7 @@ export default function WishlistScreen() {
     <SafeAreaScreen className="flex-1 bg-slate-50 dark:bg-black">
       <View className="h-14 flex-row items-center justify-between px-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shadow-sm">
         <View className="flex-row items-center">
-          <Pressable onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-slate-100 dark:active:bg-slate-800">
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)')} className="p-2 -ml-2 rounded-full active:bg-slate-100 dark:active:bg-slate-800">
             <ChevronLeft size={24} className="text-slate-900 dark:text-white" />
           </Pressable>
           <Text className="text-xl font-bold text-slate-900 dark:text-white ml-2">Wishlist</Text>

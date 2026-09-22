@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { safeGoBack } from '../../utils/safeNavigation';
 import {
   ChevronLeft,
   Lock,
@@ -74,7 +75,7 @@ export default function SecurityScreen() {
       Alert.alert(
         'Password Changed',
         'Your password has been changed successfully. You can now use your new password for future sign-ins.',
-        [{ text: 'OK', onPress: () => router.back() }]
+        [{ text: 'OK', onPress: () => safeGoBack(router, '/(tabs)/profile') }]
       );
     } catch (err: any) {
       const message =
@@ -94,7 +95,7 @@ export default function SecurityScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeGoBack(router, '/(tabs)/profile')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >

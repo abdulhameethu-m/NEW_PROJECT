@@ -8,6 +8,7 @@ import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer
 import { authApi } from '../../api/auth';
 import { AxiosError } from 'axios';
 import { LinearGradient } from 'expo-linear-gradient';
+import { safeGoBack } from '../../utils/safeNavigation';
 
 export default function ForgotUsernameScreen() {
   const router = useRouter();
@@ -57,7 +58,7 @@ export default function ForgotUsernameScreen() {
             {/* Header Area */}
             <View className="relative mb-8">
               <TouchableOpacity 
-                onPress={() => router.back()}
+                onPress={() => safeGoBack(router, '/(auth)/login')}
                 className="w-10 h-10 bg-white rounded-full items-center justify-center shadow-sm border border-slate-100 z-10 mb-6"
                 style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 }}
               >

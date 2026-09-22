@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { safeGoBack } from '../utils/safeNavigation';
 import { X, Check, ShoppingBag, ClipboardList, ShieldCheck, Heart, Minus, Plus, Trash2 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInUp, FadeOutDown, SlideInDown, SlideOutDown, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useCart, useUpdateCartQuantity, useRemoveCartItem } from '../hooks/useCart';
@@ -81,7 +82,7 @@ export default function CartDrawerScreen() {
       >
         <Pressable 
           style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]} 
-          onPress={() => router.back()} 
+          onPress={() => safeGoBack(router, '/(tabs)')} 
         />
       </Animated.View>
 
@@ -103,7 +104,7 @@ export default function CartDrawerScreen() {
             )}
           </View>
           <Pressable 
-            onPress={() => router.back()}
+            onPress={() => safeGoBack(router, '/(tabs)')}
             className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 items-center justify-center active:scale-95"
           >
             <X size={20} className="text-slate-900 dark:text-white" strokeWidth={2.5} />
@@ -277,14 +278,14 @@ export default function CartDrawerScreen() {
         <View className="absolute bottom-0 w-full bg-white dark:bg-slate-900 px-5 pt-4 pb-[max(16px,env(safe-area-inset-bottom))] border-t border-slate-100 dark:border-slate-800 shadow-xl">
           <View className="flex-row gap-3 mb-3">
              <Pressable 
-               onPress={() => { router.back(); router.push('/(tabs)/cart'); }}
+               onPress={() => router.replace('/(tabs)/cart')}
                className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-[12px] py-4 items-center flex-row justify-center gap-2"
              >
                <ShoppingBag size={16} color="white" />
                <Text className="text-white font-bold text-[14px]">View Cart</Text>
              </Pressable>
              <Pressable 
-               onPress={() => router.back()}
+               onPress={() => safeGoBack(router, '/(tabs)')}
                className="flex-1 bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 rounded-[12px] py-4 items-center flex-row justify-center gap-2"
              >
                <ShoppingBag size={16} className="text-indigo-800 dark:text-indigo-200" />

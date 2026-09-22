@@ -8,13 +8,58 @@ import { LogBox } from 'react-native';
 export function initErrorHandler() {
   // 1. Suppress all on-screen error/warning overlays & popups in the mobile app UI
   LogBox.ignoreAllLogs(true);
+  LogBox.ignoreLogs([
+    "The action 'GO_BACK' was not handled by any navigator",
+    "The action 'POP' was not handled by any navigator",
+    "The action 'POP_TO_TOP' was not handled by any navigator",
+    "Sending `onAnimatedValueUpdate` with no listeners registered",
+    "AxiosError",
+    "Request failed with status code",
+    "Network Error",
+  ]);
+
+  // Intercept console.error to silence React Navigation development-only GO_BACK warnings
+  // so Metro server doesn't dump huge NamelessError stack traces
+  const originalConsoleError = console.error;
+  console.error = (...args: any[]) => {
+    const firstArg = typeof args[0] === 'string' ? args[0] : (args[0]?.message || '');
+    if (
+      firstArg.includes("The action 'GO_BACK' was not handled by any navigator") ||
+      firstArg.includes("The action 'POP' was not handled by any navigator") ||
+      firstArg.includes("The action 'POP_TO_TOP' was not handled by any navigator") ||
+      firstArg.includes("AxiosError") ||
+      firstArg.includes("Request failed with status code") ||
+      (args[0] && typeof args[0] === 'object' && args[0].isAxiosError)
+    ) {
+      // Print as clean standard log to avoid Metro crash code frames
+      console.log(...args);
+      return;
+    }
+    originalConsoleError(...args);
+  };
+
+  // Intercept console.warn so Axios internal errors are logged cleanly without Metro code frames
+  const originalConsoleWarn = console.warn;
+  console.warn = (...args: any[]) => {
+    const firstArg = typeof args[0] === 'string' ? args[0] : (args[0]?.message || '');
+    if (
+      firstArg.includes("The action 'GO_BACK' was not handled by any navigator") ||
+      firstArg.includes("AxiosError") ||
+      firstArg.includes("Request failed with status code") ||
+      (args[0] && typeof args[0] === 'object' && args[0].isAxiosError)
+    ) {
+      console.log(...args);
+      return;
+    }
+    originalConsoleWarn(...args);
+  };
 
   // 2. Route global JS uncaught exceptions to the terminal
   const globalAny = (typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : {}) as any;
   if (globalAny.ErrorUtils) {
     const originalHandler = globalAny.ErrorUtils.getGlobalHandler?.();
     globalAny.ErrorUtils.setGlobalHandler((error: any, isFatal?: boolean) => {
-      console.error(
+      console.log(
         `\n🛑 [MOBILE TERMINAL ERROR] ${isFatal ? '(FATAL) ' : ''}EXCEPTION:\n` +
         `  Message: ${error?.message || error}\n` +
         (error?.stack ? `  Stack:\n${error.stack}\n` : '')
@@ -30,7 +75,7 @@ export function initErrorHandler() {
   // 3. Catch unhandled promise rejections on web/platforms with window
   if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('unhandledrejection', (event) => {
-      console.error(
+      console.log(
         `\n🛑 [MOBILE TERMINAL ERROR] UNHANDLED PROMISE REJECTION:\n` +
         `  Reason: ${event.reason?.message || event.reason}\n` +
         (event.reason?.stack ? `  Stack:\n${event.reason.stack}\n` : '')
@@ -54,12 +99,13 @@ export function logToTerminal(tag: string, error: any) {
   const status = error?.response?.status;
   const data = error?.response?.data;
 
-  console.error(
+  // Print using console.log without dumping raw Error object or stack
+  // so Metro runtime never formats it as a WARN/ERROR source code frame
+  console.log(
     `\n📱 [TERMINAL: ${tag}]` +
     (status ? ` [HTTP ${status}]` : '') +
     `\n  Message: ${message}` +
     (data ? `\n  Data: ${JSON.stringify(data, null, 2)}` : '') +
-    (error?.stack ? `\n  Stack:\n${error.stack}` : '') +
     '\n'
   );
 }

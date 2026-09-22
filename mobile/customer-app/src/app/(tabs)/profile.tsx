@@ -26,10 +26,13 @@ import {
   Lock,
   Edit3,
   RotateCcw,
+  Store,
 } from 'lucide-react-native';
 import { useOrders } from '../../hooks/useOrders';
 import { useWishlist } from '../../hooks/useWishlist';
 import { useCustomerReturns } from '../../hooks/useReturns';
+import { useFollowedStores } from '../../hooks/useVendor';
+import { useSupportTickets } from '../../hooks/useSupport';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -38,10 +41,14 @@ export default function ProfileScreen() {
   const { data: ordersData } = useOrders(undefined, 1, 10);
   const { data: wishlistItems = [] } = useWishlist();
   const { data: returnsData } = useCustomerReturns({ limit: 20 });
+  const { data: followedStoresData } = useFollowedStores();
+  const { data: supportTickets = [] } = useSupportTickets();
 
   const ordersCount = ordersData?.orders?.length || 0;
   const wishlistCount = wishlistItems.length;
   const returnsCount = returnsData?.returns?.length || 0;
+  const followedCount = followedStoresData?.pagination?.total ?? (followedStoresData?.stores?.length || 0);
+  const openTicketsCount = supportTickets.filter((t) => t.status === 'OPEN' || t.status === 'IN_PROGRESS').length;
 
   const handleLogout = () => {
     Alert.alert(
@@ -297,6 +304,55 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.menuItem}
+            onPress={() => router.push('/stores/followed' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuItemIconBg, { backgroundColor: '#e0e7ff' }]}>
+              <Store size={18} color="#4338ca" />
+            </View>
+            <View style={styles.menuItemInfo}>
+              <Text style={styles.menuItemTitle} allowFontScaling={false}>
+                Followed Stores
+              </Text>
+              <Text style={styles.menuItemSubtitle} allowFontScaling={false}>
+                Updates & releases from favorite sellers
+              </Text>
+            </View>
+            {followedCount > 0 && (
+              <View style={[styles.hubBadge, { backgroundColor: '#e0e7ff', marginRight: 8 }]}>
+                <Text style={[styles.hubBadgeText, { color: '#4338ca' }]} allowFontScaling={false}>
+                  {followedCount}
+                </Text>
+              </View>
+            )}
+            <ChevronRight size={18} color="#94a3b8" />
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/stores' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuItemIconBg, { backgroundColor: '#fdf2f8' }]}>
+              <Store size={18} color="#db2777" />
+            </View>
+            <View style={styles.menuItemInfo}>
+              <Text style={styles.menuItemTitle} allowFontScaling={false}>
+                Stores Directory
+              </Text>
+              <Text style={styles.menuItemSubtitle} allowFontScaling={false}>
+                Explore verified merchant storefronts
+              </Text>
+            </View>
+            <ChevronRight size={18} color="#94a3b8" />
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity
+            style={styles.menuItem}
             onPress={() => router.push('/profile/edit' as any)}
             activeOpacity={0.7}
           >
@@ -332,6 +388,34 @@ export default function ProfileScreen() {
                 Change password and protect account
               </Text>
             </View>
+            <ChevronRight size={18} color="#94a3b8" />
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/support' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuItemIconBg, { backgroundColor: '#f0fdf4' }]}>
+              <HelpCircle size={18} color="#16a34a" />
+            </View>
+            <View style={styles.menuItemInfo}>
+              <Text style={styles.menuItemTitle} allowFontScaling={false}>
+                Help & Support Center
+              </Text>
+              <Text style={styles.menuItemSubtitle} allowFontScaling={false}>
+                FAQs, contact channels & dispute tickets
+              </Text>
+            </View>
+            {openTicketsCount > 0 && (
+              <View style={[styles.hubBadge, { backgroundColor: '#fef3c7', marginRight: 8 }]}>
+                <Text style={[styles.hubBadgeText, { color: '#d97706' }]} allowFontScaling={false}>
+                  {openTicketsCount} active
+                </Text>
+              </View>
+            )}
             <ChevronRight size={18} color="#94a3b8" />
           </TouchableOpacity>
         </View>

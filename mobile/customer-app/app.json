@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.abdulhameethusteam.abdulhameethu"
+      "package": "com.abdulhameethusteam.abdulhameethu",
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
@@ -42,7 +43,8 @@
           "cameraPermission": "Allow UChooseMe to access your camera to take a profile photo."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

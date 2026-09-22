@@ -29,6 +29,7 @@ import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
 import { useReturnDetails } from '../../hooks/useReturns';
 import { ReturnStatusBadge } from '../../components/returns/ReturnStatusBadge';
 import { ReturnTimeline } from '../../components/returns/ReturnTimeline';
+import { safeGoBack } from '../../utils/safeNavigation';
 
 export default function ReturnDetailsScreen() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function ReturnDetailsScreen() {
     return (
       <SafeAreaScreen style={styles.screen}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => safeGoBack(router, '/returns')} style={styles.backBtn}>
             <ChevronLeft size={24} color="#0f172a" />
           </TouchableOpacity>
           <Text style={styles.headerTitle} allowFontScaling={false}>
@@ -63,7 +64,7 @@ export default function ReturnDetailsScreen() {
     return (
       <SafeAreaScreen style={styles.screen}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => safeGoBack(router, '/returns')} style={styles.backBtn}>
             <ChevronLeft size={24} color="#0f172a" />
           </TouchableOpacity>
           <Text style={styles.headerTitle} allowFontScaling={false}>
@@ -81,7 +82,7 @@ export default function ReturnDetailsScreen() {
           </Text>
           <TouchableOpacity
             style={styles.backHomeBtn}
-            onPress={() => router.back()}
+            onPress={() => safeGoBack(router, '/returns')}
             activeOpacity={0.8}
           >
             <Text style={styles.backHomeBtnText} allowFontScaling={false}>
@@ -122,7 +123,7 @@ export default function ReturnDetailsScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeGoBack(router, '/returns')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >

@@ -15,6 +15,7 @@ import {
   FlatList,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { safeGoBack } from '../../utils/safeNavigation';
 import { Image } from 'expo-image';
 import {
   ChevronLeft,
@@ -161,7 +162,7 @@ export default function EditProfileScreen() {
       });
 
       Alert.alert('Profile Updated', 'Your profile details have been successfully updated.', [
-        { text: 'OK', onPress: () => router.back() },
+        { text: 'OK', onPress: () => safeGoBack(router, '/(tabs)/profile') },
       ]);
     } catch (err: any) {
       const message =
@@ -177,7 +178,7 @@ export default function EditProfileScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeGoBack(router, '/(tabs)/profile')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
