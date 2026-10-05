@@ -172,6 +172,7 @@ function RootLayoutNav() {
         <Stack.Screen name="support/index" options={{ headerShown: false }} />
         <Stack.Screen name="support/new" options={{ headerShown: false }} />
         <Stack.Screen name="support/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="search/index" options={{ headerShown: false }} />
       </Stack>
 
       {status === 'INITIALIZING' && (

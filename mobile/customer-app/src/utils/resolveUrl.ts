@@ -15,12 +15,15 @@ export function resolveUrl(url?: string | null | { url?: string; secureUrl?: str
 
   if (!stringUrl) return undefined;
 
-  // Already a full HTTP or Data URL
+  // Already a full HTTP, Data, Blob, or local device URI
   if (
     stringUrl.startsWith('http://') ||
     stringUrl.startsWith('https://') ||
     stringUrl.startsWith('data:') ||
-    stringUrl.startsWith('blob:')
+    stringUrl.startsWith('blob:') ||
+    stringUrl.startsWith('file:') ||
+    stringUrl.startsWith('content:') ||
+    stringUrl.startsWith('ph:')
   ) {
     return stringUrl;
   }

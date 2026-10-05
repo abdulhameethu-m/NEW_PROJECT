@@ -87,7 +87,7 @@ export default function ForgotUsernameScreen() {
                 
                 <View className="w-full bg-white rounded-2xl p-4 border border-green-100 mb-4 shadow-sm" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 }}>
                   {result.name && (
-                    <View className="flex-row items-center justify-between py-2 border-b border-slate-50">
+                    <View className="flex-row items-center justify-between py -2 border-b border-slate-50">
                       <Text className="text-slate-500 text-sm">Name</Text>
                       <Text className="text-slate-900 font-semibold text-sm">{result.name}</Text>
                     </View>

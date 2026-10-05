@@ -330,7 +330,7 @@ class InventoryService {
       productId,
       variantId: resolved.record.variantId,
       variantSku: resolved.record.sku,
-      sellerId: product.sellerId,
+      sellerId: product.sellerId || sellerId,
       transactionType: "RESERVED",
       quantityChange: normalizedQuantity,
       stockBefore: resolved.record.stock,
@@ -398,7 +398,7 @@ class InventoryService {
       productId,
       variantId: resolved.record.variantId,
       variantSku: resolved.record.sku,
-      sellerId: product.sellerId,
+      sellerId: product.sellerId || sellerId,
       transactionType: "SALE",
       quantityChange: -normalizedQuantity,
       stockBefore: currentStock,
@@ -451,7 +451,7 @@ class InventoryService {
       productId,
       variantId: resolved.record.variantId,
       variantSku: resolved.record.sku,
-      sellerId: product.sellerId,
+      sellerId: product.sellerId || sellerId,
       transactionType: "RETURN",
       quantityChange: normalizedQuantity,
       stockBefore: currentStock,
@@ -505,7 +505,7 @@ class InventoryService {
       productId,
       variantId: resolved.record.variantId,
       variantSku: resolved.record.sku,
-      sellerId: product.sellerId,
+      sellerId: product.sellerId || sellerId,
       transactionType: "UNRESERVED",
       quantityChange: 0,
       stockBefore: resolved.record.stock,
@@ -771,11 +771,29 @@ class InventoryService {
 
   async _recordTransaction(data) {
     try {
+      let sellerId = data.sellerId;
+      if (!sellerId) {
+        const product = await Product.findById(data.productId).select("sellerId createdBy creatorType").lean();
+        if (product?.sellerId) {
+          sellerId = product.sellerId;
+        } else if (product?.createdBy) {
+          const vendorRepo = require("../repositories/vendor.repository");
+          const vendor = await vendorRepo.upsertByUserId(product.createdBy, {
+            status: "approved",
+            stepCompleted: 4,
+            companyName: "Platform Store",
+            shopName: "Platform Store",
+            storeDescription: "Products sold directly by the platform.",
+          });
+          sellerId = vendor._id;
+        }
+      }
+
       const payload = {
         productId: data.productId,
         variantId: data.variantId,
         variantSku: data.variantSku,
-        sellerId: data.sellerId,
+        sellerId,
         transactionType: data.transactionType,
         adjustmentType: data.adjustmentType,
         status: "COMPLETED",

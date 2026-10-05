@@ -105,13 +105,34 @@ function resolveZoneFromMatrix(zoneConfig, address = {}) {
     return { zone: "REGIONAL", matchedState: null, matchedOn: "fallback" };
   }
 
-  const stateConfig = getMatchingState(zoneConfig, address.state);
+  let stateConfig = getMatchingState(zoneConfig, address.state);
+
+  const otherConfig = zoneConfig.states.find(
+    (entry) => normalizeToken(entry.state) === "other"
+  );
+
+  if (!stateConfig && otherConfig) {
+    const targetState = normalizeToken(address.otherState || address.state);
+    for (const zone of ZONES) {
+      if (otherConfig.zones?.[zone]?.districts?.includes(targetState)) {
+        stateConfig = otherConfig;
+        break;
+      }
+    }
+  }
+
+  if (!stateConfig && otherConfig && normalizeToken(address.state) === "other") {
+    stateConfig = otherConfig;
+  }
+
   if (!stateConfig) {
     return { zone: "REGIONAL", matchedState: null, matchedOn: "fallback" };
   }
 
   const city = normalizeToken(address.city);
   const district = normalizeToken(address.district || address.city);
+  const otherState = normalizeToken(address.otherState);
+  const stateToken = normalizeToken(address.state);
   const postalCode = normalizePostalCode(address.postalCode || address.pincode);
 
   for (const zone of ZONES) {
@@ -122,12 +143,20 @@ function resolveZoneFromMatrix(zoneConfig, address = {}) {
       return { zone, matchedState: stateConfig.state, matchedOn: "pincode" };
     }
 
+    if (otherState && zoneEntry.districts.includes(otherState)) {
+      return { zone, matchedState: stateConfig.state, matchedOn: "otherState" };
+    }
+
     if (city && zoneEntry.cities.includes(city)) {
       return { zone, matchedState: stateConfig.state, matchedOn: "city" };
     }
 
     if (district && zoneEntry.districts.includes(district)) {
       return { zone, matchedState: stateConfig.state, matchedOn: "district" };
+    }
+
+    if (stateToken && stateToken !== "other" && zoneEntry.districts.includes(stateToken)) {
+      return { zone, matchedState: stateConfig.state, matchedOn: "state" };
     }
   }
 
@@ -148,6 +177,14 @@ function getConfiguredStatesFromMatrix(zoneConfig = {}) {
   );
 }
 
+function formatTitleCase(str = "") {
+  return String(str || "")
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
 function getConfiguredDistrictsForStateFromMatrix(zoneConfig = {}, state) {
   const stateConfig = getMatchingState(zoneConfig, state);
   if (!stateConfig) return [];
@@ -159,7 +196,7 @@ function getConfiguredDistrictsForStateFromMatrix(zoneConfig = {}, state) {
     districts.push(...(Array.isArray(zoneEntry.districts) ? zoneEntry.districts : []));
   }
 
-  return Array.from(new Set(districts.map((value) => String(value || "").trim()).filter(Boolean))).sort((a, b) =>
+  return Array.from(new Set(districts.map((value) => formatTitleCase(value)).filter(Boolean))).sort((a, b) =>
     a.localeCompare(b)
   );
 }

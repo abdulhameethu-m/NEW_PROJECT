@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { X, Check } from 'lucide-react-native';
 import { UserAddress } from '../../types/checkout';
+import { getShippingStates, getShippingDistricts } from '../../api/shipping';
+import { DropdownSelect } from '../ui/DropdownSelect';
 
 interface AddressFormModalProps {
   visible: boolean;
@@ -32,10 +34,23 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
   const [phone, setPhone] = useState('');
   const [addressLine, setAddressLine] = useState('');
   const [city, setCity] = useState('');
-  const [state, setState] = useState('');
+  const [state, setState] = useState('Tamil Nadu');
+  const [otherState, setOtherState] = useState('');
+  const [stateOptions, setStateOptions] = useState<string[]>(['Tamil Nadu', 'Other']);
+  const [otherStateOptions, setOtherStateOptions] = useState<string[]>([]);
   const [pincode, setPincode] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    if (!visible) return;
+    getShippingStates().then((res) => {
+      if (res && res.length) setStateOptions(res);
+    });
+    getShippingDistricts('Other').then((res) => {
+      if (res && res.length) setOtherStateOptions(res);
+    });
+  }, [visible]);
 
   React.useEffect(() => {
     if (initialData) {
@@ -43,7 +58,8 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
       setPhone(initialData.phone || '');
       setAddressLine(initialData.addressLine || '');
       setCity(initialData.city || '');
-      setState(initialData.state || '');
+      setState(initialData.state || 'Tamil Nadu');
+      setOtherState(initialData.otherState || '');
       setPincode(initialData.pincode || '');
       setIsDefault(!!initialData.isDefault);
     } else {
@@ -51,7 +67,8 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
       setPhone('');
       setAddressLine('');
       setCity('');
-      setState('');
+      setState('Tamil Nadu');
+      setOtherState('');
       setPincode('');
       setIsDefault(false);
     }
@@ -78,8 +95,12 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
       newErrors.city = 'City is required';
     }
 
-    if (!state.trim() || state.trim().length < 2) {
+    if (!state.trim()) {
       newErrors.state = 'State is required';
+    }
+
+    if (state.trim().toLowerCase() === 'other' && !otherState.trim()) {
+      newErrors.otherState = 'Please select your other state';
     }
 
     const cleanPincode = pincode.replace(/\D/g, '');
@@ -94,6 +115,8 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
   const handleSave = async () => {
     if (!validate()) return;
 
+    const isOther = state.trim().toLowerCase() === 'other';
+
     try {
       await onSave({
         name: name.trim(),
@@ -101,6 +124,8 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
         addressLine: addressLine.trim(),
         city: city.trim(),
         state: state.trim(),
+        otherState: isOther ? otherState.trim() : undefined,
+        district: isOther ? (otherState.trim() || city.trim()) : city.trim(),
         pincode: pincode.replace(/\D/g, ''),
         country: 'India',
         isDefault,
@@ -110,7 +135,8 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
       setPhone('');
       setAddressLine('');
       setCity('');
-      setState('');
+      setState('Tamil Nadu');
+      setOtherState('');
       setPincode('');
       setIsDefault(false);
       setErrors({});
@@ -215,38 +241,82 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
               )}
             </View>
 
-            {/* City & State (Two column) */}
-            <View className="flex-row gap-3 mb-4">
-              <View className="flex-1">
-                <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                  City *
-                </Text>
-                <TextInput
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder="e.g. Chennai"
-                  placeholderTextColor="#94a3b8"
-                  className={`h-12 px-4 rounded-xl border bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white font-medium ${
-                    errors.city ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'
-                  }`}
-                />
-                {errors.city && <Text className="text-xs text-red-500 mt-1">{errors.city}</Text>}
+            {/* State (Tamil Nadu / Other selection) */}
+            <View className="mb-4">
+              <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                State *
+              </Text>
+              <View className="flex-row gap-2">
+                {stateOptions.map((opt) => {
+                  const isSelected = state.toLowerCase() === opt.toLowerCase();
+                  return (
+                    <Pressable
+                      key={opt}
+                      onPress={() => {
+                        setState(opt);
+                        if (opt.toLowerCase() !== 'other') {
+                          setOtherState('');
+                        }
+                      }}
+                      className={`flex-1 py-3 px-4 rounded-xl border items-center justify-center ${
+                        isSelected
+                          ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40'
+                          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60'
+                      }`}
+                    >
+                      <Text
+                        className={`text-sm font-semibold ${
+                          isSelected ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        {opt}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-              <View className="flex-1">
+              {errors.state && <Text className="text-xs text-red-500 mt-1">{errors.state}</Text>}
+            </View>
+
+            {/* Select Other State (when State is Other) */}
+            {state.toLowerCase() === 'other' && (
+              <View className="mb-4">
                 <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                  State *
+                  Select Other State *
                 </Text>
-                <TextInput
-                  value={state}
-                  onChangeText={setState}
-                  placeholder="e.g. Tamil Nadu"
-                  placeholderTextColor="#94a3b8"
-                  className={`h-12 px-4 rounded-xl border bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white font-medium ${
-                    errors.state ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'
-                  }`}
+                <DropdownSelect
+                  placeholder="Select configured other state"
+                  selectedValue={otherState}
+                  onSelect={(val) => {
+                    setOtherState(val || '');
+                    setErrors((prev) => ({ ...prev, otherState: '' }));
+                  }}
+                  options={otherStateOptions.map((st) => ({
+                    value: st,
+                    label: st,
+                  }))}
                 />
-                {errors.state && <Text className="text-xs text-red-500 mt-1">{errors.state}</Text>}
+                {errors.otherState && (
+                  <Text className="text-xs text-red-500 mt-1">{errors.otherState}</Text>
+                )}
               </View>
+            )}
+
+            {/* City / District */}
+            <View className="mb-4">
+              <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                City / District *
+              </Text>
+              <TextInput
+                value={city}
+                onChangeText={setCity}
+                placeholder={state.toLowerCase() === 'other' ? 'e.g. Bengaluru, Kochi, Mumbai' : 'e.g. Chennai, Coimbatore'}
+                placeholderTextColor="#94a3b8"
+                className={`h-12 px-4 rounded-xl border bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white font-medium ${
+                  errors.city ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'
+                }`}
+              />
+              {errors.city && <Text className="text-xs text-red-500 mt-1">{errors.city}</Text>}
             </View>
 
             {/* Pincode & Country */}

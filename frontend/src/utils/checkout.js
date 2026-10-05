@@ -3,7 +3,9 @@ export const EMPTY_ADDRESS_FORM = {
   phone: "",
   addressLine: "",
   district: "",
+  city: "",
   state: "",
+  otherState: "",
   pincode: "",
   country: "India",
   isDefault: false,
@@ -17,7 +19,9 @@ export function getAddressFormFromSavedAddress(address) {
     phone: address?.phone || "",
     addressLine: address?.addressLine || "",
     district: address?.district || address?.city || "",
+    city: address?.city || address?.district || "",
     state: address?.state || "",
+    otherState: address?.otherState || "",
     pincode: address?.pincode || "",
     country: address?.country || "India",
     isDefault: Boolean(address?.isDefault),
@@ -35,8 +39,9 @@ export function getShippingAddressFromSavedAddress(address) {
     line1: String(address?.addressLine || "").trim(),
     line2: "",
     district: String(address?.district || address?.city || "").trim(),
-    city: String(address?.district || address?.city || "").trim(),
+    city: String(address?.city || address?.district || "").trim(),
     state: String(address?.state || "").trim(),
+    otherState: String(address?.otherState || "").trim(),
     postalCode: String(address?.pincode || "").trim(),
     country: String(address?.country || "India").trim() || "India",
   };
@@ -48,8 +53,9 @@ export function getAddressPayloadFromForm(form) {
     phone: String(form?.phone || "").trim(),
     addressLine: String(form?.addressLine || "").trim(),
     district: String(form?.district || form?.city || "").trim(),
-    city: String(form?.district || form?.city || "").trim(),
+    city: String(form?.city || form?.district || "").trim(),
     state: String(form?.state || "").trim(),
+    otherState: String(form?.otherState || "").trim(),
     pincode: String(form?.pincode || "").trim(),
     country: String(form?.country || "India").trim() || "India",
     isDefault: Boolean(form?.isDefault),
@@ -68,6 +74,7 @@ export function getShippingAddressFromForm(form) {
     district: payload.district,
     city: payload.city,
     state: payload.state,
+    otherState: payload.otherState,
     postalCode: payload.pincode,
     country: payload.country,
   };
@@ -80,8 +87,11 @@ export function validateAddressForm(form) {
   if (payload.name.length < 2) errors.name = "Enter the recipient name.";
   if (!/^[0-9]{10}$/.test(payload.phone)) errors.phone = "Enter a valid 10-digit phone number.";
   if (payload.addressLine.length < 5) errors.addressLine = "Enter a complete address.";
-  if (payload.district.length < 2) errors.district = "Select the district.";
   if (payload.state.length < 2) errors.state = "Enter the state.";
+  if (payload.state.toLowerCase() === "other" && !payload.otherState) {
+    errors.otherState = "Please select your state.";
+  }
+  if (!payload.district && !payload.city) errors.district = "Select or enter the city/district.";
   if (!/^[0-9]{6}$/.test(payload.pincode)) errors.pincode = "Enter a valid 6-digit pincode.";
   if (payload.country.length < 2) errors.country = "Enter the country.";
 

@@ -57,7 +57,7 @@ export const AddressCard: React.FC<AddressCardProps> = ({
         <View style={styles.detailRow}>
           <MapPin size={13} color="#64748b" style={styles.detailIcon} />
           <Text style={styles.addressText} numberOfLines={2}>
-            {address.addressLine}, {address.city}, {address.state} - {address.pincode}
+            {address.addressLine}, {address.city}, {address.otherState ? `${address.otherState} (${address.state})` : address.state} - {address.pincode}
           </Text>
         </View>
 

@@ -32,6 +32,7 @@ export function toShippingAddress(address: UserAddress): ShippingAddress {
     district: address.district || address.city,
     city: address.city,
     state: address.state,
+    otherState: address.otherState,
     postalCode: address.pincode,
     country: address.country || 'India',
   };

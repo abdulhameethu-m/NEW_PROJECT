@@ -15,7 +15,7 @@ async function check() {
 
     const allVendorEntries = await Ledger.find({}).lean();
     console.log(`Found ${allVendorEntries.length} Total ledger entries in DB.`);
-    
+
   } catch (error) {
     console.error(error);
   } finally {

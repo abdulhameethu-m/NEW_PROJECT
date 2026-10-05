@@ -122,7 +122,7 @@ class CartMergeService {
           // New item - add to user cart
           userCart.items.push({
             productId: guestItem.productId,
-            sellerId: guestItem.vendorId,
+            sellerId: guestItem.vendorId || guestItem.sellerId,
             quantity: guestItem.quantity,
             price: guestItem.price,
             image: guestItem.image,

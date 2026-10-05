@@ -162,6 +162,23 @@ export const VendorReviewsList: React.FC<VendorReviewsListProps> = ({ storeSlug 
               </Text>
             ) : null}
 
+            {/* Customer Attached Photos */}
+            {rev.images && rev.images.length > 0 ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, marginBottom: 4 }}>
+                {rev.images.map((img: any, idx: number) => {
+                  const imgUri = resolveUrl(img.url) || img.url;
+                  return (
+                    <Image
+                      key={`vendor-rev-img-${rev._id}-${idx}`}
+                      source={{ uri: imgUri }}
+                      style={{ width: 60, height: 60, borderRadius: 8, backgroundColor: '#f1f5f9' }}
+                      contentFit="cover"
+                    />
+                  );
+                })}
+              </View>
+            ) : null}
+
             {/* Vendor Reply */}
             {rev.vendorReply ? (
               <View style={styles.vendorReplyBox}>

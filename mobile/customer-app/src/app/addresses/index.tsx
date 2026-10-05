@@ -222,7 +222,7 @@ export default function AddressesScreen() {
                   <View style={styles.detailRow}>
                     <MapPin size={14} color="#64748b" style={styles.detailIcon} />
                     <Text style={styles.cityText} allowFontScaling={false}>
-                      {addr.city}, {addr.state} - {addr.pincode}
+                      {addr.city}, {addr.otherState ? `${addr.otherState} (${addr.state})` : addr.state} - {addr.pincode}
                     </Text>
                   </View>
 

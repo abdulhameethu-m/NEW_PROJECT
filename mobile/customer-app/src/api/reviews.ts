@@ -62,7 +62,7 @@ export interface SubmitReviewPayload {
   title?: string;
   review?: string;
   wouldRecommend?: 'yes' | 'no';
-  // media[] is attached as FormData
+  orderId?: string;
 }
 
 export const submitProductReview = async (payload: SubmitReviewPayload, mediaFiles: any[] = []): Promise<ProductReview> => {
@@ -71,6 +71,10 @@ export const submitProductReview = async (payload: SubmitReviewPayload, mediaFil
   formData.append('productId', payload.productId);
   formData.append('rating', String(payload.rating));
   
+  if (payload.orderId) {
+    formData.append('orderId', payload.orderId);
+  }
+
   if (payload.title) {
     formData.append('title', payload.title);
   }
@@ -84,8 +88,25 @@ export const submitProductReview = async (payload: SubmitReviewPayload, mediaFil
   }
   
   if (mediaFiles && mediaFiles.length > 0) {
-    mediaFiles.forEach((file) => {
-      formData.append('media', file);
+    mediaFiles.forEach((file, index) => {
+      const uri = file.uri;
+      const rawName = file.name || file.fileName || uri.split('/').pop() || `review_media_${Date.now()}_${index}`;
+      const extMatch = /\.(\w+)$/.exec(rawName);
+      const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
+
+      let mimeType = file.type || file.mimeType;
+      if (!mimeType) {
+        if (ext === 'mp4' || ext === 'mov' || ext === 'm4v') mimeType = 'video/mp4';
+        else if (ext === 'png') mimeType = 'image/png';
+        else if (ext === 'webp') mimeType = 'image/webp';
+        else mimeType = 'image/jpeg';
+      }
+
+      formData.append('media', {
+        uri,
+        name: rawName,
+        type: mimeType,
+      } as any);
     });
   }
   

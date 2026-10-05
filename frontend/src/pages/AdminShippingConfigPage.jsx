@@ -554,9 +554,13 @@ export function AdminShippingConfigPage() {
                   </select>
                 </label>
                 <label>
-                  <span className="block text-sm font-medium text-gray-700">District (optional)</span>
+                  <span className="block text-sm font-medium text-gray-700">
+                    {formData.state?.toLowerCase() === "other" ? "Other State (optional)" : "District (optional)"}
+                  </span>
                   <select name="district" value={formData.district} onChange={handleFormChange} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
-                    <option value="">All districts in this state</option>
+                    <option value="">
+                      {formData.state?.toLowerCase() === "other" ? "All other states" : "All districts in this state"}
+                    </option>
                     {selectedDistrictOptions.map((district) => <option key={district} value={district}>{district}</option>)}
                   </select>
                 </label>
@@ -635,9 +639,13 @@ export function AdminShippingConfigPage() {
                 </select>
               </label>
               <label>
-                <span className="block text-sm font-medium text-gray-700">District</span>
+                <span className="block text-sm font-medium text-gray-700">
+                  {preview.state?.toLowerCase() === "other" ? "Other State" : "District"}
+                </span>
                 <select value={preview.district} onChange={(event) => setPreview((prev) => ({ ...prev, district: event.target.value }))} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
-                  <option value="">No district selected</option>
+                  <option value="">
+                    {preview.state?.toLowerCase() === "other" ? "All other states" : "No district selected"}
+                  </option>
                   {previewDistrictOptions.map((district) => <option key={district} value={district}>{district}</option>)}
                 </select>
               </label>
@@ -708,7 +716,11 @@ export function AdminShippingConfigPage() {
                     {rules.map((rule) => (
                       <tr key={rule._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 text-sm text-gray-800">{rule.state}</td>
-                        <td className="px-6 py-4 text-sm text-gray-800">{rule.district || "All districts"}</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">
+                          {rule.state?.toLowerCase() === "other"
+                            ? (rule.district || "All other states")
+                            : (rule.district || "All districts")}
+                        </td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{rule.zone}</td>
                         <td className="px-6 py-4 text-sm text-gray-800">
                           {formatKg(rule.weightFrom)}kg - {formatKg(rule.weightTo)}kg

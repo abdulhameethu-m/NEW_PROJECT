@@ -93,8 +93,13 @@ export function AddressModal({
   if (!open) return null;
 
   function handleFieldChange(key, value) {
-    setForm((current) => ({ ...current, [key]: value, ...(key === "state" ? { district: "" } : {}) }));
-    setErrors((current) => ({ ...current, [key]: "" }));
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === "state" ? { otherState: "", district: "" } : {}),
+      ...(key === "otherState" ? { district: value } : {}),
+    }));
+    setErrors((current) => ({ ...current, [key]: "", ...(key === "otherState" ? { district: "" } : {}) }));
   }
 
   async function reverseGeocodeWithGoogle({ lat, lng }) {
@@ -177,7 +182,9 @@ export function AddressModal({
       phone: Phone,
       addressLine: MapPin,
       state: Map,
+      otherState: MapPin,
       district: Building,
+      city: Building,
       pincode: Hash,
       country: Globe,
     }[key];
@@ -185,7 +192,7 @@ export function AddressModal({
     if (key === "state") {
       return (
         <label key={key}>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label} *</div>
           <div className="relative mt-2">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
               {Icon && <Icon className="h-4 w-4" />}
@@ -210,10 +217,38 @@ export function AddressModal({
       );
     }
 
+    if (key === "otherState") {
+      return (
+        <label key={key}>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label} *</div>
+          <div className="relative mt-2">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+              {Icon && <Icon className="h-4 w-4" />}
+            </div>
+            <select
+              value={form.otherState || form.district || ""}
+              onChange={(event) => handleFieldChange("otherState", event.target.value)}
+              className={`w-full rounded-2xl border bg-white pl-11 pr-4 py-3 text-sm text-slate-950 outline-none transition focus:border-indigo-600 dark:bg-slate-950 dark:text-white ${
+                errors.otherState ? "border-rose-300" : "border-slate-200 dark:border-slate-800"
+              }`}
+            >
+              <option value="">Select other state</option>
+              {districtOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+          {errors.otherState ? <div className="mt-1 text-xs text-rose-600">{errors.otherState}</div> : null}
+        </label>
+      );
+    }
+
     if (key === "district") {
       return (
         <label key={key}>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label} *</div>
           <div className="relative mt-2">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
               {Icon && <Icon className="h-4 w-4" />}
@@ -311,7 +346,15 @@ export function AddressModal({
               ["phone", "Phone"],
               ["addressLine", "Address"],
               ["state", "State"],
-              ["district", "District"],
+              ...(form.state?.toLowerCase() === "other"
+                ? [
+                    ["otherState", "Select Other State"],
+                    ["city", "City / District"],
+                  ]
+                : [
+                    ["district", "District"],
+                    ["city", "City"],
+                  ]),
               ["pincode", "Pincode"],
               ["country", "Country"],
             ].map(([key, label]) => renderField(key, label))}

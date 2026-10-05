@@ -14,6 +14,7 @@ const userAddressSchema = new mongoose.Schema(
     district: { type: String, trim: true, maxlength: 120, default: "" },
     city: { type: String, required: true, trim: true, maxlength: 120 },
     state: { type: String, required: true, trim: true, maxlength: 120 },
+    otherState: { type: String, trim: true, maxlength: 120, default: "" },
     pincode: { type: String, required: true, trim: true, maxlength: 20 },
     country: { type: String, required: true, trim: true, maxlength: 120, default: "India" },
     isDefault: { type: Boolean, default: false },

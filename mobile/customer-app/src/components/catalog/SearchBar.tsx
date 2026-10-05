@@ -47,7 +47,12 @@ export const SearchBar = ({
     <ResponsiveContainer className="my-2" withPadding={true}>
       <View className="flex-row items-center w-full">
         <View className="flex-1 flex-row items-center bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-700">
-          <Search size={20} className="text-slate-400" />
+          <Pressable 
+            onPress={() => router.push({ pathname: '/search' as any, params: { initialQuery: localValue } })}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Search size={20} color="#f59e0b" />
+          </Pressable>
           <TextInput
             className="flex-1 ml-2 text-base text-slate-900 dark:text-slate-100 py-1"
             placeholder="Search products..."

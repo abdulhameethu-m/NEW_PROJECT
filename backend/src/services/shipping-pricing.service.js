@@ -62,13 +62,33 @@ class ShippingPricingService {
       return cached.slab;
     }
 
-    const slab = await ShippingWeightSlab.findOne({
+    let slab = await ShippingWeightSlab.findOne({
       ...this.buildRuleQuery({ stateKey, districtKey, zone: normalizedZone }),
       weightFrom: { $lte: roundedWeight },
       weightTo: { $gte: roundedWeight },
     })
       .sort({ districtKey: districtKey ? -1 : 1, priority: 1, weightFrom: 1, createdAt: 1 })
       .lean();
+
+    if (!slab && stateKey !== "other") {
+      slab = await ShippingWeightSlab.findOne({
+        ...this.buildRuleQuery({ stateKey: "other", districtKey: stateKey, zone: normalizedZone }),
+        weightFrom: { $lte: roundedWeight },
+        weightTo: { $gte: roundedWeight },
+      })
+        .sort({ districtKey: -1, priority: 1, weightFrom: 1, createdAt: 1 })
+        .lean();
+
+      if (!slab) {
+        slab = await ShippingWeightSlab.findOne({
+          ...this.buildRuleQuery({ stateKey: "other", districtKey: "", zone: normalizedZone }),
+          weightFrom: { $lte: roundedWeight },
+          weightTo: { $gte: roundedWeight },
+        })
+          .sort({ priority: 1, weightFrom: 1, createdAt: 1 })
+          .lean();
+      }
+    }
 
     this.slabCache.set(cacheKey, {
       slab,
@@ -106,9 +126,23 @@ class ShippingPricingService {
       isFallback: true,
     };
 
-    return ShippingWeightSlab.findOne(parentDistrictQuery)
+    const parentFallback = await ShippingWeightSlab.findOne(parentDistrictQuery)
       .sort({ priority: 1, createdAt: 1 })
       .lean();
+
+    if (parentFallback) return parentFallback;
+
+    if (stateKey !== "other") {
+      const otherFallback = await ShippingWeightSlab.findOne({
+        ...this.buildRuleQuery({ stateKey: "other", districtKey: "", zone: normalizedZone }),
+        isFallback: true,
+      })
+        .sort({ priority: 1, createdAt: 1 })
+        .lean();
+      if (otherFallback) return otherFallback;
+    }
+
+    return null;
   }
 
   buildRulePayload(slab) {
@@ -250,18 +284,20 @@ class ShippingPricingService {
       validateAllItemsHaveWeight(cartItems);
       const weight = calculateCartWeight(cartItems);
       const derivedState = String(shippingAddress?.state || state || "").trim();
+      const derivedOtherState = String(shippingAddress?.otherState || "").trim();
       const derivedDistrict = String(
-        shippingAddress?.district || district || shippingAddress?.city || ""
+        derivedOtherState || shippingAddress?.district || district || shippingAddress?.city || ""
       ).trim();
 
       const zoneResult = await resolveZone({
         ...shippingAddress,
         state: derivedState,
+        otherState: derivedOtherState,
         district: derivedDistrict,
       });
 
       return await this.calculateShipping({
-        state: derivedState,
+        state: zoneResult.matchedState || derivedState,
         district: derivedDistrict,
         zone: zoneResult.zone,
         weight,
@@ -279,9 +315,24 @@ class ShippingPricingService {
       validateAllItemsHaveWeight(cartItems);
       const weight = calculateCartWeight(cartItems);
       const derivedState = String(shippingAddress?.state || state || "").trim();
-      const derivedDistrict = String(shippingAddress?.district || shippingAddress?.city || "").trim();
-      const zone = await this.determineZone({ ...shippingAddress, state: derivedState, district: derivedDistrict });
-      const result = await this.calculateShipping({ state: derivedState, district: derivedDistrict, zone, weight });
+      const derivedOtherState = String(shippingAddress?.otherState || "").trim();
+      const derivedDistrict = String(
+        derivedOtherState || shippingAddress?.district || shippingAddress?.city || ""
+      ).trim();
+      const zoneResult = await resolveZone({
+        ...shippingAddress,
+        state: derivedState,
+        otherState: derivedOtherState,
+        district: derivedDistrict,
+      });
+      const zone = zoneResult.zone;
+      const result = await this.calculateShipping({
+        state: zoneResult.matchedState || derivedState,
+        district: derivedDistrict,
+        zone,
+        weight,
+        matchedOn: zoneResult.matchedOn,
+      });
 
       return result.ruleApplied
         ? [

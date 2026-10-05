@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Pressable, Image, Text } from 'react-native';
-import { Heart, ShoppingBag } from 'lucide-react-native';
+import { Heart, ShoppingBag, Search } from 'lucide-react-native';
 import { ResponsiveContainer } from '../layout/ResponsiveContainer';
 import { useRouter } from 'expo-router';
 import { useCart } from '../../hooks/useCart';
@@ -28,7 +28,13 @@ export function HomeHeader() {
         </Text>
       </View>
 
-      <View className="flex-row items-center gap-4">
+      <View className="flex-row items-center gap-2">
+        <Pressable 
+          className="p-2"
+          onPress={() => router.push('/search' as any)}
+        >
+          <Search size={22} className="text-slate-700 dark:text-slate-300" strokeWidth={1.8} />
+        </Pressable>
         <Pressable 
           className="relative p-2"
           onPress={() => router.push('/wishlist')}

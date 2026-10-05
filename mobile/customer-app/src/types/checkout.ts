@@ -6,6 +6,7 @@ export interface UserAddress {
   district?: string;
   city: string;
   state: string;
+  otherState?: string;
   pincode: string;
   country: string;
   isDefault?: boolean;
@@ -19,6 +20,7 @@ export interface ShippingAddress {
   district?: string;
   city: string;
   state: string;
+  otherState?: string;
   postalCode: string;
   country: string;
 }

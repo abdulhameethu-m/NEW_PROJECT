@@ -18,6 +18,7 @@ const defaultForm = {
   district: "",
   city: "",
   state: "",
+  otherState: "",
   pincode: "",
   country: "India",
   isDefault: false,
@@ -108,6 +109,7 @@ export function AddressesPage() {
       district: address.district || address.city || "",
       city: address.city || address.district || "",
       state: address.state || "",
+      otherState: address.otherState || "",
       pincode: address.pincode || "",
       country: address.country || "India",
       isDefault: Boolean(address.isDefault),
@@ -118,7 +120,22 @@ export function AddressesPage() {
 
   function handleFieldChange(key, value) {
     if (key === "state") {
-      setForm((current) => ({ ...current, state: value, district: "", city: "" }));
+      setForm((current) => ({
+        ...current,
+        state: value,
+        otherState: "",
+        district: "",
+        city: "",
+      }));
+      return;
+    }
+
+    if (key === "otherState") {
+      setForm((current) => ({
+        ...current,
+        otherState: value,
+        district: value,
+      }));
       return;
     }
 
@@ -135,14 +152,17 @@ export function AddressesPage() {
     setSaving(true);
     setError("");
     try {
+      const isOther = form.state?.toLowerCase() === "other";
+      if (!form.state) throw new Error("Select the state.");
+      if (isOther && !form.otherState) throw new Error("Select your other state.");
+      if (!form.district && !form.city) throw new Error("Select the district or enter city.");
+
       const payload = {
         ...form,
-        district: form.district || form.city,
-        city: form.district || form.city,
+        otherState: isOther ? form.otherState : "",
+        district: isOther ? (form.otherState || form.city) : (form.district || form.city),
+        city: form.city || form.district,
       };
-
-      if (!payload.state) throw new Error("Select the state.");
-      if (!payload.district) throw new Error("Select the district.");
 
       if (editingId) {
         await updateUserAddress(editingId, payload);
@@ -240,7 +260,7 @@ export function AddressesPage() {
               </label>
             ))}
             <label className="grid gap-2">
-              <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">State</span>
+              <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">State *</span>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
                   <Map className="h-4 w-4 text-indigo-500" />
@@ -260,28 +280,71 @@ export function AddressesPage() {
                 </select>
               </div>
             </label>
-            <label className="grid gap-2">
-              <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">District</span>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                  <Building className="h-4 w-4 text-slate-400" />
+
+            {form.state?.toLowerCase() === "other" ? (
+              <>
+                <label className="grid gap-2">
+                  <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">Select Other State *</span>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                      <MapPin className="h-4 w-4 text-indigo-500" />
+                    </div>
+                    <select
+                      value={form.otherState || form.district}
+                      onChange={(event) => handleFieldChange("otherState", event.target.value)}
+                      className="w-full rounded-[1.25rem] border border-slate-200 bg-white py-3 pl-11 pr-4 text-[13px] font-medium text-slate-900 outline-none transition focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-indigo-500 appearance-none"
+                      required
+                    >
+                      <option value="">Select other state</option>
+                      {Array.from(new Set([...(districtOptions || []), form.otherState].filter(Boolean))).map((stateName) => (
+                        <option key={stateName} value={stateName}>
+                          {stateName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">City / District *</span>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                      <Building className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <input
+                      value={form.city}
+                      onChange={(event) => handleFieldChange("city", event.target.value)}
+                      placeholder="e.g. Bengaluru, Kochi, Mumbai"
+                      className="w-full rounded-[1.25rem] border border-slate-200 bg-white py-3 pl-11 pr-4 text-[13px] font-medium text-slate-900 outline-none transition focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-indigo-500"
+                      required
+                    />
+                  </div>
+                </label>
+              </>
+            ) : (
+              <label className="grid gap-2">
+                <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">District *</span>
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                    <Building className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <select
+                    value={form.district}
+                    onChange={(event) => handleFieldChange("district", event.target.value)}
+                    disabled={!form.state}
+                    className="w-full rounded-[1.25rem] border border-slate-200 bg-white py-3 pl-11 pr-4 text-[13px] font-medium text-slate-900 outline-none transition focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-900 appearance-none"
+                    required
+                  >
+                    <option value="">{form.state ? "Select district" : "Select state first"}</option>
+                    {Array.from(new Set([...(districtOptions || []), form.district].filter(Boolean))).map((district) => (
+                      <option key={district} value={district}>
+                        {district}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <select
-                  value={form.district}
-                  onChange={(event) => handleFieldChange("district", event.target.value)}
-                  disabled={!form.state}
-                  className="w-full rounded-[1.25rem] border border-slate-200 bg-white py-3 pl-11 pr-4 text-[13px] font-medium text-slate-900 outline-none transition focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-900 appearance-none"
-                  required
-                >
-                  <option value="">{form.state ? "Select district" : "Select state first"}</option>
-                  {Array.from(new Set([...(districtOptions || []), form.district].filter(Boolean))).map((district) => (
-                    <option key={district} value={district}>
-                      {district}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </label>
+              </label>
+            )}
             <label className="sm:col-span-2 flex items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-[#fbfbfe] px-5 py-4 text-[13px] dark:border-slate-800 dark:bg-slate-800/50 cursor-pointer transition hover:bg-slate-50">
               <input
                 type="checkbox"
@@ -344,7 +407,7 @@ export function AddressesPage() {
                   </div>
                   <div className="text-[13px] font-medium leading-6 text-slate-600 dark:text-slate-300">
                     <div>{address.addressLine}</div>
-                    <div>{address.district || address.city}, {address.state}</div>
+                    <div>{address.city || address.district}, {address.otherState ? `${address.otherState} (${address.state})` : address.state}</div>
                     <div>{address.pincode}, {address.country}</div>
                   </div>
                 </div>
