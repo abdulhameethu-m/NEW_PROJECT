@@ -306,23 +306,89 @@ export function ProductsPage() {
       <div className="px-3 pb-3">
 
 
-        <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        {/* Subcategories Horizontal Filter Bar */}
+        {subcategories.length > 0 && (
+          <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide px-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                updateParams((next) => {
+                  next.delete("subCategoryId");
+                  next.set("page", "1");
+                });
+              }}
+              className={`rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition-all active:scale-95 flex-shrink-0 ${
+                !subCategoryId
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "border border-slate-200/80 bg-slate-100/80 text-slate-700 hover:bg-slate-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+              }`}
+            >
+              All {matchedCategory?.name || ""}
+            </button>
+            {subcategories.map((sub) => {
+              const isSubActive = subCategoryId === sub._id;
+              return (
+                <button
+                  key={sub._id}
+                  type="button"
+                  onClick={() => {
+                    updateParams((next) => {
+                      if (isSubActive) next.delete("subCategoryId");
+                      else next.set("subCategoryId", sub._id);
+                      next.set("page", "1");
+                    });
+                  }}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition-all active:scale-95 flex-shrink-0 ${
+                    isSubActive
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "border border-slate-200/80 bg-slate-100/80 text-slate-700 hover:bg-slate-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                  }`}
+                >
+                  {sub.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Mobile Compact Toolbar: Item Count & Filters */}
+        <div className="lg:hidden mt-2 flex items-center justify-between gap-2 px-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+              {pagination.total} {pagination.total === 1 ? "Product" : "Products"}
+            </span>
+            {subCategoryId && (
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                • {subcategories.find((s) => s._id === subCategoryId)?.name}
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setFilterSheetOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-xs hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 active:scale-95 transition-all"
+          >
+            <SlidersHorizontal size={13} className="text-blue-600 dark:text-blue-400" />
+            <span>Filters</span>
+            {appliedFilterChips.length > 0 && (
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[10px] text-white font-bold leading-none">
+                {appliedFilterChips.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Desktop Toolbar */}
+        <div className="hidden lg:flex mt-3 items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div>
             <p className="font-semibold text-slate-900 dark:text-slate-100">{pagination.total} Products</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">Compact view for fast browsing</p>
           </div>
           <button
             type="button"
-            onClick={() => setFilterSheetOpen(true)}
-            className="lg:hidden inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-200"
-          >
-            <SlidersHorizontal size={16} />
-            Filters
-          </button>
-          <button
-            type="button"
             onClick={() => setIsDesktopFilterOpen(prev => !prev)}
-            className="hidden lg:inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-200"
+            className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-200"
           >
             <SlidersHorizontal size={16} />
             Filters
@@ -554,7 +620,7 @@ export function ProductsPage() {
           </div>
         </FilterBottomSheet>
 
-        <div className="mt-4 lg:flex lg:items-start lg:gap-6">
+        <div className="mt-2.5 lg:mt-4 lg:flex lg:items-start lg:gap-6">
           {isDesktopFilterOpen && (
             <div className="hidden lg:block lg:w-80 shrink-0">
               <FilterSidebar

@@ -172,7 +172,7 @@ export function Footer() {
 
   return (
     <footer
-      className="relative mt-12 overflow-hidden border-t"
+      className="relative mt-4 sm:mt-12 overflow-hidden border-t"
       style={footerStyle}
     >
       {/* Subtle dynamic ambient glow using Theme Primary & Accent colors */}
@@ -183,7 +183,7 @@ export function Footer() {
         }}
       />
 
-      <div className="relative w-full px-3 py-12 sm:px-4 lg:px-8 lg:py-16">
+      <div className="relative w-full px-3 py-6 sm:px-4 sm:py-12 lg:px-8 lg:py-16">
         {/* ── Hero card ─────────────────────────────────────────────────── */}
         <div
           className="grid gap-8 rounded-[2rem] border p-6 backdrop-blur-xl lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] lg:p-8"

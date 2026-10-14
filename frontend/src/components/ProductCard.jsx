@@ -218,7 +218,8 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
       className={`group relative flex flex-col h-full overflow-hidden rounded-2xl transition-all duration-300 ${cardStyleClass}`}
       style={{
         background: "var(--theme-product-card-background)",
-        borderColor: "var(--theme-product-card-border)"
+        borderColor: "var(--theme-product-card-border)",
+        isolation: "isolate",
       }}
     >
       <div
@@ -250,15 +251,13 @@ export function ProductCard({ product, cardStyle = "DEFAULT", imageAspectClass =
         {/* Top Left Discount Ribbon */}
         {discountPercent > 0 && (
           <div 
-            className="absolute top-0 left-0 z-20 w-[2.75rem] h-[2.75rem] sm:w-[3.75rem] sm:h-[3.75rem] bg-yellow-400"
+            className="absolute top-0 left-0 z-10 w-[2.75rem] h-[2.75rem] sm:w-[3.75rem] sm:h-[3.75rem] bg-yellow-400 pointer-events-none"
             style={{ 
               clipPath: 'polygon(0 0, 100% 0, 0 100%)',
               WebkitClipPath: 'polygon(0 0, 100% 0, 0 100%)',
-              transform: 'translateZ(0)',
-              willChange: 'transform'
             }}
           >
-            <div className="absolute top-1 left-1.5 sm:top-1.5 sm:left-2 flex flex-col items-start translate-z-0">
+            <div className="absolute top-1 left-1.5 sm:top-1.5 sm:left-2 flex flex-col items-start">
               <span className="text-[9px] sm:text-[12px] font-extrabold text-blue-950 leading-none">{discountPercent}%</span>
               <span className="text-[6px] sm:text-[8px] font-bold text-blue-950 leading-none mt-0.5">OFF</span>
             </div>

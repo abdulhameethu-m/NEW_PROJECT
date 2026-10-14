@@ -1,8 +1,18 @@
 /* eslint-disable no-unused-vars */
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, ChevronDown, ChevronUp, Star } from "lucide-react";
- 
+import {
+  ArrowLeft,
+  Share2,
+  Heart,
+  ChevronDown,
+  ChevronUp,
+  Star,
+  Truck,
+  ShieldCheck,
+  RefreshCw,
+  Check,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatCurrency } from "../utils/formatCurrency";
 import { SellerCard } from "../components/seller/SellerNavigation";
@@ -41,15 +51,21 @@ function Accordion({ title, children, defaultOpen = false }) {
   return (
     <div className="border-b border-slate-100 last:border-0 dark:border-slate-800">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between py-4 text-left font-semibold text-slate-900 transition-colors dark:text-white"
+        className="flex w-full items-center justify-between py-2.5 text-left text-xs font-bold uppercase tracking-wider text-slate-800 transition-colors dark:text-slate-200"
       >
-        <span className="text-base">{title}</span>
-        {isOpen ? <ChevronUp className="h-5 w-5 text-slate-500" /> : <ChevronDown className="h-5 w-5 text-slate-500" />}
+        <span>{title}</span>
+        {isOpen ? (
+          <ChevronUp className="h-4 w-4 text-slate-400" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-slate-400" />
+        )}
       </button>
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? "max-h-[2000px] pb-4 opacity-100" : "max-h-0 opacity-0"
-          }`}
+        className={`overflow-hidden transition-all duration-200 ease-in-out ${
+          isOpen ? "max-h-[1200px] pb-3 opacity-100" : "max-h-0 opacity-0"
+        }`}
       >
         {children}
       </div>
@@ -65,9 +81,11 @@ function MobileGallery({ media }) {
     if (!scrollRef.current) return;
     const scrollLeft = e.target.scrollLeft;
     const width = e.target.clientWidth;
-    const newIndex = Math.round(scrollLeft / width);
-    if (newIndex !== activeIndex) {
-      setActiveIndex(newIndex);
+    if (width > 0) {
+      const newIndex = Math.round(scrollLeft / width);
+      if (newIndex !== activeIndex) {
+        setActiveIndex(newIndex);
+      }
     }
   };
 
@@ -78,54 +96,94 @@ function MobileGallery({ media }) {
   };
 
   if (!media || media.length === 0) {
-    return <div className="flex aspect-square w-full items-center justify-center bg-slate-100 dark:bg-slate-800"><span className="text-slate-400">No image</span></div>;
+    return (
+      <div className="flex h-56 w-full items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <span className="text-xs text-slate-400">No image available</span>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="relative flex flex-col bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+      {/* Scrollable Gallery Container with fixed compact height */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="hide-scrollbar flex aspect-[4/5] w-full snap-x snap-mandatory overflow-x-auto bg-slate-50 dark:bg-slate-900"
+        className="hide-scrollbar flex h-[280px] sm:h-[320px] w-full snap-x snap-mandatory overflow-x-auto"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {media.map((img, i) => (
-          <div key={i} className="min-w-full shrink-0 snap-center">
-            <img decoding="async" src={img.url} alt={img.altText || `Product Image ${i + 1}`} className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal" loading={i === 0 ? "eager" : "lazy"} />
+          <div key={i} className="min-w-full h-full shrink-0 snap-center flex items-center justify-center p-2">
+            <img
+              decoding="async"
+              src={img.url}
+              alt={img.altText || `Product Image ${i + 1}`}
+              className="max-h-full max-w-full object-contain rounded-lg drop-shadow-xs"
+              loading={i === 0 ? "eager" : "lazy"}
+            />
           </div>
         ))}
       </div>
 
-      <div className="mt-3 flex items-center justify-center gap-1.5">
-        {media.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => scrollTo(i)}
-            className={`h-1.5 rounded-full transition-all duration-300 ${activeIndex === i ? "w-4 bg-slate-800 dark:bg-slate-200" : "w-1.5 bg-slate-300 dark:bg-slate-700"}`}
-            aria-label={`Go to slide ${i + 1}`}
-          />
-        ))}
-      </div>
-
+      {/* Counter Pill in bottom right corner */}
       {media.length > 1 && (
-        <div className="hide-scrollbar mt-3 flex w-full gap-2 overflow-x-auto px-4 pb-2" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        <div className="absolute bottom-2.5 right-3 rounded-full bg-slate-950/70 backdrop-blur-xs px-2 py-0.5 text-[10px] font-semibold text-white shadow-xs">
+          {activeIndex + 1} / {media.length}
+        </div>
+      )}
+
+      {/* Dots Indicator */}
+      {media.length > 1 && (
+        <div className="flex items-center justify-center gap-1.5 pb-2.5 pt-1">
+          {media.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => scrollTo(i)}
+              className={`h-1.5 rounded-full transition-all duration-200 ${
+                activeIndex === i
+                  ? "w-4 bg-slate-800 dark:bg-slate-200"
+                  : "w-1.5 bg-slate-300 dark:bg-slate-700"
+              }`}
+              aria-label={`Go to slide ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Thumbnail strip if multiple images */}
+      {media.length > 1 && (
+        <div
+          className="hide-scrollbar flex w-full gap-1.5 overflow-x-auto px-3 pb-2.5"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
           {media.map((img, i) => (
             <button
               key={i}
+              type="button"
               onClick={() => scrollTo(i)}
-              className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${activeIndex === i ? "border-slate-800 dark:border-slate-200" : "border-transparent"}`}
+              className={`relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition-all dark:bg-slate-800 ${
+                activeIndex === i
+                  ? "border-slate-900 dark:border-white shadow-xs"
+                  : "border-slate-200 opacity-60 dark:border-slate-700"
+              }`}
             >
-              <img loading="lazy" decoding="async" src={img.url} alt={`Thumbnail ${i + 1}`} className="h-full w-full object-cover" />
-              {activeIndex !== i && <div className="absolute inset-0 bg-white/40 dark:bg-black/40" />}
+              <img
+                loading="lazy"
+                decoding="async"
+                src={img.url}
+                alt={`Thumbnail ${i + 1}`}
+                className="h-full w-full object-contain p-0.5"
+              />
             </button>
           ))}
         </div>
       )}
+
       <style dangerouslySetInnerHTML={{ __html: `.hide-scrollbar::-webkit-scrollbar { display: none; }` }} />
     </div>
   );
 }
-
 
 export function MobileProductLayout({
   loading,
@@ -157,30 +215,49 @@ export function MobileProductLayout({
   returnRule,
 }) {
   const navigate = useNavigate();
-  const [quantity, setQuantity] = useState(1);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: product?.name || "Product",
+          url: window.location.href,
+        });
+      } catch {
+        // User cancelled share
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        // Fallback
+      }
+    }
+  };
 
   if (loading && !product) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800 dark:border-slate-800 dark:border-t-slate-200" />
+        <div className="h-7 w-7 animate-spin rounded-full border-3 border-slate-200 border-t-slate-800 dark:border-slate-800 dark:border-t-slate-200" />
       </div>
     );
   }
 
   if (error && !product) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-slate-50 p-6 dark:bg-slate-950">
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>
-        <button onClick={() => navigate(-1)} className="rounded-xl bg-[color:var(--commerce-accent)] px-6 py-3 font-semibold text-white">Go Back</button>
+      <div className="flex h-screen flex-col items-center justify-center space-y-3 bg-slate-50 p-6 text-center dark:bg-slate-950">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">
+          {error}
+        </div>
+        <button
+          onClick={() => navigate(-1)}
+          className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-semibold text-white"
+        >
+          Go Back
+        </button>
       </div>
     );
   }
@@ -190,174 +267,226 @@ export function MobileProductLayout({
   const soldCount = product?.salesCount || 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-[100px] text-slate-900 dark:bg-slate-950 dark:text-slate-100 relative">
-
+    <div className="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      {/* Toast Notification for Error or Copied link */}
       <AnimatePresence>
+        {copied && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed left-1/2 top-4 z-50 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-lg dark:bg-white dark:text-slate-900"
+          >
+            <Check className="h-3.5 w-3.5 text-emerald-400 dark:text-emerald-600" />
+            <span>Link copied to clipboard</span>
+          </motion.div>
+        )}
         {error ? (
           <motion.div
-            initial={{ opacity: 0, y: -50 }}
+            initial={{ opacity: 0, y: -30 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed left-1/2 top-4 z-50 w-[90%] max-w-sm -translate-x-1/2 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-medium text-rose-800 shadow-xl"
+            exit={{ opacity: 0, y: -30 }}
+            className="fixed left-1/2 top-4 z-50 w-[90%] max-w-sm -translate-x-1/2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-medium text-rose-800 shadow-xl"
           >
             {error}
           </motion.div>
         ) : null}
       </AnimatePresence>
 
-      {/* Gallery Section */}
-      <section className="bg-white pb-4 dark:bg-slate-900">
-        <MobileGallery media={media} />
-      </section>
+      {/* Top Mobile Bar: Back Navigation, Category & Share */}
+      <div className="flex items-center justify-between border-b border-slate-100 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back</span>
+        </button>
 
-      {/* Title & Pricing Section */}
-      <section className="mt-2 bg-white p-4 dark:bg-slate-900">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-widest text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-               {product.category}
-             </span>
-             {stock > 0 ? (
-               <span className="rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-bold uppercase tracking-widest dark:bg-emerald-900/40 dark:text-emerald-300">
-                 In stock
-               </span>
-             ) : (
-               <span className="rounded-full bg-rose-100 text-rose-800 px-3 py-1 text-xs font-bold uppercase tracking-widest dark:bg-rose-900/40 dark:text-rose-300">
-                 Out of stock
-               </span>
-             )}
-             {returnRule && (
-               <>
-                 {returnRule.ruleType === "no_return" ? (
-                   <span className="flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:border-rose-800/50 dark:text-rose-300">
-                     <svg className="mr-1.5 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                     No Return
-                   </span>
-                 ) : returnRule.ruleType === "returnable" ? (
-                   <span className="flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-300">
-                     <svg className="mr-1.5 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                     {returnRule.returnDays} Days Return
-                   </span>
-                 ) : null}
-               </>
-             )}
-          </div>
-          <h1 className="text-xl font-bold leading-tight text-slate-900 dark:text-white">{product.name}</h1>
+        <div className="flex items-center gap-2">
+          {product?.category && (
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+              {product.category}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleShare}
+            aria-label="Share product"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 active:scale-95"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Compact Gallery */}
+      <MobileGallery media={media} />
+
+      {/* Product Information Card */}
+      <section className="border-b border-slate-100 bg-white p-3.5 sm:p-4 dark:border-slate-800 dark:bg-slate-900">
+        {/* Badges row: Category, Stock & Return */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {product?.category && (
+            <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              {product.category}
+            </span>
+          )}
+          {stock > 0 ? (
+            <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+              In stock
+            </span>
+          ) : (
+            <span className="rounded bg-rose-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">
+              Out of stock
+            </span>
+          )}
+          {returnRule && (
+            <span className="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              {returnRule.ruleType === "no_return" ? "No Return" : `${returnRule.returnDays} Days Return`}
+            </span>
+          )}
         </div>
 
+        {/* Product Title */}
+        <h1 className="mt-1.5 text-base sm:text-lg font-bold leading-snug text-slate-900 dark:text-white">
+          {product?.name}
+        </h1>
+
+        {/* Rating and Sales count */}
         {(averageRating > 0 || soldCount > 0) && (
-          <div className="mt-3 flex items-center gap-3 text-sm">
+          <div className="mt-1.5 flex items-center gap-2 text-xs">
             {averageRating > 0 && (
-              <div className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
-                <Star className="h-3.5 w-3.5 fill-current" />
+              <div className="flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                <Star className="h-3 w-3 fill-current text-amber-500" />
                 <span>{averageRating.toFixed(1)}</span>
-                <span className="font-medium opacity-80">({reviewCount})</span>
+                <span className="font-normal text-slate-400">({reviewCount})</span>
               </div>
             )}
             {soldCount > 0 && (
-              <div className="text-slate-500 dark:text-slate-400">
+              <span className="text-slate-500 dark:text-slate-400">
                 {soldCount}+ sold
-              </div>
+              </span>
             )}
           </div>
         )}
 
-        <div className="mt-4 flex items-end justify-between">
-          <div>
-            <div className="flex items-end gap-2">
-              <span className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">{formatCurrency(pricing.salePrice)}</span>
-              {pricing.hasDiscount && (
-                <span className="mb-1 text-base font-medium text-slate-400 line-through">{formatCurrency(pricing.price)}</span>
-              )}
-            </div>
+        {/* Pricing Row */}
+        <div className="mt-2.5 flex items-baseline justify-between">
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+              {formatCurrency(pricing.salePrice)}
+            </span>
             {pricing.hasDiscount && (
-              <div className="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                You save {formatCurrency(pricing.amountSaved)} (Inclusive of all taxes)
-              </div>
+              <span className="text-xs text-slate-400 line-through">
+                {formatCurrency(pricing.price)}
+              </span>
+            )}
+            {pricing.hasDiscount && (
+              <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
+                {pricing.discountPercent}% OFF
+              </span>
             )}
           </div>
-          {pricing.hasDiscount && (
-            <div className="flex flex-col items-center justify-center rounded-xl bg-rose-100 px-3 py-1 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400">
-              <span className="text-lg font-black leading-none">{pricing.discountPercent}%</span>
-              <span className="text-[10px] font-bold uppercase tracking-wider">OFF</span>
-            </div>
-          )}
+        </div>
+        {pricing.hasDiscount && (
+          <p className="mt-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+            You save {formatCurrency(pricing.amountSaved)} (Inclusive of all taxes)
+          </p>
+        )}
+      </section>
+
+      {/* Trust & Guarantee Strip */}
+      <section className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100 bg-white py-2.5 text-center dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col items-center px-1">
+          <Truck className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
+          <span className="mt-1 text-[11px] font-semibold text-slate-800 dark:text-slate-200">Fast Delivery</span>
+          <span className="text-[9px] text-slate-400">Direct to doorstep</span>
+        </div>
+        <div className="flex flex-col items-center px-1">
+          <ShieldCheck className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
+          <span className="mt-1 text-[11px] font-semibold text-slate-800 dark:text-slate-200">100% Genuine</span>
+          <span className="text-[9px] text-slate-400">Quality assured</span>
+        </div>
+        <div className="flex flex-col items-center px-1">
+          <RefreshCw className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
+          <span className="mt-1 text-[11px] font-semibold text-slate-800 dark:text-slate-200">Easy Returns</span>
+          <span className="text-[9px] text-slate-400">Hassle-free policy</span>
         </div>
       </section>
 
-      {/* Variant Selector */}
+      {/* Variant Selector (Colors, Sizes, etc.) */}
       {variantGroups && variantGroups.length > 0 && (
-        <section className="mt-2 bg-white p-4 dark:bg-slate-900">
-          <div className="space-y-5">
-            {variantGroups.map((group) => (
-              <div key={group.key} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-slate-900 dark:text-white">{group.name}</h3>
-                  <span className="text-sm font-medium text-[color:var(--commerce-accent)]">{selectedAttributes?.[group.key]}</span>
-                </div>
-                <div className="hide-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-                  {group.values.map((option) => {
-                    const isSelected = selectedAttributes?.[group.key] === option.value;
-                    const hasMatchingVariant = variants.some((variant) => {
-                      if (variant?.attributes?.[group.key] !== option.value) return false;
-                      return Object.entries(selectedAttributes || {}).every(([key, value]) =>
-                        key === group.key ? true : !value || variant?.attributes?.[key] === value
-                      );
-                    });
-                    const displayType = variantDefsByKey[group.key]?.variantConfig?.displayType || "button";
-                    const showSwatch = isVisualSwatchGroup(group, displayType);
-                    const swatchColor = resolveSwatchColor(option.value);
-                    const disabled = !hasMatchingVariant;
-
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => selectVariantValue(group.key, option.value)}
-                        className={`relative flex h-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 px-5 font-semibold transition-all active:scale-95 ${isSelected
-                          ? "border-[color:var(--commerce-accent)] bg-blue-50 text-[color:var(--commerce-accent)] dark:border-[color:var(--commerce-accent)] dark:bg-blue-900/20"
-                          : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                          } ${disabled ? "opacity-40" : ""}`}
-                      >
-                        {showSwatch && (
-                          <span
-                            className="mr-2 block h-5 w-5 rounded-full border border-black/10 shadow-inner"
-                            style={{ backgroundColor: swatchColor || "#e2e8f0" }}
-                          />
-                        )}
-                        {option.value}
-                        {isSelected && (
-                          <span className="absolute -bottom-1 -right-1 block h-4 w-4 rotate-45 bg-[color:var(--commerce-accent)]" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+        <section className="border-b border-slate-100 bg-white p-3.5 sm:p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+          {variantGroups.map((group) => (
+            <div key={group.key} className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                  {group.name}
+                </span>
+                <span className="font-bold text-slate-600 dark:text-slate-400">
+                  {selectedAttributes?.[group.key]}
+                </span>
               </div>
-            ))}
-          </div>
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {group.values.map((option) => {
+                  const isSelected = selectedAttributes?.[group.key] === option.value;
+                  const hasMatchingVariant = variants.some((variant) => {
+                    if (variant?.attributes?.[group.key] !== option.value) return false;
+                    return Object.entries(selectedAttributes || {}).every(([key, value]) =>
+                      key === group.key ? true : !value || variant?.attributes?.[key] === value
+                    );
+                  });
+                  const displayType = variantDefsByKey[group.key]?.variantConfig?.displayType || "button";
+                  const showSwatch = isVisualSwatchGroup(group, displayType);
+                  const swatchColor = resolveSwatchColor(option.value);
+                  const disabled = !hasMatchingVariant;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => selectVariantValue(group.key, option.value)}
+                      className={`relative flex h-8 min-w-8 items-center justify-center rounded-lg border px-2.5 text-xs font-semibold transition active:scale-95 ${
+                        isSelected
+                          ? "border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900 shadow-xs"
+                          : "border-slate-200 bg-slate-50/50 text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                      } ${disabled ? "opacity-30 cursor-not-allowed" : ""}`}
+                    >
+                      {showSwatch && (
+                        <span
+                          className="mr-1.5 h-3.5 w-3.5 rounded-full border border-black/10"
+                          style={{ backgroundColor: swatchColor || "#e2e8f0" }}
+                        />
+                      )}
+                      <span>{option.value}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </section>
       )}
 
-
-
       {/* Description & Specs Accordion */}
-      <section className="mt-2 bg-white px-4 py-2 dark:bg-slate-900">
+      <section className="border-b border-slate-100 bg-white px-3.5 py-1 dark:border-slate-800 dark:bg-slate-900">
         <Accordion title="Product Description" defaultOpen={false}>
-          <div className="prose prose-sm max-w-none text-slate-600 dark:prose-invert dark:text-slate-400">
-            <p>{product.description}</p>
-            {product.shortDescription && <p>{product.shortDescription}</p>}
+          <div className="text-xs leading-relaxed text-slate-600 dark:text-slate-400 space-y-2">
+            <p>{product?.description}</p>
+            {product?.shortDescription && <p>{product.shortDescription}</p>}
           </div>
         </Accordion>
 
         {moduleTabs && moduleTabs.length > 0 && moduleTabs.map((tab) => (
           <Accordion key={tab.key} title={tab.label}>
-            <div className="grid gap-y-3 rounded-xl bg-slate-50 p-4 dark:bg-slate-800/50">
+            <div className="grid gap-y-2 rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/50">
               {(tab.fields || [])
                 .filter((field) => tab.values[field.key] !== undefined && tab.values[field.key] !== "")
                 .map((field) => (
-                  <div key={field.key} className="flex flex-col text-sm sm:flex-row sm:justify-between">
+                  <div key={field.key} className="flex justify-between">
                     <span className="font-medium text-slate-500 dark:text-slate-400">{field.name}</span>
                     <span className="font-semibold text-slate-900 dark:text-white">{formatFieldValue(tab.values[field.key])}</span>
                   </div>
@@ -367,65 +496,80 @@ export function MobileProductLayout({
         ))}
       </section>
 
-      {/* Store Info */}
+      {/* Store / Seller Card */}
       {product?.sellerId && (
-        <section className="mt-2 bg-white p-4 dark:bg-slate-900">
-          <h3 className="mb-4 font-bold text-slate-900 dark:text-white">Sold By</h3>
+        <section className="border-b border-slate-100 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
+          <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+            Sold By
+          </h3>
           <SellerCard seller={product?.sellerId} compact />
         </section>
       )}
 
-      {/* Recommendations */}
-      <section className="mt-2 space-y-2 bg-slate-50 pb-6 dark:bg-slate-950">
-        <div className="bg-white py-6 pl-4 dark:bg-slate-900">
-          <RecommendationSection
-            title="Frequently Bought Together"
-            items={visibleFbtBundle || []}
-            layout="carousel"
-            recommendationType="bundle"
-            surface="product_page"
-            sourceProductId={product._id}
-            loading={recommendationsLoading}
-            showEmptyState
-          />
-        </div>
-        <div className="bg-white py-6 pl-4 dark:bg-slate-900">
-          <RecommendationSection
-            title="Related Products"
-            items={recommendations?.related || []}
-            layout="carousel"
-            recommendationType="related"
-            surface="product_page"
-            sourceProductId={product._id}
-            loading={recommendationsLoading}
-            showEmptyState
-          />
-        </div>
-      </section>
+      {/* Recommendations - Only rendered when items actually exist, avoiding empty space */}
+      {((visibleFbtBundle && visibleFbtBundle.length > 0) || (recommendations?.related && recommendations?.related.length > 0)) && (
+        <section className="space-y-2 bg-slate-50 pt-2 pb-4 dark:bg-slate-950">
+          {visibleFbtBundle && visibleFbtBundle.length > 0 && (
+            <div className="border-b border-slate-100 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
+              <RecommendationSection
+                title="Frequently Bought Together"
+                items={visibleFbtBundle}
+                layout="carousel"
+                recommendationType="bundle"
+                surface="product_page"
+                sourceProductId={product._id}
+                loading={recommendationsLoading}
+                showEmptyState={false}
+              />
+            </div>
+          )}
+          {recommendations?.related && recommendations?.related.length > 0 && (
+            <div className="border-b border-slate-100 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
+              <RecommendationSection
+                title="Related Products"
+                items={recommendations.related}
+                layout="carousel"
+                recommendationType="related"
+                surface="product_page"
+                sourceProductId={product._id}
+                loading={recommendationsLoading}
+                showEmptyState={false}
+              />
+            </div>
+          )}
+        </section>
+      )}
 
-      {/* Sticky Bottom Actions Bar */}
-      <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] dark:bg-slate-900 dark:shadow-[0_-8px_30px_rgba(0,0,0,0.5)]">
-        <div className="flex items-center gap-3">
+      {/* Compact Docked Sticky Bottom Actions Bar */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/90 bg-white/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-lg backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95">
+        <div className="flex items-center gap-2">
+          {/* Wishlist Button */}
           <button
+            type="button"
             onClick={handleWishlistToggle}
             disabled={wishlistLoading}
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-slate-200 bg-white text-slate-600 transition-all active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+            aria-label="Toggle wishlist"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
           >
-            <Heart className={`h-6 w-6 ${wishlistSaved ? "fill-rose-500 text-rose-500" : ""}`} />
+            <Heart className={`h-4 w-4 ${wishlistSaved ? "fill-rose-500 text-rose-500" : ""}`} />
           </button>
 
+          {/* Add to Cart Button */}
           <button
+            type="button"
             disabled={stock === 0 || adding}
             onClick={() => handleAddToCart()}
-            className="flex h-14 flex-1 items-center justify-center rounded-2xl bg-slate-900 font-bold text-white transition-all active:scale-95 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
+            className="flex h-10 flex-1 items-center justify-center rounded-xl bg-slate-900 px-3 text-xs font-bold text-white transition active:scale-95 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
           >
             {adding ? "Adding..." : stock === 0 ? "Out of Stock" : "Add to Cart"}
           </button>
 
+          {/* Buy Now Button */}
           <button
+            type="button"
             disabled={stock === 0 || adding}
             onClick={() => handleAddToCart("/checkout")}
-            className="flex h-14 flex-1 items-center justify-center rounded-2xl bg-[color:var(--commerce-accent)] font-bold text-white transition-all active:scale-95 disabled:opacity-50"
+            className="flex h-10 flex-1 items-center justify-center rounded-xl bg-orange-600 hover:bg-orange-700 px-3 text-xs font-bold text-white shadow-xs transition active:scale-95 disabled:opacity-50"
           >
             Buy Now
           </button>

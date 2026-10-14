@@ -21,6 +21,6 @@ async function check() {
   } finally {
     await mongoose.disconnect();
   }
-}
+} 
 
 check();

@@ -93,11 +93,16 @@ export function Layout() {
   const [isDarkMode, setIsDarkMode] = useDarkMode();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isMobileHeaderMinimized, setIsMobileHeaderMinimized] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.innerWidth < 1024;
   });
   const location = useLocation();
+
+  useEffect(() => {
+    setIsMobileSearchOpen(false);
+  }, [location.pathname]);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
   const { categories } = useCategories();
@@ -120,6 +125,8 @@ export function Layout() {
     location.pathname.startsWith("/influencers") ||
     location.pathname.startsWith("/reels") ||
     (location.pathname.startsWith("/influencer/") && !isInfluencerWorkspace);
+  const isProductPage = location.pathname.startsWith("/product/");
+  const isCartPage = location.pathname === "/cart";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -237,7 +244,7 @@ export function Layout() {
           <>
             {/* Desktop Header */}
             <header 
-              className="hidden lg:block sticky top-0 z-30 border-b transition-colors"
+              className="hidden lg:block sticky top-0 z-40 border-b transition-colors"
               style={{ 
                 background: "var(--theme-navbar-background, #ffffff)",
                 borderColor: "var(--theme-navbar-border, #f1f5f9)"
@@ -347,70 +354,74 @@ export function Layout() {
             {/* Mobile Sticky Header */}
             {!isPublicInfluencerPage && (
               <header
-                className="block lg:hidden sticky top-0 z-30 border-b transition-colors"
+                className="block lg:hidden sticky top-0 z-40 border-b transition-colors"
                 style={{
                   background: "var(--theme-navbar-background, #ffffff)",
                   borderColor: "var(--theme-navbar-border, #f1f5f9)"
                 }}
               >
-                <div className="px-3 py-2.5 flex items-center justify-between gap-3">
+                <div className="px-3 py-2 flex items-center justify-between gap-2.5">
+                  {/* Left: Menu & Brand */}
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setIsMenuOpen(true)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-95"
-                      style={{ color: "var(--theme-navbar-icon, #0F2A43)" }}
+                      className="inline-flex h-8.5 w-8.5 items-center justify-center rounded-xl bg-slate-100/80 hover:bg-slate-200/80 dark:bg-slate-900 dark:hover:bg-slate-800 transition active:scale-95 text-slate-800 dark:text-slate-200"
                       aria-label="Open navigation menu"
                     >
-                      <Menu className="h-[22px] w-[22px]" />
+                      <Menu className="h-5 w-5" />
                     </button>
                     <Link to="/" className="inline-flex items-center">
-                      <img src="/logo.png" alt="Logo" className="h-[30px] w-auto max-w-[100px] object-contain rounded-lg" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
-                      <span className="hidden h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-[#0F2A43] text-sm font-bold text-white">U</span>
+                      <img src="/logo.png" alt="Logo" className="h-[28px] w-auto max-w-[90px] object-contain rounded-lg" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+                      <span className="hidden h-7 w-7 items-center justify-center rounded-lg bg-[#0F2A43] text-xs font-bold text-white">U</span>
                     </Link>
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  {/* Right: Quick Action Controls */}
+                  <div className="flex items-center gap-1.5">
+                    {/* Search Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileSearchOpen(prev => !prev)}
+                      className={`inline-flex h-8.5 w-8.5 items-center justify-center rounded-full transition active:scale-95 ${
+                        isMobileSearchOpen
+                          ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-xs"
+                          : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                      }`}
+                      aria-label="Toggle search"
+                    >
+                      <Search className="h-[18px] w-[18px]" />
+                    </button>
+
+                    {/* Dark Mode */}
                     <button
                       type="button"
                       onClick={() => setIsDarkMode(!isDarkMode)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-95"
-                      style={{ color: "var(--theme-navbar-icon, #0F2A43)" }}
+                      className="inline-flex h-8.5 w-8.5 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95 text-slate-700 dark:text-slate-300"
                       aria-label={isDarkMode ? "Enable light mode" : "Enable dark mode"}
                     >
-                      {isDarkMode ? <SunMedium className="h-[20px] w-[20px]" /> : <MoonStar className="h-[20px] w-[20px]" />}
+                      {isDarkMode ? <SunMedium className="h-[18px] w-[18px]" /> : <MoonStar className="h-[18px] w-[18px]" />}
                     </button>
+
+                    {/* Cart with badge */}
                     {showShopActions && (
-                      <>
-                        <HeaderIconLinkMobile to={wishlistHref} label="Wishlist" badge={wishlistCount}>
-                          <Heart className="h-[20px] w-[20px]" style={{ color: "var(--theme-navbar-icon, #0F2A43)" }} />
-                        </HeaderIconLinkMobile>
-                        <HeaderIconLinkMobile to="/cart" label="Cart" badge={cartCount}>
-                          <ShoppingCart className="h-[20px] w-[20px]" style={{ color: "var(--theme-navbar-icon, #0F2A43)" }} />
-                        </HeaderIconLinkMobile>
-                      </>
-                    )}
-                    {user ? (
-                      <UserMenu />
-                    ) : (
-                      <Link
-                        to="/login"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
-                        style={{ color: "var(--theme-navbar-icon, #0F2A43)" }}
-                        aria-label="Login"
-                      >
-                        <UserRound className="h-[20px] w-[20px]" />
-                      </Link>
+                      <HeaderIconLinkMobile to="/cart" label="Cart" badge={cartCount}>
+                        <ShoppingCart className="h-[18px] w-[18px]" />
+                      </HeaderIconLinkMobile>
                     )}
                   </div>
                 </div>
 
-                {/* Mobile Full-width Search Bar */}
-                <div className={`overflow-hidden transition-all duration-300 ${isMobileHeaderMinimized ? 'max-h-0 opacity-0' : 'max-h-20 opacity-100'}`}>
-                  <div className="px-3 pb-3 pt-0.5">
-                    <SearchBar className="!max-w-none [&_input]:py-2.5 [&_input]:!border-transparent [&_input]:text-[13px] [&_input::placeholder]:text-slate-400 [&_span]:!text-[#1D4ED8]" />
+                {/* Mobile Expandable Search Bar */}
+                {isMobileSearchOpen && (
+                  <div className="relative z-50 px-3 pb-2.5 pt-1.5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs animate-in fade-in duration-150">
+                    <SearchBar
+                      autoFocus
+                      onSearchSubmit={() => setIsMobileSearchOpen(false)}
+                      className="!max-w-none"
+                    />
                   </div>
-                </div>
+                )}
 
 
               </header>
@@ -504,7 +515,7 @@ export function Layout() {
           </>
         ) : null}
 
-        {!hideShopChrome && !(isMobile && isPublicInfluencerPage) ? (
+        {!hideShopChrome && !(isMobile && (isPublicInfluencerPage || isProductPage || isCartPage)) ? (
           <CategoryNavigation
             categories={presentedCategories}
             isMinimized={isMobileHeaderMinimized}
@@ -520,7 +531,11 @@ export function Layout() {
                 navigate(`/shop?categoryId=${item._id || item.id}`);
               }
             }}
-            selectedCategory={selectedCategory}
+            selectedCategory={
+              presentedCategories.find(
+                (c) => (c._id || c.id) === new URLSearchParams(location.search).get("categoryId")
+              ) || selectedCategory
+            }
           />
         ) : null}
 
@@ -538,10 +553,10 @@ export function Layout() {
 
         {!hideShopChrome ? (
           <>
-            <div className={isPublicInfluencerPage ? "hidden lg:block" : ""}>
+            <div className={`${isPublicInfluencerPage ? "hidden lg:block" : ""} ${isMobile && (isProductPage || isCartPage) ? "pb-16" : ""}`}>
               <Footer />
             </div>
-            {!isPublicInfluencerPage && (
+            {!isPublicInfluencerPage && !(isMobile && (isProductPage || isCartPage)) && (
               <MobileBottomNavigation
                 cartCount={cartCount}
                 wishlistCount={wishlistCount}
@@ -582,11 +597,11 @@ function HeaderIconLinkMobile({ to, label, badge, children }) {
     <Link
       to={to}
       aria-label={label}
-      className="relative inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition active:scale-95"
+      className="relative inline-flex h-8.5 w-8.5 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition active:scale-95"
     >
       {children}
       {badge ? (
-        <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-4.5 min-w-4.5 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-1 text-[9px] font-bold text-white shadow-sm">
+        <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-bold text-white shadow-xs">
           {badge}
         </span>
       ) : null}
