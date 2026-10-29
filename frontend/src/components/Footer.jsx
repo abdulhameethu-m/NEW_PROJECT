@@ -171,7 +171,7 @@ export function Footer() {
   };
 
   return (
-    <footer
+    <footer 
       className="relative mt-4 sm:mt-12 overflow-hidden border-t"
       style={footerStyle}
     >

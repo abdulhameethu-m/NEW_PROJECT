@@ -851,7 +851,8 @@ class PaymentService {
       };
     }
 
-    if (paymentSession.expiresAt && paymentSession.expiresAt < new Date()) {
+    const isAlreadyPaid = Boolean(payment.paidAt || payment.razorpayPaymentId || ["PAID", "AUTHORIZED"].includes(payment.status));
+    if (!isAlreadyPaid && paymentSession.expiresAt && paymentSession.expiresAt < new Date()) {
       await PaymentSession.updateOne(
         { _id: paymentSession._id },
         {
@@ -965,6 +966,23 @@ class PaymentService {
         razorpayPaymentId: razorpayPaymentId || payment.razorpayPaymentId,
         orderGroupId: orderResult.orderGroupId,
       }).catch(() => {});
+
+      try {
+        const { sendCustomerNotification } = require("../utils/pushNotification");
+        const orderNum = primaryOrder?.orderNumber || orderResult.orderGroupId || "your order";
+        sendCustomerNotification(userId, {
+          type: "ORDER",
+          title: "Order Confirmed! 🎉",
+          message: `Your order #${orderNum} has been placed successfully. Thank you for shopping with UChooseMe!`,
+          data: {
+            orderId: String(primaryOrder?._id || ""),
+            orderNumber: String(orderNum),
+            screen: "orders",
+          },
+        }).catch(() => {});
+      } catch (pushErr) {
+        logger.warn("Notification dispatch skipped", { error: pushErr.message });
+      }
 
       if (isCodAdvance) {
         await emitDomainEvent("COD_ADVANCE_PAID", {
@@ -1085,7 +1103,8 @@ class PaymentService {
       throw new AppError("Forbidden", 403, "FORBIDDEN");
     }
 
-    if (paymentSession.expiresAt && paymentSession.expiresAt < new Date()) {
+    const isAlreadyPaid = Boolean(payment.paidAt || payment.razorpayPaymentId || ["PAID", "AUTHORIZED"].includes(payment.status));
+    if (!isAlreadyPaid && paymentSession.expiresAt && paymentSession.expiresAt < new Date()) {
       await PaymentSession.updateOne(
         { _id: paymentSession._id },
         {

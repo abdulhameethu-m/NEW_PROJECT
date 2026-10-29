@@ -20,6 +20,7 @@ import { ProductInfo } from '../../components/product/ProductInfo';
 import { VariantSelector } from '../../components/product/VariantSelector';
 import { ProductAttributes } from '../../components/product/ProductAttributes';
 import { ProductDescription } from '../../components/product/ProductDescription';
+import { DeliveryEstimateCard } from '../../components/product/DeliveryEstimateCard';
 import { ReviewSummary } from '../../components/product/ReviewSummary';
 import { ReviewCard } from '../../components/product/ReviewCard';
 import { ReviewForm } from '../../components/product/ReviewForm';
@@ -84,27 +85,20 @@ export default function ProductDetailsScreen() {
     return reviewsData?.pages.flatMap(page => page.reviews) || [];
   }, [reviewsData]);
 
-  // Wishlist Toggle Handler
+  // Wishlist Toggle Handler (Allows guests to save locally)
   const handleToggleWishlist = () => {
-    if (!isAuthenticated) {
-      router.push('/(auth)/login');
-      return;
-    }
     if (!product?._id) return;
 
     toggleWishlist({
       productId: product._id,
       active: !isWishlisted,
       variantId: activeVariant?.variantId,
+      product,
     });
   };
 
-  // Add To Cart Handler
+  // Add To Cart Handler (Allows guests to add to cart locally and view drawer)
   const handleAddToCart = async () => {
-    if (!isAuthenticated) {
-      router.push('/(auth)/login');
-      return;
-    }
     if (!product?._id) return;
     if (product.stock <= 0) return;
 
@@ -113,6 +107,7 @@ export default function ProductDetailsScreen() {
         productId: product._id,
         quantity: 1,
         variantId: activeVariant?.variantId,
+        product,
       });
 
       // Find the item added to the cart
@@ -141,12 +136,8 @@ export default function ProductDetailsScreen() {
     }
   };
 
-  // Buy Now Handler (Add to cart & immediately navigate to Checkout)
+  // Buy Now Handler (Adds to cart & navigates to checkout or prompt login)
   const handleBuyNow = async () => {
-    if (!isAuthenticated) {
-      router.push('/(auth)/login');
-      return;
-    }
     if (!product?._id) return;
     if (product.stock <= 0) return;
 
@@ -156,9 +147,17 @@ export default function ProductDetailsScreen() {
         productId: product._id,
         quantity: 1,
         variantId: activeVariant?.variantId,
+        product,
       });
 
-      router.push('/checkout');
+      if (!isAuthenticated) {
+        router.push({
+          pathname: '/(auth)/login',
+          params: { returnTo: '/checkout' },
+        });
+      } else {
+        router.push('/checkout');
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Could not initiate checkout';
       Alert.alert('Checkout Error', msg);
@@ -215,6 +214,11 @@ export default function ProductDetailsScreen() {
         />
         <ProductDescription description={product.description} />
         <ProductAttributes attributes={product.attributes} />
+        
+        {/* Amazon/Flipkart Grade Live Delivery & Pincode Checker */}
+        <View className="px-4 bg-white dark:bg-slate-950">
+          <DeliveryEstimateCard />
+        </View>
         
         {/* "Sold By" component */}
         {product?.sellerId && (

@@ -22,6 +22,8 @@ const productAnalyticsService = require("./product-analytics.service");
 const cancellationPolicyService = require("./cancellation-policy.service");
 const notificationService = require("./notification.service");
 const pricingBreakdownEngine = require("./pricing-breakdown-engine.service");
+const { Notification } = require("../models/Notification");
+const { User } = require("../models/User");
 function getOrderStage(order) {
   const normalized = String(order.status || "").trim().toUpperCase().replace(/\s+/g, "_");
   if (normalized === "PENDING" || normalized === "PLACED") return "PLACED";
@@ -105,7 +107,19 @@ function formatAddressForOrder(address) {
 }
 
 async function createNotification(userId, payload) {
-  return null;
+  try {
+    const { sendCustomerNotification } = require("../utils/pushNotification");
+    return await sendCustomerNotification(userId, {
+      type: payload.type || "SYSTEM",
+      title: payload.title,
+      message: payload.message,
+      data: payload.data || { entityType: payload.entityType, entityId: payload.entityId },
+      sendPush: true,
+    });
+  } catch (err) {
+    logger.warn("createNotification dispatch failed", { userId, error: err.message });
+    return null;
+  }
 }
 
 async function logUserAction(userId, action, entityType, entityId, metadata, meta) {
@@ -206,7 +220,7 @@ class UserService {
   async getDashboard(userId) {
     const user = await ensureUser(userId);
 
-    const [ordersSummary, wishlistCount, recentOrders] = await Promise.all([
+    const [ordersSummary, wishlistCount, recentOrders, unreadNotifications] = await Promise.all([
       Order.aggregate([
         { $match: { userId: new mongoose.Types.ObjectId(userId) } },
         {
@@ -236,6 +250,7 @@ class UserService {
         .sort({ createdAt: -1 })
         .limit(5)
         .select("orderNumber totalAmount status paymentStatus createdAt"),
+      Notification.countDocuments({ userId, isRead: false }),
     ]);
 
     return {
@@ -244,7 +259,7 @@ class UserService {
         totalOrders: ordersSummary[0]?.totalOrders || 0,
         pendingOrders: ordersSummary[0]?.pendingOrders || 0,
         wishlistCount,
-        unreadNotifications: 0,
+        unreadNotifications: unreadNotifications || 0,
       },
       recentOrders,
       quickActions: [
@@ -466,6 +481,16 @@ class UserService {
     const enrichedOrder = await orderLifecycleService.attachReturnEligibility(order);
     const finalOrderWithPricing = pricingBreakdownEngine.attachToOrder(enrichedOrder);
 
+    if (!order.deliveryOtp && order.status !== "Cancelled") {
+      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      await orderRepo.updateById(order._id, { deliveryOtp: otp, deliveryOtpGeneratedAt: new Date() });
+      order.deliveryOtp = otp;
+    }
+
+    const estimatedDate =
+      order.estimatedDeliveryDate ||
+      (order.createdAt ? new Date(new Date(order.createdAt).getTime() + 4 * 24 * 3600 * 1000) : null);
+
     return {
       ...buildOrderSummary(finalOrderWithPricing, {
         user,
@@ -478,6 +503,12 @@ class UserService {
       cancellationEligible,
       returnEligible: finalOrderWithPricing.returnEligible,
       returnEligibilityMessage: finalOrderWithPricing.returnEligibilityMessage,
+      deliveryOtp: order.deliveryOtp || "",
+      isDeliveryOtpRequired: Boolean(order.paymentMethod === "COD" || order.totalAmount >= 1000 || order.deliveryOtp),
+      estimatedDeliveryDate: estimatedDate,
+      courierName: order.courierName || finalOrderWithPricing.deliveryPartner || "Shiprocket",
+      trackingId: order.trackingId || "",
+      trackingUrl: order.trackingUrl || "",
     };
   }
 
@@ -501,6 +532,16 @@ class UserService {
         }))
       : [];
 
+    if (!rawOrder.deliveryOtp && rawOrder.status !== "Cancelled") {
+      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      await orderRepo.updateById(rawOrder._id, { deliveryOtp: otp, deliveryOtpGeneratedAt: new Date() });
+      rawOrder.deliveryOtp = otp;
+    }
+
+    const estimatedDate =
+      rawOrder.estimatedDeliveryDate ||
+      (rawOrder.createdAt ? new Date(new Date(rawOrder.createdAt).getTime() + 4 * 24 * 3600 * 1000) : null);
+
     return {
       _id: rawOrder._id,
       orderNumber: rawOrder.orderNumber,
@@ -509,11 +550,14 @@ class UserService {
       shippingMode: rawOrder.shippingMode,
       shippingStatus: rawOrder.shippingStatus,
       pickupStatus: rawOrder.pickupStatus,
-      deliveryPartner: rawOrder.deliveryPartner || rawOrder.logisticsProvider || "",
-      courierName: rawOrder.courierName || "",
+      deliveryPartner: rawOrder.deliveryPartner || rawOrder.logisticsProvider || "Shiprocket",
+      courierName: rawOrder.courierName || rawOrder.deliveryPartner || "Shiprocket",
       shipmentId: rawOrder.shipmentId || "",
       trackingId: rawOrder.trackingId || "",
       trackingUrl: rawOrder.trackingUrl || "",
+      estimatedDeliveryDate: estimatedDate,
+      deliveryOtp: rawOrder.deliveryOtp || "",
+      isDeliveryOtpRequired: Boolean(rawOrder.paymentMethod === "COD" || rawOrder.totalAmount >= 1000 || rawOrder.deliveryOtp),
       timeline: timelineEvents,
     };
   }
@@ -907,6 +951,99 @@ class UserService {
       .sort({ createdAt: -1 })
       .limit(limit)
       .select("action entityType entityId metadata createdAt");
+  }
+
+  async registerPushToken(userId, { token, platform = "android", deviceId = "" }) {
+    if (!token || typeof token !== "string") {
+      throw new AppError("Push token is required", 400, "VALIDATION_ERROR");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) throw new AppError("User not found", 404, "NOT_FOUND");
+
+    if (!user.pushTokens) user.pushTokens = [];
+
+    // Filter out duplicate token or existing deviceId
+    user.pushTokens = user.pushTokens.filter(
+      (p) => p.token !== token && (!deviceId || p.deviceId !== deviceId)
+    );
+
+    user.pushTokens.push({
+      token,
+      platform,
+      deviceId,
+      updatedAt: new Date(),
+    });
+
+    await user.save();
+    return { success: true, token };
+  }
+
+  async unregisterPushToken(userId, { token }) {
+    if (!token) return { success: true };
+    await User.updateOne(
+      { _id: userId },
+      { $pull: { pushTokens: { token } } }
+    );
+    return { success: true };
+  }
+
+  async listNotifications(userId, query = {}) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 50);
+    const skip = (page - 1) * limit;
+
+    const filter = { userId };
+    if (query.type && query.type !== "ALL") {
+      filter.type = query.type.toUpperCase();
+    }
+    if (query.unreadOnly === "true") {
+      filter.isRead = false;
+    }
+
+    const [notifications, total, unreadCount] = await Promise.all([
+      Notification.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Notification.countDocuments(filter),
+      Notification.countDocuments({ userId, isRead: false }),
+    ]);
+
+    return {
+      notifications,
+      total,
+      unreadCount,
+      page,
+      limit,
+      pages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  async markNotificationRead(userId, notificationId) {
+    const notification = await Notification.findOneAndUpdate(
+      { _id: notificationId, userId },
+      { $set: { isRead: true, readAt: new Date() } },
+      { new: true }
+    );
+    if (!notification) throw new AppError("Notification not found", 404, "NOT_FOUND");
+    const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+    return { notification, unreadCount };
+  }
+
+  async markAllNotificationsRead(userId) {
+    await Notification.updateMany(
+      { userId, isRead: false },
+      { $set: { isRead: true, readAt: new Date() } }
+    );
+    return { success: true, unreadCount: 0 };
+  }
+
+  async deleteNotification(userId, notificationId) {
+    await Notification.deleteOne({ _id: notificationId, userId });
+    const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+    return { success: true, unreadCount };
   }
 }
 

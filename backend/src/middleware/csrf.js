@@ -66,11 +66,13 @@ async function logCsrfFailure(req, reason) {
 }
 
 function csrfProtection(req, res, next) {
-  if (req.path.startsWith("/api/webhooks/") || req.path === "/api/shipping/webhooks/shiprocket") {
+  const currentPath = (req.originalUrl ? req.originalUrl.split("?")[0] : req.path) || "";
+
+  if (currentPath.startsWith("/api/webhooks/") || currentPath === "/api/shipping/webhooks/shiprocket") {
     return next();
   }
 
-  if (req.path === "/api/config/initialize-defaults") {
+  if (currentPath === "/api/config/initialize-defaults") {
     return next();
   }
 
@@ -79,13 +81,36 @@ function csrfProtection(req, res, next) {
     return next();
   }
 
-  if (req.path === "/api/auth/csrf" || req.path === "/api/staff/auth/csrf") {
+  if (currentPath === "/api/auth/csrf" || currentPath === "/api/staff/auth/csrf") {
+    issueCsrfToken(req, res);
+    return next();
+  }
+
+  // Stateless guest validation endpoints (do not mutate user state or databases)
+  const isGuestValidation =
+    currentPath === "/api/cart/validate-item" ||
+    currentPath === "/api/cart/validate" ||
+    currentPath === "/api/cart/summary" ||
+    currentPath === "/api/wishlist/validate-items" ||
+    (currentPath.startsWith("/api/wishlist/") && currentPath.endsWith("/validate")) ||
+    (currentPath.startsWith("/api/wishlist/") && currentPath.endsWith("/check"));
+
+  if (isGuestValidation) {
     issueCsrfToken(req, res);
     return next();
   }
 
   const cookieToken = req.cookies?.[CSRF_COOKIE_NAME];
   const headerToken = req.get(CSRF_HEADER_NAME);
+
+  // If header token is provided and cryptographically valid, accept it (resilient for mobile apps)
+  if (headerToken && isValidCsrfToken(headerToken)) {
+    if (!cookieToken || cookieToken !== headerToken) {
+      res.cookie(CSRF_COOKIE_NAME, headerToken, cookieOptions());
+    }
+    issueCsrfToken(req, res);
+    return next();
+  }
 
   if (!cookieToken || !headerToken) {
     logCsrfFailure(req, "Missing CSRF token");

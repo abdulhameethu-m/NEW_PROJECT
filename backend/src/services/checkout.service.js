@@ -57,9 +57,13 @@ function resolveVariant(product, variantId = "") {
 function groupBySeller(items = []) {
   const map = new Map();
   for (const it of items) {
-    const key = String(it.sellerId);
-    if (!map.has(key)) map.set(key, { sellerId: it.sellerId, items: [] });
-    map.get(key).items.push(it);
+    const rawSellerId = it.sellerId?._id || it.sellerId?.id || it.sellerId;
+    const key = String(rawSellerId);
+    if (!map.has(key)) map.set(key, { sellerId: rawSellerId, items: [] });
+    map.get(key).items.push({
+      ...it,
+      sellerId: rawSellerId,
+    });
   }
   return map;
 }
@@ -78,15 +82,26 @@ function sanitizeCheckoutSeller(vendor) {
 }
 
 async function attachSellerProfiles(sellers = []) {
-  const sellerIds = sellers.map((seller) => seller.sellerId).filter(Boolean);
+  const sellerIds = sellers
+    .map((seller) => seller.sellerId?._id || seller.sellerId?.id || seller.sellerId)
+    .filter(Boolean);
   const vendors = await Vendor.find({ _id: { $in: sellerIds } })
     .select("companyName shopName storeSlug logoUrl status isStoreVisible")
     .lean();
   const vendorById = new Map(vendors.map((vendor) => [String(vendor._id), sanitizeCheckoutSeller(vendor)]));
-  return sellers.map((seller) => ({
-    ...seller,
-    seller: vendorById.get(String(seller.sellerId)) || null,
-  }));
+  return sellers.map((seller) => {
+    const rawSellerId = seller.sellerId?._id || seller.sellerId?.id || seller.sellerId;
+    const sid = String(rawSellerId);
+    return {
+      ...seller,
+      sellerId: rawSellerId,
+      seller:
+        vendorById.get(sid) ||
+        (seller.sellerId && typeof seller.sellerId === "object"
+          ? sanitizeCheckoutSeller(seller.sellerId)
+          : null),
+    };
+  });
 }
 
 function generateOrderNumber() {
@@ -394,7 +409,8 @@ function buildSellerShippingShares(items = [], shippingFee = 0) {
   let totalWeight = 0;
 
   for (const item of items) {
-    const sellerKey = String(item.sellerId);
+    const rawSellerId = item.sellerId?._id || item.sellerId?.id || item.sellerId;
+    const sellerKey = String(rawSellerId);
     const itemWeight = getItemWeight(item) * Number(item.quantity || 0);
     totalWeight += itemWeight;
     weightsBySeller.set(sellerKey, (weightsBySeller.get(sellerKey) || 0) + itemWeight);
@@ -442,9 +458,10 @@ function buildSellerSettlementCharges(charges = [], { sellerWeight = 0, sellerSh
 }
 
 async function resolveSellerIdForProduct(product) {
-  if (product?.sellerId) return product.sellerId;
-  if (product?.creatorType === "ADMIN" && product?.createdBy?._id) {
-    const vendor = await vendorRepo.upsertByUserId(product.createdBy._id, {
+  if (product?.sellerId) return product.sellerId?._id || product.sellerId;
+  const creatorId = product?.createdBy?._id || product?.createdBy;
+  if (product?.creatorType === "ADMIN" && creatorId) {
+    const vendor = await vendorRepo.upsertByUserId(creatorId, {
       status: "approved",
       stepCompleted: 4,
       companyName: "Platform Store",
@@ -951,20 +968,37 @@ class CheckoutService {
     const shippingShares = buildSellerShippingShares(flattenedItems, shippingFee);
     const orderPayloads = [];
 
-    for (const sellerData of sellers) {
-      const vendor = await vendorRepo.findById(sellerData.sellerId);
+    // Ensure sellers are correctly partitioned by each item's actual sellerId,
+    // protecting against legacy snapshots where multiple vendors were merged into a single seller group.
+    const normalizedBySeller = groupBySeller(flattenedItems);
+    const resolvedSellers = Array.from(normalizedBySeller.values()).map((sellerGroup) => {
+      const items = sellerGroup.items;
+      const subtotal = roundMoney(
+        items.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0), 0)
+      );
+      return {
+        sellerId: sellerGroup.sellerId,
+        items,
+        subtotal,
+      };
+    });
+
+    for (const sellerData of resolvedSellers) {
+      const normalizedSellerId = sellerData.sellerId?._id || sellerData.sellerId?.id || sellerData.sellerId;
+      const vendor = await vendorRepo.findById(normalizedSellerId);
       const vendorShipping = await resolveVendorShippingModes(vendor);
       const items = Array.isArray(sellerData.items) ? sellerData.items : [];
       const cleanedItems = await Promise.all(
         items.map(async (it) => {
           const itemSubtotal = roundMoney(Number(it.price || 0) * Number(it.quantity || 0));
+          const normalizedProductId = it.productId?._id || it.productId?.id || it.productId;
           const commissionCalc = await commissionRuleService.calculateForOrderItem({
-            productId: it.productId,
-            vendorId: sellerData.sellerId,
+            productId: normalizedProductId,
+            vendorId: normalizedSellerId,
             subtotal: itemSubtotal,
           });
           return {
-            productId: it.productId,
+            productId: normalizedProductId,
             name: it.name,
             price: it.price,
             quantity: it.quantity,
@@ -991,8 +1025,8 @@ class CheckoutService {
       const subtotal = roundMoney(
         items.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0), 0)
       );
-      const sellerShippingFee = roundMoney(shippingShares.get(String(sellerData.sellerId)) || 0);
-      const sellerWeight = overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / sellers.length;
+      const sellerShippingFee = roundMoney(shippingShares.get(String(normalizedSellerId)) || 0);
+      const sellerWeight = overallSubtotal > 0 ? subtotal / overallSubtotal : 1 / resolvedSellers.length;
       const sellerAdvanceAmount =
         paymentMethod === "COD" && codAdvance?.enabled
           ? roundMoney(Number(codAdvance.advanceAmount || 0) * sellerWeight)
@@ -1029,7 +1063,7 @@ class CheckoutService {
         orderNumber,
         invoiceNumber,
         userId: new mongoose.Types.ObjectId(userId),
-        sellerId: sellerData.sellerId,
+        sellerId: normalizedSellerId,
         items: cleanedItems,
         subtotal,
         shippingFee: sellerShippingFee,
@@ -1117,7 +1151,11 @@ class CheckoutService {
         shippingService: assignedShippingQuoteSnapshot?.service || "Standard",
         providerCost: assignedShippingQuoteSnapshot?.providerCost || 0,
         shippingCustomerPrice: shippingFee,
-        estimatedDeliveryDate: assignedShippingQuoteSnapshot?.estimatedDeliveryDate,
+        estimatedDeliveryDate:
+          assignedShippingQuoteSnapshot?.estimatedDeliveryDate ||
+          new Date(Date.now() + 4 * 24 * 3600 * 1000),
+        deliveryOtp: String(Math.floor(100000 + Math.random() * 900000)),
+        deliveryOtpGeneratedAt: new Date(),
         shippingQuoteSnapshot: assignedShippingQuoteSnapshot || {},
         fraudFlags,
         shippingMode: vendorShipping.defaultShippingMode,

@@ -62,9 +62,10 @@ function normalizeVariantAttributes(attributes = {}) {
 }
 
 async function resolveSellerIdForProduct(product) {
-  if (product?.sellerId) return product.sellerId;
-  if (product?.creatorType === "ADMIN" && product?.createdBy?._id) {
-    const vendor = await vendorRepo.upsertByUserId(product.createdBy._id, {
+  if (product?.sellerId) return product.sellerId?._id || product.sellerId;
+  const creatorId = product?.createdBy?._id || product?.createdBy;
+  if (product?.creatorType === "ADMIN" && creatorId) {
+    const vendor = await vendorRepo.upsertByUserId(creatorId, {
       status: "approved",
       stepCompleted: 4,
       companyName: "Platform Store",

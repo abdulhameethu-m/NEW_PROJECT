@@ -22,15 +22,18 @@ import {
   RotateCcw,
   ArrowRight,
   FileText,
+  Star,
 } from 'lucide-react-native';
 import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
 import { useOrderDetails, useCancelOrder } from '../../hooks/useOrders';
 import { useCustomerReturns } from '../../hooks/useReturns';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
 import { OrderTrackingTimeline } from '../../components/orders/OrderTrackingTimeline';
+import { DeliveryVerificationOtpCard } from '../../components/orders/DeliveryVerificationOtpCard';
 import { CancelOrderModal } from '../../components/orders/CancelOrderModal';
 import { ReturnRequestModal } from '../../components/returns/ReturnRequestModal';
 import { InvoicePreviewModal } from '../../components/invoice/InvoicePreviewModal';
+import { ReviewForm } from '../../components/product/ReviewForm';
 import { safeGoBack } from '../../utils/safeNavigation';
 
 const formatDateTime = (isoString?: string) => {
@@ -62,6 +65,28 @@ export default function OrderDetailsScreen() {
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
   const [isReturnModalVisible, setIsReturnModalVisible] = useState(false);
   const [isInvoiceModalVisible, setIsInvoiceModalVisible] = useState(false);
+  const [selectedReviewItem, setSelectedReviewItem] = useState<{
+    productId: string;
+    orderId: string;
+    name: string;
+  } | null>(null);
+  const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
+
+  const handleOpenReview = (item: any) => {
+    const prodId =
+      typeof item.productId === 'object'
+        ? item.productId?._id
+        : item.productId;
+
+    if (!prodId || !order?._id) return;
+
+    setSelectedReviewItem({
+      productId: String(prodId),
+      orderId: String(order._id),
+      name: item.name || 'Product',
+    });
+    setIsReviewModalVisible(true);
+  };
 
   if (isLoading) {
     return (
@@ -217,6 +242,14 @@ export default function OrderDetailsScreen() {
           </View>
         </View>
 
+        {/* Delivery Pickup Verification OTP (COD or High-Value Handover) */}
+        <DeliveryVerificationOtpCard
+          otp={order.deliveryOtp}
+          orderStatus={order.status}
+          paymentMethod={order.paymentMethod}
+          totalAmount={order.totalAmount}
+        />
+
         {/* Live Tracking Milestones */}
         <OrderTrackingTimeline order={order} />
 
@@ -305,6 +338,19 @@ export default function OrderDetailsScreen() {
                     <Text style={styles.itemUnitPrice} allowFontScaling={false}>
                       ₹{(item.price || 0).toLocaleString('en-IN')} × {item.quantity}
                     </Text>
+
+                    {normStatus === 'delivered' && (
+                      <TouchableOpacity
+                        style={styles.reviewItemBtn}
+                        onPress={() => handleOpenReview(item)}
+                        activeOpacity={0.75}
+                      >
+                        <Star size={11} color="#d97706" fill="#f59e0b" style={{ marginRight: 4 }} />
+                        <Text style={styles.reviewItemBtnText} allowFontScaling={false}>
+                          Write a Review
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   <Text style={styles.itemTotalText} allowFontScaling={false}>
@@ -544,6 +590,19 @@ export default function OrderDetailsScreen() {
         orderNumber={order.orderNumber}
         onClose={() => setIsInvoiceModalVisible(false)}
       />
+
+      {/* Product Review Modal for Delivered Items */}
+      {selectedReviewItem && (
+        <ReviewForm
+          productId={selectedReviewItem.productId}
+          orderId={selectedReviewItem.orderId}
+          isVisible={isReviewModalVisible}
+          onClose={() => {
+            setIsReviewModalVisible(false);
+            setSelectedReviewItem(null);
+          }}
+        />
+      )}
     </SafeAreaScreen>
   );
 }
@@ -973,5 +1032,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#475569',
+  },
+  reviewItemBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 6,
+  },
+  reviewItemBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#b45309',
   },
 });

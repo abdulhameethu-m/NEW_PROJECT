@@ -106,6 +106,8 @@ export interface Order {
   trackingId?: string;
   trackingUrl?: string;
   estimatedDeliveryDate?: string;
+  deliveryOtp?: string;
+  isDeliveryOtpRequired?: boolean;
   deliveredAt?: string;
   cancelledAt?: string;
   cancelReason?: string;
@@ -131,6 +133,9 @@ export interface OrderTrackingInfo {
   deliveryPartner?: string;
   trackingId?: string;
   trackingUrl?: string;
+  estimatedDeliveryDate?: string;
+  deliveryOtp?: string;
+  isDeliveryOtpRequired?: boolean;
   timeline?: OrderTimelineEvent[];
 }
 

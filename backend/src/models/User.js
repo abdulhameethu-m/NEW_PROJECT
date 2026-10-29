@@ -95,6 +95,14 @@ const userSchema = new mongoose.Schema(
         default: [],
       },
     },
+    pushTokens: [
+      {
+        token: { type: String, required: true, trim: true },
+        platform: { type: String, trim: true, default: "unknown" },
+        deviceId: { type: String, trim: true },
+        updatedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

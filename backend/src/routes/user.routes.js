@@ -15,8 +15,10 @@ const {
   supportTicketSchema,
   supportReplySchema,
 } = require("../utils/validators/user.validation");
+
 const router = express.Router();
 router.use(authRequired, requireRole("user"));
+
 router.get("/dashboard", userController.getDashboard);
 router.get("/profile", userController.getProfile);
 router.patch("/profile", upload.single("avatar"), validate(profileSchema), userController.updateProfile);
@@ -59,4 +61,13 @@ router.get("/security/sessions", userController.listSessions);
 router.delete("/security/sessions/:id", userController.revokeSession);
 router.post("/security/logout-all", userController.logoutAllDevices);
 router.get("/activity", userController.getActivity);
-module.exports = router;
+
+// Push Notifications & In-App Activity Center
+router.post("/push-token", userController.registerPushToken);
+router.delete("/push-token", userController.unregisterPushToken);
+router.get("/notifications", userController.listNotifications);
+router.patch("/notifications/:id/read", userController.markNotificationRead);
+router.post("/notifications/read-all", userController.markAllNotificationsRead);
+router.delete("/notifications/:id", userController.deleteNotification);
+
+module.exports = router;

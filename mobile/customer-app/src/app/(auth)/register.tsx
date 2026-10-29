@@ -2,7 +2,7 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView,
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { Link, useRouter } from 'expo-router';
+import { useLocalSearchParams, Link, useRouter } from 'expo-router';
 import { registerSchema, RegisterFormData } from '../../utils/validation';
 import { authApi } from '../../api/auth';
 import { useAuthStore } from '../../stores/authStore';
@@ -15,10 +15,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { logToTerminal } from '../../utils/errorHandler';
 import { safeGoBack } from '../../utils/safeNavigation';
+import { guestCartStorage } from '../../utils/guestCartStorage';
+import { guestWishlistStorage } from '../../utils/guestWishlistStorage';
+import { useQueryClient } from '@tanstack/react-query';
+import { CART_QUERY_KEY } from '../../hooks/useCart';
+import { WISHLIST_QUERY_KEY } from '../../hooks/useWishlist';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const setUser = useAuthStore(state => state.setUser);
+  const queryClient = useQueryClient();
   
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -49,8 +56,31 @@ export default function RegisterScreen() {
     }
     try {
       const user = await authApi.register(data);
+
+      // Merge local guest cart & wishlist with newly created account
+      try {
+        const guestCartItems = await guestCartStorage.getItemsForMerge();
+        const guestWishlistItems = await guestWishlistStorage.getItemsForMerge();
+
+        if (guestCartItems.length > 0 || guestWishlistItems.length > 0) {
+          await authApi.mergeGuestData(guestCartItems, guestWishlistItems);
+          await guestCartStorage.clearCart();
+          await guestWishlistStorage.clearWishlist();
+        }
+      } catch (mergeErr) {
+        console.warn('[Register] Guest data merge warning:', mergeErr);
+      }
+
+      await queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: WISHLIST_QUERY_KEY });
+
       setUser(user);
-      router.replace('/(tabs)');
+
+      if (returnTo) {
+        router.replace(returnTo as any);
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (err: any) {
       logToTerminal('User Registration Error', err);
       if (err instanceof AxiosError) {

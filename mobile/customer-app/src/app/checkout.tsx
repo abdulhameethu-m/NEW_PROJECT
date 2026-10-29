@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   BackHandler,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { safeGoBack } from '../utils/safeNavigation';
@@ -22,7 +23,11 @@ import {
   ShoppingBag,
   Package,
   RotateCcw,
+  Tag,
+  Ticket,
+  Truck,
 } from 'lucide-react-native';
+import { calculateDeliveryEstimate } from '../utils/deliveryEstimator';
 import { SafeAreaScreen } from '../components/layout/SafeAreaScreen';
 import { useAuthStore } from '../stores/authStore';
 import { useCart, CART_QUERY_KEY } from '../hooks/useCart';
@@ -87,6 +92,11 @@ export default function CheckoutScreen() {
     return addresses.find((a) => a._id === selectedAddressId) || null;
   }, [addresses, selectedAddressId]);
 
+  // Dynamic delivery estimate for active address
+  const deliveryEstimate = useMemo(() => {
+    return calculateDeliveryEstimate(activeAddress?.pincode || activeAddress?.postalCode);
+  }, [activeAddress?.pincode, activeAddress?.postalCode]);
+
   // Formatted shipping address payload for APIs
   const shippingAddress = useMemo(() => {
     return activeAddress ? toShippingAddress(activeAddress) : undefined;
@@ -117,10 +127,121 @@ export default function CheckoutScreen() {
     }
   };
 
-  const finalPayable =
+  // Coupons & Promo Codes Catalog
+  const AVAILABLE_COUPONS = [
+    {
+      code: 'WELCOME10',
+      title: '10% OFF',
+      description: '10% off up to ₹150 on orders above ₹299',
+      type: 'percentage' as const,
+      value: 10,
+      maxDiscount: 150,
+      minOrder: 299,
+    },
+    {
+      code: 'SAVE50',
+      title: 'FLAT ₹50 OFF',
+      description: 'Flat ₹50 savings on orders above ₹499',
+      type: 'fixed' as const,
+      value: 50,
+      maxDiscount: 50,
+      minOrder: 499,
+    },
+    {
+      code: 'FREESHIP',
+      title: 'FREE DELIVERY',
+      description: 'Waive delivery charges on orders above ₹199',
+      type: 'shipping' as const,
+      value: 0,
+      maxDiscount: 100,
+      minOrder: 199,
+    },
+    {
+      code: 'FESTIVE20',
+      title: '20% MEGA SAVINGS',
+      description: '20% off up to ₹300 on orders above ₹999',
+      type: 'percentage' as const,
+      value: 20,
+      maxDiscount: 300,
+      minOrder: 999,
+    },
+  ];
+
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discount: number;
+    type: 'fixed' | 'percentage';
+    description?: string;
+  } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+
+  // Financial calculations
+  const basePayable =
     preparedSummary?.totalAmount ??
     cart?.totalAmount ??
     (cart?.items || []).reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0;
+  const finalPayable = Math.max(0, basePayable - couponDiscount);
+
+  const handleApplyCoupon = (codeToApply?: string) => {
+    const rawCode = (codeToApply || couponInput).trim().toUpperCase();
+    setCouponError(null);
+
+    if (!rawCode) {
+      setCouponError('Please enter a valid coupon code.');
+      return;
+    }
+
+    setIsApplyingCoupon(true);
+    setTimeout(() => {
+      const found = AVAILABLE_COUPONS.find((c) => c.code === rawCode);
+      const subtotal =
+        preparedSummary?.subtotal ??
+        cart?.totalAmount ??
+        (cart?.items || []).reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const shippingFee = preparedSummary?.shippingFee ?? 0;
+
+      if (!found) {
+        setCouponError(`Coupon code "${rawCode}" is invalid or expired.`);
+        setIsApplyingCoupon(false);
+        return;
+      }
+
+      if (subtotal < found.minOrder) {
+        setCouponError(
+          `Minimum order value of ₹${found.minOrder} required for ${found.code}. Current items subtotal: ₹${subtotal}`
+        );
+        setIsApplyingCoupon(false);
+        return;
+      }
+
+      let discount = 0;
+      if (found.type === 'percentage') {
+        discount = Math.min(Math.round((subtotal * found.value) / 100), found.maxDiscount);
+      } else if (found.type === 'fixed') {
+        discount = found.value;
+      } else if (found.type === 'shipping') {
+        discount = shippingFee > 0 ? shippingFee : 40;
+      }
+
+      setAppliedCoupon({
+        code: found.code,
+        discount,
+        type: found.type === 'percentage' ? 'percentage' : 'fixed',
+        description: found.description,
+      });
+      setCouponInput('');
+      setIsApplyingCoupon(false);
+    }, 250);
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError(null);
+  };
 
   // Process COD Order Placement
   const processCodOrderPlacement = async () => {
@@ -504,6 +625,27 @@ export default function CheckoutScreen() {
                       Add New Delivery Address
                     </Text>
                   </TouchableOpacity>
+
+                  {/* Estimated Delivery Promise Card */}
+                  <View style={styles.deliveryEstimateCard}>
+                    <View style={styles.deliveryEstimateIconBg}>
+                      <Truck size={17} color="#4f46e5" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={styles.deliveryEstimateTitle}>Estimated Delivery</Text>
+                        <View style={styles.expressPill}>
+                          <Text style={styles.expressPillText}>Fast Logistics</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.deliveryEstimateDate}>
+                        {deliveryEstimate.formattedDate}
+                      </Text>
+                      <Text style={styles.deliveryEstimateSub}>
+                        Shipped via verified courier partners (Delhivery, Shiprocket, Shadowfax)
+                      </Text>
+                    </View>
+                  </View>
                 </View>
               ) : activeAddress ? (
                 /* Selected Address Card + Add New Address Box below it (Matching Image 1) */
@@ -541,12 +683,95 @@ export default function CheckoutScreen() {
           />
         </View>
 
-        {/* 3. Order Items & Price Summary */}
+        {/* 3. Coupons & Offers Section */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={styles.sectionHeading}>Coupons & Offers</Text>
+          <View style={styles.couponCard}>
+            {appliedCoupon ? (
+              <View style={styles.appliedCouponBox}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <View style={styles.appliedTagIcon}>
+                    <Tag size={18} color="#16a34a" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.appliedCouponCode}>
+                      {appliedCoupon.code} Applied
+                    </Text>
+                    <Text style={styles.appliedCouponSaving}>
+                      You saved ₹{appliedCoupon.discount} on this order!
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={handleRemoveCoupon} style={styles.removeCouponBtn}>
+                  <Text style={styles.removeCouponText}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View>
+                <View style={styles.couponInputRow}>
+                  <TextInput
+                    style={styles.couponInput}
+                    placeholder="Enter coupon code (e.g. SAVE50)"
+                    placeholderTextColor="#94a3b8"
+                    value={couponInput}
+                    onChangeText={(text) => {
+                      setCouponInput(text.toUpperCase());
+                      if (couponError) setCouponError(null);
+                    }}
+                    autoCapitalize="characters"
+                    returnKeyType="done"
+                    onSubmitEditing={() => handleApplyCoupon()}
+                  />
+                  <TouchableOpacity
+                    style={[styles.applyBtn, !couponInput.trim() && styles.applyBtnDisabled]}
+                    onPress={() => handleApplyCoupon()}
+                    disabled={!couponInput.trim() || isApplyingCoupon}
+                    activeOpacity={0.8}
+                  >
+                    {isApplyingCoupon ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Text style={styles.applyBtnText}>Apply</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {couponError && (
+                  <View style={styles.couponErrorRow}>
+                    <AlertCircle size={13} color="#ef4444" style={{ marginRight: 4 }} />
+                    <Text style={styles.couponErrorText}>{couponError}</Text>
+                  </View>
+                )}
+
+                {/* Quick Offer Chips */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+                  {AVAILABLE_COUPONS.map((coupon) => (
+                    <TouchableOpacity
+                      key={coupon.code}
+                      style={styles.couponChip}
+                      onPress={() => handleApplyCoupon(coupon.code)}
+                      activeOpacity={0.7}
+                    >
+                      <Ticket size={12} color="#4f46e5" style={{ marginRight: 4 }} />
+                      <Text style={styles.couponChipCode}>{coupon.code}</Text>
+                      <Text style={styles.couponChipDesc}>• {coupon.title}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* 4. Order Items & Price Summary */}
         <View style={{ marginBottom: 20 }}>
           <CheckoutSummaryCard
             items={cart?.items || []}
             summary={preparedSummary}
             isLoading={isPreparing}
+            couponDiscount={couponDiscount}
+            appliedCoupon={appliedCoupon}
+            onRemoveCoupon={handleRemoveCoupon}
           />
         </View>
 
@@ -854,5 +1079,171 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
     fontSize: 16,
+  },
+  couponCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 14,
+  },
+  couponInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  couponInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 12,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+    textTransform: 'uppercase',
+  },
+  applyBtn: {
+    backgroundColor: '#4f46e5',
+    paddingHorizontal: 18,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyBtnDisabled: {
+    backgroundColor: '#cbd5e1',
+    opacity: 0.7,
+  },
+  applyBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  couponErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    paddingHorizontal: 2,
+  },
+  couponErrorText: {
+    color: '#ef4444',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  chipsScroll: {
+    marginTop: 12,
+    flexDirection: 'row',
+  },
+  couponChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eef2ff',
+    borderWidth: 1,
+    borderColor: '#c7d2fe',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  couponChipCode: {
+    color: '#4f46e5',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  couponChipDesc: {
+    color: '#6366f1',
+    fontSize: 10,
+    fontWeight: '600',
+    marginLeft: 3,
+  },
+  appliedCouponBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: 12,
+    padding: 12,
+  },
+  appliedTagIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#dcfce7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appliedCouponCode: {
+    color: '#15803d',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  appliedCouponSaving: {
+    color: '#16a34a',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  removeCouponBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#fee2e2',
+    borderRadius: 8,
+  },
+  removeCouponText: {
+    color: '#dc2626',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  deliveryEstimateCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+  },
+  deliveryEstimateIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  deliveryEstimateTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748b',
+    letterSpacing: 0.5,
+  },
+  expressPill: {
+    backgroundColor: '#e0e7ff',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  expressPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#4f46e5',
+  },
+  deliveryEstimateDate: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1e40af',
+    marginTop: 2,
+  },
+  deliveryEstimateSub: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
   },
 });

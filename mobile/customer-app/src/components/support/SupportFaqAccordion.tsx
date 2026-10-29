@@ -3,8 +3,16 @@ import { View, Text, TouchableOpacity, StyleSheet, LayoutAnimation, Platform, UI
 import { ChevronDown, HelpCircle } from 'lucide-react-native';
 import { FAQItem } from '../../types/support';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental &&
+  !(globalThis as any).nativeFabricUIManager
+) {
+  try {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  } catch {
+    // Ignore in New Architecture
+  }
 }
 
 interface SupportFaqAccordionProps {

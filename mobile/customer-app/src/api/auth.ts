@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, ensureCsrfToken } from './client';
 import { useAuthStore, User } from '../stores/authStore';
 import { clearCookies } from './cookieManager';
 import { LoginFormData, RegisterFormData } from '../utils/validation';
@@ -6,17 +6,7 @@ import { ENV } from '../config/env';
 
 export const authApi = {
   fetchCsrfToken: async (): Promise<string | null> => {
-    try {
-      const response = await apiClient.get('/auth/csrf');
-      const csrfToken = response.data?.data?.csrfToken || response.data?.csrfToken;
-      if (csrfToken) {
-        useAuthStore.getState().setCsrfToken(csrfToken);
-      }
-      return csrfToken;
-    } catch (e) {
-      console.warn('Failed to fetch CSRF token', e);
-      return null;
-    }
+    return ensureCsrfToken();
   },
 
   login: async (credentials: LoginFormData): Promise<User> => {
@@ -54,7 +44,29 @@ export const authApi = {
     return user;
   },
 
+  mergeGuestData: async (guestCartItems: any[] = [], guestWishlistItems: any[] = []) => {
+    try {
+      await authApi.fetchCsrfToken();
+      const response = await apiClient.post('/auth/merge-guest-data', {
+        guestCartItems,
+        guestWishlistItems,
+      });
+      return response.data?.data || response.data;
+    } catch (e) {
+      console.warn('[authApi] Failed to merge guest data:', e);
+      return null;
+    }
+  },
+
   logout: async () => {
+    // 0. Unregister device push token
+    try {
+      const { notificationService } = require('../services/notificationService');
+      await notificationService.unregisterPushTokenAsync();
+    } catch {
+      // Ignore
+    }
+
     // 1. Attempt backend logout
     try {
       await apiClient.post('/auth/logout');

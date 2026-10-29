@@ -14,28 +14,22 @@ import { useAuthStore } from '../../stores/authStore';
 export default function CartScreen() {
   const router = useRouter();
   const { status } = useAuthStore();
+  const isAuthenticated = status === 'AUTHENTICATED';
   const { data: cart, isLoading, error } = useCart();
   const { mutate: updateQuantity } = useUpdateCartQuantity();
   const { mutate: removeCartItem } = useRemoveCartItem();
   const { mutate: clearCart, isPending: isClearing } = useClearCart();
 
-  if (status !== 'AUTHENTICATED') {
-    return (
-      <SafeAreaScreen className="flex-1 bg-white dark:bg-slate-900">
-        <View style={styles.centerContainer}>
-          <Text style={styles.authTitle}>Login Required</Text>
-          <Text style={styles.authSubtitle}>Please login to view and manage your cart.</Text>
-          <TouchableOpacity 
-            onPress={() => router.push('/(auth)/login')}
-            activeOpacity={0.8}
-            style={styles.primaryBtn}
-          >
-            <Text style={styles.primaryBtnText}>Go to Login</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaScreen>
-    );
-  }
+  const handleCheckoutNavigation = () => {
+    if (!isAuthenticated) {
+      router.push({
+        pathname: '/(auth)/login',
+        params: { returnTo: '/checkout' },
+      });
+      return;
+    }
+    router.push('/checkout');
+  };
 
   if (isLoading) {
     return <CartSkeleton />;
@@ -54,14 +48,16 @@ export default function CartScreen() {
   }
 
   const handleIncrease = (item: CartItemType) => {
-    updateQuantity({ productId: item.productId._id, quantity: item.quantity + 1, variantId: item.variantId });
+    const prodId = typeof item.productId === 'object' ? item.productId._id : item.productId;
+    updateQuantity({ productId: prodId, quantity: item.quantity + 1, variantId: item.variantId });
   };
 
   const handleDecrease = (item: CartItemType) => {
+    const prodId = typeof item.productId === 'object' ? item.productId._id : item.productId;
     if (item.quantity === 1) {
-      removeCartItem({ productId: item.productId._id, variantId: item.variantId });
+      removeCartItem({ productId: prodId, variantId: item.variantId });
     } else {
-      updateQuantity({ productId: item.productId._id, quantity: item.quantity - 1, variantId: item.variantId });
+      updateQuantity({ productId: prodId, quantity: item.quantity - 1, variantId: item.variantId });
     }
   };
 
@@ -95,10 +91,37 @@ export default function CartScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Guest Notice Banner */}
+      {!isAuthenticated && (
+        <View style={styles.guestBanner}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={styles.guestBannerTitle}>Guest Cart</Text>
+            <Text style={styles.guestBannerSub}>
+              Items saved on device. Sign in to sync across devices & checkout.
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.guestSignInBtn}
+            onPress={() =>
+              router.push({
+                pathname: '/(auth)/login',
+                params: { returnTo: '/(tabs)/cart' },
+              })
+            }
+            activeOpacity={0.8}
+          >
+            <Text style={styles.guestSignInText}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Cart Items List */}
       <FlatList
         data={cart.items}
-        keyExtractor={(item) => `${item.productId._id}::${item.variantId || 'default'}`}
+        keyExtractor={(item, idx) => {
+          const prodId = typeof item.productId === 'object' ? item.productId._id : item.productId;
+          return `${prodId}::${item.variantId || idx}::${idx}`;
+        }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 32 }}
         renderItem={({ item }) => (
@@ -113,7 +136,7 @@ export default function CartScreen() {
             subtotal={cart.totalAmount}
             totalAmount={cart.totalAmount}
             currency={cart.currency}
-            onCheckout={() => router.push('/checkout')}
+            onCheckout={handleCheckoutNavigation}
           />
         }
       />
@@ -129,7 +152,7 @@ export default function CartScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={() => router.push('/checkout')}
+            onPress={handleCheckoutNavigation}
             activeOpacity={0.8}
             style={styles.checkoutBtn}
           >
@@ -235,5 +258,37 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '800',
     fontSize: 14,
+  },
+  guestBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#eff6ff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#dbeafe',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  guestBannerTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1e40af',
+  },
+  guestBannerSub: {
+    fontSize: 11,
+    color: '#3b82f6',
+    marginTop: 2,
+    lineHeight: 14,
+  },
+  guestSignInBtn: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  guestSignInText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

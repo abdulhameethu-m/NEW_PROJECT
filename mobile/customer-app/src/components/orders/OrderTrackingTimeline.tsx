@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import {
   Check,
   Clock,
@@ -9,8 +9,14 @@ import {
   CheckCircle2,
   ExternalLink,
   AlertTriangle,
+  Copy,
+  Calendar,
+  Phone,
 } from 'lucide-react-native';
 import { Order } from '../../types/order';
+import { resolveCourierTracking, openCourierTrackingUrl } from '../../utils/courierTracking';
+import { copyToClipboard } from '../../utils/clipboardHelper';
+import { formatDeliveryWindow } from '../../utils/deliveryEstimator';
 
 interface OrderTrackingTimelineProps {
   order: Order;
@@ -19,32 +25,32 @@ interface OrderTrackingTimelineProps {
 const STEPS = [
   {
     key: 'PLACED',
-    title: 'Placed',
+    title: 'Order Placed',
     subtitle: 'Order received and confirmed',
     icon: Clock,
   },
   {
     key: 'PACKED',
-    title: 'Packed',
+    title: 'Packed & Ready',
     subtitle: 'Seller has packed your items',
     icon: Package,
   },
   {
     key: 'SHIPPED',
-    title: 'Shipped',
-    subtitle: 'Handed over to delivery partner',
+    title: 'Shipped & In Transit',
+    subtitle: 'Package handed to courier partner',
     icon: Truck,
   },
   {
     key: 'OUT_FOR_DELIVERY',
     title: 'Out for Delivery',
-    subtitle: 'Package is out with delivery agent',
+    subtitle: 'Courier executive is delivering today',
     icon: MapPin,
   },
   {
     key: 'DELIVERED',
     title: 'Delivered',
-    subtitle: 'Package successfully delivered',
+    subtitle: 'Package successfully received',
     icon: CheckCircle2,
   },
 ];
@@ -77,9 +83,35 @@ const formatTimelineTimestamp = (isoString?: string) => {
 };
 
 export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({ order }) => {
+  const [copiedAwb, setCopiedAwb] = useState(false);
+
   const isCancelled = (order.status || '').toLowerCase() === 'cancelled';
   const isReturned = (order.status || '').toLowerCase().includes('return');
   const activeIndex = getActiveStepIndex(order.status);
+  const isDelivered = (order.status || '').toLowerCase() === 'delivered';
+
+  const courierInfo = resolveCourierTracking(
+    order.courierName || order.deliveryPartner,
+    order.trackingId,
+    order.trackingUrl
+  );
+
+  const deliveryWindow = formatDeliveryWindow(order.estimatedDeliveryDate);
+
+  const handleCopyAwb = async () => {
+    if (!courierInfo.trackingNumber) return;
+    const success = await copyToClipboard(courierInfo.trackingNumber);
+    if (success) {
+      setCopiedAwb(true);
+      setTimeout(() => setCopiedAwb(false), 2500);
+    }
+  };
+
+  const handleOpenCourierTracking = () => {
+    if (courierInfo.trackingUrl) {
+      openCourierTrackingUrl(courierInfo.trackingUrl);
+    }
+  };
 
   if (isCancelled) {
     return (
@@ -124,12 +156,6 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({ or
     );
   }
 
-  const handleOpenCourierTracking = () => {
-    if (order.trackingUrl) {
-      Linking.openURL(order.trackingUrl).catch(() => {});
-    }
-  };
-
   const getStepTimestamp = (stepKey: string) => {
     const entry = (order.timeline || []).find((t) => {
       const s = (t.status || '').toLowerCase();
@@ -148,11 +174,103 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({ or
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading} allowFontScaling={false}>
-        Delivery Status
-      </Text>
+      {/* Estimated Delivery Header Banner */}
+      <View style={[styles.estimateBanner, isDelivered && styles.deliveredBanner]}>
+        <View style={styles.estimateBannerIconBg}>
+          {isDelivered ? (
+            <CheckCircle2 size={18} color="#059669" />
+          ) : (
+            <Calendar size={18} color="#4f46e5" />
+          )}
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.estimateBannerLabel} allowFontScaling={false}>
+            {isDelivered ? 'DELIVERY COMPLETED' : 'ESTIMATED DELIVERY'}
+          </Text>
+          <Text style={styles.estimateBannerDate} allowFontScaling={false}>
+            {isDelivered ? `Delivered on ${formatTimelineTimestamp(order.deliveredAt || order.updatedAt)}` : deliveryWindow}
+          </Text>
+        </View>
+      </View>
 
-      {/* Steps Stepper */}
+      {/* Courier & AWB Integration Card (Visible when shipped or AWB is present) */}
+      {(courierInfo.trackingNumber || activeIndex >= 2) && (
+        <View style={styles.courierCard}>
+          <View style={styles.courierTopRow}>
+            <View style={styles.courierBadgeContainer}>
+              <View style={[styles.courierBadge, { backgroundColor: courierInfo.badgeBg }]}>
+                <Truck size={13} color={courierInfo.badgeColor} style={{ marginRight: 5 }} />
+                <Text style={[styles.courierBadgeText, { color: courierInfo.badgeColor }]} allowFontScaling={false}>
+                  {courierInfo.name}
+                </Text>
+              </View>
+            </View>
+
+            {courierInfo.trackingUrl ? (
+              <TouchableOpacity
+                style={styles.trackWebsiteBtn}
+                onPress={handleOpenCourierTracking}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.trackWebsiteBtnText} allowFontScaling={false}>
+                  Track on Website
+                </Text>
+                <ExternalLink size={12} color="#4f46e5" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {courierInfo.trackingNumber ? (
+            <View style={styles.awbRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.awbLabel} allowFontScaling={false}>
+                  AWB TRACKING NUMBER
+                </Text>
+                <Text style={styles.awbValue} allowFontScaling={false}>
+                  {courierInfo.trackingNumber}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.copyAwbBtn, copiedAwb && styles.copyAwbBtnActive]}
+                onPress={handleCopyAwb}
+                activeOpacity={0.75}
+              >
+                {copiedAwb ? (
+                  <>
+                    <Check size={13} color="#059669" style={{ marginRight: 4 }} />
+                    <Text style={styles.copyAwbTextSuccess} allowFontScaling={false}>
+                      Copied!
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={13} color="#4f46e5" style={{ marginRight: 4 }} />
+                    <Text style={styles.copyAwbText} allowFontScaling={false}>
+                      Copy AWB
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={styles.awbPendingText} allowFontScaling={false}>
+              AWB number will be assigned once pickup is verified by {courierInfo.name}.
+            </Text>
+          )}
+
+          {courierInfo.customerCarePhone && (
+            <View style={styles.courierSupportRow}>
+              <Phone size={11} color="#64748b" style={{ marginRight: 5 }} />
+              <Text style={styles.courierSupportText} allowFontScaling={false}>
+                Courier Helpdesk: {courierInfo.customerCarePhone}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Progress Timeline Stepper */}
       <View style={styles.timelineWrapper}>
         {STEPS.map((step, idx) => {
           const isCompleted = idx < activeIndex;
@@ -221,51 +339,18 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({ or
                 <Text
                   style={[
                     styles.stepSubtitle,
-                    isPending && { color: '#cbd5e1' },
+                    isPending && { color: '#94a3b8' },
                   ]}
                   allowFontScaling={false}
                 >
                   {step.subtitle}
                 </Text>
 
-                {/* Event timestamp from admin update */}
                 {timestamp && (isCompleted || isCurrent) ? (
                   <Text style={styles.timestampText} allowFontScaling={false}>
                     {timestamp}
                   </Text>
                 ) : null}
-
-                {/* Additional tracking info on Shipped step */}
-                {step.key === 'SHIPPED' && (isCompleted || isCurrent) && (
-                  <View style={styles.trackingMetaCard}>
-                    {order.courierName ? (
-                      <Text style={styles.trackingMetaText} allowFontScaling={false}>
-                        Courier:{' '}
-                        <Text style={styles.trackingMetaBold}>{order.courierName}</Text>
-                      </Text>
-                    ) : null}
-
-                    {order.trackingId ? (
-                      <Text style={styles.trackingMetaText} allowFontScaling={false}>
-                        AWB / Tracking:{' '}
-                        <Text style={styles.trackingMetaBold}>{order.trackingId}</Text>
-                      </Text>
-                    ) : null}
-
-                    {order.trackingUrl ? (
-                      <TouchableOpacity
-                        style={styles.trackingLinkBtn}
-                        onPress={handleOpenCourierTracking}
-                        activeOpacity={0.8}
-                      >
-                        <ExternalLink size={13} color="#4f46e5" style={{ marginRight: 4 }} />
-                        <Text style={styles.trackingLinkText} allowFontScaling={false}>
-                          Live Courier Tracking
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                )}
               </View>
             </View>
           );
@@ -281,45 +366,179 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#f1f5f9',
-    padding: 18,
+    padding: 16,
     marginBottom: 16,
   },
-  heading: {
-    fontSize: 15,
+  estimateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+  },
+  deliveredBanner: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#d1fae5',
+  },
+  estimateBannerIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  estimateBannerLabel: {
+    fontSize: 10,
     fontWeight: '800',
+    color: '#64748b',
+    letterSpacing: 0.5,
+  },
+  estimateBannerDate: {
+    fontSize: 14,
+    fontWeight: '700',
     color: '#0f172a',
+    marginTop: 2,
+  },
+  courierCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     marginBottom: 16,
+  },
+  courierTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  courierBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  courierBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  courierBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  trackWebsiteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#e0e7ff',
+  },
+  trackWebsiteBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4f46e5',
+  },
+  awbRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  awbLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748b',
+    letterSpacing: 0.5,
+  },
+  awbValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginTop: 2,
+    fontFamily: 'monospace',
+  },
+  copyAwbBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  copyAwbBtnActive: {
+    backgroundColor: '#ecfdf5',
+  },
+  copyAwbText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4f46e5',
+  },
+  copyAwbTextSuccess: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  awbPendingText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  courierSupportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  courierSupportText: {
+    fontSize: 11,
+    color: '#64748b',
   },
   timelineWrapper: {
     paddingLeft: 4,
+    paddingTop: 4,
   },
   stepRow: {
     flexDirection: 'row',
-    minHeight: 52,
+    minHeight: 56,
   },
   indicatorCol: {
     alignItems: 'center',
+    marginRight: 14,
     width: 28,
-    marginRight: 12,
   },
   circle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
   },
   circleCompleted: {
-    backgroundColor: '#10b981',
+    backgroundColor: '#059669',
   },
   circleCurrent: {
     backgroundColor: '#4f46e5',
     shadowColor: '#4f46e5',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   circlePending: {
     backgroundColor: '#f1f5f9',
@@ -329,44 +548,45 @@ const styles = StyleSheet.create({
   connectorLine: {
     width: 2,
     flex: 1,
-    marginVertical: 4,
+    marginVertical: 2,
   },
   connectorCompleted: {
-    backgroundColor: '#10b981',
+    backgroundColor: '#059669',
   },
   connectorPending: {
     backgroundColor: '#e2e8f0',
   },
   stepInfoCol: {
     flex: 1,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
+    flexWrap: 'wrap',
   },
   stepTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
+    color: '#94a3b8',
+    marginRight: 8,
+  },
+  stepTitleCompleted: {
     color: '#0f172a',
-    marginRight: 6,
+    fontWeight: '700',
   },
   stepTitleCurrent: {
     color: '#4f46e5',
     fontWeight: '800',
   },
-  stepTitleCompleted: {
-    color: '#0f172a',
-  },
   stepTitlePending: {
     color: '#94a3b8',
   },
   currentBadge: {
-    backgroundColor: '#eef2ff',
+    backgroundColor: '#e0e7ff',
     paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 9999,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   currentBadgeText: {
     fontSize: 10,
@@ -374,49 +594,21 @@ const styles = StyleSheet.create({
     color: '#4f46e5',
   },
   stepSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748b',
-    lineHeight: 16,
+    marginTop: 2,
   },
   timestampText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#059669',
-    marginTop: 3,
-  },
-  trackingMetaCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 10,
-    marginTop: 8,
-  },
-  trackingMetaText: {
     fontSize: 11,
-    color: '#64748b',
-    marginBottom: 3,
-  },
-  trackingMetaBold: {
-    fontWeight: '700',
-    color: '#1e293b',
-  },
-  trackingLinkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    alignSelf: 'flex-start',
-  },
-  trackingLinkText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#4f46e5',
+    color: '#94a3b8',
+    marginTop: 4,
+    fontWeight: '500',
   },
   cancelledContainer: {
     backgroundColor: '#fff1f2',
-    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#fecdd3',
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
   },
@@ -428,22 +620,22 @@ const styles = StyleSheet.create({
   cancelledTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#be123c',
+    color: '#e11d48',
   },
   cancelledText: {
-    fontSize: 12,
-    color: '#9f1239',
+    fontSize: 13,
+    color: '#be123c',
     lineHeight: 18,
   },
   refundNote: {
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#ffe4e6',
+    borderTopColor: '#fecdd3',
   },
   refundNoteText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#be123c',
-    lineHeight: 16,
+    lineHeight: 18,
   },
 });

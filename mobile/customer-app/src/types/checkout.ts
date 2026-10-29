@@ -8,6 +8,7 @@ export interface UserAddress {
   state: string;
   otherState?: string;
   pincode: string;
+  postalCode?: string;
   country: string;
   isDefault?: boolean;
 }

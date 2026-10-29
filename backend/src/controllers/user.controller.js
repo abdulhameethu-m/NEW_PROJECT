@@ -61,6 +61,14 @@ const logoutAllDevices = asyncHandler(async (req, res) => ok(res, await userServ
 
 const getActivity = asyncHandler(async (req, res) => ok(res, await userService.getActivity(req.user.sub, req.query), "Activity loaded"));
 
+const registerPushToken = asyncHandler(async (req, res) => ok(res, await userService.registerPushToken(req.user.sub, req.body), "Push token registered"));
+const unregisterPushToken = asyncHandler(async (req, res) => ok(res, await userService.unregisterPushToken(req.user.sub, req.body), "Push token unregistered"));
+
+const listNotifications = asyncHandler(async (req, res) => ok(res, await userService.listNotifications(req.user.sub, req.query), "Notifications loaded"));
+const markNotificationRead = asyncHandler(async (req, res) => ok(res, await userService.markNotificationRead(req.user.sub, req.params.id), "Notification marked as read"));
+const markAllNotificationsRead = asyncHandler(async (req, res) => ok(res, await userService.markAllNotificationsRead(req.user.sub), "All notifications marked as read"));
+const deleteNotification = asyncHandler(async (req, res) => ok(res, await userService.deleteNotification(req.user.sub, req.params.id), "Notification deleted"));
+
 module.exports = {
   getDashboard,
   getProfile,
@@ -97,4 +105,10 @@ module.exports = {
   revokeSession,
   logoutAllDevices,
   getActivity,
+  registerPushToken,
+  unregisterPushToken,
+  listNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification,
 };

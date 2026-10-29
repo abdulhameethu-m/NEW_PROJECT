@@ -44,7 +44,14 @@
         }
       ],
       "expo-video",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#4f46e5"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -2,7 +2,6 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { ENV } from '../config/env';
 import { Platform } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
-
 import { clearCookies } from './cookieManager';
 import { logToTerminal } from '../utils/errorHandler';
 
@@ -33,10 +32,49 @@ const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue = [];
 };
 
+let csrfFetchPromise: Promise<string | null> | null = null;
+
+export async function ensureCsrfToken(forceRefresh = false): Promise<string | null> {
+  if (!forceRefresh) {
+    const currentToken = useAuthStore.getState().csrfToken;
+    if (currentToken) return currentToken;
+  }
+
+  if (!csrfFetchPromise) {
+    csrfFetchPromise = (async () => {
+      try {
+        const response = await axios.get(`${ENV.API_URL}/auth/csrf`, {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Bypass-Tunnel-Reminder': 'true',
+          },
+        });
+        const token = response.data?.data?.csrfToken || response.data?.csrfToken;
+        if (token) {
+          useAuthStore.getState().setCsrfToken(token);
+        }
+        return token || null;
+      } catch (e) {
+        return null;
+      } finally {
+        csrfFetchPromise = null;
+      }
+    })();
+  }
+  return csrfFetchPromise;
+}
+
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // Inject CSRF token if we have it in the store
-    const csrfToken = useAuthStore.getState().csrfToken;
+    const method = (config.method || 'get').toLowerCase();
+    const isStateMutating = !['get', 'head', 'options'].includes(method);
+
+    let csrfToken = useAuthStore.getState().csrfToken;
+    if (isStateMutating && !csrfToken) {
+      csrfToken = await ensureCsrfToken();
+    }
+
     if (csrfToken) {
       config.headers['x-csrf-token'] = csrfToken;
       const existingCookie = (config.headers['Cookie'] as string) || '';
@@ -54,15 +92,18 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-    
-    const isRoutineAuthCheck =
-      error.response?.status === 401 &&
-      (originalRequest?.url?.includes('/users/me') ||
-        originalRequest?.url?.includes('/auth/login') ||
-        originalRequest?.url?.includes('/auth/refresh'));
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean; _csrfRetry?: boolean };
 
-    // Log genuine API failures to developer terminal so user is not disturbed inside app
+    const isRoutineAuthCheck =
+      (error.response?.status === 401 &&
+        (originalRequest?.url?.includes('/auth/me') ||
+          originalRequest?.url?.includes('/users/me') ||
+          originalRequest?.url?.includes('/auth/login') ||
+          originalRequest?.url?.includes('/auth/refresh'))) ||
+      (error.response?.status === 403 &&
+        String((error.response?.data as any)?.code || '').includes('CSRF'));
+
+    // Log genuine unexpected API failures to developer terminal
     if (!isRoutineAuthCheck) {
       logToTerminal(`API ${originalRequest?.method?.toUpperCase() || 'REQUEST'} ${originalRequest?.url || ''}`, error);
     }
@@ -72,7 +113,10 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Handle session expiration for logged-in requests (excluding initial /auth/me check for guests)
+    const isInitialAuthCheck = originalRequest?.url?.includes('/auth/me') || originalRequest?.url?.includes('/users/me');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isInitialAuthCheck) {
       if (isRefreshing) {
         return new Promise(function (resolve, reject) {
           failedQueue.push({ resolve, reject });
@@ -89,20 +133,12 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Must fetch a fresh CSRF token before performing POST /auth/refresh
-        const csrfResponse = await axios.get(`${ENV.API_URL}/auth/csrf`, { withCredentials: true });
-        const freshCsrf = csrfResponse.data?.data?.csrfToken || csrfResponse.data?.csrfToken;
-        if (freshCsrf) {
-          useAuthStore.getState().setCsrfToken(freshCsrf);
-        }
-
-        // Native cookie jar should automatically send the refreshToken cookie
+        await ensureCsrfToken();
         await apiClient.post('/auth/refresh');
         processQueue(null);
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError as Error);
-        // Clear native cookies and reset UI state on complete session failure
         await clearCookies();
         useAuthStore.getState().clearSession();
         return Promise.reject(refreshError);
@@ -111,12 +147,24 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // CSRF Error handling (403 CSRF_REQUIRED / CSRF_INVALID)
+    // Transparent CSRF Retry: If a request fails with 403 CSRF error, fetch fresh token and retry once
     const errorData = error.response?.data as any;
-    if (error.response?.status === 403 && errorData?.code?.includes('CSRF')) {
-      // Typically we'd try to fetch a new CSRF token and retry
-      // For Phase 1, we just reject, and the caller can call fetchCsrfToken()
-      logToTerminal('CSRF Token', { message: `CSRF error for URL: ${originalRequest.url}`, response: error.response });
+    if (error.response?.status === 403 && String(errorData?.code || '').includes('CSRF') && !originalRequest._csrfRetry) {
+      originalRequest._csrfRetry = true;
+      try {
+        useAuthStore.getState().setCsrfToken(null);
+        const freshToken = await ensureCsrfToken(true);
+        if (freshToken) {
+          originalRequest.headers['x-csrf-token'] = freshToken;
+          const existingCookie = (originalRequest.headers['Cookie'] as string) || '';
+          originalRequest.headers['Cookie'] = existingCookie
+            ? `${existingCookie.replace(/csrf_token=[^;]+;?\s*/, '')}; csrf_token=${freshToken}`
+            : `csrf_token=${freshToken}`;
+          return apiClient(originalRequest);
+        }
+      } catch (csrfRetryErr) {
+        return Promise.reject(csrfRetryErr);
+      }
     }
 
     return Promise.reject(error);

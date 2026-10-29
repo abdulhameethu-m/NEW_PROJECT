@@ -2,7 +2,7 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView,
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { Link, useRouter } from 'expo-router';
+import { useLocalSearchParams, Link, useRouter } from 'expo-router';
 import { loginSchema, LoginFormData } from '../../utils/validation';
 import { authApi } from '../../api/auth';
 import { useAuthStore } from '../../stores/authStore';
@@ -15,10 +15,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { logToTerminal } from '../../utils/errorHandler';
 import { safeGoBack } from '../../utils/safeNavigation';
+import { guestCartStorage } from '../../utils/guestCartStorage';
+import { guestWishlistStorage } from '../../utils/guestWishlistStorage';
+import { useQueryClient } from '@tanstack/react-query';
+import { CART_QUERY_KEY } from '../../hooks/useCart';
+import { WISHLIST_QUERY_KEY } from '../../hooks/useWishlist';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const setUser = useAuthStore(state => state.setUser);
+  const queryClient = useQueryClient();
   
   const [showPassword, setShowPassword] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -40,8 +47,32 @@ export default function LoginScreen() {
     setGlobalError(null);
     try {
       const user = await authApi.login(data);
+
+      // Merge local guest cart & wishlist with user account
+      try {
+        const guestCartItems = await guestCartStorage.getItemsForMerge();
+        const guestWishlistItems = await guestWishlistStorage.getItemsForMerge();
+
+        if (guestCartItems.length > 0 || guestWishlistItems.length > 0) {
+          await authApi.mergeGuestData(guestCartItems, guestWishlistItems);
+          await guestCartStorage.clearCart();
+          await guestWishlistStorage.clearWishlist();
+        }
+      } catch (mergeErr) {
+        console.warn('[Login] Guest data merge warning:', mergeErr);
+      }
+
+      // Invalidate cart & wishlist caches so fresh merged data is fetched
+      await queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: WISHLIST_QUERY_KEY });
+
       setUser(user);
-      router.replace('/(tabs)');
+
+      if (returnTo) {
+        router.replace(returnTo as any);
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (err: any) {
       logToTerminal('User Login Error', err);
       if (err instanceof AxiosError) {
@@ -235,13 +266,26 @@ export default function LoginScreen() {
             </View>
 
             {/* Register Link */}
-            <View className="flex-row justify-center mb-10">
+            <View className="flex-row justify-center mb-6">
               <Text className="text-slate-600 font-medium">Don't have an account? </Text>
-              <Link href="/(auth)/register" asChild>
+              <Link href={{ pathname: '/(auth)/register', params: returnTo ? { returnTo } : {} }} asChild>
                 <TouchableOpacity>
                   <Text className="text-indigo-600 font-bold underline">Sign Up</Text>
                 </TouchableOpacity>
               </Link>
+            </View>
+
+            {/* Continue as Guest */}
+            <View className="items-center mb-8">
+              <TouchableOpacity
+                onPress={() => router.replace('/(tabs)')}
+                activeOpacity={0.7}
+                className="py-2.5 px-6 rounded-full bg-slate-100 border border-slate-200 flex-row items-center"
+              >
+                <Text className="text-slate-700 font-semibold text-sm">
+                  Continue as Guest →
+                </Text>
+              </TouchableOpacity>
             </View>
             
             {/* Trust Badges */}

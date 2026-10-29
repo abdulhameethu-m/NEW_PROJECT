@@ -55,7 +55,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   clearSession: () => set({ 
     user: null, 
     status: 'UNAUTHENTICATED', 
-    csrfToken: null,
     error: null 
   }),
 }));

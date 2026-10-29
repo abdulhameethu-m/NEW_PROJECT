@@ -1,0 +1,1 @@
+import{J as e}from"./vendor-DHm7nkLT.js";import{AdminPayoutsPage as t}from"./AdminPayoutsPage-DJ_B1GB1.js";var n=e();function r(){return(0,n.jsx)(t,{})}export{r as StaffPayoutsPage};

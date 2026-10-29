@@ -8,6 +8,7 @@ import { authApi } from '../api/auth';
 import { View, Text, TouchableOpacity, ActivityIndicator, Platform, StyleSheet, BackHandler } from 'react-native';
 import { getPendingImage, wasCameraSessionActive, clearPendingPhoto } from '../utils/imagePickerService';
 import { initErrorHandler, logToTerminal } from '../utils/errorHandler';
+import { notificationService } from '../services/notificationService';
 
 // Initialize global error suppression inside app & route errors to terminal
 initErrorHandler();
@@ -22,13 +23,22 @@ configureReanimatedLogger({
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error: any, query) => {
-      logToTerminal(`React Query [${query.queryKey.join('/')}]`, error);
+      const status = error?.response?.status;
+      const isRoutineAuth = status === 401 && (query.queryKey[0] === 'auth' || query.queryKey[0] === 'user');
+      const isCsrfRoutine = status === 403 && String(error?.response?.data?.code || '').includes('CSRF');
+      if (!isRoutineAuth && !isCsrfRoutine) {
+        logToTerminal(`React Query [${query.queryKey.join('/')}]`, error);
+      }
     },
   }),
   mutationCache: new MutationCache({
     onError: (error: any, _variables, _context, mutation) => {
-      const mutationKey = mutation.options.mutationKey ? mutation.options.mutationKey.join('/') : 'mutation';
-      logToTerminal(`React Mutation [${mutationKey}]`, error);
+      const status = error?.response?.status;
+      const isCsrfRoutine = status === 403 && String(error?.response?.data?.code || '').includes('CSRF');
+      if (!isCsrfRoutine) {
+        const mutationKey = mutation.options.mutationKey ? mutation.options.mutationKey.join('/') : 'mutation';
+        logToTerminal(`React Mutation [${mutationKey}]`, error);
+      }
     },
   }),
   defaultOptions: {
@@ -94,8 +104,21 @@ function RootLayoutNav() {
       if (!isMounted) return;
 
       const inAuthGroup = segments[0] === '(auth)';
-      if (status === 'UNAUTHENTICATED' && !inAuthGroup) {
-        router.replace('/(auth)/login');
+      const rootSegment = segments[0] || '';
+      const subSegment = segments[1] || '';
+
+      // Define routes strictly requiring an authenticated session
+      const isProtected =
+        ['checkout', 'orders', 'returns', 'addresses'].includes(rootSegment) ||
+        (rootSegment === 'profile' && ['edit', 'security', 'change-password'].includes(subSegment)) ||
+        (rootSegment === 'support' && subSegment === 'new');
+
+      if (status === 'UNAUTHENTICATED' && isProtected) {
+        const targetPath = '/' + segments.join('/');
+        router.replace({
+          pathname: '/(auth)/login',
+          params: { returnTo: targetPath },
+        });
       } else if (status === 'AUTHENTICATED' && inAuthGroup) {
         router.replace('/(tabs)');
       }
@@ -107,6 +130,44 @@ function RootLayoutNav() {
       isMounted = false;
     };
   }, [status, segments, router, rootNavigationState?.key]);
+
+  // Push Notification Registration & Banner Tap Handling
+  useEffect(() => {
+    // 1. Register push token if user is authenticated
+    if (status === 'AUTHENTICATED') {
+      notificationService.registerForPushNotificationsAsync().catch((err) => {
+        console.log('[Layout] Push notification registration note:', err?.message || err);
+      });
+    }
+
+    // 2. Setup tap listener for incoming push notifications (foreground & background)
+    const subscription = notificationService.addNotificationResponseListener((response) => {
+      try {
+        const data = response?.notification?.request?.content?.data as any;
+        if (!data) return;
+
+        if (data.orderId) {
+          router.push(`/orders/${data.orderId}` as any);
+        } else if (data.slug) {
+          router.push(`/product/${data.slug}` as any);
+        } else if (data.ticketId) {
+          router.push(`/support/${data.ticketId}` as any);
+        } else if (data.screen === 'cart') {
+          router.push('/(tabs)/cart');
+        } else if (data.screen === 'shop') {
+          router.push('/(tabs)/shop');
+        } else {
+          router.push('/notifications');
+        }
+      } catch (e) {
+        console.warn('[Layout] Failed to route notification tap:', e);
+      }
+    });
+
+    return () => {
+      subscription?.remove?.();
+    };
+  }, [status, router]);
 
   // Handle Android hardware back press gracefully
   useEffect(() => {
@@ -145,8 +206,9 @@ function RootLayoutNav() {
   return (
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen
           name="cart-drawer"
           options={{
@@ -173,6 +235,7 @@ function RootLayoutNav() {
         <Stack.Screen name="support/new" options={{ headerShown: false }} />
         <Stack.Screen name="support/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="search/index" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false }} />
       </Stack>
 
       {status === 'INITIALIZING' && (

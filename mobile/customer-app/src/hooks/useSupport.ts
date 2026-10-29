@@ -7,13 +7,19 @@ export const SUPPORT_KEYS = {
   detail: (id: string) => ['support-tickets', id] as const,
 };
 
+import { useAuthStore } from '../stores/authStore';
+
 /**
  * Hook to retrieve all support tickets for the authenticated customer
  */
 export function useSupportTickets() {
+  const status = useAuthStore((state) => state.status);
+  const isAuthenticated = status === 'AUTHENTICATED';
+
   return useQuery<SupportTicket[], Error>({
     queryKey: SUPPORT_KEYS.all,
     queryFn: () => supportApi.getTickets(),
+    enabled: isAuthenticated,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }

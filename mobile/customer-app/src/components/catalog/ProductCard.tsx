@@ -35,7 +35,7 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
     const variantId = defaultVariant?.variantId || (defaultVariant as any)?._id;
 
     addCartItem(
-      { productId: product._id, quantity: 1, ...(variantId ? { variantId } : {}) },
+      { productId: product._id, quantity: 1, ...(variantId ? { variantId } : {}), product },
       {
         onSuccess: (data) => {
           let addedItem = data.cart.items.find((i: any) => {
@@ -63,7 +63,7 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
   };
   
   const handleWishlistPress = () => {
-    toggleWishlist({ productId: product._id, active: !isWishlisted });
+    toggleWishlist({ productId: product._id, active: !isWishlisted, product });
   };
 
   const imageRef = product.images?.[0];

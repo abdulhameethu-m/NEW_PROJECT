@@ -1,15 +1,17 @@
 import React from 'react';
 import { View, Pressable, Image, Text } from 'react-native';
-import { Heart, ShoppingBag, Search } from 'lucide-react-native';
+import { Heart, ShoppingBag, Search, Bell } from 'lucide-react-native';
 import { ResponsiveContainer } from '../layout/ResponsiveContainer';
 import { useRouter } from 'expo-router';
 import { useCart } from '../../hooks/useCart';
 import { useWishlist } from '../../hooks/useWishlist';
+import { useUnreadNotificationsCount } from '../../hooks/useNotifications';
 
 export function HomeHeader() {
   const router = useRouter();
   const { data: cart } = useCart();
   const { data: wishlist = [] } = useWishlist();
+  const unreadCount = useUnreadNotificationsCount();
   
   const cartCount = cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
   const wishlistCount = wishlist.length;
@@ -34,6 +36,19 @@ export function HomeHeader() {
           onPress={() => router.push('/search' as any)}
         >
           <Search size={22} className="text-slate-700 dark:text-slate-300" strokeWidth={1.8} />
+        </Pressable>
+        <Pressable 
+          className="relative p-2"
+          onPress={() => router.push('/notifications')}
+        >
+          <Bell size={23} className="text-slate-700 dark:text-slate-300" strokeWidth={1.7} />
+          {unreadCount > 0 && (
+            <View className="absolute -top-1 -right-1 bg-indigo-600 rounded-full min-w-[18px] h-[18px] items-center justify-center px-1 border border-white dark:border-slate-950">
+              <Text className="text-[10px] font-bold text-white">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
         </Pressable>
         <Pressable 
           className="relative p-2"

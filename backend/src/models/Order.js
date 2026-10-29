@@ -341,6 +341,8 @@ const orderSchema = new mongoose.Schema(
     providerCost: { type: Number, min: 0, default: 0 },
     shippingCustomerPrice: { type: Number, min: 0, default: 0 },
     estimatedDeliveryDate: { type: Date },
+    deliveryOtp: { type: String, trim: true },
+    deliveryOtpGeneratedAt: { type: Date },
     shippingQuoteSnapshot: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

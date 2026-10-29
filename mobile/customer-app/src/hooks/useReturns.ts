@@ -2,10 +2,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { returnsApi } from '../api/returns';
 import { ReturnRequest, ReturnsListResponse } from '../types/return';
 
+import { useAuthStore } from '../stores/authStore';
+
 export function useCustomerReturns(params: { page?: number; limit?: number } = {}) {
+  const status = useAuthStore((state) => state.status);
+  const isAuthenticated = status === 'AUTHENTICATED';
+
   return useQuery<ReturnsListResponse, Error>({
     queryKey: ['returns', params.page || 1, params.limit || 20],
     queryFn: () => returnsApi.getReturns(params),
+    enabled: isAuthenticated,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
