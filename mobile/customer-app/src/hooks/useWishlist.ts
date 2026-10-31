@@ -3,6 +3,7 @@ import { getWishlist, addToWishlist, removeFromWishlist } from '../api/wishlist'
 import { WishlistItem, WishlistMutationResponse } from '../types/wishlist';
 import { useAuthStore } from '../stores/authStore';
 import { guestWishlistStorage } from '../utils/guestWishlistStorage';
+import { hapticFeedback } from '../utils/haptics';
 
 export const WISHLIST_QUERY_KEY = ['wishlist'];
 
@@ -67,6 +68,9 @@ export function useToggleWishlist() {
         });
       }),
     onMutate: async (variables) => {
+      // Tactile micro-vibration
+      hapticFeedback.wishlistToggle(variables.active);
+
       // Optimistic update
       await queryClient.cancelQueries({ queryKey: WISHLIST_QUERY_KEY });
       const previousWishlist = queryClient.getQueryData<WishlistItem[]>(WISHLIST_QUERY_KEY);

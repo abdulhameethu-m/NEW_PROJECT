@@ -1,10 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Share,
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -21,6 +20,8 @@ import {
 import { VendorStore } from '../../types/vendor';
 import { StoreFollowButton } from './StoreFollowButton';
 import { resolveUrl } from '../../utils/resolveUrl';
+import { SocialShareModal } from '../ui/SocialShareModal';
+import { buildStoreShareUrl } from '../../utils/socialShare';
 
 export type StoreTabKey = 'products' | 'collections' | 'reviews' | 'about';
 
@@ -41,16 +42,10 @@ export const VendorStoreHeader: React.FC<VendorStoreHeaderProps> = ({
 }) => {
   const bannerUri = resolveUrl(vendor.bannerUrl);
   const logoUri = resolveUrl(vendor.logoUrl);
+  const [isShareModalVisible, setIsShareModalVisible] = useState(false);
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        title: vendor.vendorName,
-        message: `Check out ${vendor.vendorName} on Uchooseme! Discover their exclusive products and offers: https://uchooseme.com/vendor/${vendor.storeSlug}`,
-      });
-    } catch {
-      // Ignored
-    }
+  const handleShare = () => {
+    setIsShareModalVisible(true);
   };
 
   const formattedFollowers = (vendor.followersCount || 0).toLocaleString('en-IN');
@@ -280,6 +275,16 @@ export const VendorStoreHeader: React.FC<VendorStoreHeaderProps> = ({
           </Text>
         </TouchableOpacity>
       </View>
+
+      <SocialShareModal
+        isVisible={isShareModalVisible}
+        onClose={() => setIsShareModalVisible(false)}
+        title={vendor.vendorName}
+        shareUrl={buildStoreShareUrl(vendor.storeSlug)}
+        shareText={`✨ Check out ${vendor.vendorName} on UChooseMe!\nDiscover verified quality products & exclusive store deals.\n👉 Visit Store:\n${buildStoreShareUrl(vendor.storeSlug)}`}
+        imageUrl={logoUri || bannerUri || undefined}
+        type="store"
+      />
     </View>
   );
 };

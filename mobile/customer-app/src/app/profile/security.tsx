@@ -22,9 +22,18 @@ import {
   CheckCircle2,
   AlertCircle,
   KeyRound,
+  Trash2,
+  UserX,
+  FileText,
+  ExternalLink,
+  X,
+  ChevronRight,
 } from 'lucide-react-native';
 import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
 import { useChangePassword } from '../../hooks/useUserProfile';
+import { userApi } from '../../api/user';
+import { useAuthStore } from '../../stores/authStore';
+import { Modal, Pressable } from 'react-native';
 
 export default function SecurityScreen() {
   const router = useRouter();
@@ -39,6 +48,31 @@ export default function SecurityScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Compliance Account Deletion State
+  const clearSession = useAuthStore((state) => state.clearSession);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      await userApi.deleteAccount(deleteReason || 'Customer requested account deletion in app');
+      setIsDeleteModalVisible(false);
+      clearSession();
+      Alert.alert(
+        'Account Deleted',
+        'Your account and all personal data have been permanently purged.',
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+      );
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to delete account. Please try again later.';
+      Alert.alert('Error', msg);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -308,8 +342,141 @@ export default function SecurityScreen() {
               </Text>
             )}
           </TouchableOpacity>
+
+          {/* Legal & Compliance Section */}
+          <View style={styles.complianceCard}>
+            <Text style={styles.complianceSectionTitle} allowFontScaling={false}>
+              Legal & Compliance
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/legal/terms' as any)}
+              style={styles.complianceRow}
+              activeOpacity={0.7}
+            >
+              <View style={styles.complianceRowLeft}>
+                <FileText size={18} color="#475569" />
+                <Text style={styles.complianceLinkText} allowFontScaling={false}>
+                  Terms of Service
+                </Text>
+              </View>
+              <ChevronRight size={18} color="#94a3b8" />
+            </TouchableOpacity>
+
+            <View style={styles.complianceDivider} />
+
+            <TouchableOpacity
+              onPress={() => router.push('/legal/privacy' as any)}
+              style={styles.complianceRow}
+              activeOpacity={0.7}
+            >
+              <View style={styles.complianceRowLeft}>
+                <ShieldCheck size={18} color="#475569" />
+                <Text style={styles.complianceLinkText} allowFontScaling={false}>
+                  Privacy Policy & Data Rights
+                </Text>
+              </View>
+              <ChevronRight size={18} color="#94a3b8" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Danger Zone: Account Deletion (Apple App Store Guideline 5.1.1(v) & Google Play) */}
+          <View style={styles.dangerCard}>
+            <View style={styles.dangerHeader}>
+              <UserX size={20} color="#dc2626" />
+              <Text style={styles.dangerTitle} allowFontScaling={false}>
+                Delete Account
+              </Text>
+            </View>
+            <Text style={styles.dangerDescription} allowFontScaling={false}>
+              Permanently delete your UChooseMe account, saved addresses, wishlists, and personal data. This action is irreversible.
+            </Text>
+            <TouchableOpacity
+              onPress={() => setIsDeleteModalVisible(true)}
+              style={styles.deleteAccountBtn}
+              activeOpacity={0.8}
+            >
+              <Trash2 size={16} color="#dc2626" style={{ marginRight: 6 }} />
+              <Text style={styles.deleteAccountBtnText} allowFontScaling={false}>
+                Delete Account & Data
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Account Deletion Confirmation Modal */}
+      <Modal
+        visible={isDeleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsDeleteModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsDeleteModalVisible(false)} />
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalWarningIcon}>
+                <UserX size={28} color="#dc2626" />
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsDeleteModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <X size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalTitle} allowFontScaling={false}>
+              Delete Your Account?
+            </Text>
+            <Text style={styles.modalBody} allowFontScaling={false}>
+              Are you sure you want to permanently delete your account? All your personal information, profile data, saved delivery addresses, and wishlists will be completely purged and anonymized.
+            </Text>
+
+            <Text style={styles.modalInputLabel} allowFontScaling={false}>
+              Optional reason for leaving:
+            </Text>
+            <TextInput
+              value={deleteReason}
+              onChangeText={setDeleteReason}
+              placeholder="Tell us how we can improve..."
+              placeholderTextColor="#94a3b8"
+              style={styles.reasonInput}
+              multiline
+              numberOfLines={3}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => setIsDeleteModalVisible(false)}
+                style={styles.cancelBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelBtnText} allowFontScaling={false}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleDeleteAccount}
+                disabled={isDeleting}
+                style={styles.confirmDeleteBtn}
+                activeOpacity={0.85}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text style={styles.confirmDeleteBtnText} allowFontScaling={false}>
+                    Confirm Delete
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaScreen>
   );
 }
@@ -499,5 +666,184 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '700',
+  },
+  complianceCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  complianceSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  complianceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  complianceRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  complianceLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  complianceDivider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+    marginVertical: 4,
+  },
+  dangerCard: {
+    backgroundColor: '#fff1f2',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#fecdd3',
+    marginBottom: 24,
+  },
+  dangerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  dangerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#9f1239',
+  },
+  dangerDescription: {
+    fontSize: 13,
+    color: '#881337',
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#f43f5e',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  deleteAccountBtnText: {
+    color: '#e11d48',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 25,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  modalWarningIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fee2e2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 8,
+  },
+  modalBody: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  modalInputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 6,
+  },
+  reasonInput: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 10,
+    fontSize: 13,
+    color: '#0f172a',
+    height: 64,
+    textAlignVertical: 'top',
+    marginBottom: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelBtn: {
+    flex: 1,
+    height: 46,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  confirmDeleteBtn: {
+    flex: 1.3,
+    height: 46,
+    backgroundColor: '#dc2626',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmDeleteBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ffffff',
   },
 });

@@ -3,6 +3,7 @@ import { getCart, addToCart, updateCartItem, removeCartItem, clearCart } from '.
 import { Cart, CartMutationResponse } from '../types/cart';
 import { useAuthStore } from '../stores/authStore';
 import { guestCartStorage } from '../utils/guestCartStorage';
+import { hapticFeedback } from '../utils/haptics';
 
 export const CART_QUERY_KEY = ['cart'];
 
@@ -54,6 +55,9 @@ export function useAddCartItem() {
           product: variables.product,
         });
       }),
+    onMutate: () => {
+      hapticFeedback.cartAdd();
+    },
     onSuccess: (data) => {
       if (data && data.cart) {
         queryClient.setQueryData(CART_QUERY_KEY, data.cart);
@@ -70,6 +74,9 @@ export function useUpdateCartQuantity() {
   const isAuthenticated = status === 'AUTHENTICATED';
 
   return useMutation<Cart, Error, { productId: string; quantity: number; variantId?: string }>({
+    onMutate: () => {
+      hapticFeedback.selection();
+    },
     mutationFn: (variables) =>
       runSequentially(async () => {
         if (isAuthenticated) {

@@ -5,12 +5,28 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "customerapp",
+    "scheme": [
+      "customerapp",
+      "uchooz"
+    ],
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "com.abdulhameethusteam.abdulhameethu",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Allow UChooseMe to access your camera to take a profile photo.",
+        "NSPhotoLibraryUsageDescription": "Allow UChooseMe to access your photos to select a profile picture."
+      },
+      "associatedDomains": [
+        "applinks:uchooseme.com",
+        "applinks:*.uchooseme.com"
+      ]
     },
     "android": {
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -19,7 +35,69 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.abdulhameethusteam.abdulhameethu",
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "uchooseme.com",
+              "pathPrefix": "/product"
+            },
+            {
+              "scheme": "https",
+              "host": "uchooseme.com",
+              "pathPrefix": "/reels"
+            },
+            {
+              "scheme": "https",
+              "host": "uchooseme.com",
+              "pathPrefix": "/orders"
+            },
+            {
+              "scheme": "https",
+              "host": "uchooseme.com",
+              "pathPrefix": "/stores"
+            },
+            {
+              "scheme": "https",
+              "host": "uchooseme.com",
+              "pathPrefix": "/vendor"
+            },
+            {
+              "scheme": "https",
+              "host": "uchooseme.com",
+              "pathPrefix": "/search"
+            },
+            {
+              "scheme": "https",
+              "host": "*.uchooseme.com",
+              "pathPrefix": "/product"
+            },
+            {
+              "scheme": "https",
+              "host": "*.uchooseme.com",
+              "pathPrefix": "/reels"
+            },
+            {
+              "scheme": "https",
+              "host": "*.uchooseme.com",
+              "pathPrefix": "/orders"
+            },
+            {
+              "scheme": "https",
+              "host": "*.uchooseme.com",
+              "pathPrefix": "/stores"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "output": "static",
@@ -51,7 +129,8 @@
           "icon": "./assets/images/icon.png",
           "color": "#4f46e5"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -23,6 +23,8 @@ import { resolveReelMediaUrl, reelsApi } from '../../api/reels';
 import { ReelActionSidebar } from './ReelActionSidebar';
 import { ReelProductCard } from './ReelProductCard';
 import { useToggleReelLike, useToggleReelSave, useFollowCreator } from '../../hooks/useReels';
+import { SocialShareModal } from '../ui/SocialShareModal';
+import { buildReelShareUrl } from '../../utils/socialShare';
 
 interface ReelItemProps {
   item: ReelItemType;
@@ -45,6 +47,7 @@ export const ReelItem: React.FC<ReelItemProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [showPlayIcon, setShowPlayIcon] = useState(false);
   const [captionExpanded, setCaptionExpanded] = useState(false);
+  const [isShareModalVisible, setIsShareModalVisible] = useState(false);
 
   const lastTapRef = useRef<number>(0);
   const playTimeoutRef = useRef<any>(null);
@@ -140,16 +143,9 @@ export const ReelItem: React.FC<ReelItemProps> = ({
     lastTapRef.current = now;
   };
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        title: item.title || 'Check out this reel on Uchooseme!',
-        message: `${item.title || 'Check out this reel!'}\n${videoUri}`,
-      });
-      reelsApi.recordView(item._id, { watchTimeSeconds: 0 });
-    } catch {
-      // Handled silently
-    }
+  const handleShare = () => {
+    setIsShareModalVisible(true);
+    reelsApi.recordView(item._id, { watchTimeSeconds: 0 }).catch(() => {});
   };
 
   const handleFollow = () => {
@@ -279,6 +275,16 @@ export const ReelItem: React.FC<ReelItemProps> = ({
         onSharePress={handleShare}
         onMuteToggle={handleMuteToggle}
         onFollowPress={handleFollow}
+      />
+
+      <SocialShareModal
+        isVisible={isShareModalVisible}
+        onClose={() => setIsShareModalVisible(false)}
+        title={item.title || 'Trending Reel on UChooseMe'}
+        shareUrl={buildReelShareUrl(item._id)}
+        shareText={`🎬 Watch this trending reel on UChooseMe!\n\n✨ ${item.title || item.caption || 'Discover new styles'}\n\n👉 Watch & Shop:\n${buildReelShareUrl(item._id)}`}
+        imageUrl={thumbnailUri || undefined}
+        type="reel"
       />
     </View>
   );

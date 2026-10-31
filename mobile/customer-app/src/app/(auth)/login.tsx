@@ -26,7 +26,7 @@ export default function LoginScreen() {
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const setUser = useAuthStore(state => state.setUser);
   const queryClient = useQueryClient();
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
@@ -102,20 +102,20 @@ export default function LoginScreen() {
       <SafeAreaScreen className="flex-1" edges={['top', 'bottom']} backgroundColor="transparent">
         <KeyboardAwareScreen>
           <ResponsiveContainer style={{ paddingBottom: 40, paddingTop: 24 }}>
-            
+
             {/* Header Area */}
             <View className="relative mb-6">
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => safeGoBack(router, '/(tabs)')}
                 className="absolute top-0 left-0 w-10 h-10 bg-white rounded-full items-center justify-center shadow-sm border border-slate-100 z-10"
                 style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 }}
               >
                 <ChevronLeft size={24} color="#1e293b" />
               </TouchableOpacity>
-              
+
               <View className="items-center mt-2">
-                <Image 
-                  source={require('../../../assets/images/logo-transparent.png')} 
+                <Image
+                  source={require('../../../assets/images/logo-transparent.png')}
                   style={{ width: 240, height: 180 }}
                   contentFit="contain"
                 />
@@ -253,12 +253,12 @@ export default function LoginScreen() {
                 <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' }} style={{ width: 18, height: 18 }} />
                 <Text className="font-semibold text-slate-800 ml-1.5 text-xs" numberOfLines={1} adjustsFontSizeToFit>Google</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity className="flex-1 bg-white border border-slate-100 h-14 rounded-2xl flex-row items-center justify-center mx-1 shadow-sm" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }}>
                 <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/0/747.png' }} style={{ width: 18, height: 18 }} />
                 <Text className="font-semibold text-slate-800 ml-1.5 text-xs" numberOfLines={1} adjustsFontSizeToFit>Apple</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity className="flex-1 bg-white border border-slate-100 h-14 rounded-2xl flex-row items-center justify-center ml-2 shadow-sm" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }}>
                 <Smartphone color="#7c3aed" size={18} />
                 <Text className="font-semibold text-slate-800 ml-1 text-xs" numberOfLines={1} adjustsFontSizeToFit>Mobile</Text>
@@ -287,7 +287,7 @@ export default function LoginScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-            
+
             {/* Trust Badges */}
             <View className="flex-row justify-between bg-slate-50 border border-slate-100 rounded-3xl p-4 shadow-sm" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }}>
               <View className="items-center flex-1 px-1">
@@ -297,9 +297,9 @@ export default function LoginScreen() {
                 <Text className="font-bold text-slate-800 text-[11px] text-center" numberOfLines={1}>Secure</Text>
                 <Text className="text-slate-500 text-[9px] text-center mt-0.5" numberOfLines={2}>Safe data</Text>
               </View>
-              
+
               <View className="w-px bg-slate-200 mx-1" />
-              
+
               <View className="items-center flex-1 px-1">
                 <View className="w-10 h-10 rounded-full bg-indigo-100 items-center justify-center mb-1">
                   <Percent color="#6366f1" size={20} />
@@ -307,9 +307,9 @@ export default function LoginScreen() {
                 <Text className="font-bold text-slate-800 text-[11px] text-center" numberOfLines={1}>Offers</Text>
                 <Text className="text-slate-500 text-[9px] text-center mt-0.5" numberOfLines={2}>Best deals</Text>
               </View>
-              
+
               <View className="w-px bg-slate-200 mx-1" />
-              
+
               <View className="items-center flex-1 px-1">
                 <View className="w-10 h-10 rounded-full bg-indigo-100 items-center justify-center mb-1">
                   <Headphones color="#6366f1" size={20} />
@@ -317,6 +317,20 @@ export default function LoginScreen() {
                 <Text className="font-bold text-slate-800 text-[11px] text-center" numberOfLines={1}>Support</Text>
                 <Text className="text-slate-500 text-[9px] text-center mt-0.5" numberOfLines={2}>24/7 help</Text>
               </View>
+            </View>
+
+            {/* Legal Compliance Notice */}
+            <View className="flex-row justify-center items-center mt-6 mb-4 flex-wrap">
+              <Text className="text-slate-400 text-xs text-center">
+                By signing in, you agree to our{' '}
+              </Text>
+              <TouchableOpacity onPress={() => router.push('/legal/terms' as any)}>
+                <Text className="text-indigo-600 font-semibold text-xs">Terms of Service</Text>
+              </TouchableOpacity>
+              <Text className="text-slate-400 text-xs"> & </Text>
+              <TouchableOpacity onPress={() => router.push('/legal/privacy' as any)}>
+                <Text className="text-indigo-600 font-semibold text-xs">Privacy Policy</Text>
+              </TouchableOpacity>
             </View>
 
           </ResponsiveContainer>

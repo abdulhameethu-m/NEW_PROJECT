@@ -70,4 +70,7 @@ router.patch("/notifications/:id/read", userController.markNotificationRead);
 router.post("/notifications/read-all", userController.markAllNotificationsRead);
 router.delete("/notifications/:id", userController.deleteNotification);
 
+// Compliance Account Deletion (Apple App Store Guideline 5.1.1(v) & Google Play)
+router.delete("/account", userController.deleteAccount);
+
 module.exports = router;

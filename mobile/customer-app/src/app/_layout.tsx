@@ -9,9 +9,21 @@ import { View, Text, TouchableOpacity, ActivityIndicator, Platform, StyleSheet, 
 import { getPendingImage, wasCameraSessionActive, clearPendingPhoto } from '../utils/imagePickerService';
 import { initErrorHandler, logToTerminal } from '../utils/errorHandler';
 import { notificationService } from '../services/notificationService';
+import * as Linking from 'expo-linking';
+import { handleIncomingDeepLink } from '../utils/deepLinking';
+import { setupOfflineCachePersistence } from '../utils/offlineCache';
+import { initNetworkManager } from '../utils/network';
+import { OfflineNotice } from '../components/ui/OfflineNotice';
+import { initSentry, setSentryUser, captureException } from '../services/sentryService';
+
+// Initialize global crash analytics & error tracking
+initSentry();
 
 // Initialize global error suppression inside app & route errors to terminal
 initErrorHandler();
+
+// Initialize real-time network connectivity sync with React Query
+initNetworkManager();
 
 // Silence Reanimated strict-mode warnings (reading/writing shared values during render).
 // These come from internal animation components and are safe to suppress in dev.
@@ -45,9 +57,17 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      networkMode: 'offlineFirst',
+      gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days retention for offline catalog browsing
+    },
+    mutations: {
+      networkMode: 'offlineFirst',
     },
   },
 });
+
+// Setup 7-day AsyncStorage offline query cache persistence
+setupOfflineCachePersistence(queryClient);
 
 function RootLayoutNav() {
   const status = useAuthStore(state => state.status);
@@ -64,8 +84,10 @@ function RootLayoutNav() {
       try {
         const user = await authApi.getMe();
         setUser(user);
+        setSentryUser({ id: user._id, email: user.email, name: user.name });
       } catch (e) {
         clearSession();
+        setSentryUser(null);
       }
     };
     initSession();
@@ -169,6 +191,36 @@ function RootLayoutNav() {
     };
   }, [status, router]);
 
+  // Universal Links & Deep Linking Listener (Cold start & Runtime)
+  useEffect(() => {
+    if (!rootNavigationState?.key) return;
+
+    let isMounted = true;
+
+    // 1. Check for initial cold-start deep link
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url && isMounted) {
+          handleIncomingDeepLink(url, router);
+        }
+      })
+      .catch((err) => {
+        console.warn('[Layout] Failed to get initial deep link URL:', err);
+      });
+
+    // 2. Listen for runtime deep links while app is open or backgrounded
+    const subscription = Linking.addEventListener('url', (event) => {
+      if (event?.url && isMounted) {
+        handleIncomingDeepLink(event.url, router);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
+  }, [rootNavigationState?.key, router]);
+
   // Handle Android hardware back press gracefully
   useEffect(() => {
     const onBackPress = () => {
@@ -205,6 +257,7 @@ function RootLayoutNav() {
 
   return (
     <View style={{ flex: 1 }}>
+      <OfflineNotice />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -236,6 +289,8 @@ function RootLayoutNav() {
         <Stack.Screen name="support/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="search/index" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="legal/terms" options={{ headerShown: false }} />
+        <Stack.Screen name="legal/privacy" options={{ headerShown: false }} />
       </Stack>
 
       {status === 'INITIALIZING' && (
@@ -347,6 +402,7 @@ const styles = StyleSheet.create({
 export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
   useEffect(() => {
     logToTerminal('App ErrorBoundary (UI Render Error)', error);
+    captureException(error, { location: 'RootErrorBoundary' });
   }, [error]);
 
   return (

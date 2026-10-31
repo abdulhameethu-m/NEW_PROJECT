@@ -1045,6 +1045,39 @@ class UserService {
     const unreadCount = await Notification.countDocuments({ userId, isRead: false });
     return { success: true, unreadCount };
   }
+  async deleteAccount(userId, { reason = 'User requested account deletion' } = {}, meta = {}) {
+    const user = await User.findById(userId);
+    if (!user) throw new AppError('User not found', 404, 'NOT_FOUND');
+
+    user.status = 'deleted';
+    user.email = 'deleted_' + user._id + '@anonymized.uchooseme.com';
+    user.phone = '';
+    user.name = 'Deleted Customer';
+    user.isActive = false;
+    user.deletedAt = new Date();
+    await user.save();
+
+    await sessionRepo.deleteUserSessions(userId).catch(() => {});
+
+    await Promise.all([
+      cartService.clearCart(userId).catch(() => {}),
+      Wishlist.deleteMany({ userId }).catch(() => {}),
+      UserAddress.deleteMany({ userId }).catch(() => {}),
+      Notification.deleteMany({ userId }).catch(() => {}),
+    ]);
+
+    await auditService.log({
+      actorId: userId,
+      actorRole: 'user',
+      action: 'ACCOUNT_DELETED',
+      targetType: 'User',
+      targetId: userId,
+      details: { reason },
+      ...meta,
+    }).catch(() => {});
+
+    return { success: true, message: 'Your account and personal data have been deleted successfully.' };
+  }
 }
 
 module.exports = new UserService();

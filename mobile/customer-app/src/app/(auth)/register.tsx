@@ -308,7 +308,26 @@ export default function RegisterScreen() {
                 <Square color="#cbd5e1" size={20} />
               )}
               <Text className="text-slate-500 ml-3 text-sm flex-1">
-                I agree to the <Text className="text-indigo-600 font-semibold">Terms of Service</Text> and <Text className="text-indigo-600 font-semibold">Privacy Policy</Text>
+                I agree to the{' '}
+                <Text
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    router.push('/legal/terms' as any);
+                  }}
+                  className="text-indigo-600 font-semibold underline"
+                >
+                  Terms of Service
+                </Text>{' '}
+                and{' '}
+                <Text
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    router.push('/legal/privacy' as any);
+                  }}
+                  className="text-indigo-600 font-semibold underline"
+                >
+                  Privacy Policy
+                </Text>
               </Text>
             </TouchableOpacity>
 

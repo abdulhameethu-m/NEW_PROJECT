@@ -1,4 +1,5 @@
 import { LogBox } from 'react-native';
+import { captureException } from '../services/sentryService';
 
 /**
  * Configure global error handling for the mobile app:
@@ -64,6 +65,9 @@ export function initErrorHandler() {
         `  Message: ${error?.message || error}\n` +
         (error?.stack ? `  Stack:\n${error.stack}\n` : '')
       );
+
+      // Route to Sentry crash reporting
+      captureException(error, { isFatal, source: 'global_handler' });
 
       // In production, let default handler cleanly close/restart if fatal
       if (!__DEV__ && originalHandler) {

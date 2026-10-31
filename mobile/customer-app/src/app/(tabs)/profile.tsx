@@ -30,6 +30,7 @@ import {
   LogIn,
   ArrowRight,
   Bell,
+  FileText,
 } from 'lucide-react-native';
 import { useOrders } from '../../hooks/useOrders';
 import { useWishlist } from '../../hooks/useWishlist';
@@ -233,6 +234,48 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
               )}
+              <ChevronRight size={18} color="#94a3b8" />
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/legal/terms' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuItemIconBg, { backgroundColor: '#f1f5f9' }]}>
+                <FileText size={18} color="#475569" />
+              </View>
+              <View style={styles.menuItemInfo}>
+                <Text style={styles.menuItemTitle} allowFontScaling={false}>
+                  Terms of Service
+                </Text>
+                <Text style={styles.menuItemSubtitle} allowFontScaling={false}>
+                  User agreement and platform guidelines
+                </Text>
+              </View>
+              <ChevronRight size={18} color="#94a3b8" />
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/legal/privacy' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuItemIconBg, { backgroundColor: '#f0fdf4' }]}>
+                <ShieldCheck size={18} color="#16a34a" />
+              </View>
+              <View style={styles.menuItemInfo}>
+                <Text style={styles.menuItemTitle} allowFontScaling={false}>
+                  Privacy Policy & Data Rights
+                </Text>
+                <Text style={styles.menuItemSubtitle} allowFontScaling={false}>
+                  How we protect and manage your data
+                </Text>
+              </View>
               <ChevronRight size={18} color="#94a3b8" />
             </TouchableOpacity>
           </View>
@@ -625,6 +668,48 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             )}
+            <ChevronRight size={18} color="#94a3b8" />
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/legal/terms' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuItemIconBg, { backgroundColor: '#f1f5f9' }]}>
+              <FileText size={18} color="#475569" />
+            </View>
+            <View style={styles.menuItemInfo}>
+              <Text style={styles.menuItemTitle} allowFontScaling={false}>
+                Terms of Service
+              </Text>
+              <Text style={styles.menuItemSubtitle} allowFontScaling={false}>
+                User agreement and platform guidelines
+              </Text>
+            </View>
+            <ChevronRight size={18} color="#94a3b8" />
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/legal/privacy' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuItemIconBg, { backgroundColor: '#f0fdf4' }]}>
+              <ShieldCheck size={18} color="#16a34a" />
+            </View>
+            <View style={styles.menuItemInfo}>
+              <Text style={styles.menuItemTitle} allowFontScaling={false}>
+                Privacy Policy & Data Rights
+              </Text>
+              <Text style={styles.menuItemSubtitle} allowFontScaling={false}>
+                How we protect and manage your data
+              </Text>
+            </View>
             <ChevronRight size={18} color="#94a3b8" />
           </TouchableOpacity>
         </View>

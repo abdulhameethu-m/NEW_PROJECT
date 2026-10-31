@@ -42,6 +42,8 @@ import { AddressFormModal } from '../components/checkout/AddressFormModal';
 import { PaymentMethodSelector } from '../components/checkout/PaymentMethodSelector';
 import { CheckoutSummaryCard } from '../components/checkout/CheckoutSummaryCard';
 import { CodConfirmationModal } from '../components/checkout/CodConfirmationModal';
+import { getActiveTrackingToken, clearAttribution } from '../utils/attributionStorage';
+import { hapticFeedback } from '../utils/haptics';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -67,6 +69,17 @@ export default function CheckoutScreen() {
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'ONLINE'>('COD');
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [isOnlinePaying, setIsOnlinePaying] = useState<boolean>(false);
+  const [trackingToken, setTrackingToken] = useState<string | null>(null);
+
+  // Load active influencer / affiliate tracking token
+  useEffect(() => {
+    getActiveTrackingToken().then((token) => {
+      if (token) {
+        setTrackingToken(token);
+        console.log('[Checkout] Loaded active attribution trackingToken for order credit');
+      }
+    });
+  }, []);
 
   // Prevent accidental navigation away from checkout screen during active online payment flow
   useEffect(() => {
@@ -111,6 +124,7 @@ export default function CheckoutScreen() {
       shippingAddress,
       paymentMethod,
       currency: 'INR',
+      trackingToken: trackingToken || undefined,
     },
     { enabled: Boolean(shippingAddress?.postalCode) }
   );
@@ -250,7 +264,14 @@ export default function CheckoutScreen() {
       const result = await placeOrderMutation({
         shippingAddress,
         paymentMethod: 'COD',
+        trackingToken: trackingToken || undefined,
       });
+
+      // Clear attribution after successful order placement
+      await clearAttribution();
+
+      // Micro-vibration on successful order placement
+      hapticFeedback.paymentSuccess();
 
       setIsCodModalVisible(false);
 
@@ -272,6 +293,7 @@ export default function CheckoutScreen() {
         },
       });
     } catch (err: any) {
+      hapticFeedback.paymentError();
       setIsCodModalVisible(false);
       const message =
         err.response?.data?.message ||
@@ -307,6 +329,7 @@ export default function CheckoutScreen() {
         try {
           const razorpayOrder = await createRazorpayOrder({
             shippingAddress,
+            trackingToken: trackingToken || undefined,
           });
 
           const redirectUrl = Linking.createURL('razorpay-callback');
@@ -351,7 +374,10 @@ export default function CheckoutScreen() {
                     razorpay_payment_id: query.razorpay_payment_id,
                     razorpay_signature: query.razorpay_signature,
                     shippingAddress,
+                    trackingToken: trackingToken || undefined,
                   });
+                  // Clear attribution after successful verification
+                  await clearAttribution();
                   break;
                 } catch (vErr: any) {
                   lastVerifyErr = vErr;
@@ -374,6 +400,7 @@ export default function CheckoutScreen() {
               }
 
               if (!verifyRes && lastVerifyErr) {
+                hapticFeedback.paymentError();
                 const isTimeout =
                   lastVerifyErr.response?.status === 504 ||
                   lastVerifyErr.response?.data?.code === 'RAZORPAY_PAYMENT_FETCH_TIMEOUT' ||
@@ -402,6 +429,9 @@ export default function CheckoutScreen() {
                 currency: 'INR',
               });
               queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
+
+              // Micro-vibration on successful online payment confirmation
+              hapticFeedback.paymentSuccess();
 
               const firstOrder = verifyRes?.orders?.[0];
               const orderNumber =
@@ -791,6 +821,27 @@ export default function CheckoutScreen() {
             <RotateCcw size={22} color="#0369a1" />
             <Text style={styles.trustText}>Easy Returns</Text>
           </View>
+        </View>
+
+        {/* Legal & App Store Compliance Disclaimer */}
+        <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 12, paddingHorizontal: 12 }}>
+          <Text style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center', lineHeight: 16 }}>
+            By placing this order, you agree to UChooseMe's{' '}
+            <Text
+              onPress={() => router.push('/legal/terms' as any)}
+              style={{ color: '#4f46e5', fontWeight: '600', textDecorationLine: 'underline' }}
+            >
+              Terms of Service
+            </Text>
+            {' and '}
+            <Text
+              onPress={() => router.push('/legal/privacy' as any)}
+              style={{ color: '#4f46e5', fontWeight: '600', textDecorationLine: 'underline' }}
+            >
+              Privacy Policy
+            </Text>
+            .
+          </Text>
         </View>
       </ScrollView>
 

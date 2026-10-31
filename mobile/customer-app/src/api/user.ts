@@ -101,4 +101,12 @@ export const userApi = {
     );
     return response.data.data;
   },
+
+  deleteAccount: async (reason?: string): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.delete<{ success: boolean; message: string; data?: any }>(
+      '/user/account',
+      { data: { reason } }
+    );
+    return { success: true, message: response.data?.message || 'Account deleted successfully' };
+  },
 };

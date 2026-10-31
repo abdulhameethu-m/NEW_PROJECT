@@ -69,6 +69,11 @@ const markNotificationRead = asyncHandler(async (req, res) => ok(res, await user
 const markAllNotificationsRead = asyncHandler(async (req, res) => ok(res, await userService.markAllNotificationsRead(req.user.sub), "All notifications marked as read"));
 const deleteNotification = asyncHandler(async (req, res) => ok(res, await userService.deleteNotification(req.user.sub, req.params.id), "Notification deleted"));
 
+const deleteAccount = asyncHandler(async (req, res) => {
+  const result = await userService.deleteAccount(req.user.sub, req.body, getMeta(req));
+  return ok(res, result, 'Account deleted');
+});
+
 module.exports = {
   getDashboard,
   getProfile,
@@ -111,4 +116,5 @@ module.exports = {
   markNotificationRead,
   markAllNotificationsRead,
   deleteNotification,
+  deleteAccount,
 };

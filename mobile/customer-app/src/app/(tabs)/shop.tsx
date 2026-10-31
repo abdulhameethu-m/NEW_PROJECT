@@ -10,12 +10,15 @@ import { SearchBar } from '../../components/catalog/SearchBar';
 import { FilterModal } from '../../components/catalog/FilterModal';
 import { SortModal } from '../../components/catalog/SortModal';
 import { EmptyState } from '../../components/catalog/EmptyState';
+import { OfflineEmptyState } from '../../components/ui/OfflineEmptyState';
+import { useNetworkStatus } from '../../utils/network';
 import { ProductSkeleton } from '../../components/catalog/ProductSkeleton';
 import { FilterChips } from '../../components/catalog/FilterChips';
 import { Filter, ArrowUpDown } from 'lucide-react-native';
 
 export default function ShopScreen() {
   const queryState = useCatalogStore();
+  const { isOffline } = useNetworkStatus();
   const { 
     data, 
     fetchNextPage, 
@@ -66,7 +69,14 @@ export default function ShopScreen() {
     }
     
     if (isError) {
+      if (isOffline) {
+        return <OfflineEmptyState onRetry={refetch} />;
+      }
       return <EmptyState title="Error loading products" description="Please pull to refresh and try again." />;
+    }
+
+    if (isOffline && products.length === 0) {
+      return <OfflineEmptyState onRetry={refetch} />;
     }
 
     return <EmptyState />;
@@ -76,6 +86,15 @@ export default function ShopScreen() {
     <SafeAreaScreen className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
       <SearchBar />
       
+      {isOffline && products.length > 0 && (
+        <View className="mx-4 my-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl flex-row items-center">
+          <View className="w-2 h-2 rounded-full bg-amber-500 mr-2" />
+          <Text className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+            Offline catalog mode · Showing cached products
+          </Text>
+        </View>
+      )}
+
       <View className="flex-row items-center justify-between px-4 py-2 border-b border-slate-100 dark:border-slate-800">
         <Text className="text-sm text-slate-500 dark:text-slate-400">
           {totalProducts} Products Found

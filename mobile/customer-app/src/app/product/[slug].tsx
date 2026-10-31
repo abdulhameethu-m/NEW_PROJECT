@@ -2,10 +2,14 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { View, FlatList, ActivityIndicator, Text, Pressable, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, ChevronRight, Heart, BadgeCheck } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Heart, BadgeCheck, Share2 } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { safeGoBack } from '../../utils/safeNavigation';
 import { resolveUrl } from '../../utils/resolveUrl';
+import { SocialShareModal } from '../../components/ui/SocialShareModal';
+import { buildProductShareUrl, formatProductShareText } from '../../utils/socialShare';
+import { getActiveReferralCode } from '../../utils/attributionStorage';
+import { ensureProductAttributionToken } from '../../api/tracking';
 
 import { useProduct } from '../../hooks/useProduct';
 import { useProductReviews } from '../../hooks/useProductReviews';
@@ -24,11 +28,14 @@ import { DeliveryEstimateCard } from '../../components/product/DeliveryEstimateC
 import { ReviewSummary } from '../../components/product/ReviewSummary';
 import { ReviewCard } from '../../components/product/ReviewCard';
 import { ReviewForm } from '../../components/product/ReviewForm';
+import { OfflineEmptyState } from '../../components/ui/OfflineEmptyState';
+import { useNetworkStatus } from '../../utils/network';
 
 export default function ProductDetailsScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { isOffline } = useNetworkStatus();
   
   const status = useAuthStore(state => state.status);
   const isAuthenticated = status === 'AUTHENTICATED';
@@ -36,7 +43,7 @@ export default function ProductDetailsScreen() {
   const [isReviewFormVisible, setIsReviewFormVisible] = useState(false);
   const [isBuyingNow, setIsBuyingNow] = useState(false);
 
-  const { data: product, isLoading: isProductLoading, isError: isProductError } = useProduct(slug);
+  const { data: product, isLoading: isProductLoading, isError: isProductError, refetch: refetchProduct } = useProduct(slug);
   const { 
     data: reviewsData, 
     isLoading: isReviewsLoading, 
@@ -57,6 +64,22 @@ export default function ProductDetailsScreen() {
   const { data: sellerStorefront } = useVendorStorefront(sellerSlug);
 
   const [activeVariantId, setActiveVariantId] = useState<string | null>(null);
+  const [isShareModalVisible, setIsShareModalVisible] = useState(false);
+  const [activeReferralCode, setActiveReferralCode] = useState<string | undefined>(undefined);
+
+  // Load attribution referral code if available
+  useEffect(() => {
+    getActiveReferralCode().then((code) => {
+      if (code) setActiveReferralCode(code);
+    });
+  }, []);
+
+  // Ensure tracking click is recorded if product is loaded with attribution
+  useEffect(() => {
+    if (product?._id) {
+      ensureProductAttributionToken(product._id);
+    }
+  }, [product?._id]);
 
   // Auto-select default variant on load
   useEffect(() => {
@@ -84,6 +107,25 @@ export default function ProductDetailsScreen() {
   const reviews = useMemo(() => {
     return reviewsData?.pages.flatMap(page => page.reviews) || [];
   }, [reviewsData]);
+
+  const shareUrl = useMemo(() => {
+    return buildProductShareUrl(slug || product?.slug || '', activeReferralCode);
+  }, [slug, product?.slug, activeReferralCode]);
+
+  const activeBasePrice = activeVariant ? activeVariant.price : product?.price;
+  const activeDiscountPrice = activeVariant ? activeVariant.discountPrice : product?.discountPrice;
+  const hasDiscount = Boolean(activeDiscountPrice && activeBasePrice && activeDiscountPrice < activeBasePrice);
+  const finalSellingPrice = hasDiscount ? activeDiscountPrice : activeBasePrice;
+  const originalPrice = hasDiscount ? activeBasePrice : undefined;
+
+  const shareText = useMemo(() => {
+    return formatProductShareText({
+      name: product?.name || 'Product',
+      price: finalSellingPrice,
+      originalPrice: originalPrice,
+      url: shareUrl,
+    });
+  }, [product?.name, finalSellingPrice, originalPrice, shareUrl]);
 
   // Wishlist Toggle Handler (Allows guests to save locally)
   const handleToggleWishlist = () => {
@@ -175,6 +217,25 @@ export default function ProductDetailsScreen() {
   }
 
   if (isProductError || !product) {
+    if (isOffline) {
+      return (
+        <View className="flex-1 bg-white dark:bg-slate-950">
+          <View className="px-4 pb-2 z-10" style={{ paddingTop: insets.top + 8 }}>
+            <ChevronLeft 
+              size={28} 
+              className="text-slate-900 dark:text-slate-100 mr-2" 
+              onPress={() => safeGoBack(router, '/(tabs)/shop')} 
+            />
+          </View>
+          <OfflineEmptyState 
+            title="Product Unavailable Offline"
+            description="This product hasn't been cached on your device yet. Connect to the internet or browse cached products in the shop."
+            onRetry={refetchProduct}
+          />
+        </View>
+      );
+    }
+
     return (
       <View className="flex-1 bg-white dark:bg-slate-950 justify-center items-center p-4">
         <Text className="text-red-500 mb-4">Error loading product details</Text>
@@ -190,20 +251,39 @@ export default function ProductDetailsScreen() {
 
     return (
       <View className="pb-4">
-        {/* Top bar with back arrow */}
+        {/* Top bar with back arrow and share button */}
         <View 
-          className="flex-row items-center px-4 pb-2 bg-white dark:bg-slate-950 z-10" 
+          className="flex-row items-center justify-between px-4 pb-2 bg-white dark:bg-slate-950 z-10" 
           style={{ paddingTop: insets.top + 8 }}
         >
-          <ChevronLeft 
-            size={28} 
-            className="text-slate-900 dark:text-slate-100 mr-2" 
-            onPress={() => safeGoBack(router, '/(tabs)/shop')} 
-          />
-          <Text className="text-lg font-bold text-slate-900 dark:text-white flex-1" numberOfLines={1}>
-            {product.name}
-          </Text>
+          <View className="flex-row items-center flex-1 mr-2">
+            <ChevronLeft 
+              size={28} 
+              className="text-slate-900 dark:text-slate-100 mr-2" 
+              onPress={() => safeGoBack(router, '/(tabs)/shop')} 
+            />
+            <Text className="text-lg font-bold text-slate-900 dark:text-white flex-1" numberOfLines={1}>
+              {product.name}
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={() => setIsShareModalVisible(true)}
+            className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 items-center justify-center active:bg-slate-200 dark:active:bg-slate-700"
+            accessibilityLabel="Share Product"
+          >
+            <Share2 size={19} color="#475569" />
+          </Pressable>
         </View>
+
+        {isOffline && (
+          <View className="mx-4 my-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl flex-row items-center">
+            <View className="w-2 h-2 rounded-full bg-amber-500 mr-2" />
+            <Text className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+              Offline catalog mode · Viewing cached product
+            </Text>
+          </View>
+        )}
         
         <ProductGallery images={displayImages} />
         <ProductInfo product={product} activeVariant={activeVariant} />
@@ -214,6 +294,29 @@ export default function ProductDetailsScreen() {
         />
         <ProductDescription description={product.description} />
         <ProductAttributes attributes={product.attributes} />
+
+        {/* Social Share & Referral Callout */}
+        <View className="px-4 py-2 bg-white dark:bg-slate-950">
+          <Pressable
+            onPress={() => setIsShareModalVisible(true)}
+            className="flex-row items-center justify-between p-3.5 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900 rounded-2xl active:opacity-90"
+          >
+            <View className="flex-row items-center flex-1 mr-3">
+              <View className="w-10 h-10 rounded-xl bg-indigo-600 items-center justify-center mr-3">
+                <Share2 size={20} color="#ffffff" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-slate-900 dark:text-white">
+                  Share with Friends
+                </Text>
+                <Text className="text-xs text-slate-500 dark:text-slate-400">
+                  Earn referral credit when friends shop using your link
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color="#6366f1" />
+          </Pressable>
+        </View>
         
         {/* Amazon/Flipkart Grade Live Delivery & Pincode Checker */}
         <View className="px-4 bg-white dark:bg-slate-950">
@@ -412,6 +515,19 @@ export default function ProductDetailsScreen() {
           productId={product._id} 
           isVisible={isReviewFormVisible} 
           onClose={() => setIsReviewFormVisible(false)} 
+        />
+
+        <SocialShareModal
+          isVisible={isShareModalVisible}
+          onClose={() => setIsShareModalVisible(false)}
+          title={product.name}
+          shareUrl={shareUrl}
+          shareText={shareText}
+          imageUrl={product.images?.[0] ? resolveUrl(product.images[0]) : undefined}
+          price={finalSellingPrice}
+          originalPrice={originalPrice}
+          referralCode={activeReferralCode}
+          type="product"
         />
       </ResponsiveContainer>
     </View>
