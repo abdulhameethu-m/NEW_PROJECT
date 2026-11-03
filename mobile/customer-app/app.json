@@ -129,7 +129,13 @@
           "icon": "./assets/images/icon.png",
           "color": "#4f46e5"
         }
-      ]
+      ],
+      "@sentry/react-native",
+      "expo-font",
+      "expo-image",
+      "expo-secure-store",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

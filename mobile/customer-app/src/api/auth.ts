@@ -6,7 +6,7 @@ import { ENV } from '../config/env';
 
 export const authApi = {
   fetchCsrfToken: async (): Promise<string | null> => {
-    return ensureCsrfToken();
+    return ensureCsrfToken(true);
   },
 
   login: async (credentials: LoginFormData): Promise<User> => {

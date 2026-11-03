@@ -11,6 +11,7 @@
         "buildType": "apk"
       },
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://lavender-dove-793962.hostingersite.com/api",
         "EXPO_PUBLIC_ENV": "development",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
@@ -24,6 +25,7 @@
         "simulator": false
       },
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://lavender-dove-793962.hostingersite.com/api",
         "EXPO_PUBLIC_ENV": "preview",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
@@ -37,6 +39,7 @@
         "distribution": "store"
       },
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://lavender-dove-793962.hostingersite.com/api",
         "EXPO_PUBLIC_ENV": "production",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }

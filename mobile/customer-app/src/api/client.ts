@@ -35,7 +35,9 @@ const processQueue = (error: Error | null, token: string | null = null) => {
 let csrfFetchPromise: Promise<string | null> | null = null;
 
 export async function ensureCsrfToken(forceRefresh = false): Promise<string | null> {
-  if (!forceRefresh) {
+  if (forceRefresh) {
+    csrfFetchPromise = null;
+  } else {
     const currentToken = useAuthStore.getState().csrfToken;
     if (currentToken) return currentToken;
   }
@@ -62,7 +64,8 @@ export async function ensureCsrfToken(forceRefresh = false): Promise<string | nu
       }
     })();
   }
-  return csrfFetchPromise;
+  const token = await csrfFetchPromise;
+  return token ?? null;
 }
 
 apiClient.interceptors.request.use(
@@ -78,11 +81,16 @@ apiClient.interceptors.request.use(
     if (csrfToken) {
       config.headers['x-csrf-token'] = csrfToken;
       const existingCookie = (config.headers['Cookie'] as string) || '';
-      if (!existingCookie.includes('csrf_token=')) {
-        config.headers['Cookie'] = existingCookie
-          ? `${existingCookie}; csrf_token=${csrfToken}`
-          : `csrf_token=${csrfToken}`;
-      }
+      // Strip any stale/mismatched csrf_token cookie so it always matches x-csrf-token
+      const otherCookies = existingCookie
+        .split(';')
+        .map((c) => c.trim())
+        .filter((c) => Boolean(c) && !c.startsWith('csrf_token='))
+        .join('; ');
+
+      config.headers['Cookie'] = otherCookies
+        ? `${otherCookies}; csrf_token=${csrfToken}`
+        : `csrf_token=${csrfToken}`;
     }
     return config;
   },
@@ -157,8 +165,14 @@ apiClient.interceptors.response.use(
         if (freshToken) {
           originalRequest.headers['x-csrf-token'] = freshToken;
           const existingCookie = (originalRequest.headers['Cookie'] as string) || '';
-          originalRequest.headers['Cookie'] = existingCookie
-            ? `${existingCookie.replace(/csrf_token=[^;]+;?\s*/, '')}; csrf_token=${freshToken}`
+          const otherCookies = existingCookie
+            .split(';')
+            .map((c) => c.trim())
+            .filter((c) => Boolean(c) && !c.startsWith('csrf_token='))
+            .join('; ');
+
+          originalRequest.headers['Cookie'] = otherCookies
+            ? `${otherCookies}; csrf_token=${freshToken}`
             : `csrf_token=${freshToken}`;
           return apiClient(originalRequest);
         }
