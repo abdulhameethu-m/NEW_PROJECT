@@ -142,7 +142,9 @@ export default function AddressesScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                refetch();
+              }}
               colors={['#4f46e5']}
             />
           }
@@ -176,7 +178,9 @@ export default function AddressesScreen() {
             refreshControl={
               <RefreshControl
                 refreshing={isRefetching}
-                onRefresh={refetch}
+                onRefresh={() => {
+                  refetch();
+                }}
                 colors={['#4f46e5']}
               />
             }

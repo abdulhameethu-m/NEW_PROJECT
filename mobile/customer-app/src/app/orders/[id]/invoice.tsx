@@ -155,7 +155,9 @@ export default function OrderInvoiceScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
-            onRefresh={refetch}
+            onRefresh={() => {
+              refetch();
+            }}
             colors={['#0284c7']}
             tintColor="#0284c7"
           />

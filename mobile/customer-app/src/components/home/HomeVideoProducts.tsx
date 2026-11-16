@@ -149,12 +149,13 @@ export const HomeVideoProducts = ({
               <Pressable
                 key={product._id}
                 style={styles.sideProduct}
+                className="border-b border-slate-100 dark:border-slate-800"
                 onPress={() => router.push(`/product/${product.slug}` as any)}
               >
-                <Text style={styles.sideProductName} numberOfLines={2}>
+                <Text style={styles.sideProductName} className="text-slate-900 dark:text-slate-100" numberOfLines={2}>
                   {product.name}
                 </Text>
-                <Text style={styles.sideProductPrice}>
+                <Text style={styles.sideProductPrice} className="text-slate-900 dark:text-white">
                   ₹{(product.discountPrice || product.price || 0).toLocaleString('en-IN')}
                 </Text>
               </Pressable>
@@ -248,19 +249,16 @@ const styles = StyleSheet.create({
   },
   sideProduct: {
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
     paddingVertical: 10,
   },
   sideProductName: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0f172a',
     marginBottom: 3,
   },
   sideProductPrice: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0f172a',
   },
   bgContainer: {
     minHeight: 280,

@@ -7,9 +7,9 @@ import {
   useWindowDimensions,
   FlatList,
   Platform,
-  StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { X, Play, AlertCircle } from 'lucide-react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -174,7 +174,7 @@ export const ReviewMediaModal: React.FC<ReviewMediaModalProps> = ({
       statusBarTranslucent
     >
       <View className="flex-1 bg-black">
-        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <StatusBar style="light" />
 
         {/* Top Action Bar */}
         <View className="absolute top-12 left-0 right-0 z-20 flex-row items-center justify-between px-5">

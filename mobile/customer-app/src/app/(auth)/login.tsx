@@ -219,7 +219,7 @@ export default function LoginScreen() {
             <TouchableOpacity
               className="w-full h-14 rounded-2xl overflow-hidden shadow-md flex-row items-center justify-center"
               style={{ shadowColor: '#f97316', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 }}
-              onPress={handleSubmit(onSubmit)}
+              onPress={() => handleSubmit(onSubmit)()}
               disabled={isSubmitting}
             >
               <LinearGradient

@@ -7,6 +7,7 @@ interface HighlightTextProps {
   style?: StyleProp<TextStyle>;
   highlightStyle?: StyleProp<TextStyle>;
   numberOfLines?: number;
+  className?: string;
 }
 
 /**
@@ -18,10 +19,11 @@ export const HighlightText: React.FC<HighlightTextProps> = ({
   style,
   highlightStyle,
   numberOfLines,
+  className,
 }) => {
   if (!highlight || !highlight.trim()) {
     return (
-      <Text style={style} numberOfLines={numberOfLines}>
+      <Text style={style} className={className} numberOfLines={numberOfLines}>
         {text}
       </Text>
     );
@@ -33,7 +35,7 @@ export const HighlightText: React.FC<HighlightTextProps> = ({
   const parts = text.split(regex);
 
   return (
-    <Text style={style} numberOfLines={numberOfLines}>
+    <Text style={style} className={className} numberOfLines={numberOfLines}>
       {parts.map((part, index) => {
         const isMatch = part.toLowerCase() === highlight.trim().toLowerCase();
         return (

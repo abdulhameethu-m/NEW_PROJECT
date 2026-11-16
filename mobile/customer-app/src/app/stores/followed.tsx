@@ -134,7 +134,9 @@ export default function FollowedStoresScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                refetch();
+              }}
               colors={['#4f46e5']}
             />
           }

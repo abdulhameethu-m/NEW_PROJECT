@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
 import { UserCheck, UserPlus } from 'lucide-react-native';
 import { useToggleFollowStore } from '../../hooks/useVendor';
@@ -20,17 +20,30 @@ export const StoreFollowButton: React.FC<StoreFollowButtonProps> = ({
   textStyle,
   onFollowToggled,
 }) => {
+  const [localIsFollowing, setLocalIsFollowing] = useState(isFollowing);
   const toggleMutation = useToggleFollowStore();
   const isPending = toggleMutation.isPending;
+
+  useEffect(() => {
+    setLocalIsFollowing(isFollowing);
+  }, [isFollowing]);
 
   const handlePress = () => {
     if (isPending || !storeSlug) return;
 
+    const nextState = !localIsFollowing;
+    setLocalIsFollowing(nextState);
+
     toggleMutation.mutate(
-      { slug: storeSlug, isCurrentlyFollowing: isFollowing },
+      { slug: storeSlug, isCurrentlyFollowing: localIsFollowing },
       {
         onSuccess: (data) => {
-          onFollowToggled?.(data?.isFollowing ?? !isFollowing);
+          const finalState = data?.isFollowing ?? nextState;
+          setLocalIsFollowing(finalState);
+          onFollowToggled?.(finalState);
+        },
+        onError: () => {
+          setLocalIsFollowing(isFollowing);
         },
       }
     );
@@ -43,22 +56,23 @@ export const StoreFollowButton: React.FC<StoreFollowButtonProps> = ({
     <TouchableOpacity
       onPress={handlePress}
       disabled={isPending}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       style={[
         styles.baseButton,
         isSmall && styles.smButton,
         isLarge && styles.lgButton,
-        isFollowing ? styles.followingButton : styles.followButton,
+        localIsFollowing ? styles.followingButton : styles.followButton,
         style,
       ]}
     >
       {isPending ? (
         <ActivityIndicator
           size="small"
-          color={isFollowing ? '#475569' : '#ffffff'}
+          color={localIsFollowing ? '#059669' : '#ffffff'}
           style={{ marginRight: 6 }}
         />
-      ) : isFollowing ? (
+      ) : localIsFollowing ? (
         <UserCheck size={isSmall ? 14 : isLarge ? 18 : 16} color="#059669" style={{ marginRight: 6 }} />
       ) : (
         <UserPlus size={isSmall ? 14 : isLarge ? 18 : 16} color="#ffffff" style={{ marginRight: 6 }} />
@@ -70,11 +84,11 @@ export const StoreFollowButton: React.FC<StoreFollowButtonProps> = ({
           styles.baseText,
           isSmall && styles.smText,
           isLarge && styles.lgText,
-          isFollowing ? styles.followingText : styles.followText,
+          localIsFollowing ? styles.followingText : styles.followText,
           textStyle,
         ]}
       >
-        {isPending ? 'Updating...' : isFollowing ? 'Following' : 'Follow'}
+        {isPending ? 'Updating...' : localIsFollowing ? 'Following' : 'Follow'}
       </Text>
     </TouchableOpacity>
   );
@@ -88,6 +102,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 12,
+    zIndex: 50,
+    elevation: 4,
   },
   smButton: {
     paddingHorizontal: 12,

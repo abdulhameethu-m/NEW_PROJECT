@@ -77,6 +77,7 @@ export const HomeMasonry = ({
           <Pressable
             key={product._id}
             style={[styles.card, { height: imgHeight + 80 }]}
+            className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800"
             onPress={() => router.push(`/product/${product.slug}` as any)}
           >
             <Image
@@ -86,10 +87,10 @@ export const HomeMasonry = ({
               transition={200}
             />
             <View style={styles.cardInfo}>
-              <Text style={styles.cardName} numberOfLines={2}>
+              <Text style={styles.cardName} className="text-slate-900 dark:text-slate-100" numberOfLines={2}>
                 {product.name}
               </Text>
-              <Text style={styles.cardPrice}>
+              <Text style={styles.cardPrice} className="text-slate-900 dark:text-white">
                 ₹{(product.discountPrice || product.price || 0).toLocaleString('en-IN')}
               </Text>
             </View>
@@ -125,11 +126,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   card: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#f1f5f9',
   },
   cardImage: {
     width: '100%',
@@ -141,13 +140,11 @@ const styles = StyleSheet.create({
   cardName: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0f172a',
     lineHeight: 16,
     marginBottom: 4,
   },
   cardPrice: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0f172a',
   },
 });

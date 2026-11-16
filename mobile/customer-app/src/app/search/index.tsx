@@ -38,7 +38,7 @@ import { Product, Category } from '../../types/catalog';
 export default function SearchScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ initialQuery?: string }>();
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
   const [query, setQuery] = useState(params.initialQuery || '');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);

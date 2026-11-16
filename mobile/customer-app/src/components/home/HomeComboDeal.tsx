@@ -60,7 +60,7 @@ export const HomeComboDeal = ({
   const savings = (totalPrice * comboDiscount) / 100;
 
   const renderHeroBundle = () => (
-    <View style={styles.heroBundle}>
+    <View style={styles.heroBundle} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
       {/* Banner */}
       <View style={styles.heroBanner}>
         {bannerUrl ? (
@@ -83,9 +83,9 @@ export const HomeComboDeal = ({
           {showSavings && savings > 0 && (
             <Text style={styles.savingsText}>Save ₹{savings.toFixed(0)}</Text>
           )}
-          <Pressable onPress={handleCta} style={styles.ctaButton}>
-            <Text style={styles.ctaButtonText}>{ctaText}</Text>
-            <ArrowRight size={14} color="#1e293b" />
+          <Pressable onPress={handleCta} style={styles.ctaButton} className="bg-white dark:bg-slate-800">
+            <Text style={styles.ctaButtonText} className="text-slate-900 dark:text-white">{ctaText}</Text>
+            <ArrowRight size={14} color="#64748b" />
           </Pressable>
         </View>
       </View>
@@ -102,7 +102,7 @@ export const HomeComboDeal = ({
               <ProductCard product={product} />
             </View>
             {i < products.length - 1 && (
-              <View style={styles.plusIcon}>
+              <View style={styles.plusIcon} className="bg-slate-100 dark:bg-slate-800">
                 <Plus size={16} color="#64748b" />
               </View>
             )}
@@ -139,8 +139,8 @@ export const HomeComboDeal = ({
   const renderProductGrid = () => (
     <View>
       <View style={styles.gridHeader}>
-        <Gift size={18} color="#1e293b" />
-        <Text style={styles.gridTitle}>{comboTitle}</Text>
+        <Gift size={18} className="text-slate-800 dark:text-slate-200" />
+        <Text style={styles.gridTitle} className="text-slate-900 dark:text-white">{comboTitle}</Text>
         {showSavings && savings > 0 && (
           <View style={styles.gridBadge}>
             <Text style={styles.gridBadgeText}>-{comboDiscount}%</Text>
@@ -180,9 +180,6 @@ const styles = StyleSheet.create({
   heroBundle: {
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
   },
   heroBanner: {
     height: 160,
@@ -229,14 +226,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     alignSelf: 'flex-start',
   },
   ctaButtonText: {
-    color: '#1e293b',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -252,7 +247,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 4,
@@ -304,7 +298,6 @@ const styles = StyleSheet.create({
   gridTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0f172a',
     flex: 1,
   },
   gridBadge: {

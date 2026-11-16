@@ -46,7 +46,7 @@ export const HomeBannerCarousel = ({
 }: HomeBannerCarouselProps) => {
   const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 

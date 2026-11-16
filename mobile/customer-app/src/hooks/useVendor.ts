@@ -102,19 +102,21 @@ export function useToggleFollowStore() {
         throw new Error('AUTH_REQUIRED');
       }
 
+      const cleanSlug = slug.trim();
       if (isCurrentlyFollowing) {
-        return await vendorApi.unfollowStore(slug);
+        return await vendorApi.unfollowStore(cleanSlug);
       } else {
-        return await vendorApi.followStore(slug);
+        return await vendorApi.followStore(cleanSlug);
       }
     },
     onMutate: async ({ slug, isCurrentlyFollowing }) => {
+      const cleanSlug = slug.trim();
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: VENDOR_KEYS.storefront(slug) });
+      await queryClient.cancelQueries({ queryKey: VENDOR_KEYS.storefront(cleanSlug) });
 
       // Snapshot previous storefront data
       const previousStorefront = queryClient.getQueryData<StorefrontData>(
-        VENDOR_KEYS.storefront(slug)
+        VENDOR_KEYS.storefront(cleanSlug)
       );
 
       // Optimistically update follow status & follower count
@@ -122,7 +124,7 @@ export function useToggleFollowStore() {
         const delta = isCurrentlyFollowing ? -1 : 1;
         const currentFollowers = previousStorefront.vendor.followersCount || 0;
 
-        queryClient.setQueryData<StorefrontData>(VENDOR_KEYS.storefront(slug), {
+        queryClient.setQueryData<StorefrontData>(VENDOR_KEYS.storefront(cleanSlug), {
           ...previousStorefront,
           isFollowing: !isCurrentlyFollowing,
           vendor: {
@@ -132,7 +134,7 @@ export function useToggleFollowStore() {
         });
       }
 
-      return { previousStorefront, slug };
+      return { previousStorefront, slug: cleanSlug };
     },
     onError: (err: any, variables, context) => {
       // Rollback on error
@@ -159,10 +161,13 @@ export function useToggleFollowStore() {
       }
     },
     onSettled: (_data, _error, variables) => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: VENDOR_KEYS.storefront(variables.slug) });
-      queryClient.invalidateQueries({ queryKey: VENDOR_KEYS.followed() });
-      queryClient.invalidateQueries({ queryKey: VENDOR_KEYS.directory() });
+      // Invalidate all vendor storefront, followed and directory queries
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          query.queryKey[0] === 'vendors' &&
+          (query.queryKey[1] === 'storefront' || query.queryKey[1] === 'followed' || query.queryKey[1] === 'directory'),
+      });
     },
   });
 }

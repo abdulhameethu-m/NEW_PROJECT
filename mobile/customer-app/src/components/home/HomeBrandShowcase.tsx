@@ -71,7 +71,7 @@ export const HomeBrandShowcase = ({
                 else router.push('/(tabs)/shop' as any);
               }}
             >
-              <View style={styles.logoWrapper}>
+              <View style={styles.logoWrapper} className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                 {logoUrl ? (
                   <Image
                     source={logoUrl}
@@ -86,7 +86,7 @@ export const HomeBrandShowcase = ({
                 )}
               </View>
               {brand.name ? (
-                <Text style={styles.brandName} numberOfLines={1}>
+                <Text style={styles.brandName} className="text-slate-700 dark:text-slate-300" numberOfLines={1}>
                   {brand.name}
                 </Text>
               ) : null}
@@ -111,9 +111,6 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 16,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -136,7 +133,6 @@ const styles = StyleSheet.create({
   brandName: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#334155',
     textAlign: 'center',
   },
   // Skeleton

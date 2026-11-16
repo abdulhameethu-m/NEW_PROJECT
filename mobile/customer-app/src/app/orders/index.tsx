@@ -157,7 +157,9 @@ export default function OrdersListScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                refetch();
+              }}
               colors={['#4f46e5']}
               tintColor="#4f46e5"
             />

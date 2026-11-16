@@ -9,25 +9,21 @@ import {
   Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import {
   ChevronLeft,
-  MapPin,
-  Package,
-  CreditCard,
   AlertCircle,
-  HelpCircle,
-  ShoppingBag,
-  Calendar,
   RotateCcw,
   ArrowRight,
   FileText,
-  Star,
 } from 'lucide-react-native';
 import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
 import { useOrderDetails, useCancelOrder } from '../../hooks/useOrders';
 import { useCustomerReturns } from '../../hooks/useReturns';
-import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
+import { OrderOverviewCard } from '../../components/orders/OrderOverviewCard';
+import { OrderItemsList } from '../../components/orders/OrderItemsList';
+import { OrderDeliveryDetailsCard } from '../../components/orders/OrderDeliveryDetailsCard';
+import { OrderPaymentReceipt } from '../../components/orders/OrderPaymentReceipt';
+import { OrderActionButtons } from '../../components/orders/OrderActionButtons';
 import { OrderTrackingTimeline } from '../../components/orders/OrderTrackingTimeline';
 import { DeliveryVerificationOtpCard } from '../../components/orders/DeliveryVerificationOtpCard';
 import { CancelOrderModal } from '../../components/orders/CancelOrderModal';
@@ -35,24 +31,6 @@ import { ReturnRequestModal } from '../../components/returns/ReturnRequestModal'
 import { InvoicePreviewModal } from '../../components/invoice/InvoicePreviewModal';
 import { ReviewForm } from '../../components/product/ReviewForm';
 import { safeGoBack } from '../../utils/safeNavigation';
-
-const formatDateTime = (isoString?: string) => {
-  if (!isoString) return '';
-  try {
-    const d = new Date(isoString);
-    return `${d.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })} at ${d.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    })}`;
-  } catch {
-    return '';
-  }
-};
 
 export default function OrderDetailsScreen() {
   const router = useRouter();
@@ -206,41 +184,12 @@ export default function OrderDetailsScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
       >
         {/* Order Identification & Status Card */}
-        <View style={styles.orderOverviewCard}>
-          <View style={styles.orderOverviewTop}>
-            <View style={styles.orderNumCol}>
-              <Text style={styles.orderOverviewLabel} allowFontScaling={false}>
-                ORDER NUMBER
-              </Text>
-              <Text style={styles.orderOverviewNumber} allowFontScaling={false}>
-                #{order.orderNumber}
-              </Text>
-            </View>
-            <OrderStatusBadge status={order.status} size="md" />
-          </View>
-
-          <View style={styles.orderOverviewDivider} />
-
-          <View style={styles.orderOverviewBottom}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Calendar size={13} color="#64748b" style={{ marginRight: 6 }} />
-              <Text style={styles.orderOverviewDate} allowFontScaling={false}>
-                Placed on {formatDateTime(order.createdAt)}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.invoiceOverviewBtn}
-              onPress={() => setIsInvoiceModalVisible(true)}
-              activeOpacity={0.75}
-            >
-              <FileText size={12} color="#0284c7" style={{ marginRight: 4 }} />
-              <Text style={styles.invoiceOverviewBtnText} allowFontScaling={false}>
-                Tax Invoice
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <OrderOverviewCard
+          orderNumber={order.orderNumber}
+          status={order.status}
+          createdAt={order.createdAt}
+          onViewInvoice={() => setIsInvoiceModalVisible(true)}
+        />
 
         {/* Delivery Pickup Verification OTP (COD or High-Value Handover) */}
         <DeliveryVerificationOtpCard
@@ -285,280 +234,52 @@ export default function OrderDetailsScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Ordered Items Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Package size={16} color="#4f46e5" style={{ marginRight: 6 }} />
-            <Text style={styles.cardTitle} allowFontScaling={false}>
-              Items Ordered ({order.items?.length || 0})
-            </Text>
-          </View>
-
-          <View style={styles.itemsList}>
-            {order.items?.map((item, idx) => {
-              let imgUrl = item.image || '';
-              if (!imgUrl && typeof item.productId === 'object' && item.productId?.images?.[0]) {
-                imgUrl = item.productId.images[0].url;
-              }
-
-              const itemTotal = `₹${((item.price || 0) * (item.quantity || 1)).toLocaleString('en-IN')}`;
-
-              return (
-                <View
-                  key={`${item.name}-${idx}`}
-                  style={[
-                    styles.itemRow,
-                    idx < (order.items?.length || 1) - 1 && styles.itemRowBorder,
-                  ]}
-                >
-                  <View style={styles.itemImageContainer}>
-                    {imgUrl ? (
-                      <Image
-                        source={{ uri: imgUrl }}
-                        style={styles.itemImage}
-                        contentFit="cover"
-                        transition={200}
-                      />
-                    ) : (
-                      <View style={styles.itemImagePlaceholder}>
-                        <Package size={20} color="#94a3b8" />
-                      </View>
-                    )}
-                  </View>
-
-                  <View style={styles.itemInfo}>
-                    <Text style={styles.itemName} numberOfLines={2} allowFontScaling={false}>
-                      {item.name}
-                    </Text>
-                    {item.variantTitle ? (
-                      <Text style={styles.itemVariant} numberOfLines={1} allowFontScaling={false}>
-                        {item.variantTitle}
-                      </Text>
-                    ) : null}
-                    <Text style={styles.itemUnitPrice} allowFontScaling={false}>
-                      ₹{(item.price || 0).toLocaleString('en-IN')} × {item.quantity}
-                    </Text>
-
-                    {normStatus === 'delivered' && (
-                      <TouchableOpacity
-                        style={styles.reviewItemBtn}
-                        onPress={() => handleOpenReview(item)}
-                        activeOpacity={0.75}
-                      >
-                        <Star size={11} color="#d97706" fill="#f59e0b" style={{ marginRight: 4 }} />
-                        <Text style={styles.reviewItemBtnText} allowFontScaling={false}>
-                          Write a Review
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  <Text style={styles.itemTotalText} allowFontScaling={false}>
-                    {itemTotal}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
+        {/* Ordered Items List */}
+        <OrderItemsList
+          items={order.items || []}
+          isDelivered={normStatus === 'delivered'}
+          onOpenReview={handleOpenReview}
+        />
 
         {/* Delivery Address Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <MapPin size={16} color="#4f46e5" style={{ marginRight: 6 }} />
-            <Text style={styles.cardTitle} allowFontScaling={false}>
-              Delivery Address
-            </Text>
-          </View>
-
-          <View style={styles.addressBody}>
-            <Text style={styles.addressName} allowFontScaling={false}>
-              {address.fullName || 'Customer'}
-            </Text>
-            {address.phone ? (
-              <Text style={styles.addressPhone} allowFontScaling={false}>
-                Phone: {address.phone}
-              </Text>
-            ) : null}
-            <Text style={styles.addressStreet} allowFontScaling={false}>
-              {address.line1}
-              {address.line2 ? `, ${address.line2}` : ''}
-            </Text>
-            <Text style={styles.addressCityState} allowFontScaling={false}>
-              {address.city ? `${address.city}, ` : ''}
-              {address.state ? `${address.state} - ` : ''}
-              {address.postalCode}
-            </Text>
-          </View>
-        </View>
+        <OrderDeliveryDetailsCard address={address} />
 
         {/* Payment & Price Breakdown Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <CreditCard size={16} color="#4f46e5" style={{ marginRight: 6 }} />
-            <Text style={styles.cardTitle} allowFontScaling={false}>
-              Payment & Bill Details
-            </Text>
-          </View>
-
-          <View style={styles.billRows}>
-            <View style={styles.billRow}>
-              <Text style={styles.billLabel} allowFontScaling={false}>
-                Items Subtotal
-              </Text>
-              <Text style={styles.billValue} allowFontScaling={false}>
-                ₹{(order.subtotal || 0).toLocaleString('en-IN')}
-              </Text>
-            </View>
-
-            {/* Delivery fee - only shown if configured by admin and > 0 */}
-            {order.shippingFee && order.shippingFee > 0 ? (
-              <View style={styles.billRow}>
-                <Text style={styles.billLabel} allowFontScaling={false}>
-                  Delivery / Shipping Fee
-                </Text>
-                <Text style={styles.billValue} allowFontScaling={false}>
-                  ₹{order.shippingFee.toLocaleString('en-IN')}
-                </Text>
-              </View>
-            ) : null}
-
-            {/* Configured Admin fees (e.g. Extra fee, Platform fee) */}
-            {order.priceBreakdown?.charges && order.priceBreakdown.charges.length > 0 ? (
-              order.priceBreakdown.charges
-                .filter((charge) => charge.amount > 0 && charge.key !== 'shipping_cost')
-                .map((charge, cIdx) => (
-                  <View key={`charge-${cIdx}`} style={styles.billRow}>
-                    <Text style={styles.billLabel} allowFontScaling={false}>
-                      {charge.displayName || charge.name || 'Additional Fee'}
-                    </Text>
-                    <Text style={styles.billValue} allowFontScaling={false}>
-                      ₹{charge.amount.toLocaleString('en-IN')}
-                    </Text>
-                  </View>
-                ))
-            ) : order.chargesTotal && order.chargesTotal > 0 ? (
-              <View style={styles.billRow}>
-                <Text style={styles.billLabel} allowFontScaling={false}>
-                  Additional Charges
-                </Text>
-                <Text style={styles.billValue} allowFontScaling={false}>
-                  ₹{order.chargesTotal.toLocaleString('en-IN')}
-                </Text>
-              </View>
-            ) : null}
-
-            {order.discountAmount && order.discountAmount > 0 ? (
-              <View style={styles.billRow}>
-                <Text style={[styles.billLabel, { color: '#059669' }]} allowFontScaling={false}>
-                  Discount Applied
-                </Text>
-                <Text style={[styles.billValue, { color: '#059669' }]} allowFontScaling={false}>
-                  -₹{order.discountAmount.toLocaleString('en-IN')}
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={styles.billDivider} />
-
-            <View style={styles.totalRow}>
-              <View>
-                <Text style={styles.totalRowLabel} allowFontScaling={false}>
-                  {order.paymentMethod === 'COD' ? 'Payable on Delivery' : 'Total Paid'}
-                </Text>
-                <Text style={styles.paymentMethodNote} allowFontScaling={false}>
-                  Mode: {order.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Online Payment'}
-                </Text>
-              </View>
-              <Text style={styles.totalRowValue} allowFontScaling={false}>
-                ₹{(order.totalAmount || 0).toLocaleString('en-IN')}
-              </Text>
-            </View>
-          </View>
-        </View>
+        <OrderPaymentReceipt
+          subtotal={order.subtotal}
+          shippingFee={order.shippingFee}
+          priceBreakdown={order.priceBreakdown}
+          chargesTotal={order.chargesTotal}
+          discountAmount={order.discountAmount}
+          paymentMethod={order.paymentMethod}
+          totalAmount={order.totalAmount}
+        />
 
         {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
-          {isCancellable && (
-            <TouchableOpacity
-              style={styles.cancelOrderBtn}
-              onPress={() => setIsCancelModalVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.cancelOrderBtnText} allowFontScaling={false}>
-                Cancel Order
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {isReturnEligible && !existingReturn && (
-            <TouchableOpacity
-              style={styles.returnOrderBtn}
-              onPress={() => setIsReturnModalVisible(true)}
-              activeOpacity={0.8}
-            >
-              <RotateCcw size={16} color="#0284c7" style={{ marginRight: 6 }} />
-              <Text style={styles.returnOrderBtnText} allowFontScaling={false}>
-                Return or Replace Items
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {existingReturn && (
-            <TouchableOpacity
-              style={styles.viewReturnBtn}
-              onPress={() => router.push(`/returns/${existingReturn._id}` as any)}
-              activeOpacity={0.8}
-            >
-              <RotateCcw size={16} color="#0284c7" style={{ marginRight: 6 }} />
-              <Text style={styles.viewReturnBtnText} allowFontScaling={false}>
-                View Return Details & Pickup
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={styles.downloadInvoiceBtn}
-            onPress={() => setIsInvoiceModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <FileText size={16} color="#0284c7" style={{ marginRight: 6 }} />
-            <Text style={styles.downloadInvoiceBtnText} allowFontScaling={false}>
-              View & Download Tax Invoice
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.orderSupportBtn}
-            onPress={() =>
-              router.push({
-                pathname: '/support/new',
-                params: {
-                  orderId: order._id,
-                  orderNumber: order.orderNumber,
-                  category: 'Orders & Delivery',
-                },
-              } as any)
+        <OrderActionButtons
+          isCancellable={isCancellable}
+          isReturnEligible={isReturnEligible}
+          hasExistingReturn={Boolean(existingReturn)}
+          onCancel={() => setIsCancelModalVisible(true)}
+          onReturn={() => setIsReturnModalVisible(true)}
+          onViewReturn={() => {
+            if (existingReturn?._id) {
+              router.push(`/returns/${existingReturn._id}` as any);
             }
-            activeOpacity={0.8}
-          >
-            <HelpCircle size={16} color="#64748b" style={{ marginRight: 6 }} />
-            <Text style={styles.orderSupportBtnText} allowFontScaling={false}>
-              Need Help with this Order?
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.continueShopBtn}
-            onPress={() => router.push('/(tabs)/shop')}
-            activeOpacity={0.8}
-          >
-            <ShoppingBag size={16} color="#4f46e5" style={{ marginRight: 6 }} />
-            <Text style={styles.continueShopBtnText} allowFontScaling={false}>
-              Continue Shopping
-            </Text>
-          </TouchableOpacity>
-        </View>
+          }}
+          onViewInvoice={() => setIsInvoiceModalVisible(true)}
+          onSupport={() =>
+            router.push({
+              pathname: '/support/new',
+              params: {
+                orderId: order._id,
+                orderNumber: order.orderNumber,
+                category: 'Orders & Delivery',
+              },
+            } as any)
+          }
+          onContinueShopping={() => router.push('/(tabs)/shop')}
+        />
       </ScrollView>
 
       {/* Cancellation Modal */}
@@ -635,55 +356,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0f172a',
   },
-  orderOverviewCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  orderOverviewTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  orderNumCol: {
-    flex: 1,
-    marginRight: 10,
-  },
-  orderOverviewLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#94a3b8',
-    letterSpacing: 0.5,
-    marginBottom: 3,
-  },
-  orderOverviewNumber: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#4f46e5',
-  },
-  orderOverviewDivider: {
-    height: 1,
-    backgroundColor: '#f8fafc',
-    marginVertical: 12,
-  },
-  orderOverviewBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  orderOverviewDate: {
-    fontSize: 12,
-    color: '#64748b',
-    fontWeight: '500',
-  },
   content: {
     flex: 1,
     padding: 16,
@@ -724,186 +396,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
   },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-    padding: 16,
-    marginBottom: 16,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f8fafc',
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  itemsList: {},
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  itemRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#f8fafc',
-  },
-  itemImageContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 10,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-    overflow: 'hidden',
+  invoiceHeaderBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-  },
-  itemImage: {
-    width: '100%',
-    height: '100%',
-  },
-  itemImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-  },
-  itemInfo: {
-    flex: 1,
-    marginRight: 10,
-  },
-  itemName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1e293b',
-    lineHeight: 18,
-    marginBottom: 2,
-  },
-  itemVariant: {
-    fontSize: 11,
-    color: '#64748b',
-    marginBottom: 2,
-  },
-  itemUnitPrice: {
-    fontSize: 11,
-    color: '#94a3b8',
-    fontWeight: '600',
-  },
-  itemTotalText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  addressBody: {
-    paddingVertical: 2,
-  },
-  addressName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0f172a',
-    marginBottom: 2,
-  },
-  addressPhone: {
-    fontSize: 12,
-    color: '#64748b',
-    fontWeight: '500',
-    marginBottom: 6,
-  },
-  addressStreet: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 18,
-  },
-  addressCityState: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 18,
-    marginTop: 2,
-  },
-  billRows: {},
-  billRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  billLabel: {
-    fontSize: 13,
-    color: '#64748b',
-  },
-  billValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1e293b',
-  },
-  billDivider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
-    marginVertical: 10,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 4,
-  },
-  totalRowLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  paymentMethodNote: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginTop: 1,
-  },
-  totalRowValue: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#4f46e5',
-  },
-  actionsContainer: {
-    marginTop: 8,
-    gap: 10,
-  },
-  cancelOrderBtn: {
-    backgroundColor: '#fff1f2',
+    backgroundColor: '#f0f9ff',
     borderWidth: 1,
-    borderColor: '#fecdd3',
-    height: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelOrderBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#e11d48',
-  },
-  continueShopBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    height: 48,
-    borderRadius: 12,
-  },
-  continueShopBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4f46e5',
+    borderColor: '#bae6fd',
   },
   existingReturnBanner: {
     backgroundColor: '#f0f9ff',
@@ -947,107 +448,5 @@ const styles = StyleSheet.create({
     color: '#0284c7',
     marginTop: 8,
     fontWeight: '500',
-  },
-  returnOrderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f0f9ff',
-    borderWidth: 1.5,
-    borderColor: '#bae6fd',
-    height: 48,
-    borderRadius: 12,
-  },
-  returnOrderBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0284c7',
-  },
-  viewReturnBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f0f9ff',
-    borderWidth: 1.5,
-    borderColor: '#38bdf8',
-    height: 48,
-    borderRadius: 12,
-  },
-  viewReturnBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0284c7',
-  },
-  invoiceHeaderBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f0f9ff',
-    borderWidth: 1,
-    borderColor: '#bae6fd',
-  },
-  invoiceOverviewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f9ff',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#bae6fd',
-  },
-  invoiceOverviewBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#0284c7',
-  },
-  downloadInvoiceBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: '#bae6fd',
-    height: 48,
-    borderRadius: 12,
-  },
-  downloadInvoiceBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0284c7',
-  },
-  orderSupportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    height: 48,
-    borderRadius: 12,
-  },
-  orderSupportBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  reviewItemBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: '#fffbeb',
-    borderWidth: 1,
-    borderColor: '#fde68a',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginTop: 6,
-  },
-  reviewItemBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#b45309',
   },
 });

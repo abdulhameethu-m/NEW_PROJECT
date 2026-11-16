@@ -85,9 +85,18 @@ function RootLayoutNav() {
         const user = await authApi.getMe();
         setUser(user);
         setSentryUser({ id: user._id, email: user.email, name: user.name });
-      } catch (e) {
-        clearSession();
-        setSentryUser(null);
+      } catch (e: any) {
+        // ONLY clear session if server explicitly returns 401 Unauthorized
+        const statusCode = e?.response?.status;
+        if (statusCode === 401) {
+          clearSession();
+          setSentryUser(null);
+        } else {
+          // Network timeout, offline launch, or temporary 5xx: preserve existing session
+          console.log('[Layout] Offline launch or temporary network issue - retaining session');
+          const existingUser = useAuthStore.getState().user;
+          useAuthStore.getState().setStatus(existingUser ? 'AUTHENTICATED' : 'UNAUTHENTICATED');
+        }
       }
     };
     initSession();

@@ -343,7 +343,9 @@ export default function SupportCenterScreen() {
                 refreshControl={
                   <RefreshControl
                     refreshing={isTicketsRefetching}
-                    onRefresh={refetchTickets}
+                    onRefresh={() => {
+                      refetchTickets();
+                    }}
                     colors={['#4f46e5']}
                     tintColor="#4f46e5"
                   />

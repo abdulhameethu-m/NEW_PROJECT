@@ -31,6 +31,7 @@ interface VendorStoreHeaderProps {
   activeTab: StoreTabKey;
   onTabChange: (tab: StoreTabKey) => void;
   collectionsCount?: number;
+  onFollowToggled?: (isFollowing: boolean) => void;
 }
 
 export const VendorStoreHeader: React.FC<VendorStoreHeaderProps> = ({
@@ -39,6 +40,7 @@ export const VendorStoreHeader: React.FC<VendorStoreHeaderProps> = ({
   activeTab,
   onTabChange,
   collectionsCount = 0,
+  onFollowToggled,
 }) => {
   const bannerUri = resolveUrl(vendor.bannerUrl);
   const logoUri = resolveUrl(vendor.logoUrl);
@@ -110,9 +112,10 @@ export const VendorStoreHeader: React.FC<VendorStoreHeaderProps> = ({
             </TouchableOpacity>
 
             <StoreFollowButton
-              storeSlug={vendor.storeSlug}
+              storeSlug={vendor.storeSlug || (vendor as any)._id}
               isFollowing={isFollowing}
               size="md"
+              onFollowToggled={onFollowToggled}
             />
           </View>
         </View>
@@ -334,6 +337,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     paddingHorizontal: 16,
     paddingBottom: 16,
+    zIndex: 10,
   },
   avatarRow: {
     flexDirection: 'row',
@@ -341,6 +345,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     marginTop: -42,
     marginBottom: 12,
+    zIndex: 20,
+    elevation: 6,
   },
   logoContainer: {
     width: 84,
@@ -357,6 +363,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 25,
   },
   logoImage: {
     width: '100%',
@@ -379,6 +386,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    zIndex: 30,
+    elevation: 8,
   },
   shareBtn: {
     width: 40,

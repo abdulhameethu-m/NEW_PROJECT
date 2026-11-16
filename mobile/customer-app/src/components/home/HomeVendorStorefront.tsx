@@ -94,6 +94,7 @@ export const HomeVendorStorefront = ({
       <Pressable
         key={item._id || i}
         style={[styles.card, { width: displayType === 'CAROUSEL' ? cardWidth : '48%' as any }]}
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
         onPress={() => router.push(getNavigationPath(item) as any)}
       >
         {/* Banner */}
@@ -106,7 +107,7 @@ export const HomeVendorStorefront = ({
             )}
             {/* Logo overlay */}
             {showLogo && (
-              <View style={[styles.logoContainer, isInfluencer && styles.logoCricle]}>
+              <View style={[styles.logoContainer, isInfluencer && styles.logoCricle]} className="bg-white dark:bg-slate-800 border-2 border-white dark:border-slate-800">
                 {logoUrl ? (
                   <Image source={logoUrl} style={styles.logoImg} contentFit="cover" />
                 ) : (
@@ -127,7 +128,7 @@ export const HomeVendorStorefront = ({
           {/* Name + verified */}
           {showName && (
             <View style={styles.nameRow}>
-              <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
+              <Text style={styles.name} className="text-slate-900 dark:text-white" numberOfLines={1}>{displayName}</Text>
               {showVerifiedBadge && item.isVerified && (
                 <CheckCircle size={14} color="#3b82f6" fill="#3b82f6" />
               )}
@@ -212,11 +213,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   card: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -234,9 +232,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#fff',
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -270,7 +265,6 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0f172a',
     flex: 1,
   },
   description: {

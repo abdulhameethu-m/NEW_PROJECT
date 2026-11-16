@@ -1,24 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { ChevronDown, ChevronUp, Package, Tag } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Package } from 'lucide-react-native';
 import { CartItem } from '../../types/cart';
 import { PreparedCheckoutSummary } from '../../types/checkout';
-
-export interface AppliedCoupon {
-  code: string;
-  discount: number;
-  type: 'fixed' | 'percentage';
-  description?: string;
-}
 
 interface CheckoutSummaryCardProps {
   items: CartItem[];
   summary?: PreparedCheckoutSummary | null;
   isLoading?: boolean;
-  couponDiscount?: number;
-  appliedCoupon?: AppliedCoupon | null;
-  onRemoveCoupon?: () => void;
 }
 
 function formatChargeTitle(key: string): string {
@@ -32,9 +22,6 @@ export const CheckoutSummaryCard: React.FC<CheckoutSummaryCardProps> = ({
   items,
   summary,
   isLoading = false,
-  couponDiscount = 0,
-  appliedCoupon = null,
-  onRemoveCoupon,
 }) => {
   const [isItemsExpanded, setIsItemsExpanded] = useState(false);
 
@@ -59,7 +46,7 @@ export const CheckoutSummaryCard: React.FC<CheckoutSummaryCardProps> = ({
   const baseTotalAmount =
     summary?.totalAmount ?? (subtotal + shippingFee + adminChargesTotal + standaloneTax);
 
-  const finalPayable = Math.max(0, baseTotalAmount - couponDiscount);
+  const finalPayable = baseTotalAmount;
 
   const accountedTotal = subtotal + shippingFee + adminChargesTotal + standaloneTax;
   const difference = Math.round((baseTotalAmount - accountedTotal) * 100) / 100;
@@ -68,19 +55,11 @@ export const CheckoutSummaryCard: React.FC<CheckoutSummaryCardProps> = ({
   const displayedItems = isItemsExpanded ? items : items.slice(0, 2);
 
   return (
-    <View
-      style={{
-        backgroundColor: '#ffffff',
-        borderRadius: 16,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-      }}
-    >
+    <View className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800">
       {/* Header */}
       <View className="flex-row items-center justify-between pb-3">
         <View className="flex-row items-center">
-          <Package size={18} color="#0f172a" />
+          <Package size={18} className="text-slate-900 dark:text-white" />
           <Text className="font-bold text-sm text-slate-900 dark:text-white ml-2">
             Order Items ({totalQuantity})
           </Text>
@@ -206,26 +185,6 @@ export const CheckoutSummaryCard: React.FC<CheckoutSummaryCardProps> = ({
             <Text className="text-slate-400 text-xs font-medium">Applicable Fees</Text>
             <Text className="font-semibold text-xs text-slate-900 dark:text-slate-100">
               ₹{difference.toLocaleString('en-IN')}
-            </Text>
-          </View>
-        )}
-
-        {/* Coupon Discount Row */}
-        {couponDiscount > 0 && appliedCoupon && (
-          <View className="flex-row justify-between items-center py-1.5 px-2 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-100 dark:border-emerald-800/40 my-0.5">
-            <View className="flex-row items-center">
-              <Tag size={12} color="#16a34a" />
-              <Text className="text-emerald-700 dark:text-emerald-300 text-xs font-bold ml-1.5">
-                {appliedCoupon.code} Applied
-              </Text>
-              {onRemoveCoupon && (
-                <Pressable onPress={onRemoveCoupon} hitSlop={8} className="ml-2">
-                  <Text className="text-[11px] text-red-500 font-semibold underline">Remove</Text>
-                </Pressable>
-              )}
-            </View>
-            <Text className="font-bold text-xs text-emerald-600 dark:text-emerald-400">
-              -₹{couponDiscount.toLocaleString('en-IN')}
             </Text>
           </View>
         )}

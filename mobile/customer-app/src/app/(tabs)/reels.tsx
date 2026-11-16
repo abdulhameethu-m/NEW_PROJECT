@@ -10,9 +10,9 @@ import {
   TouchableOpacity,
   RefreshControl,
   Platform,
-  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sparkles, RefreshCw, Film } from 'lucide-react-native';
 import { useReelFeed } from '../../hooks/useReels';
 import { ReelItem } from '../../components/reels/ReelItem';
@@ -21,10 +21,14 @@ import { ReelProductModal } from '../../components/reels/ReelProductModal';
 import { ReelProduct, ReelItem as ReelItemType } from '../../types/reel';
 
 export default function ReelsScreen() {
+  const insets = useSafeAreaInsets();
   const windowDims = useWindowDimensions();
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 4);
+  const tabHeight = (Platform.OS === 'android' ? 56 : 52) + bottomInset;
+
   const [containerDims, setContainerDims] = useState<{ width: number; height: number }>({
     width: windowDims.width,
-    height: windowDims.height - (Platform.OS === 'android' ? 66 : 62),
+    height: windowDims.height - tabHeight,
   });
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -126,7 +130,7 @@ export default function ReelsScreen() {
 
   return (
     <View style={styles.screenContainer} onLayout={onContainerLayout}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" translucent />
+      <StatusBar style="light" />
 
       {/* Transparent Top Header */}
       <SafeAreaView edges={['top']} style={styles.topHeader}>
@@ -192,7 +196,9 @@ export default function ReelsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                refetch();
+              }}
               tintColor="#ffffff"
               colors={['#6366f1']}
             />

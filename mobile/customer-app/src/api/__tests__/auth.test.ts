@@ -1,5 +1,5 @@
 import { authApi } from '../auth';
-import { apiClient } from '../client';
+import { apiClient, ensureCsrfToken } from '../client';
 import { useAuthStore } from '../../stores/authStore';
 import CookieManager from '@preeternal/react-native-cookie-manager';
 
@@ -8,6 +8,7 @@ jest.mock('../client', () => ({
     get: jest.fn(),
     post: jest.fn(),
   },
+  ensureCsrfToken: jest.fn().mockResolvedValue('test-csrf'),
 }));
 
 jest.mock('../../stores/authStore', () => ({
@@ -29,10 +30,10 @@ describe('Auth API', () => {
   });
 
   it('fetchCsrfToken fetches and stores token', async () => {
-    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { data: { csrfToken: 'test-csrf' } } });
+    (ensureCsrfToken as jest.Mock).mockResolvedValueOnce('test-csrf');
     const token = await authApi.fetchCsrfToken();
     expect(token).toBe('test-csrf');
-    expect(apiClient.get).toHaveBeenCalledWith('/auth/csrf');
+    expect(ensureCsrfToken).toHaveBeenCalledWith(true);
   });
 
   it('logout calls backend and clears cookies natively', async () => {

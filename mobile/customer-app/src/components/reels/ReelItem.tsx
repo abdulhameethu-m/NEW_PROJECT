@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, memo } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,58 @@ import { ReelProductCard } from './ReelProductCard';
 import { useToggleReelLike, useToggleReelSave, useFollowCreator } from '../../hooks/useReels';
 import { SocialShareModal } from '../ui/SocialShareModal';
 import { buildReelShareUrl } from '../../utils/socialShare';
+
+interface ActiveReelPlayerProps {
+  videoUri: string;
+  isPlaying: boolean;
+  isMuted: boolean;
+}
+
+/**
+ * Isolated ActiveReelPlayer sub-component.
+ * Calling useVideoPlayer only inside this component ensures that hardware
+ * MediaCodec decoders and native player instances are ONLY allocated when
+ * the reel is actively viewed on screen, preventing Android OOM and decoder exhaustion.
+ */
+const ActiveReelPlayer: React.FC<ActiveReelPlayerProps> = memo(({
+  videoUri,
+  isPlaying,
+  isMuted,
+}) => {
+  const player = useVideoPlayer(videoUri, (p) => {
+    p.loop = true;
+    p.muted = isMuted;
+    if (isPlaying) {
+      p.play();
+    }
+  });
+
+  useEffect(() => {
+    if (!player) return;
+    if (isPlaying) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [player, isPlaying]);
+
+  useEffect(() => {
+    if (!player) return;
+    player.muted = isMuted;
+  }, [player, isMuted]);
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        nativeControls={false}
+      />
+    </View>
+  );
+});
+ActiveReelPlayer.displayName = 'ActiveReelPlayer';
 
 interface ReelItemProps {
   item: ReelItemType;
@@ -64,43 +116,36 @@ export const ReelItem: React.FC<ReelItemProps> = ({
   const thumbnailUri = resolveReelMediaUrl(item.thumbnailUrl || item.imageUrls?.[0]);
   const isVideo = item.mediaType !== 'image' && Boolean(item.videoUrl);
 
-  // Initialize Video Player
-  const player = useVideoPlayer(videoUri || '', (p) => {
-    p.loop = true;
-    p.muted = isMuted;
-    if (isActive) {
-      p.play();
-    }
-  });
-
-  // Control playback when active state changes
+  // Synchronize playback state and view metric recording when active state changes
   useEffect(() => {
-    if (!player || !isVideo) return;
-    if (isActive) {
-      player.play();
-      setIsPlaying(true);
-
-      // Record view metric after 2 seconds of watch time
-      const viewTimer = setTimeout(() => {
-        reelsApi.recordView(item._id, { watchTimeSeconds: 2 });
-      }, 2000);
-
-      return () => clearTimeout(viewTimer);
-    } else {
-      player.pause();
+    if (!isActive) {
       setIsPlaying(false);
+      return;
     }
-  }, [isActive, player, isVideo, item._id]);
+
+    setIsPlaying(true);
+
+    // Record view metric after 2 seconds of watch time
+    const viewTimer = setTimeout(() => {
+      reelsApi.recordView(item._id, { watchTimeSeconds: 2 }).catch(() => {});
+    }, 2000);
+
+    return () => clearTimeout(viewTimer);
+  }, [isActive, item._id]);
+
+  // Clean up icon timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (playTimeoutRef.current) {
+        clearTimeout(playTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const togglePlayPause = () => {
-    if (!player || !isVideo) return;
-    if (isPlaying) {
-      player.pause();
-      setIsPlaying(false);
-    } else {
-      player.play();
-      setIsPlaying(true);
-    }
+    if (!isVideo) return;
+    const nextPlayState = !isPlaying;
+    setIsPlaying(nextPlayState);
 
     setShowPlayIcon(true);
     clearTimeout(playTimeoutRef.current);
@@ -110,10 +155,7 @@ export const ReelItem: React.FC<ReelItemProps> = ({
   };
 
   const handleMuteToggle = () => {
-    if (!player) return;
-    const newMuted = !isMuted;
-    player.muted = newMuted;
-    setIsMuted(newMuted);
+    setIsMuted((prev) => !prev);
   };
 
   const triggerHeartPop = () => {
@@ -162,20 +204,21 @@ export const ReelItem: React.FC<ReelItemProps> = ({
 
   return (
     <View style={[styles.container, { height, width }]}>
-      {/* Background Media: Video or Static Image */}
+      {/* Background Media: Fast static image is always mounted; native video player only when active */}
       <Pressable style={StyleSheet.absoluteFill} onPress={handleSurfacePress}>
-        {isVideo ? (
-          <VideoView
-            player={player}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            nativeControls={false}
-          />
-        ) : (
-          <Image
-            source={{ uri: thumbnailUri || videoUri }}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
+        {/* 1. Fast, memory-light thumbnail image (always present to prevent black frames) */}
+        <Image
+          source={{ uri: thumbnailUri || videoUri }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+        />
+
+        {/* 2. Instantiate and mount native VideoPlayer ONLY when active & valid video */}
+        {isActive && isVideo && Boolean(videoUri) && (
+          <ActiveReelPlayer
+            videoUri={videoUri}
+            isPlaying={isPlaying}
+            isMuted={isMuted}
           />
         )}
       </Pressable>

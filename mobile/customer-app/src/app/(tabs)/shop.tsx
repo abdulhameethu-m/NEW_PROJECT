@@ -125,18 +125,25 @@ export default function ShopScreen() {
         data={products}
         keyExtractor={(item) => item._id}
         numColumns={2}
-        contentContainerStyle={{ padding: 12, flexGrow: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 8, paddingVertical: 12, flexGrow: 1 }}
+        columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 8 }}
         renderItem={({ item }) => (
-          <View className="w-1/2">
+          <View style={{ width: '49%' }}>
             <ProductCard product={item} />
           </View>
         )}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
+        removeClippedSubviews={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={11}
         ListFooterComponent={renderFooter}
         ListEmptyComponent={renderEmpty}
         refreshing={isLoading}
-        onRefresh={refetch}
+        onRefresh={() => {
+          refetch();
+        }}
       />
 
       <FilterModal visible={isFilterVisible} onClose={() => setFilterVisible(false)} />

@@ -316,7 +316,13 @@ export default function NotificationsScreen() {
               notifications.length === 0 && { flex: 1 },
             ]}
             refreshControl={
-              <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#4f46e5" />
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={() => {
+                  refetch();
+                }}
+                tintColor="#4f46e5"
+              />
             }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>

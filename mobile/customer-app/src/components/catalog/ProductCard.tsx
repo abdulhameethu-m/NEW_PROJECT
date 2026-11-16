@@ -79,10 +79,11 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
 
   return (
     <View 
-      className="flex-1 m-1 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800"
+      className="flex-1 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800"
+      style={{ minHeight: 270 }}
     >
       {/* Visual Image Banner */}
-      <Pressable onPress={handlePress} className="aspect-square w-full bg-slate-50 dark:bg-slate-800 relative">
+      <Pressable onPress={handlePress} className="aspect-square w-full bg-slate-50 dark:bg-slate-800 relative" style={{ minHeight: 155 }}>
         {imageUrl ? (
           <Image
             source={imageUrl}
@@ -167,6 +168,7 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
         <View style={styles.priceContainer}>
           <Text
             style={styles.currentPrice}
+            className="text-slate-900 dark:text-white"
             numberOfLines={1}
             allowFontScaling={false}
           >
@@ -175,6 +177,7 @@ export const ProductCard = memo(({ product }: ProductCardProps) => {
           {hasDiscount && (
             <Text
               style={styles.originalPrice}
+              className="text-slate-400 dark:text-slate-500"
               numberOfLines={1}
               allowFontScaling={false}
             >
@@ -199,12 +202,10 @@ const styles = StyleSheet.create({
   currentPrice: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0f172a',
     flexShrink: 0,
   },
   originalPrice: {
     fontSize: 12,
-    color: '#94a3b8',
     textDecorationLine: 'line-through',
     fontWeight: '500',
   },

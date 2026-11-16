@@ -1,31 +1,38 @@
 import { Tabs } from 'expo-router';
 import { Home, ShoppingBag, Clapperboard, ShoppingCart, User } from 'lucide-react-native';
 import { useCart } from '../../hooks/useCart';
-import { Text, Platform, StyleSheet } from 'react-native';
+import { Text, Platform, StyleSheet, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const { data: cart } = useCart();
   const cartBadgeCount = cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
+
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 4);
+  const tabHeight = (Platform.OS === 'android' ? 56 : 52) + bottomInset;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#4f46e5', // Indigo-600
-        tabBarInactiveTintColor: '#9ca3af', // Gray-400
+        tabBarActiveTintColor: isDark ? '#818cf8' : '#4f46e5', // High-contrast active tint
+        tabBarInactiveTintColor: isDark ? '#94a3b8' : '#9ca3af',
         tabBarAllowFontScaling: false, // Prevents Android accessibility font scaling from clipping tab labels
         tabBarStyle: {
           borderTopWidth: 1,
-          borderTopColor: '#f1f5f9',
-          backgroundColor: '#ffffff',
+          borderTopColor: isDark ? '#1e293b' : '#f1f5f9',
+          backgroundColor: isDark ? '#0f172a' : '#ffffff',
           elevation: 8,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.04,
           shadowRadius: 4,
           paddingTop: 6,
-          paddingBottom: Platform.OS === 'android' ? 8 : 6,
-          height: Platform.OS === 'android' ? 66 : 62,
+          paddingBottom: bottomInset,
+          height: tabHeight,
         },
         tabBarItemStyle: {
           paddingVertical: 2,

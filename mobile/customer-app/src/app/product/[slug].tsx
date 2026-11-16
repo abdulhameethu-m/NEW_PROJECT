@@ -24,7 +24,6 @@ import { ProductInfo } from '../../components/product/ProductInfo';
 import { VariantSelector } from '../../components/product/VariantSelector';
 import { ProductAttributes } from '../../components/product/ProductAttributes';
 import { ProductDescription } from '../../components/product/ProductDescription';
-import { DeliveryEstimateCard } from '../../components/product/DeliveryEstimateCard';
 import { ReviewSummary } from '../../components/product/ReviewSummary';
 import { ReviewCard } from '../../components/product/ReviewCard';
 import { ReviewForm } from '../../components/product/ReviewForm';
@@ -62,6 +61,8 @@ export default function ProductDetailsScreen() {
     ? (product.sellerId.storeSlug || product.sellerId._id)
     : (typeof product?.sellerId === 'string' ? product.sellerId : undefined);
   const { data: sellerStorefront } = useVendorStorefront(sellerSlug);
+  const [overrideSellerFollowing, setOverrideSellerFollowing] = useState<boolean | null>(null);
+  const isSellerFollowing = overrideSellerFollowing !== null ? overrideSellerFollowing : (sellerStorefront?.isFollowing ?? false);
 
   const [activeVariantId, setActiveVariantId] = useState<string | null>(null);
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
@@ -318,11 +319,6 @@ export default function ProductDetailsScreen() {
           </Pressable>
         </View>
         
-        {/* Amazon/Flipkart Grade Live Delivery & Pincode Checker */}
-        <View className="px-4 bg-white dark:bg-slate-950">
-          <DeliveryEstimateCard />
-        </View>
-        
         {/* "Sold By" component */}
         {product?.sellerId && (
           <View className="px-4 py-4 mt-2 bg-white dark:bg-slate-950">
@@ -379,8 +375,9 @@ export default function ProductDetailsScreen() {
               {sellerSlug && (
                 <StoreFollowButton
                   storeSlug={sellerSlug}
-                  isFollowing={sellerStorefront?.isFollowing ?? false}
+                  isFollowing={isSellerFollowing}
                   size="sm"
+                  onFollowToggled={(newFollow) => setOverrideSellerFollowing(newFollow)}
                 />
               )}
             </View>

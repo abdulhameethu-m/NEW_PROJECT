@@ -34,4 +34,11 @@ describe('Auth Store', () => {
     useAuthStore.getState().setCsrfToken('mock-token');
     expect(useAuthStore.getState().csrfToken).toBe('mock-token');
   });
+
+  it('tracks hydration state', () => {
+    useAuthStore.getState().setHydrated(true);
+    expect(useAuthStore.getState().isHydrated).toBe(true);
+    useAuthStore.getState().setHydrated(false);
+    expect(useAuthStore.getState().isHydrated).toBe(false);
+  });
 });

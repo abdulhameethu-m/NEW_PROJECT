@@ -64,8 +64,8 @@ export default function CartScreen() {
   if (!cart?.items?.length) {
     return (
       <SafeAreaScreen className="flex-1 bg-white dark:bg-slate-900">
-        <View style={styles.navHeader}>
-          <Text style={styles.navTitle}>Shopping Cart</Text>
+        <View style={styles.navHeader} className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+          <Text style={styles.navTitle} className="text-slate-900 dark:text-white">Shopping Cart</Text>
         </View>
         <CartEmptyState />
       </SafeAreaScreen>
@@ -75,10 +75,10 @@ export default function CartScreen() {
   const totalQuantity = cart.items.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <SafeAreaScreen className="flex-1 bg-slate-50 dark:bg-black">
+    <SafeAreaScreen className="flex-1 bg-slate-50 dark:bg-slate-950">
       {/* Top Header */}
-      <View style={styles.navHeader}>
-        <Text style={styles.navTitle}>
+      <View style={styles.navHeader} className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+        <Text style={styles.navTitle} className="text-slate-900 dark:text-white">
           Shopping Cart ({totalQuantity})
         </Text>
         <TouchableOpacity 
@@ -93,10 +93,10 @@ export default function CartScreen() {
 
       {/* Guest Notice Banner */}
       {!isAuthenticated && (
-        <View style={styles.guestBanner}>
+        <View style={styles.guestBanner} className="bg-blue-50 dark:bg-blue-950/40 border-b border-blue-100 dark:border-blue-900/50">
           <View style={{ flex: 1, marginRight: 12 }}>
-            <Text style={styles.guestBannerTitle}>Guest Cart</Text>
-            <Text style={styles.guestBannerSub}>
+            <Text style={styles.guestBannerTitle} className="text-blue-800 dark:text-blue-300">Guest Cart</Text>
+            <Text style={styles.guestBannerSub} className="text-blue-600 dark:text-blue-400">
               Items saved on device. Sign in to sync across devices & checkout.
             </Text>
           </View>
@@ -142,11 +142,11 @@ export default function CartScreen() {
       />
 
       {/* Sticky Bottom Action Bar with Move to Checkout */}
-      <View style={styles.bottomBar}>
+      <View style={styles.bottomBar} className="bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
         <View style={styles.bottomBarContent}>
           <View>
-            <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalValue}>
+            <Text style={styles.totalLabel} className="text-slate-500 dark:text-slate-400">Total Amount</Text>
+            <Text style={styles.totalValue} className="text-slate-900 dark:text-white">
               ₹{cart.totalAmount.toLocaleString('en-IN')}
             </Text>
           </View>
@@ -172,14 +172,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
   },
   navTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
   },
   clearBtn: {
     width: 40,
@@ -194,34 +191,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 32,
   },
-  authTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 8,
-  },
-  authSubtitle: {
-    color: '#64748b',
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  primaryBtn: {
-    backgroundColor: '#4f46e5',
-    width: '100%',
-    height: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryBtnText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 15,
-  },
   bottomBar: {
-    backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
     paddingHorizontal: 16,
     paddingVertical: 12,
     elevation: 6,
@@ -237,13 +208,11 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 11,
-    color: '#94a3b8',
     fontWeight: '500',
   },
   totalValue: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#0f172a',
   },
   checkoutBtn: {
     paddingHorizontal: 24,
@@ -263,20 +232,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#eff6ff',
     borderBottomWidth: 1,
-    borderBottomColor: '#dbeafe',
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
   guestBannerTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1e40af',
   },
   guestBannerSub: {
     fontSize: 11,
-    color: '#3b82f6',
     marginTop: 2,
     lineHeight: 14,
   },

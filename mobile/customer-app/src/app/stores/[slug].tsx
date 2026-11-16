@@ -81,7 +81,8 @@ export default function VendorStorefrontScreen() {
   } = useVendorProducts(slug, queryParams);
 
   const vendor = storefront?.vendor;
-  const isFollowing = storefront?.isFollowing ?? false;
+  const [overrideFollowing, setOverrideFollowing] = useState<boolean | null>(null);
+  const isFollowing = overrideFollowing !== null ? overrideFollowing : (storefront?.isFollowing ?? false);
   const collections = storefront?.collections || [];
   const products = productsData?.products || [];
 
@@ -207,6 +208,7 @@ export default function VendorStorefrontScreen() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           collectionsCount={collections.length}
+          onFollowToggled={(newFollow) => setOverrideFollowing(newFollow)}
         />
 
         {/* TAB 1: PRODUCTS */}

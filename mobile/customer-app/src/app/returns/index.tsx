@@ -206,7 +206,9 @@ export default function ReturnsListScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                refetch();
+              }}
               tintColor="#4f46e5"
               colors={['#4f46e5']}
             />

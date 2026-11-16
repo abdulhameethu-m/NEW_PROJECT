@@ -59,7 +59,8 @@ export const SearchAutocompleteItem: React.FC<SearchAutocompleteItemProps> = ({
         <HighlightText
           text={product.name}
           highlight={searchQuery}
-          style={{ fontSize: 14, fontWeight: '600', color: '#0f172a' }}
+          className="text-slate-900 dark:text-slate-100"
+          style={{ fontSize: 14, fontWeight: '600' }}
           highlightStyle={{ color: '#d97706', fontWeight: '700' }}
           numberOfLines={2}
         />

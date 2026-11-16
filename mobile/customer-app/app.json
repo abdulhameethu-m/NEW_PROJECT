@@ -18,7 +18,15 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Allow UChooseMe to access your camera to take a profile photo.",
-        "NSPhotoLibraryUsageDescription": "Allow UChooseMe to access your photos to select a profile picture."
+        "NSPhotoLibraryUsageDescription": "Allow UChooseMe to access your photos to select a profile picture.",
+        "LSApplicationQueriesSchemes": [
+          "upi",
+          "gpay",
+          "phonepe",
+          "paytmmp",
+          "bhim",
+          "cred"
+        ]
       },
       "associatedDomains": [
         "applinks:uchooseme.com",
@@ -35,7 +43,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.abdulhameethusteam.abdulhameethu",
-      "usesCleartextTraffic": true,
+      "usesCleartextTraffic": false,
       "intentFilters": [
         {
           "action": "VIEW",
