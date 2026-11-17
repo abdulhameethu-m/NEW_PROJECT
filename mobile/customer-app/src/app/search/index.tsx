@@ -5,11 +5,10 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  FlatList,
   ActivityIndicator,
   Keyboard,
-  Platform,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   ChevronLeft,
@@ -17,7 +16,6 @@ import {
   X,
   ArrowRight,
   SearchX,
-  Sparkles,
 } from 'lucide-react-native';
 import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
 import { safeGoBack } from '../../utils/safeNavigation';
@@ -259,16 +257,19 @@ export default function SearchScreen() {
               </Pressable>
             </View>
           ) : (
-            <FlatList
+            <FlashList<Product>
               data={suggestions}
               keyExtractor={(item) => item._id}
+              numColumns={2}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
-                <SearchAutocompleteItem
-                  product={item}
-                  searchQuery={query}
-                  onPress={handleSelectProduct}
-                />
+                <View style={{ flex: 1, padding: 2 }}>
+                  <SearchAutocompleteItem
+                    product={item}
+                    searchQuery={query}
+                    onPress={handleSelectProduct}
+                  />
+                </View>
               )}
               ListFooterComponent={
                 <Pressable

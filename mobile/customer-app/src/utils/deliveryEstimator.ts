@@ -82,6 +82,10 @@ export function formatDeliveryWindow(dateOrIso?: string | Date): string {
 
   try {
     const d = new Date(dateOrIso);
+    if (Number.isNaN(d.getTime())) {
+      return 'Within 2-4 business days';
+    }
+
     const day = d.toLocaleDateString('en-IN', { weekday: 'short' });
     const dateStr = d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
 

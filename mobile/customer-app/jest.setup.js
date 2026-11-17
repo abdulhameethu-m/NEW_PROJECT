@@ -17,3 +17,26 @@ jest.mock('react-native-webview', () => {
     WebView: mockReact.forwardRef((props, ref) => null),
   };
 });
+
+jest.mock('expo-linking', () => ({
+  parse: jest.fn((rawUrl) => {
+    try {
+      const u = new URL(rawUrl);
+      const queryParams = {};
+      u.searchParams.forEach((val, key) => {
+        queryParams[key] = val;
+      });
+      return {
+        path: u.pathname.replace(/^\//, ''),
+        queryParams,
+      };
+    } catch {
+      return { path: '', queryParams: {} };
+    }
+  }),
+  createURL: jest.fn(),
+  openURL: jest.fn().mockResolvedValue(true),
+  canOpenURL: jest.fn().mockResolvedValue(true),
+}));
+
+require('@shopify/flash-list/jestSetup');

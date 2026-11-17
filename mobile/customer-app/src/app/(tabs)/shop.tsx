@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ActivityIndicator, Pressable } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { Product } from '../../types/catalog';
 import { SafeAreaScreen } from '../../components/layout/SafeAreaScreen';
-import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer';
 import { useProducts } from '../../hooks/useProducts';
 import { useCatalogStore } from '../../stores/catalogStore';
 import { ProductCard } from '../../components/catalog/ProductCard';
@@ -121,23 +121,18 @@ export default function ShopScreen() {
 
       <FilterChips />
 
-      <FlatList
+      <FlashList<Product>
         data={products}
         keyExtractor={(item) => item._id}
         numColumns={2}
-        contentContainerStyle={{ paddingHorizontal: 8, paddingVertical: 12, flexGrow: 1 }}
-        columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 8 }}
+        contentContainerStyle={{ paddingHorizontal: 4, paddingVertical: 12 }}
         renderItem={({ item }) => (
-          <View style={{ width: '49%' }}>
+          <View style={{ flex: 1, paddingHorizontal: 4, marginBottom: 8 }}>
             <ProductCard product={item} />
           </View>
         )}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
-        removeClippedSubviews={false}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={11}
         ListFooterComponent={renderFooter}
         ListEmptyComponent={renderEmpty}
         refreshing={isLoading}
